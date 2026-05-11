@@ -48,13 +48,57 @@ ai-knowledge-base status
 
 Print a summary of pending work — queue depth, pending session logs, pending proposals, current node counts.
 
+## `curate`
+
+```sh
+ai-knowledge-base curate [--batch-size <n>] [--token-budget <n>] [--timeout <ms>]
+```
+
+Run the curator non-interactively over every session log with `stage_2_status: done` that has not yet been curated. The command:
+
+1. Acquires the curator lock on `.ai/.kb-builder/state.json` (`name: curator`, PID + 30-minute TTL). If another curate run holds the lock, exits with `locked` and no work done.
+2. Batches pending session logs by count (`--batch-size`, default 10) and an estimated token budget (`--token-budget`, default 50000).
+3. Spawns one `claude -p` subprocess per batch with the curator prompt, streaming JSON output to `.ai/knowledge-base/_logs/curator/<ulid>__<timestamp>.jsonl`.
+4. Writes one proposal per non-drop action under `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`.
+5. Regenerates `INDEX.md` and `GRAPH.md` from the current `nodes/` tree (deterministic, no LLM).
+6. Marks each session log with `curator_processed_at` and `curator_run_id` so it is not re-curated next run.
+
+Contradiction proposals always carry `suggested_resolution: null` — the curator never auto-resolves; the reviewer chooses one of `supersede`, `keep_both`, or `reject` during `proposals review`.
+
+Flags:
+
+- `--batch-size <n>` — maximum session logs per curator batch. Default `10`.
+- `--token-budget <n>` — approximate per-batch input token budget. Default `50000` (~4 chars per token).
+- `--timeout <ms>` — per-batch subprocess timeout. Default `120000`.
+
+## `node add`
+
+```sh
+ai-knowledge-base node add
+```
+
+Interactive CLI for capturing a single node manually. Uses `@inquirer/prompts` to collect `kind`, `title`, `summary`, `tags`, `relates_to`, `confidence`, and `body`. The result lands in `.ai/knowledge-base/_proposed/additions/<kind>-<slug>.md` with `proposal.kind: addition` and `proposal.rationale: "manual"`, never directly in `nodes/`.
+
+After writing the proposal, INDEX and GRAPH are regenerated so the index doesn't drift while a manual proposal sits awaiting review.
+
+The same path is available in-session as the `/kb:add` slash command.
+
+## `proposals review`
+
+```sh
+ai-knowledge-base proposals review [--list]
+```
+
+Interactive TUI that walks every pending proposal under `_proposed/`. For additions and modifications, the reviewer accepts (moves the file into `nodes/<kind>/` and strips the `proposal` block) or rejects (deletes the proposal). For contradictions, the reviewer must first pick a `suggested_resolution` — `supersede`, `keep_both`, or `reject` — then accept. When the resolution is `supersede`, the target node is updated with `valid_until` and `superseded_by` automatically.
+
+Flags:
+
+- `--list` — print the pending proposals and exit. Useful for CI or scripting.
+
 ## Commands available in later phases
 
 | Command | Phase |
 |---|---|
-| `node add` | M3 |
-| `curate` | M3 |
-| `proposals review` | M3 |
 | `bootstrap-incremental` | M3.5 |
 | `index rebuild` | M4 / M5 |
 

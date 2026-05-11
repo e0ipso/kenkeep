@@ -97,3 +97,95 @@ export const StateFileSchema = z.object({
 });
 
 export type StateFile = z.infer<typeof StateFileSchema>;
+
+export const NodeKindSchema = z.enum(['practice', 'map']);
+export type NodeKind = z.infer<typeof NodeKindSchema>;
+
+export const NodeFrontmatterSchema = z.object({
+  schema_version: z.literal(1),
+  id: z.string(),
+  title: z.string(),
+  kind: NodeKindSchema,
+  tags: z.array(z.string()),
+  valid_from: z.string(),
+  valid_until: z.string().nullable(),
+  updated: z.string(),
+  supersedes: z.string().nullable(),
+  superseded_by: z.string().nullable(),
+  derived_from: z.array(z.string()),
+  relates_to: z.array(z.string()),
+  depends_on: z.array(z.string()),
+  confidence: ConfidenceSchema,
+  summary: z.string(),
+});
+export type NodeFrontmatter = z.infer<typeof NodeFrontmatterSchema>;
+
+export const ProposalKindSchema = z.enum(['addition', 'modification', 'contradiction']);
+export type ProposalKind = z.infer<typeof ProposalKindSchema>;
+
+export const ProposalBlockSchema = z.object({
+  kind: ProposalKindSchema,
+  source_sessions: z.array(z.string()),
+  target_node: z.string().nullable(),
+  rationale: z.string(),
+  suggested_resolution: z.enum(['supersede', 'keep_both', 'reject']).nullable(),
+  curator_log: z.string().nullable(),
+});
+export type ProposalBlock = z.infer<typeof ProposalBlockSchema>;
+
+export const ProposalFrontmatterSchema = NodeFrontmatterSchema.extend({
+  proposal: ProposalBlockSchema,
+});
+export type ProposalFrontmatter = z.infer<typeof ProposalFrontmatterSchema>;
+
+/**
+ * Curator output schema: one entry per stage-2 candidate. Drops omit
+ * `proposed_node`; add/modify/contradict include it (without `proposal`
+ * block — the curator wrapper builds that).
+ */
+export const CuratorProposedNodeSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  kind: NodeKindSchema,
+  tags: z.array(z.string()),
+  summary: z.string(),
+  body: z.string(),
+  confidence: ConfidenceSchema,
+  derived_from: z.array(z.string()),
+  relates_to: z.array(z.string()),
+  supersedes: z.string().nullable(),
+  valid_from: z.string(),
+  valid_until: z.string().nullable(),
+  superseded_by: z.string().nullable(),
+});
+export type CuratorProposedNode = z.infer<typeof CuratorProposedNodeSchema>;
+
+export const CuratorActionSchema = z.object({
+  action: z.enum(['add', 'modify', 'contradict', 'drop']),
+  candidate_origin: z.string(),
+  target_node_id: z.string().nullable(),
+  proposed_node: CuratorProposedNodeSchema.nullable(),
+  rationale: z.string(),
+  suggested_resolution: z.enum(['supersede', 'keep_both', 'reject']).nullable(),
+});
+export type CuratorAction = z.infer<typeof CuratorActionSchema>;
+
+export const CuratorOutputSchema = z.array(CuratorActionSchema);
+export type CuratorOutput = z.infer<typeof CuratorOutputSchema>;
+
+export const IndexFrontmatterSchema = z.object({
+  schema_version: z.literal(1),
+  generated_at: z.string(),
+  nodes_hash: z.string(),
+  node_count: z.number().int().nonnegative(),
+  budget_tokens: z.number().int().positive(),
+});
+export type IndexFrontmatter = z.infer<typeof IndexFrontmatterSchema>;
+
+export const GraphFrontmatterSchema = z.object({
+  schema_version: z.literal(1),
+  generated_at: z.string(),
+  nodes_hash: z.string(),
+  node_count: z.number().int().nonnegative(),
+});
+export type GraphFrontmatter = z.infer<typeof GraphFrontmatterSchema>;

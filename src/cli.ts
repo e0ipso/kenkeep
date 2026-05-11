@@ -1,6 +1,9 @@
 import { Command } from 'commander';
+import { runCurateCommand } from './commands/curate.js';
 import { runDoctor } from './commands/doctor.js';
 import { runInit } from './commands/init.js';
+import { runNodeAdd } from './commands/node-add.js';
+import { runProposalsReview } from './commands/proposals-review.js';
 import { runStatus } from './commands/status.js';
 import { log } from './lib/log.js';
 import { packageVersion } from './lib/version.js';
@@ -46,6 +49,51 @@ async function main(): Promise<void> {
       const doctorOpts: { verbose?: boolean } = {};
       if (opts.verbose) doctorOpts.verbose = true;
       const code = await runDoctor(doctorOpts);
+      process.exit(code);
+    });
+
+  program
+    .command('curate')
+    .description('Run the curator non-interactively over pending session logs.')
+    .option('--batch-size <n>', 'sessions per curator batch (default 10)', (v) => parseInt(v, 10))
+    .option('--token-budget <n>', 'approx token budget per batch (default 50000)', (v) =>
+      parseInt(v, 10),
+    )
+    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', (v) =>
+      parseInt(v, 10),
+    )
+    .action(async (opts: { batchSize?: number; tokenBudget?: number; timeout?: number }) => {
+      const curateOpts: { batchSize?: number; tokenBudget?: number; timeoutMs?: number } = {};
+      if (typeof opts.batchSize === 'number' && !Number.isNaN(opts.batchSize))
+        curateOpts.batchSize = opts.batchSize;
+      if (typeof opts.tokenBudget === 'number' && !Number.isNaN(opts.tokenBudget))
+        curateOpts.tokenBudget = opts.tokenBudget;
+      if (typeof opts.timeout === 'number' && !Number.isNaN(opts.timeout))
+        curateOpts.timeoutMs = opts.timeout;
+      const code = await runCurateCommand(curateOpts);
+      process.exit(code);
+    });
+
+  const nodeGroup = program.command('node').description('Manage knowledge-base nodes.');
+  nodeGroup
+    .command('add')
+    .description('Interactively draft a new node; writes a proposal under _proposed/additions/.')
+    .action(async () => {
+      const code = await runNodeAdd();
+      process.exit(code);
+    });
+
+  const proposalsGroup = program
+    .command('proposals')
+    .description('Inspect and review pending proposals.');
+  proposalsGroup
+    .command('review')
+    .description('Interactively accept, reject, or set the resolution of pending proposals.')
+    .option('--list', 'just list the proposals without prompting', false)
+    .action(async (opts: { list?: boolean }) => {
+      const reviewOpts: { list?: boolean } = {};
+      if (opts.list) reviewOpts.list = true;
+      const code = await runProposalsReview(reviewOpts);
       process.exit(code);
     });
 

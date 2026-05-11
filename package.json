@@ -32,6 +32,10 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "npm run build:cli && npm run build:templates",
     "build:cli": "tsup",
@@ -42,9 +46,16 @@
     "format:check": "prettier --check .",
     "pretest": "npm run build",
     "test": "vitest run",
+    "test:fast": "vitest run --exclude tests/e2e/**",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run build"
+    "commitlint": "commitlint --edit",
+    "security:audit": "npm audit",
+    "security:audit-json": "npm audit --json",
+    "security:fix": "npm audit fix",
+    "security:fix-force": "npm audit fix --force",
+    "prepublishOnly": "npm run build",
+    "prepare": "husky"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.2.1",
@@ -55,12 +66,23 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^12.0.2",
+    "@semantic-release/npm": "^13.1.3",
+    "@semantic-release/release-notes-generator": "^14.1.0",
     "@types/node": "^22.10.5",
     "@types/split2": "^4.2.3",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
     "eslint": "^9.18.0",
+    "husky": "^9.1.7",
     "prettier": "^3.4.2",
+    "semantic-release": "^25.0.2",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"

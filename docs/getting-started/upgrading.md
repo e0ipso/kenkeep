@@ -6,9 +6,9 @@ nav_order: 4
 
 # Upgrading
 
-When a new release of `@e0ipso/ai-knowledge-base` ships changes to hook scripts, slash commands, or default prompts, you need to refresh the copies installed in your repo. `init --upgrade` does this safely: it preserves the things you have customized (your `.config.json`, your local prompt overrides) and refreshes everything else.
+`init --upgrade` refreshes hooks, skills, and bundled prompts while preserving your `.config.json` and any local prompt overrides.
 
-## TL;DR
+## Usage
 
 ```sh
 npm install --save-dev @e0ipso/ai-knowledge-base@latest
@@ -16,87 +16,44 @@ npx @e0ipso/ai-knowledge-base init --assistants claude --upgrade
 ai-knowledge-base doctor
 ```
 
+Add `--dry-run` to print the planned changelist without writing.
+
 ## What gets refreshed
 
-| Thing | Behavior |
+| File | Behavior |
 |---|---|
-| `.claude/hooks/*.mjs` | Always overwritten from the package. These are operational scripts; you should not customize them in place. |
-| `.claude/commands/*.md` | Always overwritten from the package. |
-| `.claude/settings.json` hook registrations | Refreshed (existing user-defined hook entries preserved; ai-knowledge-base entries replaced by the new versions). |
-| `.gitignore` | Managed block is refreshed in place. New entries appear; existing user entries outside the block are untouched. |
+| `.claude/hooks/*.mjs` | Always overwritten. |
+| `.claude/skills/*` | Always overwritten. |
+| `.claude/settings.json` | Hook entries refreshed; user entries preserved. |
+| `.gitignore` | Managed block refreshed in place. |
 | `.pre-commit-config.yaml` | Created only if missing. |
-| `.ai/knowledge-base/.config.json` | Created only if missing. An existing file is never overwritten, regardless of `--force` or `--upgrade`. |
-| `.ai/knowledge-base/.state/prompts/*.md` | Copied only when missing locally. If a prompt already exists, it is preserved (the upgrade preflight reports it as a "local override preserved" line). |
-| `.ai/knowledge-base/.state/installed-version` | Stamped with the new package version. |
+| `.ai/knowledge-base/.config.json` | Never overwritten. |
+| `.ai/knowledge-base/.state/prompts/*` | Only copied if absent (local overrides preserved). |
+| `installed-version` | Stamped with the new version. |
 
-## Preflight first
+If you want a new bundled prompt, delete your override and re-run `init --upgrade`.
 
-`init --upgrade --dry-run` prints the changelist without writing:
+## When to upgrade
 
-```sh
-ai-knowledge-base init --assistants claude --upgrade --dry-run
-```
-
-Sample output:
+`doctor` warns when `installed-version` lags the package:
 
 ```
-• Upgrade preflight in /path/to/repo
-  installed: 1.0.0
-  package:   1.5.0
-
-Planned changes:
-  • [hook-script]         refresh .claude/hooks/kb-capture.mjs
-  • [hook-script]         refresh .claude/hooks/kb-stage2-drain.mjs
-  • [skill]               refresh .claude/skills/kb-bootstrap/
-  • [legacy-command-cleanup] remove legacy .claude/commands/kb-bootstrap.md
-  • [prompt-preserved]    local override preserved: .ai/knowledge-base/.state/prompts/curator.md
-  • [hook-registration]   refresh ai-knowledge-base hook entries in .claude/settings.json
-  • [installed-version]   stamp installed-version: 1.0.0 → 1.5.0
-
-✓ --dry-run: 6 change(s) listed; nothing written.
+installed-version is current: installed 1.0.0 ≠ package 1.5.0. Run `ai-knowledge-base init --upgrade`.
 ```
 
-When a prompt is preserved, the package's new bundled version is **not** copied — your override stays in effect. If you'd like to adopt the new bundled prompt, delete your override and re-run `init --upgrade`. The next preflight will report the file as `[prompt-new]` and copy the fresh template.
+The old templates keep working; you just miss new commands or hooks until you upgrade.
 
-## Applying
+## `--upgrade` vs `--force`
 
-Drop the `--dry-run` flag to apply:
-
-```sh
-ai-knowledge-base init --assistants claude --upgrade
-```
-
-The command is idempotent — running it twice in a row prints `Already at <version>. Nothing to do.` after the first successful run.
-
-## When is an upgrade needed?
-
-`ai-knowledge-base doctor` runs an `installed-version is current` check. When it warns, run `init --upgrade`:
-
-```
-⚠ installed-version is current: installed 1.0.0 ≠ package 1.5.0. Run `ai-knowledge-base init --upgrade` to refresh templates.
-```
-
-The check is a warning, not an error — the previous templates keep working until you upgrade — but you'll miss new slash commands or hook events shipped in subsequent releases.
-
-## `--upgrade` vs. `--force`
-
-| | `--force` | `--upgrade` |
+|  | `--force` | `--upgrade` |
 |---|---|---|
-| Overwrites hooks | yes | yes |
-| Overwrites slash commands | yes | yes |
-| Overwrites prompts | yes | **no** (preserved) |
-| Overwrites `.config.json` | **no** (warns) | **no** |
-| Refreshes `.claude/settings.json` hook entries | yes | yes |
-| Stamps installed-version | yes | yes |
-| Prints a preflight | no | yes |
-| Pairs with `--dry-run` | no | yes |
+| Overwrites hooks/skills | yes | yes |
+| Overwrites prompts | yes | **no** |
+| Overwrites `.config.json` | no | no |
+| Preflight + `--dry-run` | no | yes |
 
-Use `--upgrade` when bumping to a new package version. Use `--force` only when you've deliberately broken something and want to restore the original templates (it overwrites your local prompt customizations).
+Use `--upgrade` for version bumps. Use `--force` only to restore originals after intentional breakage.
 
-## State-layout migration (legacy `.ai/.kb-builder/`)
+## Legacy state directory
 
-Older installs stored tool state under `.ai/.kb-builder/`. Starting with the layout-version-2 release, state lives under `.ai/knowledge-base/.state/` so the entire tool footprint sits beneath the knowledge-base root.
-
-The migration is automatic and idempotent: every `init`, `init --upgrade`, `doctor`, and CLI command (curate, bootstrap-incremental, status, …) checks for a legacy directory and moves its contents into the new location on the first run. There is nothing to do manually — but if you want to drive it explicitly, run `ai-knowledge-base doctor`, which prints a one-line confirmation when it migrates.
-
-The `installed-version` marker carries a `layout_version` field (`2` for the new layout); the absence of that field is treated as layout 1. Commit the moved files in your next change.
+Older installs stored state under `.ai/.kb-builder/`. Newer versions use `.ai/knowledge-base/.state/`. Every `init`, `doctor`, and CLI command migrates content from the legacy path automatically on first run. Commit the moved files.

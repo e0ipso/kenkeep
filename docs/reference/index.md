@@ -7,10 +7,11 @@ permalink: /reference/
 
 # Reference
 
-- [CLI commands](cli.md) — every `ai-knowledge-base` subcommand.
-- [Skills](skills.md) — `/kb-curate`, `/kb-add`, `/kb-bootstrap` (migrated from slash commands).
-- [Hook events](hook-events.md) — the four registered Claude Code events (capture + stage-2 drain).
-- [Settings](settings.md) — defaults for the stage-2 drain (bounds, timeouts, lock TTL).
-- [`bootstrap-state.json` schema](bootstrap-state.md) — content-hash state recorded by the bootstrap pipelines.
-- [Frontmatter schemas](frontmatter-schemas.md) — every YAML frontmatter and state-file shape (validated by Zod at read time).
-- For the canonical failure-mode catalog, see [Troubleshooting > Common issues](../troubleshooting/common-issues.md) and [PRD §9](https://github.com/e0ipso/ai-knowledge-base/blob/main/PRD.md#9-failure-modes-the-user-sees).
+- [CLI commands](cli.md)
+- [Skills](skills.md): `/kb-curate`, `/kb-add`, `/kb-bootstrap`.
+- [Hook events](hook-events.md)
+- [Settings](settings.md)
+- [`bootstrap-state.json`](bootstrap-state.md)
+- [Frontmatter schemas](frontmatter-schemas.md)
+
+For failure modes, see [Troubleshooting > Common issues](../troubleshooting/common-issues.md).

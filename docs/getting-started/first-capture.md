@@ -1,84 +1,53 @@
 ---
-title: First capture → curate
+title: First capture and curate
 parent: Getting Started
 nav_order: 2
 ---
 
-# First capture → curate
+# First capture and curate
 
-A walkthrough of one full cycle through the pipeline: capture → drain → curate → review → consume.
+A full pass through the pipeline.
 
-## 1. Run a Claude Code session that teaches something
+## 1. Have a session
 
-After `ai-knowledge-base init --assistants claude`, open a Claude Code session in the repo and have an exchange where you correct the agent or introduce project-specific context — for example, "no, in this project we use the X service, not Y." End the session normally (`Stop`, `SessionEnd`, or by triggering `PreCompact`).
+Open Claude Code in the repo and have a conversation that teaches something project-specific. When the session ends, the capture hook writes a redacted session log to `.ai/knowledge-base/_sessions/` and queues it for stage-2.
 
-Under the hood, the capture hook synchronously:
+Verify with `ai-knowledge-base status`.
 
-- Dedupes by transcript SHA-256 (5-minute window).
-- Runs gitleaks redaction on the transcript slice.
-- Writes a session log to `.ai/knowledge-base/_sessions/<timestamp>-<slug>.md` with `stage_2_status: pending`.
-- Appends a queue entry to `_sessions/.queue.json`.
+## 2. Open another session
 
-You can verify it produced something with `ai-knowledge-base status`.
+Stage-2 runs in the background on `SessionStart`. It calls `claude -p` per queued log to extract `practice` and `map` candidates, writes them back into the log frontmatter, and flips `stage_2_status` to `done`.
 
-## 2. Start another session — the stage-2 drain runs in the background
+## 3. Curate
 
-The next time you open a Claude Code session, the async `kb-stage2-drain` hook fires. It spawns `claude -p` per queue entry, extracts practice and map candidates from each transcript, and writes them into the session log frontmatter as `proposals.{practice,map}`. The session log's `stage_2_status` flips to `done`. Status reflects this immediately.
+In a session, run `/kb-curate` (or `ai-knowledge-base curate` in a shell). The curator batches pending logs, produces add/modify/contradict proposals under `.ai/knowledge-base/_proposed/`, and regenerates `INDEX.md` and `GRAPH.md`.
 
-## 3. Run `/kb-curate`
+Contradictions never auto-resolve. The reviewer picks the resolution.
 
-In any session, type `/kb-curate`. The skill body delegates to:
-
-```sh
-ai-knowledge-base curate
-```
-
-The curator:
-
-- Acquires the `.ai/knowledge-base/.state/state.json` lock (`name: curator`, 30-min TTL).
-- Batches every `stage_2_status: done` session log that has not been curated yet.
-- Spawns `claude -p` per batch with the curator prompt.
-- Writes proposals into `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`.
-- Regenerates `INDEX.md` and `GRAPH.md` from the current `nodes/` tree.
-
-Contradiction proposals always carry `suggested_resolution: null` — the curator never auto-resolves.
-
-## 4. Review the proposals
+## 4. Review
 
 ```sh
 ai-knowledge-base proposals review
 ```
 
-For each proposal:
+Accept moves the file into `nodes/<kind>/`. Reject deletes it. For contradictions, pick `supersede`, `keep_both`, or `reject` first.
 
-- **Addition / modification:** accept (move into `nodes/<kind>/`), reject (delete), or skip.
-- **Contradiction:** pick a resolution first (`supersede`, `keep_both`, `reject`), then accept or skip. Choosing `supersede` updates the target node with `valid_until` and `superseded_by` automatically.
+## 5. Next session
 
-The reviewer's commit then carries both the new node files and the regenerated `INDEX.md` / `GRAPH.md`.
+The consume hook injects `INDEX.md` into the new session's context at startup. The assistant now sees the curated knowledge.
 
-## 5. The next session sees the new knowledge
+## Manual capture
 
-On the next `SessionStart`, the consume hook (M4) reads `INDEX.md` and injects it into the session context. The agent now knows about the practice or map node you just added.
-
-## Capturing knowledge manually
-
-If you notice missing knowledge between sessions, capture it directly without waiting for a session that happens to teach it. Two equivalent paths:
+To capture knowledge without waiting for a session:
 
 ```sh
 ai-knowledge-base node add
-```
-
-…or, in a session:
-
-```
+# or, in-session:
 /kb-add
 ```
 
-Both land in `_proposed/additions/<kind>-<slug>.md` with `proposal.rationale: "manual"`, so they show up alongside curator-produced proposals during `proposals review`.
+Both write to `_proposed/additions/` with `proposal.rationale: "manual"`.
 
-## Where the logs go
+## Logs
 
-Stage-2 traces: `.ai/knowledge-base/_logs/stage-2/<session-id>__<timestamp>.jsonl`.
-Curator traces: `.ai/knowledge-base/_logs/curator/<run-id>__<timestamp>.jsonl`.
-
-Both directories are gitignored by default. See [Troubleshooting](../troubleshooting/) for how to read them when something goes wrong.
+Stage-2 and curator traces live under `.ai/knowledge-base/_logs/`, gitignored by default. See [Troubleshooting](../troubleshooting/) when something looks off.

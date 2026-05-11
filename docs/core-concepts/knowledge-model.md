@@ -6,11 +6,11 @@ nav_order: 2
 
 # Knowledge model
 
-Every piece of curated knowledge lives in a single markdown file under `.ai/knowledge-base/nodes/<kind>/<slug>.md` with a small Zod-validated YAML frontmatter. Two kinds:
+Every curated piece of knowledge is a markdown file under `nodes/<kind>/<slug>.md` with Zod-validated YAML frontmatter. Two kinds.
 
-## Practice nodes — _how we build_
+## Practice: how we build
 
-Imperative project guidance. Conventions, prohibitions, gotchas, workflow rules.
+Imperative guidance. Conventions, prohibitions, gotchas.
 
 ```yaml
 ---
@@ -22,24 +22,21 @@ tags: [drupal, di, services]
 valid_from: 2026-05-10T14:30:00Z
 valid_until: null
 updated: 2026-05-10T14:30:00Z
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260510-1014-session-abc.md
 relates_to: [map-bravo-cards-module]
-depends_on: []
 confidence: high
-summary: "Inject dependencies via the constructor; avoid \Drupal::service() in module code."
+summary: "Inject dependencies via the constructor; avoid \\Drupal::service() in module code."
 ---
 
 # Prefer constructor injection over service container lookups
 
-Body explains the rule, the rationale, and when an exception is OK.
+The rule, the rationale, and when exceptions are OK.
 ```
 
-## Map nodes — _what exists_
+## Map: what exists
 
-Named entities in this project. Modules, services, vocabulary, locations.
+Named entities. Modules, services, vocabulary, locations.
 
 ```yaml
 ---
@@ -48,7 +45,6 @@ id: map-bravo-cards-module
 title: "Bravo Cards module"
 kind: map
 tags: [module, bravo, personalization]
-…
 summary: "Personalized card module at modules/custom/bravo_cards/."
 ---
 
@@ -59,36 +55,26 @@ What it is, where it lives, the major classes.
 
 ## Why two kinds
 
-A practice ("always do X") and a map entry ("X is our module for Y") feel similar but are useful at different moments. Practice nodes answer "what should I do?" Map nodes answer "what is this thing called?" The stage-2 prompt and the curator are calibrated to split combined content across both kinds — when a doc says "use `bravo_analytics.dispatcher` — our service for tracking events," the practice node owns "use the dispatcher" and the map node owns "what the dispatcher is."
+Practice answers "what should I do?" Map answers "what is this thing called?" The stage-2 prompt splits combined statements: "use `bravo_analytics.dispatcher`, our event-tracking service" becomes one practice ("use the dispatcher") and one map ("what the dispatcher is").
 
-## Validity window
+## Validity
 
-`valid_from` and `valid_until` are ISO-8601 timestamps. A node is "valid" when `valid_until` is `null`. Superseded nodes get `valid_until` set to the supersession time and `superseded_by` set to the new node's id. The reviewer manages this automatically when accepting a contradiction proposal with `suggested_resolution: supersede`.
+`valid_from` and `valid_until` are ISO-8601 timestamps. A node is current when `valid_until` is `null`. Accepting a `supersede` contradiction sets `valid_until` and `superseded_by` on the target. Superseded nodes stay in `nodes/` and surface under "Recently superseded" in `INDEX.md`.
 
-Validity is informational, not enforced. Superseded nodes still live in `nodes/`; they're listed under "Recently superseded" at the bottom of `INDEX.md` for the most recent 5.
+Validity is informational. Nothing enforces it.
 
 ## Provenance
 
-`derived_from` lists the source of the node. Three flavors:
-
-- A session log filename (`20260510-1014-session-abc.md`) — the node came from a captured conversation.
-- A repo-relative path (`docs/architecture/auth.md`) — the node came from existing documentation via `/kb-bootstrap` or `bootstrap-incremental`.
-- An absolute path — rare, but supported for nodes seeded from outside the repo.
-
-`ai-knowledge-base doctor --verbose` lists `derived_from` references that no longer resolve on disk. Stale references are a warning, not an error — the consume path silently ignores them; the curator treats them as "evidence not available" and proceeds.
+`derived_from` lists sources: a session log filename, a repo-relative doc path, or an absolute path. `doctor --verbose` lists references that no longer resolve; the consume path silently ignores them.
 
 ## Relations
 
-`relates_to` (loose) and `depends_on` (strict ordering) are arrays of node ids. They are not enforced — there is no foreign-key check. They feed `GRAPH.md` (the unfiltered edge listing) which the assistant can read when it wants to walk the graph. `INDEX.md` does not render them.
+`relates_to` (loose) and `depends_on` (strict) arrays of node ids. Not enforced. They feed `GRAPH.md` (full edge listing). `INDEX.md` does not render them.
 
 ## Confidence
 
-`low` / `medium` / `high`. The curator and bootstrap-incremental default to `medium` when the source is implicit or the doc looks aspirational; they escalate to `high` when the rule is stated explicitly with rationale and the source looks actively maintained. The reviewer can edit confidence during `proposals review` by hand-editing the proposal frontmatter before accepting it.
+`low` / `medium` / `high`. The curator defaults to `medium` when the source is implicit, `high` when stated explicitly with rationale. Edit by hand during proposal review.
 
-## Schema versioning
+## Schemas
 
-Every frontmatter shape (nodes, session logs, proposals, INDEX/GRAPH frontmatter, state files) carries `schema_version: 1`. v1 to v2 will ship a migration script under `src/lib/migrations/`. Hand-edit the schema at your own risk — `proposals review` and `doctor` both fail closed on shapes they can't validate.
-
-## Where the schemas live
-
-All Zod schemas are in [`src/lib/schemas.ts`](https://github.com/e0ipso/ai-knowledge-base/blob/main/src/lib/schemas.ts). Re-read it when you're unsure what a field allows; the source of truth is the schema, not the docs.
+All shapes live in [`src/lib/schemas.ts`](https://github.com/e0ipso/ai-knowledge-base/blob/main/src/lib/schemas.ts). That's the source of truth. v1 to v2 ships a migration script when it happens; until then a schema mismatch is treated as a parse failure.

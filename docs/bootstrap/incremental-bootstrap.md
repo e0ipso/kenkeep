@@ -6,9 +6,9 @@ nav_order: 2
 
 # Incremental bootstrap (`bootstrap-incremental`)
 
-A deterministic, hash-aware CLI for re-bootstrapping the knowledge base after source docs are added or modified. It reads `.ai/knowledge-base/.state/bootstrap-state.json`, walks `--from`, skips files whose SHA-256 matches the recorded hash, chunks the remainder, and runs `claude -p` on each chunk with the [bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md).
+Deterministic, hash-aware CLI. Reads `bootstrap-state.json`, walks `--from`, skips files whose SHA-256 matches the recorded hash, chunks the rest, and runs `claude -p` per chunk with the [bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md).
 
-Idempotent and safe to re-run. No supervision required.
+Idempotent. Safe to re-run.
 
 ## Usage
 
@@ -23,67 +23,52 @@ npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/ \
 
 Flags:
 
-- `--from <path>` (required) — directory (or single file) to scan. Resolved relative to the repo root.
-- `--include <glob>` (repeatable) — only process files matching at least one include glob. Defaults to "all `.md` files".
-- `--exclude <glob>` (repeatable) — skip any file matching one of these globs. Useful for `docs/legacy/**` or vendored content.
-- `--dry-run` — report what would be processed without invoking the LLM or writing proposals or updating state.
-- `--token-budget <n>` — approximate per-batch input token budget (~4 chars per token). Default `10000`.
-- `--timeout <ms>` — per-batch subprocess timeout. Default `120000`.
+- `--from <path>` (required): directory or single file, relative to repo root.
+- `--include <glob>` (repeatable): whitelist. Defaults to all `.md`.
+- `--exclude <glob>` (repeatable): blocklist.
+- `--dry-run`: report changes without invoking the LLM or writing state.
+- `--token-budget <n>`: per-batch budget (~4 chars/token). Default `10000`.
+- `--timeout <ms>`: per-batch timeout. Default `120000`.
 
-Glob syntax: `**` matches any number of path segments; `*` matches anything within a single segment; `?` matches a single non-slash character. Paths are matched relative to the repo root with posix separators.
+Globs: `**` matches any path segments, `*` matches within one segment, `?` matches one non-slash char. Paths use posix separators relative to repo root.
 
-## What it does
+## Behavior
 
-1. **Walks `--from` recursively.** Discovers every `.md` file, applying `.gitignore` patterns from the repo root, then `--include`/`--exclude` filters.
-2. **Hashes each file.** Computes SHA-256 of the file contents.
-3. **Skips unchanged files.** Compares each hash against `bootstrap-state.json`. Matching hashes are reported as "unchanged" and not sent to the LLM.
-4. **Chunks the to-process set.** Packs files into batches sized by `--token-budget` (single oversized files land alone).
-5. **Spawns `claude -p` per batch.** Stream-JSON output is written to `.ai/knowledge-base/_logs/bootstrap-incremental/<run-id>__<timestamp>.jsonl`. The recursion guard env var (`KB_BUILDER_INTERNAL=1`) is always set on the child.
-6. **Writes addition proposals.** Each candidate emitted by the LLM becomes a proposal under `_proposed/additions/<kind>-<slug>.md` with `proposal.kind: addition`, `proposal.rationale: "bootstrap: <source-doc>"`, and `derived_from` set to the chunked source files.
-7. **Updates `bootstrap-state.json`.** Records the new hash, `last_processed_at`, and `produced_proposals` for each successfully processed doc. The state file's `last_incremental_at` is bumped to "now".
+1. Walks `--from`, applies `.gitignore`, `--include`, `--exclude`.
+2. Hashes each file (SHA-256). Hash hits are skipped and reported as "unchanged".
+3. Acquires the `bootstrap-incremental` lock (named, 30-min TTL).
+4. Chunks the remainder by `--token-budget`. Oversized files batch alone.
+5. Per batch: spawns `claude -p`, streams JSON to `_logs/bootstrap-incremental/<run-id>__<ts>.jsonl`, validates, writes addition proposals to `_proposed/additions/`.
+6. Updates `bootstrap-state.json` per processed doc. Failed docs are left untouched so a re-run retries.
 
-## Locking
-
-`bootstrap-incremental` shares the `.ai/knowledge-base/.state/state.json` lock file with `kb-stage2-drain` and `curate`, but takes its own named lock (`name: bootstrap-incremental`, PID + 30-minute TTL). If a concurrent bootstrap is running, the new invocation exits with `locked` and does no work. If a stage-2 drain or curator run holds an unrelated lock, the bootstrap waits for nothing — the locks are name-scoped.
-
-## Overlap with existing nodes
-
-v1 always emits `addition` proposals. If a re-extracted proposal duplicates an existing accepted node, the reviewer rejects it. The reviewer is the merge mechanism; the CLI does not attempt curator-style modify/contradict logic. (Deferred to v2 per [IMPLEMENTATION §12](https://github.com/e0ipso/ai-knowledge-base/blob/main/IMPLEMENTATION.md#12-implementation-phases).)
+v1 always emits `addition` proposals. Duplicates of accepted nodes are rejected during review. (Modify/contradict logic is v2 work.)
 
 ## Recipes
 
-### Dry-run after editing one doc
+Dry-run after editing one doc:
 
 ```sh
-npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/ --dry-run
+bootstrap-incremental --from docs/ --dry-run
 ```
 
-Output reports the docs whose hash changed since the last run. Use this to sanity-check what a real run would touch before paying for it.
-
-### Re-process only architecture docs
+Re-process only architecture docs:
 
 ```sh
-npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/ --include 'docs/architecture/**'
+bootstrap-incremental --from docs/ --include 'docs/architecture/**'
 ```
 
-### Skip vendored or legacy content
+Skip vendored content:
 
 ```sh
-npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/ \
+bootstrap-incremental --from docs/ \
   --exclude 'docs/legacy/**' \
   --exclude 'docs/vendored/**'
 ```
 
-### CI: warn when docs change without proposal review
-
-You can wire `bootstrap-incremental --dry-run` into CI to alert when docs change after bootstrap. The command exits 0 even when there's pending work; parse stdout (or the JSON log) for the "X file(s) would be processed" line.
-
 ## After a run
 
-- `ai-knowledge-base proposals review` — accept or reject the new proposals.
-- `cat .ai/knowledge-base/.state/bootstrap-state.json` — inspect the recorded hashes and timestamps.
-- `ls .ai/knowledge-base/_logs/bootstrap-incremental/` — find the stream-JSON trace of every batch (filenames sort by ULID, so newest is last).
+- `ai-knowledge-base proposals review`
+- `cat .ai/knowledge-base/.state/bootstrap-state.json` for recorded hashes
+- `_logs/bootstrap-incremental/` for stream-JSON traces
 
-## State file schema
-
-See [Reference > `bootstrap-state.json` schema](../reference/bootstrap-state.md).
+State file schema: [Reference > `bootstrap-state.json`](../reference/bootstrap-state.md).

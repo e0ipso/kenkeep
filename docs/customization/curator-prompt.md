@@ -1,33 +1,29 @@
 ---
-title: Editing the curator prompt
+title: Curator prompt
 parent: Customization
 nav_order: 2
 ---
 
 # Editing the curator prompt
 
-The curator decides what happens to every stage-2 candidate that lands in the queue: add, modify, contradict, or drop. After the stage-2 extractor, this is the second most important quality lever in the pipeline.
+Decides what happens to every stage-2 candidate: add, modify, contradict, or drop. Second-biggest quality lever after the stage-2 prompt.
 
-## Where the prompt lives
+## Where it lives
 
-| Location | Used by | When edited |
-|---|---|---|
-| `src/templates-source/prompts/curator.md` | The package itself | Edit here if you maintain `@e0ipso/ai-knowledge-base` |
-| `.ai/knowledge-base/.state/prompts/curator.md` | The curator subprocess at runtime | Edit here in a consumer repo to override the prompt locally |
+| Path | Used by |
+|---|---|
+| `src/templates-source/prompts/curator.md` | Package source. |
+| `.ai/knowledge-base/.state/prompts/curator.md` | Preferred at runtime. |
 
-`ai-knowledge-base init` copies the shipped template into `.ai/knowledge-base/.state/prompts/`. The `ai-knowledge-base curate` command prefers the local copy if it exists.
+Bump the `Version: N` comment on behavior changes; the curator log records the prompt content so historic decisions stay auditable.
 
-## Version comment
+## Input
 
-The first comment block in `curator.md` is the prompt version (`Version: N`). Bump it whenever you change behavior; the curator log records the prompt content under the run id so historic decisions remain auditable.
-
-## What the prompt receives
-
-At runtime, the `[BATCH PLACEHOLDER]` token is replaced by a JSON payload of the form:
+At runtime, `[BATCH PLACEHOLDER]` is replaced with:
 
 ```json
 {
-  "index_summary": "<current INDEX.md contents>",
+  "index_summary": "<current INDEX.md>",
   "existing_nodes": [
     { "id": "...", "title": "...", "kind": "practice", "tags": ["..."], "summary": "...", "body": "..." }
   ],
@@ -36,43 +32,41 @@ At runtime, the `[BATCH PLACEHOLDER]` token is replaced by a JSON payload of the
       "session_id": "...",
       "captured_at": "...",
       "derived_from": "session-<id>.md",
-      "practice_candidates": [{ /* Stage2Candidate */ }],
-      "map_candidates": [{ /* Stage2Candidate */ }]
+      "practice_candidates": [...],
+      "map_candidates": [...]
     }
   ]
 }
 ```
 
-`existing_nodes` only contains the nodes referenced by `supports_existing_node` or `contradicts_existing_node` in the batch. The full INDEX is provided as a fallback so the curator can spot near-duplicates the stage-2 extractor didn't link.
+`existing_nodes` carries only nodes referenced by `supports_existing_node` / `contradicts_existing_node` in the batch; the full INDEX is provided so the curator can spot duplicates stage-2 missed.
 
-## What the prompt must produce
+## Output
 
-A single JSON array (the curator's final result message). Each element is one `CuratorAction`:
+A single JSON array. Each element:
 
 ```json
 {
   "action": "add | modify | contradict | drop",
   "candidate_origin": "<session_id>:<practice|map>:<index>",
   "target_node_id": "<id-or-null>",
-  "proposed_node": { /* full node frontmatter + body, or null for drop */ },
-  "rationale": "1–3 sentence justification",
+  "proposed_node": { /* full node, or null for drop */ },
+  "rationale": "...",
   "suggested_resolution": null
 }
 ```
 
-The curator MUST always emit `suggested_resolution: null`, even on contradictions — the reviewer chooses, not the model.
+`suggested_resolution` must always be `null`. The reviewer chooses.
 
-## What to verify after a change
+## Verifying
 
-1. Re-run `npm test` — the curate library tests assert add/modify/contradict routing into the correct `_proposed/<bucket>/` folder and that contradictions never auto-resolve.
-2. Re-run against `tests/fixtures/transcripts/bravo-insider/expected.md`'s curator follow-up checks. The four key cases — analytics-dispatcher contradict, cache-tags add-with-relates-to, schema.org add, DI drop-or-modify — exercise the prompt's hardest decisions.
-3. Inspect `.ai/knowledge-base/_logs/curator/<run-id>__<timestamp>.jsonl` from a real run: confirm the model emits a single JSON array as the final result, with no preamble.
+1. `npm test` (curate tests assert routing into the right `_proposed/<bucket>/`).
+2. Re-run against `bravo-insider/expected.md`'s four key cases: analytics-dispatcher contradict, cache-tags add-with-relates-to, schema.org add, DI drop-or-modify.
+3. Inspect `_logs/curator/<run-id>__<ts>.jsonl` for the final array (no preamble).
 
-## Anti-patterns the prompt avoids
+## Anti-patterns to avoid
 
-- Modifications that just rephrase existing content (drop instead).
-- Additions when a near-duplicate exists (convert to modification).
-- Auto-resolving contradictions (suggested_resolution must stay null).
+- Modifications that rephrase existing content (drop instead).
+- Additions when a near-duplicate exists (modify instead).
+- Auto-resolving contradictions.
 - Crossing the practice/map boundary.
-
-When the curator's output looks wrong, the prompt is almost always the right place to fix it before reaching for code changes.

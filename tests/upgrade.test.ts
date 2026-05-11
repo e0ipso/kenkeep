@@ -34,7 +34,7 @@ describe('init --upgrade', () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
 
     // Simulate an older installed version.
-    const versionFile = join(sandbox, '.ai/.kb-builder/installed-version');
+    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     const beforeInstalled = installed.installed_at;
     installed.version = '0.0.0-test-old';
@@ -66,7 +66,7 @@ describe('init --upgrade', () => {
     writeFileSync(configFile, customized);
 
     // Mark installed-version older so upgrade applies.
-    const versionFile = join(sandbox, '.ai/.kb-builder/installed-version');
+    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
@@ -89,10 +89,10 @@ describe('init --upgrade', () => {
   it('preserves a customized local prompt override', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
 
-    const promptFile = join(sandbox, '.ai/.kb-builder/prompts/stage-2-extract.md');
+    const promptFile = join(sandbox, '.ai/knowledge-base/.state/prompts/stage-2-extract.md');
     writeFileSync(promptFile, '# my local override\n');
 
-    const versionFile = join(sandbox, '.ai/.kb-builder/installed-version');
+    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
@@ -106,10 +106,10 @@ describe('init --upgrade', () => {
   it('re-copies a missing prompt during upgrade', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
 
-    const promptFile = join(sandbox, '.ai/.kb-builder/prompts/stage-2-extract.md');
+    const promptFile = join(sandbox, '.ai/knowledge-base/.state/prompts/stage-2-extract.md');
     rmSync(promptFile);
 
-    const versionFile = join(sandbox, '.ai/.kb-builder/installed-version');
+    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
@@ -125,7 +125,7 @@ describe('init --upgrade', () => {
     const configFile = join(sandbox, '.ai/knowledge-base/.config.json');
     rmSync(configFile);
 
-    const versionFile = join(sandbox, '.ai/.kb-builder/installed-version');
+    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
@@ -149,7 +149,7 @@ describe('doctor: installed-version currency', () => {
 
   it('warns when installed-version is older than the package', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const versionFile = join(sandbox, '.ai/.kb-builder/installed-version');
+    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');

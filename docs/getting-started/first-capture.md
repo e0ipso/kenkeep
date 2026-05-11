@@ -35,7 +35,7 @@ ai-knowledge-base curate
 
 The curator:
 
-- Acquires the `.ai/.kb-builder/state.json` lock (`name: curator`, 30-min TTL).
+- Acquires the `.ai/knowledge-base/.state/state.json` lock (`name: curator`, 30-min TTL).
 - Batches every `stage_2_status: done` session log that has not been curated yet.
 - Spawns `claude -p` per batch with the curator prompt.
 - Writes proposals into `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`.

@@ -106,7 +106,7 @@ If a candidate is sourced from multiple docs (you found the same convention disc
 
 ### 6. Track state
 
-After writing proposals, update `.ai/.kb-builder/bootstrap-state.json`. For every doc you read (even ones that produced zero candidates), record its content SHA-256 and the timestamp. This lets future `bootstrap-incremental` runs skip unchanged files.
+After writing proposals, update `.ai/knowledge-base/.state/bootstrap-state.json`. For every doc you read (even ones that produced zero candidates), record its content SHA-256 and the timestamp. This lets future `bootstrap-incremental` runs skip unchanged files.
 
 Schema:
 

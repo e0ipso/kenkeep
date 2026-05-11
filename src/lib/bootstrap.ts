@@ -45,9 +45,9 @@ export interface BootstrapContext {
   proposedDir: string;
   /** `_logs/` directory. */
   logsDir: string;
-  /** Path to `.ai/.kb-builder/state.json`. */
+  /** Path to `.ai/knowledge-base/.state/state.json`. */
   stateFile: string;
-  /** Path to `.ai/.kb-builder/bootstrap-state.json`. */
+  /** Path to `.ai/knowledge-base/.state/bootstrap-state.json`. */
   bootstrapStateFile: string;
   /** Bootstrap-incremental prompt body. */
   promptTemplate: string;

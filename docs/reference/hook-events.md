@@ -49,8 +49,8 @@ If you wrap the `claude` CLI in a script that spawns sessions for any reason, se
 The drain hook is async, so the user does not wait on it. Per invocation:
 
 1. **Recursion guard.** Exits immediately if `KB_BUILDER_INTERNAL=1` is set (the env var the drain itself sets on the children it spawns).
-2. **Lock.** Acquires the stage-2 lock in `.ai/.kb-builder/state.json` (PID + 30-minute TTL). If another drain is already running, this invocation exits without doing anything. Stale locks are reclaimed after TTL.
-3. **Load the prompt.** Prefers the per-repo override at `.ai/.kb-builder/prompts/stage-2-extract.md` (written by `init`); falls back to the version bundled with the package.
+2. **Lock.** Acquires the stage-2 lock in `.ai/knowledge-base/.state/state.json` (PID + 30-minute TTL). If another drain is already running, this invocation exits without doing anything. Stale locks are reclaimed after TTL.
+3. **Load the prompt.** Prefers the per-repo override at `.ai/knowledge-base/.state/prompts/stage-2-extract.md` (written by `init`); falls back to the version bundled with the package.
 4. **Iterate the queue.** Up to `drainBound` (default 5) entries per invocation. The rest are deferred to subsequent sessions.
 5. **Per entry:** loads the session log, extracts the redacted transcript slice, substitutes it into the prompt, spawns `claude -p --allowedTools '' --output-format stream-json --verbose`, and writes the full stream into `.ai/knowledge-base/_logs/stage-2/<session-id>__<timestamp>.jsonl`.
 6. **Parse the final result message.** Validated against the stage-2 Zod schema. On success: the session log's frontmatter is updated with `stage_2_status: done`, the log path, the populated `proposals.{practice,map}` arrays, and a deduped `topics` list.

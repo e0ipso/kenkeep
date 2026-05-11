@@ -15,7 +15,7 @@ Two copies of the prompt template exist:
 | Location | Used by | When edited |
 |---|---|---|
 | `templates/prompts/stage-2-extract.md` (inside the npm package) | First-time fallback if no per-repo override exists. | Edit upstream and bump the package version. |
-| `.ai/.kb-builder/prompts/stage-2-extract.md` (inside your repo, copied by `init`) | The stage-2 drain hook prefers this copy. | Edit locally to tune the extractor for your project's vocabulary. |
+| `.ai/knowledge-base/.state/prompts/stage-2-extract.md` (inside your repo, copied by `init`) | The stage-2 drain hook prefers this copy. | Edit locally to tune the extractor for your project's vocabulary. |
 
 When the drain hook spawns `claude -p`, it loads the override copy if present and falls back to the bundled template otherwise. The override is plain markdown — commit it like any other project asset.
 
@@ -49,4 +49,4 @@ Output shape must continue to match `Stage2OutputSchema` (see `src/lib/schemas.t
 
 ## Reverting
 
-The drain hook always prefers the override copy. To revert to the bundled prompt without re-running `init`, delete `.ai/.kb-builder/prompts/stage-2-extract.md`. The next drain will load the package's bundled version.
+The drain hook always prefers the override copy. To revert to the bundled prompt without re-running `init`, delete `.ai/knowledge-base/.state/prompts/stage-2-extract.md`. The next drain will load the package's bundled version.

@@ -13,9 +13,9 @@ The curator decides what happens to every stage-2 candidate that lands in the qu
 | Location | Used by | When edited |
 |---|---|---|
 | `src/templates-source/prompts/curator.md` | The package itself | Edit here if you maintain `@e0ipso/ai-knowledge-base` |
-| `.ai/.kb-builder/prompts/curator.md` | The curator subprocess at runtime | Edit here in a consumer repo to override the prompt locally |
+| `.ai/knowledge-base/.state/prompts/curator.md` | The curator subprocess at runtime | Edit here in a consumer repo to override the prompt locally |
 
-`ai-knowledge-base init` copies the shipped template into `.ai/.kb-builder/prompts/`. The `ai-knowledge-base curate` command prefers the local copy if it exists.
+`ai-knowledge-base init` copies the shipped template into `.ai/knowledge-base/.state/prompts/`. The `ai-knowledge-base curate` command prefers the local copy if it exists.
 
 ## Version comment
 

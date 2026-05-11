@@ -40,7 +40,7 @@ function makeHarness(): Harness {
   const nodesDir = join(kbDir, 'nodes');
   const proposedDir = join(kbDir, '_proposed');
   const logsDir = join(kbDir, '_logs');
-  const stateFile = join(root, '.ai/.kb-builder/state.json');
+  const stateFile = join(root, '.ai/knowledge-base/.state/state.json');
   mkdirSync(sessionsDir, { recursive: true });
   mkdirSync(nodesDir, { recursive: true });
   mkdirSync(proposedDir, { recursive: true });

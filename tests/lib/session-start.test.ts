@@ -24,7 +24,7 @@ function makeHarness(): Harness {
   const kbDir = join(root, '.ai/knowledge-base');
   const nodesDir = join(kbDir, 'nodes');
   const sessionsDir = join(kbDir, '_sessions');
-  const stateFile = join(root, '.ai/.kb-builder/state.json');
+  const stateFile = join(root, '.ai/knowledge-base/.state/state.json');
   mkdirSync(join(nodesDir, 'practice'), { recursive: true });
   mkdirSync(join(nodesDir, 'map'), { recursive: true });
   mkdirSync(sessionsDir, { recursive: true });

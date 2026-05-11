@@ -11,7 +11,7 @@ import {
 import { join } from 'node:path';
 import { ClaudeAdapter } from '../adapters/claude.js';
 import { log } from '../lib/log.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -22,12 +22,20 @@ export interface InitOptions {
   dryRun?: boolean;
 }
 
+/**
+ * Layout versions:
+ *   1 = legacy `.ai/.kb-builder/` for state, alongside `.ai/knowledge-base/`.
+ *   2 = state co-located under `.ai/knowledge-base/.state/`.
+ */
+export const CURRENT_LAYOUT_VERSION = 2;
+
 interface InstalledVersion {
   schema_version: 1;
   package: string;
   version: string;
   installed_at: string;
   assistants: string[];
+  layout_version?: number;
 }
 
 const GITIGNORE_BLOCK_START = '# >>> @e0ipso/ai-knowledge-base >>>';
@@ -36,8 +44,8 @@ const GITIGNORE_BLOCK_END = '# <<< @e0ipso/ai-knowledge-base <<<';
 const GITIGNORE_LINES = [
   '.ai/knowledge-base/_sessions/',
   '.ai/knowledge-base/_logs/',
-  '.ai/.kb-builder/state.json',
-  '.ai/.kb-builder/bootstrap-state.json',
+  '.ai/knowledge-base/.state/state.json',
+  '.ai/knowledge-base/.state/bootstrap-state.json',
 ];
 
 const SUPPORTED_ASSISTANTS = new Set(['claude']);
@@ -51,6 +59,15 @@ export async function runInit(opts: InitOptions): Promise<void> {
   if (!existsSync(templatesDir)) {
     throw new Error(
       `Templates directory not found at ${templatesDir}. Run \`npm run build\` if developing locally.`,
+    );
+  }
+
+  // Migrate any legacy `.ai/.kb-builder/` state inline so the rest of the
+  // command sees a single canonical layout.
+  const migration = ensureStateLayout(paths);
+  if (migration.migrated) {
+    log.info(
+      `Migrated legacy state from .ai/.kb-builder/ → .ai/knowledge-base/.state/ (${migration.movedEntries.length} entr${migration.movedEntries.length === 1 ? 'y' : 'ies'}).`,
     );
   }
 
@@ -78,10 +95,10 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 2. Claude-specific files (commands + settings + hooks).
   await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
 
-  // 3. Prompts under .ai/.kb-builder/prompts (for local override).
+  // 3. Prompts under .ai/knowledge-base/.state/prompts (for local override).
   const promptsSrc = join(templatesDir, 'prompts');
   if (existsSync(promptsSrc)) {
-    copyTree(promptsSrc, join(paths.builderDir, 'prompts'));
+    copyTree(promptsSrc, join(paths.stateDir, 'prompts'));
   }
 
   // 4. Pre-commit secret-scan config (only if not already present).
@@ -102,7 +119,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   }
 
   // 7. Write installed-version marker.
-  writeInstalledVersion(paths.installedVersionFile, paths.builderDir, opts.assistants);
+  writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.assistants);
 
   log.success('Initialized.');
   log.plain('');
@@ -228,7 +245,7 @@ async function runUpgrade(
   await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
 
   // Prompts: copy only those missing locally, preserve customized ones.
-  copyPromptsPreservingLocal(join(templatesDir, 'prompts'), join(paths.builderDir, 'prompts'));
+  copyPromptsPreservingLocal(join(templatesDir, 'prompts'), join(paths.stateDir, 'prompts'));
 
   // Gitignore: idempotent block update covers new lines.
   updateGitignore(paths.gitignoreFile);
@@ -242,8 +259,8 @@ async function runUpgrade(
     writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
   }
 
-  // Stamp the new installed-version.
-  writeInstalledVersion(paths.installedVersionFile, paths.builderDir, opts.assistants);
+  // Stamp the new installed-version (and current layout version).
+  writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.assistants);
 
   log.success(`Upgraded to ${current}.`);
   log.plain('Run `ai-knowledge-base doctor` to verify.');
@@ -303,13 +320,16 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
   const promptSrc = join(ctx.templatesDir, 'prompts');
   if (existsSync(promptSrc)) {
     for (const name of readdirSync(promptSrc)) {
-      const dst = join(ctx.paths.builderDir, 'prompts', name);
+      const dst = join(ctx.paths.stateDir, 'prompts', name);
       if (!existsSync(dst)) {
-        out.push({ kind: 'prompt-new', detail: `copy new prompt .ai/.kb-builder/prompts/${name}` });
+        out.push({
+          kind: 'prompt-new',
+          detail: `copy new prompt .ai/knowledge-base/.state/prompts/${name}`,
+        });
       } else if (!filesEqual(join(promptSrc, name), dst)) {
         out.push({
           kind: 'prompt-preserved',
-          detail: `local override preserved: .ai/.kb-builder/prompts/${name}`,
+          detail: `local override preserved: .ai/knowledge-base/.state/prompts/${name}`,
         });
       }
     }
@@ -332,6 +352,11 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
       kind: 'gitignore',
       detail: `add missing .gitignore lines: ${gitignoreState.missingLines.join(', ')}`,
     });
+  } else if (gitignoreState.staleLegacyLines.length > 0) {
+    out.push({
+      kind: 'gitignore',
+      detail: `drop stale legacy lines: ${gitignoreState.staleLegacyLines.join(', ')}`,
+    });
   }
 
   // .config.json: create only if absent.
@@ -347,12 +372,17 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
     out.push({ kind: 'pre-commit-config', detail: 'create .pre-commit-config.yaml' });
   }
 
-  // installed-version stamp.
-  if (ctx.installed.version !== ctx.current) {
-    out.push({
-      kind: 'installed-version',
-      detail: `stamp installed-version: ${ctx.installed.version} → ${ctx.current}`,
-    });
+  // installed-version stamp (version bump or layout_version bump).
+  const installedLayout = ctx.installed.layout_version ?? 1;
+  if (ctx.installed.version !== ctx.current || installedLayout !== CURRENT_LAYOUT_VERSION) {
+    const parts: string[] = [];
+    if (ctx.installed.version !== ctx.current) {
+      parts.push(`version ${ctx.installed.version} → ${ctx.current}`);
+    }
+    if (installedLayout !== CURRENT_LAYOUT_VERSION) {
+      parts.push(`layout_version ${installedLayout} → ${CURRENT_LAYOUT_VERSION}`);
+    }
+    out.push({ kind: 'installed-version', detail: `stamp installed-version: ${parts.join(', ')}` });
   }
 
   return out;
@@ -361,7 +391,15 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
 interface GitignoreState {
   blockPresent: boolean;
   missingLines: string[];
+  staleLegacyLines: string[];
 }
+
+// Lines that used to be inside the managed block but no longer apply.
+// They're scrubbed on `updateGitignore`.
+const STALE_LEGACY_GITIGNORE_LINES = [
+  '.ai/.kb-builder/state.json',
+  '.ai/.kb-builder/bootstrap-state.json',
+];
 
 const EXPECTED_HOOK_COMMANDS: Array<{ event: string; command: string; async?: boolean }> = [
   { event: 'Stop', command: 'KB_BUILDER_HOOK=Stop node .claude/hooks/kb-capture.mjs' },
@@ -400,11 +438,14 @@ function hookRegistrationsNeedRefresh(settingsFile: string): boolean {
 }
 
 function inspectGitignore(file: string): GitignoreState {
-  if (!existsSync(file)) return { blockPresent: false, missingLines: GITIGNORE_LINES.slice() };
+  if (!existsSync(file)) {
+    return { blockPresent: false, missingLines: GITIGNORE_LINES.slice(), staleLegacyLines: [] };
+  }
   const body = readFileSync(file, 'utf8');
   const blockPresent = body.includes(GITIGNORE_BLOCK_START);
   const missing = GITIGNORE_LINES.filter((line) => !body.includes(line));
-  return { blockPresent, missingLines: missing };
+  const stale = STALE_LEGACY_GITIGNORE_LINES.filter((line) => body.includes(line));
+  return { blockPresent, missingLines: missing, staleLegacyLines: stale };
 }
 
 function skillDirsEqual(src: string, dst: string): boolean {
@@ -479,15 +520,16 @@ async function installClaude(
   ]);
 }
 
-function writeInstalledVersion(file: string, builderDir: string, assistants: string[]): void {
+function writeInstalledVersion(file: string, stateDir: string, assistants: string[]): void {
   const installed: InstalledVersion = {
     schema_version: 1,
     package: '@e0ipso/ai-knowledge-base',
     version: packageVersion(),
     installed_at: new Date().toISOString(),
     assistants,
+    layout_version: CURRENT_LAYOUT_VERSION,
   };
-  mkdirSync(builderDir, { recursive: true });
+  mkdirSync(stateDir, { recursive: true });
   writeFileSync(file, `${JSON.stringify(installed, null, 2)}\n`);
 }
 
@@ -513,7 +555,7 @@ function installPreCommitConfig(target: string, templatesDir: string): void {
 function updateGitignore(file: string): void {
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
   if (existing.includes(GITIGNORE_BLOCK_START)) {
-    // Update in place.
+    // Update in place: replace the managed block entirely.
     const before = existing.slice(0, existing.indexOf(GITIGNORE_BLOCK_START));
     const afterStart = existing.indexOf(GITIGNORE_BLOCK_END);
     const after = afterStart >= 0 ? existing.slice(afterStart + GITIGNORE_BLOCK_END.length) : '';

@@ -17,7 +17,7 @@ Two copies of the template:
 | Location | Used by | When edited |
 |---|---|---|
 | `templates/prompts/bootstrap-incremental.md` (inside the npm package) | Fallback if no per-repo override exists. | Edit upstream and bump the package version. |
-| `.ai/.kb-builder/prompts/bootstrap-incremental.md` (inside your repo, copied by `init`) | The CLI prefers this copy. | Edit locally to tune per-project extraction. |
+| `.ai/knowledge-base/.state/prompts/bootstrap-incremental.md` (inside your repo, copied by `init`) | The CLI prefers this copy. | Edit locally to tune per-project extraction. |
 
 When `bootstrap-incremental` spawns `claude -p`, it loads the override copy if present and falls back to the bundled template otherwise. The override is plain markdown — commit it like any other project asset.
 
@@ -56,7 +56,7 @@ A reasonable workflow when tuning:
 2. Run `bootstrap-incremental --from <subset> --dry-run` to confirm chunking looks right.
 3. Run without `--dry-run`. Review the proposals with `ai-knowledge-base proposals review`.
 4. Note the false positives (proposals you'd reject) and false negatives (knowledge in the docs that didn't surface). Adjust the prompt's "trigger patterns" and "what to skip" sections.
-5. Delete `.ai/.kb-builder/bootstrap-state.json` (so the next run re-processes those files) and re-run.
+5. Delete `.ai/knowledge-base/.state/bootstrap-state.json` (so the next run re-processes those files) and re-run.
 6. Repeat until the ratio of accepted proposals to total proposals is in the 60–80% range. Pushing higher tends to also drop true positives.
 
 ## Common edits

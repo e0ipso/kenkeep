@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateGraph, generateIndex, writeGraph, writeIndex } from '../lib/index-gen.js';
 import { log } from '../lib/log.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface IndexRebuildOptions {
@@ -19,6 +19,7 @@ export interface IndexRebuildOptions {
 export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(

@@ -46,7 +46,7 @@ Modeled on `e0ipso/ai-task-manager`:
 
 - Published as an npm package (`@e0ipso/ai-knowledge-base`).
 - Initialized per repo via `npx @e0ipso/ai-knowledge-base init --assistants claude`. The `--assistants` flag accepts a list and exists for forward-compatibility, but only `claude` is supported in v1.
-- The `init` command copies template files (hooks, skills, prompts) from the package's `templates/` directory into the consuming repo's `.claude/` and `.ai/knowledge-base/`. It also writes `.ai/.kb-builder/installed-version` recording which package version produced the templates — needed by future `init --upgrade` work even though upgrade itself is deferred to v2.
+- The `init` command copies template files (hooks, skills, prompts) from the package's `templates/` directory into the consuming repo's `.claude/` and `.ai/knowledge-base/`. It also writes `.ai/knowledge-base/.state/installed-version` recording which package version produced the templates — needed by future `init --upgrade` work even though upgrade itself is deferred to v2.
 - TypeScript codebase, semantic-release for versioning, MIT license.
 
 CLI surface:
@@ -101,17 +101,18 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   │   │   ├── additions/
 │   │   │   ├── modifications/
 │   │   │   └── contradictions/
-│   │   └── _logs/                  # stream-json traces of LLM runs (gitignored)
-│   │       ├── stage-2/
-│   │       │   └── <session-id>__<timestamp>.jsonl
-│   │       ├── curator/
-│   │       │   └── <run-id>__<timestamp>.jsonl
-│   │       └── bootstrap-incremental/
-│   │           └── <run-id>__<timestamp>.jsonl
-│   └── .kb-builder/
-│       ├── installed-version       # template version recording (committed)
-│       ├── state.json              # last_nudged_at, lock info (gitignored)
-│       └── bootstrap-state.json    # source-doc content hashes (gitignored)
+│   │   ├── _logs/                  # stream-json traces of LLM runs (gitignored)
+│   │   │   ├── stage-2/
+│   │   │   │   └── <session-id>__<timestamp>.jsonl
+│   │   │   ├── curator/
+│   │   │   │   └── <run-id>__<timestamp>.jsonl
+│   │   │   └── bootstrap-incremental/
+│   │   │       └── <run-id>__<timestamp>.jsonl
+│   │   └── .state/                 # tool state (replaces legacy .ai/.kb-builder/)
+│   │       ├── installed-version   # template version recording (committed)
+│   │       ├── state.json          # last_nudged_at, lock info (gitignored)
+│   │       ├── bootstrap-state.json # source-doc content hashes (gitignored)
+│   │       └── prompts/            # local prompt overrides (committed)
 ├── .gitignore                       # contains _sessions/, _logs/, state.json
 ├── .pre-commit-config.yaml          # gitleaks hook
 └── package.json                     # may add @e0ipso/ai-knowledge-base as devDependency for CI
@@ -267,7 +268,7 @@ Behavior:
 - On success: the session log is updated with `stage_2_status: done`, `stage_2_log` set to the log filename, `proposals` populated.
 - On failure (parse error, schema mismatch, non-zero exit): `stage_2_status: failed`, `stage_2_error` recorded, queue entry retained for retry. After 3 failed attempts, marked `skipped` and removed from queue.
 - The `KB_BUILDER_INTERNAL=1` env var is checked by all of our own hooks (`kb-capture`, `kb-stage2-drain`, `kb-session-start`); if set, they exit immediately. This prevents the spawned `claude -p` process from triggering recursive stage-2/capture work on its own startup.
-- Concurrency on drain: the drain acquires a lock under `.ai/.kb-builder/state.json` (PID + 30-min TTL). If two SessionStart events fire concurrently (two terminals, same repo), the second waits or skips.
+- Concurrency on drain: the drain acquires a lock under `.ai/knowledge-base/.state/state.json` (PID + 30-min TTL). If two SessionStart events fire concurrently (two terminals, same repo), the second waits or skips.
 - Drain bound: by default the drain processes at most 5 queue entries per invocation; the rest are deferred to subsequent sessions. Configurable in settings.
 
 Authentication: the spawned `claude -p` inherits the user's Claude Code authentication (OAuth or API key). No separate setup. We deliberately do **not** use `--bare`, because `--bare` requires `ANTHROPIC_API_KEY` and would not work for users on Claude.ai subscriptions. The `KB_BUILDER_INTERNAL` env-var guard substitutes for `--bare`'s hook-suppression behavior.
@@ -350,7 +351,7 @@ The curator is a graph-merge problem on top of stage-2 outputs. It also runs as 
 
 Triggered by `/kb-curate` slash command or `npx @e0ipso/ai-knowledge-base curate` CLI. The threshold nudge is a **passive notification, not a trigger** — it tells the user to run curate; nothing runs automatically.
 
-Acquires `.ai/.kb-builder/state.json` lock with PID + 30-minute TTL. Concurrent invocations block on the lock or abort with a clear message.
+Acquires `.ai/knowledge-base/.state/state.json` lock with PID + 30-minute TTL. Concurrent invocations block on the lock or abort with a clear message.
 
 ### 6.2 Inputs
 
@@ -479,7 +480,7 @@ Skill body lives in `templates/claude/skills/kb-bootstrap/SKILL.md`. When invoke
    - `proposal.rationale: "bootstrap: <source-doc-path>"`
    - `derived_from: [<source-doc-path>]` (paths relative to repo root, committed to repo, so provenance always resolves)
    - `confidence: medium` (existing docs may be stale, contradictory, or aspirational; force reviewer judgment)
-6. Update `.ai/.kb-builder/bootstrap-state.json` with content hashes of every doc read.
+6. Update `.ai/knowledge-base/.state/bootstrap-state.json` with content hashes of every doc read.
 7. Report a summary: how many proposals produced, which docs were read, which were skipped and why.
 
 The agent runs in the user's existing session — no `claude -p` subprocess. The user supervises and can intervene mid-run. The skill's `allowed-tools` frontmatter restricts the agent to `Read`, `Glob`, `Grep`, `Write` (for proposals and state file only), and a narrow `Bash` allow-list for `shasum`/`sha256sum`/`mkdir`.
@@ -501,7 +502,7 @@ Behavior:
 
 1. Walk `--from` recursively, respecting `.gitignore` and `--include`/`--exclude` globs.
 2. For each markdown file, compute SHA-256 of file contents.
-3. Read `.ai/.kb-builder/bootstrap-state.json`. Skip files whose hash matches the recorded hash. Process files that are new or whose hash changed.
+3. Read `.ai/knowledge-base/.state/bootstrap-state.json`. Skip files whose hash matches the recorded hash. Process files that are new or whose hash changed.
 4. Chunk the to-process set into batches sized by token budget (~10K tokens per batch; same chunking pattern as the curator).
 5. For each batch: spawn a `claude -p` subprocess with the bootstrap-incremental prompt and stream-json verbose output to `.ai/knowledge-base/_logs/bootstrap-incremental/<run-id>__<timestamp>.jsonl`. Include `KB_BUILDER_INTERNAL=1` for recursion safety.
 6. Parse output, validate against the same proposal schema as the curator, write to `_proposed/additions/`.
@@ -514,7 +515,7 @@ The bootstrap-incremental prompt is in `templates/prompts/bootstrap-incremental.
 
 #### 6.10.3 Bootstrap state file schema
 
-`.ai/.kb-builder/bootstrap-state.json` (gitignored, JSON, validated with Zod):
+`.ai/knowledge-base/.state/bootstrap-state.json` (gitignored, JSON, validated with Zod):
 
 ```json
 {
@@ -548,7 +549,7 @@ Two hooks fire on `SessionStart`, with different sync/async modes:
 1. **`kb-stage2-drain.mjs`** — `async: true`. Drains the stage-2 queue (§5.2) without blocking session start.
 2. **`kb-session-start.mjs`** — sync. Handles injection and nudge:
    - Read `INDEX.md`. If missing, generate a stub ("KB is empty").
-   - Read `.ai/.kb-builder/state.json` for `last_nudged_at`.
+   - Read `.ai/knowledge-base/.state/state.json` for `last_nudged_at`.
    - Count session logs with `stage_2_status: done` not yet referenced by any proposal. If count ≥ threshold AND now − `last_nudged_at` ≥ 1 hour, append nudge line and update `last_nudged_at`.
    - Emit INDEX content + optional nudge as injected context.
 
@@ -807,7 +808,7 @@ export interface Adapter {
 
 ### 11.15 Hourly nudge throttle
 
-**Decision.** Once threshold is exceeded, nudge on next `SessionStart` and at most once per hour after that. Tracked via `last_nudged_at` in `.ai/.kb-builder/state.json`.
+**Decision.** Once threshold is exceeded, nudge on next `SessionStart` and at most once per hour after that. Tracked via `last_nudged_at` in `.ai/knowledge-base/.state/state.json`.
 
 **Why.** Hourly handles bursty session starts without becoming wallpaper.
 
@@ -861,7 +862,7 @@ The policy is documented in the project's CONTRIBUTING.md so future schema autho
 
 Each phase shippable on its own.
 
-**M0 — Project skeleton + secret scanning + docs foundation.** npm package, TS+ESM build, `init` command that copies stub `.ai/knowledge-base/` and `.claude/`, installs the gitleaks pre-commit hook, writes `.ai/.kb-builder/installed-version`. `ai-knowledge-base doctor` checks gitleaks, Node version, and `claude` CLI availability. Documentation foundation ships here too: minimal top-level `README.md`, `CONTRIBUTING.md` skeleton, in-KB `README.md` template that `init` copies, and the Jekyll/Just-the-Docs site skeleton (Home + Getting Started shell, deployed to GitHub Pages). No KB functionality yet, but the security guarantee and documentation scaffolding are in place from day 1.
+**M0 — Project skeleton + secret scanning + docs foundation.** npm package, TS+ESM build, `init` command that copies stub `.ai/knowledge-base/` and `.claude/`, installs the gitleaks pre-commit hook, writes `.ai/knowledge-base/.state/installed-version`. `ai-knowledge-base doctor` checks gitleaks, Node version, and `claude` CLI availability. Documentation foundation ships here too: minimal top-level `README.md`, `CONTRIBUTING.md` skeleton, in-KB `README.md` template that `init` copies, and the Jekyll/Just-the-Docs site skeleton (Home + Getting Started shell, deployed to GitHub Pages). No KB functionality yet, but the security guarantee and documentation scaffolding are in place from day 1.
 
 **M1 — Stage 1 capture for all three triggers.** `Stop`, `SessionEnd`, and `PreCompact` hooks ship together. Dedup, gitleaks redaction, write session logs, append to `.queue.json`. Stress-test PreCompact on long sessions during this phase.
 

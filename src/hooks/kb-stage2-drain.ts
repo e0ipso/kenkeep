@@ -12,7 +12,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHeadlessClaude } from '../lib/headless.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 import { drainStage2Queue, type Stage2Runner } from '../lib/stage2-drain.js';
 
@@ -37,9 +37,10 @@ async function main(): Promise<void> {
     typeof input.cwd === 'string' && input.cwd.length > 0 ? input.cwd : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
   if (!existsSync(paths.installedVersionFile)) return;
 
-  const promptTemplate = loadStage2Prompt(root);
+  const promptTemplate = loadStage2Prompt(paths.stateDir);
   if (!promptTemplate) {
     process.stderr.write(`${PACKAGE_TAG} stage-2 prompt template not found; skipping drain\n`);
     return;
@@ -53,7 +54,7 @@ async function main(): Promise<void> {
     const summary = await drainStage2Queue({
       sessionsDir: paths.sessionsDir,
       logsDir: paths.logsDir,
-      stateFile: join(paths.builderDir, 'state.json'),
+      stateFile: join(paths.stateDir, 'state.json'),
       promptTemplate,
       runner,
       maxEntries: settings.drainBound,
@@ -80,10 +81,10 @@ async function main(): Promise<void> {
   }
 }
 
-function loadStage2Prompt(repoRoot: string): string | null {
+function loadStage2Prompt(stateDir: string): string | null {
   // Prefer the per-repo override written by `init`; fall back to the
   // template bundled with the npm package.
-  const override = join(repoRoot, '.ai/.kb-builder/prompts/stage-2-extract.md');
+  const override = join(stateDir, 'prompts/stage-2-extract.md');
   if (existsSync(override)) return readFileSync(override, 'utf8');
   const bundled = join(packageTemplatesDir(), 'prompts/stage-2-extract.md');
   if (existsSync(bundled)) return readFileSync(bundled, 'utf8');

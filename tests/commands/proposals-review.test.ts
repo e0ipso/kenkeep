@@ -17,9 +17,9 @@ import type { ProposalFrontmatter } from '../../src/lib/schemas.js';
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), 'kb-review-'));
   mkdirSync(join(root, '.git'), { recursive: true });
-  mkdirSync(join(root, '.ai/.kb-builder'), { recursive: true });
+  mkdirSync(join(root, '.ai/knowledge-base/.state'), { recursive: true });
   writeFileSync(
-    join(root, '.ai/.kb-builder/installed-version'),
+    join(root, '.ai/knowledge-base/.state/installed-version'),
     JSON.stringify({
       schema_version: 1,
       package: '@e0ipso/ai-knowledge-base',

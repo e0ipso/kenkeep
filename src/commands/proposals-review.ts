@@ -4,7 +4,7 @@ import matter from 'gray-matter';
 import { confirm, select } from '@inquirer/prompts';
 import { log } from '../lib/log.js';
 import { listProposalFiles, readProposalFile } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { ProposalFrontmatterSchema, type ProposalFrontmatter } from '../lib/schemas.js';
 
 export interface ProposalsReviewOptions {
@@ -30,6 +30,7 @@ interface DiscoveredProposal {
 export async function runProposalsReview(opts: ProposalsReviewOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   const discovered = discoverProposals(paths.proposedDir);
   if (discovered.length === 0) {

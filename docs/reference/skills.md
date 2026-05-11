@@ -43,7 +43,7 @@ What the agent does:
 3. Samples representative content and follows cross-references; skips auto-generated reference tables.
 4. Splits candidates by kind — imperative guidance → practice; named entities → map.
 5. Writes proposals under `.ai/knowledge-base/_proposed/additions/<kind>-<slug>.md` with `proposal.rationale: "bootstrap: <source-doc>"` and `derived_from: [<source-doc>]`. Confidence defaults to `medium`.
-6. Updates `.ai/.kb-builder/bootstrap-state.json` with the SHA-256 and timestamp of every doc it read.
+6. Updates `.ai/knowledge-base/.state/bootstrap-state.json` with the SHA-256 and timestamp of every doc it read.
 7. Reports back with proposal counts, docs skipped (and why), and any contradictions worth your attention.
 
 Bootstrap is supervised: the agent never writes to `nodes/` directly, never auto-resolves contradictions, and stops to ask if it suspects it's over-extracting. For unsupervised re-runs after the first pass, use the CLI:

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { log } from '../lib/log.js';
 import { LOG_BUCKETS, formatBytes, parseDurationMs, pruneLogs } from '../lib/logs-prune.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface LogsPruneOptions {
@@ -12,6 +12,7 @@ export interface LogsPruneOptions {
 export async function runLogsPrune(opts: LogsPruneOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(

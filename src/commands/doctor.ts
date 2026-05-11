@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { log } from '../lib/log.js';
 import { computeNodesHash, readAllNodes } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -28,13 +28,26 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
 
+  // Auto-migrate legacy `.ai/.kb-builder/` state to the new layout. Surface
+  // a notice so the user knows what happened.
+  const migration = ensureStateLayout(paths);
+  if (migration.migrated) {
+    log.success(
+      `state layout migrated: .ai/.kb-builder/ → .ai/knowledge-base/.state/ (${migration.movedEntries.length} entr${migration.movedEntries.length === 1 ? 'y' : 'ies'})`,
+    );
+  }
+
   const checks: NamedCheck[] = [];
   checks.push({ name: 'Node.js >= 22', result: checkNodeVersion() });
   checks.push({ name: 'claude CLI on PATH', result: await checkClaude() });
   checks.push({ name: 'gitleaks on PATH', result: await checkGitleaks() });
   checks.push({
-    name: '.ai/.kb-builder/installed-version',
+    name: '.ai/knowledge-base/.state/installed-version',
     result: checkInstalledVersion(paths.installedVersionFile),
+  });
+  checks.push({
+    name: 'no legacy .ai/.kb-builder/ directory',
+    result: checkLegacyStateDir(paths.legacyStateDir),
   });
   checks.push({
     name: 'installed-version is current',
@@ -63,7 +76,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
   });
   checks.push({
     name: 'shipped prompts present',
-    result: checkPrompts(paths.builderDir),
+    result: checkPrompts(paths.stateDir),
   });
   checks.push({
     name: 'settings file is valid',
@@ -347,9 +360,22 @@ function checkLegacyKbCommands(commandsDir: string): CheckResult {
   };
 }
 
-function checkPrompts(builderDir: string): CheckResult {
+function checkLegacyStateDir(legacyDir: string): CheckResult {
+  if (!existsSync(legacyDir)) {
+    return { ok: true, detail: 'legacy directory not present' };
+  }
+  return {
+    ok: false,
+    level: 'warn',
+    detail:
+      `legacy .ai/.kb-builder/ still on disk. The auto-migration moves state into .ai/knowledge-base/.state/; ` +
+      'a leftover here usually means a manual mv left an empty husk. Safe to `rm -rf .ai/.kb-builder/`.',
+  };
+}
+
+function checkPrompts(stateDir: string): CheckResult {
   const expected = ['stage-2-extract.md', 'curator.md', 'bootstrap-incremental.md'];
-  const missing = expected.filter((p) => !existsSync(join(builderDir, 'prompts', p)));
+  const missing = expected.filter((p) => !existsSync(join(stateDir, 'prompts', p)));
   if (missing.length === 0) {
     return { ok: true, detail: 'stage-2, curator, bootstrap-incremental' };
   }

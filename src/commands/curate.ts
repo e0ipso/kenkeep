@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { ClaudeAdapter } from '../adapters/claude.js';
 import { runCurate, type CuratorRunner } from '../lib/curate.js';
 import { log } from '../lib/log.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface CurateCommandOptions {
@@ -15,6 +15,7 @@ export interface CurateCommandOptions {
 export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
@@ -23,7 +24,7 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     return 1;
   }
 
-  const promptTemplate = loadCuratorPrompt(paths.builderDir);
+  const promptTemplate = loadCuratorPrompt(paths.stateDir);
   if (!promptTemplate) {
     log.error('Curator prompt template not found.');
     return 1;
@@ -42,7 +43,7 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     nodesDir: paths.nodesDir,
     proposedDir: paths.proposedDir,
     logsDir: paths.logsDir,
-    stateFile: join(paths.builderDir, 'state.json'),
+    stateFile: join(paths.stateDir, 'state.json'),
     promptTemplate,
     runner,
     lockTtlMs: settings.lockTtlMs,
@@ -72,8 +73,8 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
   }
 }
 
-function loadCuratorPrompt(builderDir: string): string | null {
-  const local = join(builderDir, 'prompts', 'curator.md');
+function loadCuratorPrompt(stateDir: string): string | null {
+  const local = join(stateDir, 'prompts', 'curator.md');
   if (existsSync(local)) return readFileSync(local, 'utf8');
   const fallback = join(packageTemplatesDir(), 'prompts', 'curator.md');
   if (existsSync(fallback)) return readFileSync(fallback, 'utf8');

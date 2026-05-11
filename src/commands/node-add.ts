@@ -9,7 +9,7 @@ import {
   readAllNodes,
   writeProposalFile,
 } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 import type { Confidence, NodeKind, ProposalFrontmatter } from '../lib/schemas.js';
 
 export interface NodeAddOptions {
@@ -30,6 +30,7 @@ export interface NodeAddOptions {
 export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
       'ai-knowledge-base is not initialized in this repo. Run `ai-knowledge-base init --assistants claude`.',

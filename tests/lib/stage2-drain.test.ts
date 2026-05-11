@@ -24,7 +24,7 @@ function makeHarness(): Harness {
   const root = mkdtempSync(join(tmpdir(), 'kb-drain-'));
   const sessionsDir = join(root, '.ai/knowledge-base/_sessions');
   const logsDir = join(root, '.ai/knowledge-base/_logs');
-  const stateFile = join(root, '.ai/.kb-builder/state.json');
+  const stateFile = join(root, '.ai/knowledge-base/.state/state.json');
   mkdirSync(sessionsDir, { recursive: true });
   mkdirSync(logsDir, { recursive: true });
   mkdirSync(dirname(stateFile), { recursive: true });

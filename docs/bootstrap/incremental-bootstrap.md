@@ -6,7 +6,7 @@ nav_order: 2
 
 # Incremental bootstrap (`bootstrap-incremental`)
 
-A deterministic, hash-aware CLI for re-bootstrapping the knowledge base after source docs are added or modified. It reads `.ai/.kb-builder/bootstrap-state.json`, walks `--from`, skips files whose SHA-256 matches the recorded hash, chunks the remainder, and runs `claude -p` on each chunk with the [bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md).
+A deterministic, hash-aware CLI for re-bootstrapping the knowledge base after source docs are added or modified. It reads `.ai/knowledge-base/.state/bootstrap-state.json`, walks `--from`, skips files whose SHA-256 matches the recorded hash, chunks the remainder, and runs `claude -p` on each chunk with the [bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md).
 
 Idempotent and safe to re-run. No supervision required.
 
@@ -44,7 +44,7 @@ Glob syntax: `**` matches any number of path segments; `*` matches anything with
 
 ## Locking
 
-`bootstrap-incremental` shares the `.ai/.kb-builder/state.json` lock file with `kb-stage2-drain` and `curate`, but takes its own named lock (`name: bootstrap-incremental`, PID + 30-minute TTL). If a concurrent bootstrap is running, the new invocation exits with `locked` and does no work. If a stage-2 drain or curator run holds an unrelated lock, the bootstrap waits for nothing — the locks are name-scoped.
+`bootstrap-incremental` shares the `.ai/knowledge-base/.state/state.json` lock file with `kb-stage2-drain` and `curate`, but takes its own named lock (`name: bootstrap-incremental`, PID + 30-minute TTL). If a concurrent bootstrap is running, the new invocation exits with `locked` and does no work. If a stage-2 drain or curator run holds an unrelated lock, the bootstrap waits for nothing — the locks are name-scoped.
 
 ## Overlap with existing nodes
 
@@ -81,7 +81,7 @@ You can wire `bootstrap-incremental --dry-run` into CI to alert when docs change
 ## After a run
 
 - `ai-knowledge-base proposals review` — accept or reject the new proposals.
-- `cat .ai/.kb-builder/bootstrap-state.json` — inspect the recorded hashes and timestamps.
+- `cat .ai/knowledge-base/.state/bootstrap-state.json` — inspect the recorded hashes and timestamps.
 - `ls .ai/knowledge-base/_logs/bootstrap-incremental/` — find the stream-JSON trace of every batch (filenames sort by ULID, so newest is last).
 
 ## State file schema

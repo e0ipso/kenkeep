@@ -140,7 +140,7 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 ### 8.1 First-time setup
 
 1. A contributor runs `npx <pkg> init --assistants claude`.
-2. The installer creates `.ai/knowledge-base/` with starter structure (including `_logs/` and `_sessions/` both gitignored), registers hooks under `.claude/`, adds a pre-commit hook for secret scanning, writes `.ai/.kb-builder/installed-version`.
+2. The installer creates `.ai/knowledge-base/` with starter structure (including `_logs/` and `_sessions/` both gitignored), registers hooks under `.claude/`, adds a pre-commit hook for secret scanning, writes `.ai/knowledge-base/.state/installed-version`.
 3. The contributor commits. KB is live but empty.
 
 ### 8.2 Daily session capture (automatic)

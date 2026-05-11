@@ -42,10 +42,10 @@ describe('init', () => {
       '.claude/hooks/kb-capture.mjs',
       '.claude/hooks/kb-stage2-drain.mjs',
       '.claude/hooks/kb-session-start.mjs',
-      '.ai/.kb-builder/installed-version',
-      '.ai/.kb-builder/prompts/stage-2-extract.md',
-      '.ai/.kb-builder/prompts/curator.md',
-      '.ai/.kb-builder/prompts/bootstrap-incremental.md',
+      '.ai/knowledge-base/.state/installed-version',
+      '.ai/knowledge-base/.state/prompts/stage-2-extract.md',
+      '.ai/knowledge-base/.state/prompts/curator.md',
+      '.ai/knowledge-base/.state/prompts/bootstrap-incremental.md',
       '.ai/knowledge-base/.config.json',
       '.pre-commit-config.yaml',
       '.gitignore',
@@ -61,7 +61,7 @@ describe('init', () => {
     expect(result.exitCode).toBe(0);
 
     const installed = JSON.parse(
-      readFileSync(join(sandbox, '.ai/.kb-builder/installed-version'), 'utf8'),
+      readFileSync(join(sandbox, '.ai/knowledge-base/.state/installed-version'), 'utf8'),
     );
     expect(installed.schema_version).toBe(1);
     expect(installed.package).toBe('@e0ipso/ai-knowledge-base');
@@ -69,6 +69,7 @@ describe('init', () => {
     expect(installed.version.length).toBeGreaterThan(0);
     expect(installed.assistants).toEqual(['claude']);
     expect(typeof installed.installed_at).toBe('string');
+    expect(installed.layout_version).toBe(2);
   });
 
   it('appends an idempotent block to .gitignore', async () => {
@@ -180,11 +181,7 @@ describe('init', () => {
 
   it('ships the rename — no references to the old `kb-builder` binary in copied prompts', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const skill = readFileSync(
-      join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'),
-      'utf8',
-    );
-    // The on-disk dir `.ai/.kb-builder/` is kept; only the command name was renamed.
+    const skill = readFileSync(join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'), 'utf8');
     expect(skill).not.toMatch(/\bkb-builder proposals/);
     expect(skill).toContain('ai-knowledge-base proposals review');
   });
@@ -213,5 +210,56 @@ describe('init', () => {
     expect(existsSync(join(sandbox, '.claude/skills/kb-add/SKILL.md'))).toBe(true);
     expect(existsSync(join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'))).toBe(true);
     expect(existsSync(join(sandbox, '.claude/skills/kb-curate/SKILL.md'))).toBe(true);
+  });
+
+  it('does not create the legacy `.ai/.kb-builder/` directory for fresh installs', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    expect(existsSync(join(sandbox, '.ai/.kb-builder'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state'))).toBe(true);
+  });
+
+  it('migrates a legacy `.ai/.kb-builder/` install to `.ai/knowledge-base/.state/`', async () => {
+    // Simulate a legacy install: state files live under .ai/.kb-builder/.
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(join(sandbox, '.ai/.kb-builder/prompts'), { recursive: true });
+    writeFileSync(
+      join(sandbox, '.ai/.kb-builder/installed-version'),
+      JSON.stringify(
+        {
+          schema_version: 1,
+          package: '@e0ipso/ai-knowledge-base',
+          version: '0.0.0-test-legacy',
+          installed_at: '2026-01-01T00:00:00Z',
+          assistants: ['claude'],
+        },
+        null,
+        2,
+      ),
+    );
+    writeFileSync(
+      join(sandbox, '.ai/.kb-builder/state.json'),
+      JSON.stringify({ schema_version: 1, last_nudged_at: '2026-01-01T00:00:00Z' }),
+    );
+    writeFileSync(
+      join(sandbox, '.ai/.kb-builder/bootstrap-state.json'),
+      JSON.stringify({ schema_version: 1, docs: {} }),
+    );
+    writeFileSync(join(sandbox, '.ai/.kb-builder/prompts/curator.md'), '# legacy local override\n');
+
+    // Doctor auto-migrates.
+    const result = await runCli(sandbox, ['doctor']);
+    // Exit code is non-fatal (warnings only); migration message present.
+    expect(result.stdout + result.stderr).toMatch(/state layout migrated/i);
+
+    // New layout exists.
+    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state/installed-version'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state/state.json'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state/bootstrap-state.json'))).toBe(true);
+    expect(
+      readFileSync(join(sandbox, '.ai/knowledge-base/.state/prompts/curator.md'), 'utf8'),
+    ).toBe('# legacy local override\n');
+
+    // Legacy directory is removed.
+    expect(existsSync(join(sandbox, '.ai/.kb-builder'))).toBe(false);
   });
 });

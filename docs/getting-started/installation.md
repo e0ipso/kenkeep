@@ -31,7 +31,7 @@ This will:
 2. Create `.claude/` with the bootstrap slash command and the compiled stage-1 capture hook (`kb-capture.mjs`). The hook is registered against `Stop`, `SessionEnd`, and `PreCompact` in `.claude/settings.json`. See [Reference > Hook events](../reference/hook-events.md) for what each one does.
 3. Create or extend `.gitignore` to keep `_sessions/` and `_logs/` out of git by default.
 4. Drop a `.pre-commit-config.yaml` with a [gitleaks](https://github.com/gitleaks/gitleaks) hook (or merge entry if you already have one).
-5. Write `.ai/.kb-builder/installed-version` recording which package version produced the templates.
+5. Write `.ai/knowledge-base/.state/installed-version` recording which package version produced the templates.
 
 Commit everything `init` created.
 
@@ -44,7 +44,7 @@ Commit everything `init` created.
 - `gitleaks` on PATH (warning if missing — install via your package manager)
 - `installed-version` marker present
 - `.pre-commit-config.yaml` present and contains a gitleaks entry
-- `.gitignore` contains the kb-builder block
+- `.gitignore` contains the ai-knowledge-base block
 
 A clean run exits 0 with no errors or warnings.
 

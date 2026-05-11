@@ -11,7 +11,7 @@ Run the curator over pending session logs and turn them into reviewable proposal
 ## What to do
 
 1. Run `ai-knowledge-base curate` in the project root. The command:
-   - Acquires the curator lock (`.ai/.kb-builder/state.json`, name=`curator`, PID + 30-min TTL).
+   - Acquires the curator lock (`.ai/knowledge-base/.state/state.json`, name=`curator`, PID + 30-min TTL).
    - Batches every session log whose `stage_2_status: done` and which has not yet been curated.
    - Spawns `claude -p` per batch with the curator prompt (no recursion: `KB_BUILDER_INTERNAL=1`).
    - Writes proposals under `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`.

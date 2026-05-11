@@ -28,7 +28,6 @@ on:
   pull_request:
     paths:
       - '.ai/knowledge-base/**'
-      - '.ai/.kb-builder/**'
       - '.claude/**'
       - '.pre-commit-config.yaml'
 
@@ -84,7 +83,6 @@ kb_validate:
   rules:
     - changes:
         - .ai/knowledge-base/**/*
-        - .ai/.kb-builder/**/*
         - .claude/**/*
         - .pre-commit-config.yaml
 ```

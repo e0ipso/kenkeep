@@ -48,8 +48,8 @@ function makeHarness(): Harness {
   const kbDir = join(root, '.ai/knowledge-base');
   const proposedDir = join(kbDir, '_proposed');
   const logsDir = join(kbDir, '_logs');
-  const stateFile = join(root, '.ai/.kb-builder/state.json');
-  const bootstrapStateFile = join(root, '.ai/.kb-builder/bootstrap-state.json');
+  const stateFile = join(root, '.ai/knowledge-base/.state/state.json');
+  const bootstrapStateFile = join(root, '.ai/knowledge-base/.state/bootstrap-state.json');
   mkdirSync(sourceDir, { recursive: true });
   mkdirSync(proposedDir, { recursive: true });
   mkdirSync(logsDir, { recursive: true });

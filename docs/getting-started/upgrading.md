@@ -26,8 +26,8 @@ ai-knowledge-base doctor
 | `.gitignore` | Managed block is refreshed in place. New entries appear; existing user entries outside the block are untouched. |
 | `.pre-commit-config.yaml` | Created only if missing. |
 | `.ai/knowledge-base/.config.json` | Created only if missing. An existing file is never overwritten, regardless of `--force` or `--upgrade`. |
-| `.ai/.kb-builder/prompts/*.md` | Copied only when missing locally. If a prompt already exists, it is preserved (the upgrade preflight reports it as a "local override preserved" line). |
-| `.ai/.kb-builder/installed-version` | Stamped with the new package version. |
+| `.ai/knowledge-base/.state/prompts/*.md` | Copied only when missing locally. If a prompt already exists, it is preserved (the upgrade preflight reports it as a "local override preserved" line). |
+| `.ai/knowledge-base/.state/installed-version` | Stamped with the new package version. |
 
 ## Preflight first
 
@@ -49,7 +49,7 @@ Planned changes:
   • [hook-script]         refresh .claude/hooks/kb-stage2-drain.mjs
   • [skill]               refresh .claude/skills/kb-bootstrap/
   • [legacy-command-cleanup] remove legacy .claude/commands/kb-bootstrap.md
-  • [prompt-preserved]    local override preserved: .ai/.kb-builder/prompts/curator.md
+  • [prompt-preserved]    local override preserved: .ai/knowledge-base/.state/prompts/curator.md
   • [hook-registration]   refresh ai-knowledge-base hook entries in .claude/settings.json
   • [installed-version]   stamp installed-version: 1.0.0 → 1.5.0
 
@@ -92,3 +92,11 @@ The check is a warning, not an error — the previous templates keep working unt
 | Pairs with `--dry-run` | no | yes |
 
 Use `--upgrade` when bumping to a new package version. Use `--force` only when you've deliberately broken something and want to restore the original templates (it overwrites your local prompt customizations).
+
+## State-layout migration (legacy `.ai/.kb-builder/`)
+
+Older installs stored tool state under `.ai/.kb-builder/`. Starting with the layout-version-2 release, state lives under `.ai/knowledge-base/.state/` so the entire tool footprint sits beneath the knowledge-base root.
+
+The migration is automatic and idempotent: every `init`, `init --upgrade`, `doctor`, and CLI command (curate, bootstrap-incremental, status, …) checks for a legacy directory and moves its contents into the new location on the first run. There is nothing to do manually — but if you want to drive it explicitly, run `ai-knowledge-base doctor`, which prints a one-line confirmation when it migrates.
+
+The `installed-version` marker carries a `layout_version` field (`2` for the new layout); the absence of that field is treated as layout 1. Commit the moved files in your next change.

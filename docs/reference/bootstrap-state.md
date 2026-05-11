@@ -8,7 +8,7 @@ nav_order: 5
 
 `bootstrap-state.json` records the SHA-256 of every doc the bootstrap pipelines have already processed. Both `/kb-bootstrap` (the agent-driven first-time pass, shipped as a Claude Code skill) and `ai-knowledge-base bootstrap-incremental` (the CLI for re-runs) read and write this file. Hash-equal docs are skipped on subsequent runs.
 
-- **Path:** `.ai/.kb-builder/bootstrap-state.json`
+- **Path:** `.ai/knowledge-base/.state/bootstrap-state.json`
 - **Gitignored:** yes (the gitignore block written by `init` covers it).
 - **Schema version:** `1`.
 - **Validator:** `BootstrapStateSchema` in `src/lib/schemas.ts`.

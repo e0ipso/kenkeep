@@ -7,7 +7,7 @@
  * blocking session shutdown.
  */
 import { captureSession, type HookInput } from '../lib/capture.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 
 const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[ai-knowledge-base]';
@@ -36,6 +36,7 @@ async function main(): Promise<void> {
     typeof input.cwd === 'string' && input.cwd.length > 0 ? input.cwd : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   try {
     const result = await captureSession(input, { sessionsDir: paths.sessionsDir });

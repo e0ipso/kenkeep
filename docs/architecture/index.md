@@ -90,10 +90,10 @@ The two CLI shapes:
 | `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/` | curator + node-add + bootstrap | Pending proposals awaiting review. |
 | `.ai/knowledge-base/nodes/{practice,map}/` | proposals review | Canonical, accepted knowledge. The only thing the assistant sees via INDEX. |
 | `.ai/knowledge-base/INDEX.md`, `GRAPH.md` | curator + index-rebuild | Deterministic outputs derived from `nodes/`. INDEX is token-budgeted; GRAPH is the full edge listing. |
-| `.ai/.kb-builder/installed-version` | init | Marker recording package version + selected assistants. Committed. |
-| `.ai/.kb-builder/state.json` | drain + curator + bootstrap + consume | Single shared state file. `lock` (one at a time) + `last_nudged_at`. Gitignored. |
-| `.ai/.kb-builder/bootstrap-state.json` | bootstrap | SHA-256 of every doc the bootstrap pipelines have processed. Gitignored. |
-| `.ai/.kb-builder/prompts/*` | init | Local overrides for the three shipped prompts. Committed. |
+| `.ai/knowledge-base/.state/installed-version` | init | Marker recording package version + selected assistants. Committed. |
+| `.ai/knowledge-base/.state/state.json` | drain + curator + bootstrap + consume | Single shared state file. `lock` (one at a time) + `last_nudged_at`. Gitignored. |
+| `.ai/knowledge-base/.state/bootstrap-state.json` | bootstrap | SHA-256 of every doc the bootstrap pipelines have processed. Gitignored. |
+| `.ai/knowledge-base/.state/prompts/*` | init | Local overrides for the three shipped prompts. Committed. |
 
 ## Locking
 
@@ -200,7 +200,7 @@ These are constraints, not omissions. Each one trades expressiveness for "the co
 
 | You want to… | Look at… |
 |---|---|
-| Change extraction behavior | `templates-source/prompts/stage-2-extract.md` (project-tunable copy at `.ai/.kb-builder/prompts/stage-2-extract.md`). |
+| Change extraction behavior | `templates-source/prompts/stage-2-extract.md` (project-tunable copy at `.ai/knowledge-base/.state/prompts/stage-2-extract.md`). |
 | Change curator behavior | `templates-source/prompts/curator.md`. Tighten the dedup or contradiction logic in `src/lib/curate.ts`. |
 | Change bootstrap behavior | `templates-source/prompts/bootstrap-incremental.md` for the CLI prompt; `templates-source/claude/skills/kb-bootstrap/SKILL.md` for the in-session agent. |
 | Add a new CLI subcommand | `src/commands/<name>.ts` + wire it in `src/cli.ts`. Add doc to `docs/reference/cli.md`. |

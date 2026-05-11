@@ -10,7 +10,7 @@ describe('state.json lock', () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'kb-state-'));
-    file = join(dir, '.kb-builder', 'state.json');
+    file = join(dir, '.state', 'state.json');
   });
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));

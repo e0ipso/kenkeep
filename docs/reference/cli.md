@@ -14,13 +14,13 @@ The package installs an `ai-knowledge-base` binary. After `npm install -g @e0ips
 ai-knowledge-base init --assistants <list> [--force] [--upgrade [--dry-run]]
 ```
 
-First-time setup for a repo. Copies the directory skeleton, the Claude Code skills (`kb-add`, `kb-bootstrap`, `kb-curate`), hook scripts, and pre-commit config; registers the capture hook against three Claude Code events; writes `.ai/.kb-builder/installed-version`. If the repo carries legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files from an older install, those are removed (user-authored slash commands in `.claude/commands/` are left untouched).
+First-time setup for a repo. Copies the directory skeleton, the Claude Code skills (`kb-add`, `kb-bootstrap`, `kb-curate`), hook scripts, and pre-commit config; registers the capture hook against three Claude Code events; writes `.ai/knowledge-base/.state/installed-version`. If the repo carries legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files from an older install, those are removed (user-authored slash commands in `.claude/commands/` are left untouched).
 
 Flags:
 
 - `-a, --assistants <list>` (required) — comma-separated list of AI assistants to wire up. v1 supports `claude` only; the list form exists for forward compatibility.
 - `-f, --force` — overwrite existing files. Without this flag, re-running `init` on an already-initialized repo exits with a notice and does nothing. `--force` does **not** overwrite an existing `.ai/knowledge-base/.config.json` (use the file's own editor) and is incompatible with `--upgrade` (use one or the other).
-- `-u, --upgrade` — refresh hooks, skills, prompts, and hook registrations to match the current package version, while preserving local prompt overrides under `.ai/.kb-builder/prompts/` and the existing `.config.json`. Also removes legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files left by older installs. Prints a preflight changelist, then applies. Combine with `--dry-run` to print the preflight only.
+- `-u, --upgrade` — refresh hooks, skills, prompts, and hook registrations to match the current package version, while preserving local prompt overrides under `.ai/knowledge-base/.state/prompts/` and the existing `.config.json`. Also removes legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files left by older installs. Prints a preflight changelist, then applies. Combine with `--dry-run` to print the preflight only.
 - `--dry-run` — only meaningful with `--upgrade`. Lists planned changes without writing.
 
 See [Getting Started > Upgrading](../getting-started/upgrading.md) for a walkthrough.
@@ -31,8 +31,8 @@ What `init` writes:
 - `.claude/skills/{kb-add,kb-bootstrap,kb-curate}/SKILL.md` — the three Claude Code skills that drive the in-session knowledge-base UX.
 - `.claude/hooks/kb-capture.mjs` — compiled stage-1 capture script (Stop / SessionEnd / PreCompact).
 - `.claude/settings.json` — registers the three hooks; merges with any existing user-defined hooks.
-- `.ai/.kb-builder/installed-version` — JSON marker recording the package version and selected assistants.
-- `.ai/.kb-builder/prompts/` — copy of the shipped prompts so you can review or override them locally.
+- `.ai/knowledge-base/.state/installed-version` — JSON marker recording the package version and selected assistants.
+- `.ai/knowledge-base/.state/prompts/` — copy of the shipped prompts so you can review or override them locally.
 - `.gitignore` — appends a managed block listing `_sessions/`, `_logs/`, and state files.
 - `.pre-commit-config.yaml` — gitleaks hook (only if no config exists; otherwise the file is left alone with a warning).
 
@@ -45,7 +45,7 @@ ai-knowledge-base doctor [--verbose]
 Verify the installation. Checks:
 
 - Node ≥ 22, `claude` CLI on PATH, gitleaks on PATH.
-- `.ai/.kb-builder/installed-version` marker.
+- `.ai/knowledge-base/.state/installed-version` marker.
 - `.pre-commit-config.yaml` present with a gitleaks entry.
 - `.gitignore` carries the managed ai-knowledge-base block.
 - Every `derived_from` reference under `nodes/` resolves on disk (session log filename, repo-relative path, or absolute path). Dangling references are a warning, not an error — the consume path silently ignores them. `--verbose` prints the offending references after the check summary.
@@ -68,7 +68,7 @@ ai-knowledge-base curate [--batch-size <n>] [--token-budget <n>] [--timeout <ms>
 
 Run the curator non-interactively over every session log with `stage_2_status: done` that has not yet been curated. The command:
 
-1. Acquires the curator lock on `.ai/.kb-builder/state.json` (`name: curator`, PID + 30-minute TTL). If another curate run holds the lock, exits with `locked` and no work done.
+1. Acquires the curator lock on `.ai/knowledge-base/.state/state.json` (`name: curator`, PID + 30-minute TTL). If another curate run holds the lock, exits with `locked` and no work done.
 2. Batches pending session logs by count (`--batch-size`, default 10) and an estimated token budget (`--token-budget`, default 50000).
 3. Spawns one `claude -p` subprocess per batch with the curator prompt, streaming JSON output to `.ai/knowledge-base/_logs/curator/<ulid>__<timestamp>.jsonl`.
 4. Writes one proposal per non-drop action under `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`.
@@ -115,11 +115,11 @@ ai-knowledge-base bootstrap-incremental --from <path> \
   [--dry-run] [--token-budget <n>] [--timeout <ms>]
 ```
 
-Re-bootstrap the KB from markdown documentation under `--from`. Hash-aware: processes only files whose SHA-256 changed since the last run (recorded in `.ai/.kb-builder/bootstrap-state.json`). The command:
+Re-bootstrap the KB from markdown documentation under `--from`. Hash-aware: processes only files whose SHA-256 changed since the last run (recorded in `.ai/knowledge-base/.state/bootstrap-state.json`). The command:
 
 1. Walks `--from` recursively, applying `.gitignore`, `--include`, and `--exclude` filters. Paths are matched relative to the repo root with posix separators.
 2. Computes SHA-256 for each remaining file and compares it against `bootstrap-state.json`. Unchanged files are reported and skipped.
-3. Acquires the `bootstrap-incremental` lock on `.ai/.kb-builder/state.json` (PID + 30-minute TTL). If another bootstrap is running, exits with `locked` and no work done.
+3. Acquires the `bootstrap-incremental` lock on `.ai/knowledge-base/.state/state.json` (PID + 30-minute TTL). If another bootstrap is running, exits with `locked` and no work done.
 4. Chunks the to-process set into batches sized by `--token-budget` (~4 chars per token; default `10000`).
 5. Spawns one `claude -p` subprocess per batch with the [bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md), streaming JSON output to `.ai/knowledge-base/_logs/bootstrap-incremental/<ulid>__<timestamp>.jsonl`.
 6. Writes one `addition` proposal per LLM-emitted candidate under `.ai/knowledge-base/_proposed/additions/`, with `proposal.rationale: "bootstrap: <source-doc>"`, `derived_from: [<source-doc>]`, and `confidence: medium` by default.

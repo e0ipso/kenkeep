@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { log } from '../lib/log.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
 
 interface QueueFile {
   entries?: Array<{ session_id: string; attempts?: number }>;
@@ -11,6 +11,7 @@ interface QueueFile {
 export async function runStatus(): Promise<void> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.warn(

@@ -7,7 +7,7 @@ import {
   type BootstrapRunner,
 } from '../lib/bootstrap.js';
 import { log } from '../lib/log.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface BootstrapIncrementalOptions {
@@ -24,6 +24,7 @@ export async function runBootstrapIncrementalCommand(
 ): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
@@ -38,7 +39,7 @@ export async function runBootstrapIncrementalCommand(
     return 1;
   }
 
-  const promptTemplate = loadBootstrapPrompt(paths.builderDir);
+  const promptTemplate = loadBootstrapPrompt(paths.stateDir);
   if (!promptTemplate) {
     log.error('Bootstrap-incremental prompt template not found.');
     return 1;
@@ -57,8 +58,8 @@ export async function runBootstrapIncrementalCommand(
     kbDir: paths.kbDir,
     proposedDir: paths.proposedDir,
     logsDir: paths.logsDir,
-    stateFile: join(paths.builderDir, 'state.json'),
-    bootstrapStateFile: join(paths.builderDir, 'bootstrap-state.json'),
+    stateFile: join(paths.stateDir, 'state.json'),
+    bootstrapStateFile: join(paths.stateDir, 'bootstrap-state.json'),
     promptTemplate,
     runner,
     tokenBudget: settings.bootstrapTokenBudget,
@@ -112,8 +113,8 @@ export async function runBootstrapIncrementalCommand(
   }
 }
 
-function loadBootstrapPrompt(builderDir: string): string | null {
-  const local = join(builderDir, 'prompts', 'bootstrap-incremental.md');
+function loadBootstrapPrompt(stateDir: string): string | null {
+  const local = join(stateDir, 'prompts', 'bootstrap-incremental.md');
   if (existsSync(local)) return readFileSync(local, 'utf8');
   const fallback = join(packageTemplatesDir(), 'prompts', 'bootstrap-incremental.md');
   if (existsSync(fallback)) return readFileSync(fallback, 'utf8');

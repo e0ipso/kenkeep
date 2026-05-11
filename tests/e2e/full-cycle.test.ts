@@ -51,7 +51,7 @@ describe.skipIf(!ENABLED)('e2e: full capture → drain → curate → review cyc
       const logsDir = join(kbDir, '_logs');
       const proposedDir = join(kbDir, '_proposed');
       const nodesDir = join(kbDir, 'nodes');
-      const stateFile = join(sandbox, '.ai/.kb-builder/state.json');
+      const stateFile = join(sandbox, '.ai/knowledge-base/.state/state.json');
 
       // 1. Plant a session log + queue entry pointing at the bravo-insider fixture.
       const transcript = readFileSync(fixtureTranscriptPath, 'utf8');
@@ -112,7 +112,7 @@ describe.skipIf(!ENABLED)('e2e: full capture → drain → curate → review cyc
         adapter.runHeadless(prompt, stdin, schema, opts);
 
       const stage2Prompt = readFileSync(
-        join(sandbox, '.ai/.kb-builder/prompts/stage-2-extract.md'),
+        join(sandbox, '.ai/knowledge-base/.state/prompts/stage-2-extract.md'),
         'utf8',
       );
 
@@ -137,7 +137,7 @@ describe.skipIf(!ENABLED)('e2e: full capture → drain → curate → review cyc
       const curatorRunner: CuratorRunner = (prompt, stdin, schema, opts) =>
         adapter.runHeadless(prompt, stdin, schema, opts);
       const curatorPrompt = readFileSync(
-        join(sandbox, '.ai/.kb-builder/prompts/curator.md'),
+        join(sandbox, '.ai/knowledge-base/.state/prompts/curator.md'),
         'utf8',
       );
 

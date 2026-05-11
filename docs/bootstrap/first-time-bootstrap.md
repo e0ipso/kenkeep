@@ -41,7 +41,7 @@ The default scan covers `docs/`, top-level `README.md`, `CONTRIBUTING.md`, `ARCH
 3. **Samples and follows references.** Skims long reference docs (skipping auto-generated tables), follows explicit cross-references like "see `docs/architecture/auth.md` for the auth design."
 4. **Splits candidates by kind.** Imperative guidance ("always use X") becomes a **practice** proposal; named entities ("Bravo Cards is our personalization module") become **map** proposals. Content that has both aspects is split across the two.
 5. **Writes proposals.** Each candidate is written under `.ai/knowledge-base/_proposed/additions/<kind>-<slug>.md` with `proposal.rationale: "bootstrap: <source-doc>"` and `derived_from: [<source-doc>]`. Confidence defaults to `medium`.
-6. **Updates state.** For every doc the agent read (even ones that produced zero candidates), `.ai/.kb-builder/bootstrap-state.json` gets a SHA-256 + timestamp entry. This lets future `bootstrap-incremental` runs skip unchanged files.
+6. **Updates state.** For every doc the agent read (even ones that produced zero candidates), `.ai/knowledge-base/.state/bootstrap-state.json` gets a SHA-256 + timestamp entry. This lets future `bootstrap-incremental` runs skip unchanged files.
 7. **Reports back.** A summary lists docs read, docs skipped (and why), proposal counts by kind, cross-references the agent noticed but did not follow, and any contradictions worth your attention.
 
 After the agent finishes, run `ai-knowledge-base proposals review` to step through the proposals interactively.

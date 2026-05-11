@@ -47,7 +47,7 @@ A malformed user file is not fatal — `resolveSettings()` emits a warning to th
 | `drainBound` | int > 0 | `5` | Maximum number of stage-2 queue entries the async drain processes per `SessionStart`. Remaining entries are deferred to the next session. Keeps a long backlog from blocking a quick session start. |
 | `maxAttempts` | int > 0 | `3` | A failed stage-2 entry (parse error, schema mismatch, timeout, non-zero exit) is rotated to the back of the queue with `attempts` incremented. After this many failures the session log is marked `stage_2_status: skipped` and the entry is removed. |
 | `stage2Timeout` | int > 0 (ms) | `60000` | Per-entry wall-clock deadline for the spawned `claude -p` stage-2 subprocess. A timeout counts as a failed attempt for retry purposes. |
-| `lockTtlMs` | int > 0 (ms) | `1800000` (30 min) | TTL for the `.ai/.kb-builder/state.json` lock. A lock older than its TTL is treated as stale and reclaimed, preventing a crashed run from blocking subsequent invocations. Applies to the stage-2 drain, curator, and bootstrap-incremental locks. |
+| `lockTtlMs` | int > 0 (ms) | `1800000` (30 min) | TTL for the `.ai/knowledge-base/.state/state.json` lock. A lock older than its TTL is treated as stale and reclaimed, preventing a crashed run from blocking subsequent invocations. Applies to the stage-2 drain, curator, and bootstrap-incremental locks. |
 | `indexBudgetTokens` | int > 0 | `2000` | INDEX.md token budget (~4 chars/token). Per-kind sections trim oldest entries until the rendered body fits; trimmed counts go into a "_N additional nodes hidden by token budget_" footer. |
 | `curationThreshold` | int > 0 | `5` | Number of pending session logs that triggers the curate-nudge on the next `SessionStart`. The nudge is throttled to at most once per hour. |
 | `bootstrapTokenBudget` | int > 0 | `10000` | Approximate per-batch token budget for `ai-knowledge-base bootstrap-incremental`. Docs are atomic — a single oversized doc lands in its own batch. |
@@ -60,7 +60,7 @@ Per-command flags (`--batch-size`, `--token-budget`, `--timeout`, `--budget-toke
 
 ## Lock state
 
-`.ai/.kb-builder/state.json` carries `{ schema_version: 1, lock?: { name, pid, acquired_at, ttl_ms }, last_nudged_at? }`. The lock guards against concurrent stage-2 drains, curate runs, and bootstrap-incremental runs. Field reference:
+`.ai/knowledge-base/.state/state.json` carries `{ schema_version: 1, lock?: { name, pid, acquired_at, ttl_ms }, last_nudged_at? }`. The lock guards against concurrent stage-2 drains, curate runs, and bootstrap-incremental runs. Field reference:
 
 | Field | Purpose |
 |---|---|

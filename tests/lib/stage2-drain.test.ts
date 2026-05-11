@@ -38,7 +38,7 @@ function seedSession(harness: Harness, sessionId: string, transcript: string): s
     capturedBy: 'stop',
     capturedAt: '2026-05-11T10:00:00Z',
     transcriptHash: `sha256:${sessionId}`,
-    gitleaksStatus: 'clean',
+    secretScanStatus: 'clean',
     body: transcript,
   });
   writeFileSync(join(harness.sessionsDir, filename), body);

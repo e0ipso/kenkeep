@@ -10,7 +10,7 @@ describe('renderSessionLog', () => {
       capturedBy: 'stop',
       capturedAt: '2026-05-11T12:00:00.000Z',
       transcriptHash: 'sha256:deadbeef',
-      gitleaksStatus: 'clean',
+      secretScanStatus: 'clean',
       body: '[USER]: hi\n\n[AGENT]: hello',
     });
     const parsed = matter(md);
@@ -19,7 +19,7 @@ describe('renderSessionLog', () => {
     if (result.success) {
       expect(result.data.session_id).toBe('abc');
       expect(result.data.captured_by).toBe('stop');
-      expect(result.data.gitleaks_status).toBe('clean');
+      expect(result.data.secret_scan_status).toBe('clean');
       expect(result.data.stage_2_status).toBe('pending');
     }
     expect(parsed.content).toContain('## Stage 1: redacted transcript slice');

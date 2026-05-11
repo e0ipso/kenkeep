@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { captureSession } from '../../src/lib/capture.js';
-import type { GitleaksScanner } from '../../src/lib/gitleaks.js';
+import type { SecretScanner } from '../../src/lib/secret-scan.js';
 import { cleanSandbox, makeSandbox } from '../helpers.js';
 
-function fakeScanner(behavior: 'clean' | 'blocked' | 'redact' = 'clean'): GitleaksScanner {
+function fakeScanner(behavior: 'clean' | 'blocked' | 'redact' = 'clean'): SecretScanner {
   return async (text: string) => {
     if (behavior === 'blocked')
       return { status: 'blocked', redactedText: '', findings: [], error: 'fake blocked' };
@@ -14,7 +14,7 @@ function fakeScanner(behavior: 'clean' | 'blocked' | 'redact' = 'clean'): Gitlea
       return {
         status: 'redacted',
         redactedText: text.replace(/sk-[a-z0-9]+/gi, '[REDACTED:test-secret]'),
-        findings: [{ RuleID: 'test-secret', Secret: 'sk-abc123' }],
+        findings: [{ ruleId: 'test-secret', secret: 'sk-abc123' }],
       };
     return { status: 'clean', redactedText: text, findings: [] };
   };
@@ -56,7 +56,7 @@ describe('captureSession', () => {
       { sessionsDir, scan: fakeScanner('clean') }
     );
     expect(result.status).toBe('written');
-    expect(result.gitleaksStatus).toBe('clean');
+    expect(result.secretScanStatus).toBe('clean');
 
     // session log file exists with the expected frontmatter
     const files = readdirSync(sessionsDir).filter(f => f.endsWith('.md'));
@@ -68,13 +68,13 @@ describe('captureSession', () => {
       session_id: string;
       captured_by: string;
       stage_2_status: string;
-      gitleaks_status: string;
+      secret_scan_status: string;
       transcript_hash: string;
     };
     expect(fm.session_id).toBe('sess-1');
     expect(fm.captured_by).toBe('stop');
     expect(fm.stage_2_status).toBe('pending');
-    expect(fm.gitleaks_status).toBe('clean');
+    expect(fm.secret_scan_status).toBe('clean');
     expect(fm.transcript_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
 
     // queue + dedup cache populated
@@ -123,7 +123,7 @@ describe('captureSession', () => {
       { sessionsDir, scan: fakeScanner('redact') }
     );
     expect(result.status).toBe('written');
-    expect(result.gitleaksStatus).toBe('redacted');
+    expect(result.secretScanStatus).toBe('redacted');
 
     const log = readFileSync(
       join(sessionsDir, readdirSync(sessionsDir).filter(f => f.endsWith('.md'))[0] as string),
@@ -138,7 +138,7 @@ describe('captureSession', () => {
       { session_id: 'x', transcript_path: transcriptPath, hook_event_name: 'Stop' },
       { sessionsDir, scan: fakeScanner('blocked') }
     );
-    expect(result.status).toBe('gitleaks-blocked');
+    expect(result.status).toBe('secret-scan-blocked');
     expect(result.error).toContain('fake blocked');
     expect(readdirSync(sessionsDir).filter(f => f.endsWith('.md'))).toHaveLength(0);
   });

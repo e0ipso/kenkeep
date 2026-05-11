@@ -19,7 +19,7 @@ Run the curator over pending session logs and turn them into reviewable proposal
 
 2. Once it finishes, report the summary line to the user (proposals written, drops, batches, run id).
 
-3. Tell the user the next step is `ai-knowledge-base proposals review` to accept or reject the new proposals.
+3. Tell the user the next step is to review the new proposals under `.ai/knowledge-base/_proposed/` before committing them.
 
 ## Constraints
 

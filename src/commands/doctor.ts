@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { log } from '../lib/log.js';
 import { computeNodesHash, readAllNodes } from '../lib/nodes.js';
-import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -28,34 +28,21 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
 
-  // Auto-migrate legacy `.ai/.kb-builder/` state to the new layout. Surface
-  // a notice so the user knows what happened.
-  const migration = ensureStateLayout(paths);
-  if (migration.migrated) {
-    log.success(
-      `state layout migrated: .ai/.kb-builder/ → .ai/knowledge-base/.state/ (${migration.movedEntries.length} entr${migration.movedEntries.length === 1 ? 'y' : 'ies'})`
-    );
-  }
-
   const checks: NamedCheck[] = [];
   checks.push({ name: 'Node.js >= 22', result: checkNodeVersion() });
   checks.push({ name: 'claude CLI on PATH', result: await checkClaude() });
-  checks.push({ name: 'gitleaks on PATH', result: await checkGitleaks() });
+  checks.push({ name: 'secretlint resolvable', result: checkSecretlint(paths.root) });
   checks.push({
     name: '.ai/knowledge-base/.state/installed-version',
     result: checkInstalledVersion(paths.installedVersionFile),
-  });
-  checks.push({
-    name: 'no legacy .ai/.kb-builder/ directory',
-    result: checkLegacyStateDir(paths.legacyStateDir),
   });
   checks.push({
     name: 'installed-version is current',
     result: checkInstalledVersionCurrent(paths.installedVersionFile),
   });
   checks.push({
-    name: 'pre-commit config installed',
-    result: checkPreCommit(paths.preCommitConfigFile),
+    name: 'commit-time secret scan wired',
+    result: checkCommitTimeSecretScan(paths),
   });
   checks.push({
     name: '.gitignore lists ai-knowledge-base paths',
@@ -71,12 +58,8 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     result: checkClaudeSkills(paths.claudeSkillsDir),
   });
   checks.push({
-    name: 'no legacy .claude/commands/kb-*.md',
-    result: checkLegacyKbCommands(paths.claudeCommandsDir),
-  });
-  checks.push({
     name: 'shipped prompts present',
-    result: checkPrompts(paths.stateDir),
+    result: checkPrompts(paths.promptsDir),
   });
   checks.push({
     name: 'settings file is valid',
@@ -194,18 +177,21 @@ async function checkClaude(): Promise<CheckResult> {
   }
 }
 
-async function checkGitleaks(): Promise<CheckResult> {
-  try {
-    const { stdout } = await exec('gitleaks', ['version'], { timeout: 5000 });
-    return { ok: true, detail: stdout.trim() || 'present' };
-  } catch {
-    return {
-      ok: false,
-      level: 'warn',
-      detail:
-        'not found on PATH. v1 vendors gitleaks via optionalDependencies; install pre-commit and run `pre-commit install` to wire it up, or install gitleaks manually.',
-    };
+function checkSecretlint(repoRoot: string): CheckResult {
+  const candidates = [
+    join(repoRoot, 'node_modules', '@secretlint', 'core', 'package.json'),
+    join(repoRoot, 'node_modules', 'secretlint', 'package.json'),
+  ];
+  const missing = candidates.filter(c => !existsSync(c));
+  if (missing.length === 0) {
+    return { ok: true, detail: 'present in node_modules' };
   }
+  return {
+    ok: false,
+    level: 'warn',
+    detail:
+      'secretlint not installed. Run `npm install --save-dev secretlint @secretlint/secretlint-rule-preset-recommend`.',
+  };
 }
 
 function checkInstalledVersion(file: string): CheckResult {
@@ -252,19 +238,38 @@ function checkInstalledVersionCurrent(file: string): CheckResult {
   }
 }
 
-function checkPreCommit(file: string): CheckResult {
-  if (!existsSync(file)) {
-    return {
-      ok: false,
-      level: 'warn',
-      detail: 'no .pre-commit-config.yaml at repo root. Re-run `init` or add gitleaks manually.',
-    };
+type CommitScanPaths = Pick<
+  ReturnType<typeof import('../lib/paths.js').repoPaths>,
+  'secretlintrcFile' | 'huskyPreCommitFile' | 'packageJsonFile'
+>;
+
+function checkCommitTimeSecretScan(paths: CommitScanPaths): CheckResult {
+  const missing: string[] = [];
+  if (!existsSync(paths.secretlintrcFile)) missing.push('.secretlintrc.json');
+  if (!existsSync(paths.huskyPreCommitFile)) missing.push('.husky/pre-commit');
+
+  let hasLintStaged = false;
+  if (existsSync(paths.packageJsonFile)) {
+    try {
+      const pkg = JSON.parse(readFileSync(paths.packageJsonFile, 'utf8')) as {
+        'lint-staged'?: Record<string, unknown>;
+      };
+      hasLintStaged =
+        pkg['lint-staged'] !== undefined && Object.keys(pkg['lint-staged']).length > 0;
+    } catch {
+      // unparseable — treat as missing
+    }
   }
-  const body = readFileSync(file, 'utf8');
-  if (body.includes('gitleaks')) {
-    return { ok: true, detail: 'gitleaks entry present' };
+  if (!hasLintStaged) missing.push('lint-staged config in package.json');
+
+  if (missing.length === 0) {
+    return { ok: true, detail: 'husky + lint-staged + secretlint wired' };
   }
-  return { ok: false, level: 'warn', detail: 'present but no gitleaks entry found' };
+  return {
+    ok: false,
+    level: 'warn',
+    detail: `missing: ${missing.join(', ')}. Re-run \`ai-knowledge-base init\` to scaffold.`,
+  };
 }
 
 const EXPECTED_HOOK_SCRIPTS: Record<string, string[]> = {
@@ -339,41 +344,9 @@ function checkClaudeSkills(skillsDir: string): CheckResult {
   };
 }
 
-const LEGACY_KB_COMMAND_FILES = ['kb-add.md', 'kb-bootstrap.md', 'kb-curate.md'];
-
-function checkLegacyKbCommands(commandsDir: string): CheckResult {
-  if (!existsSync(commandsDir)) {
-    return { ok: true, detail: 'no legacy commands directory' };
-  }
-  const lingering = LEGACY_KB_COMMAND_FILES.filter(n => existsSync(join(commandsDir, n)));
-  if (lingering.length === 0) {
-    return { ok: true, detail: 'none present' };
-  }
-  return {
-    ok: false,
-    level: 'warn',
-    detail: `legacy slash-command file(s) found (the kb-* commands are now Skills under .claude/skills/): ${lingering
-      .map(n => `.claude/commands/${n}`)
-      .join(', ')}. Run \`ai-knowledge-base init --upgrade\` to remove them.`,
-  };
-}
-
-function checkLegacyStateDir(legacyDir: string): CheckResult {
-  if (!existsSync(legacyDir)) {
-    return { ok: true, detail: 'legacy directory not present' };
-  }
-  return {
-    ok: false,
-    level: 'warn',
-    detail:
-      `legacy .ai/.kb-builder/ still on disk. The auto-migration moves state into .ai/knowledge-base/.state/; ` +
-      'a leftover here usually means a manual mv left an empty husk. Safe to `rm -rf .ai/.kb-builder/`.',
-  };
-}
-
-function checkPrompts(stateDir: string): CheckResult {
+function checkPrompts(promptsDir: string): CheckResult {
   const expected = ['stage-2-extract.md', 'curator.md', 'bootstrap-incremental.md'];
-  const missing = expected.filter(p => !existsSync(join(stateDir, 'prompts', p)));
+  const missing = expected.filter(p => !existsSync(join(promptsDir, p)));
   if (missing.length === 0) {
     return { ok: true, detail: 'stage-2, curator, bootstrap-incremental' };
   }

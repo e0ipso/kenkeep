@@ -1,13 +1,13 @@
 /**
  * Stop / SessionEnd / PreCompact hook.
  *
- * Runs the deterministic stage-1 capture pipeline: dedup, gitleaks redact,
+ * Runs the deterministic stage-1 capture pipeline: dedup, secret-scan redact,
  * write session log, append to queue. Must complete within 1 second on any
  * trigger; if the wall-clock deadline elapses, exits silently to avoid
  * blocking session shutdown.
  */
 import { captureSession, type HookInput } from '../lib/capture.js';
-import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, repoPaths } from '../lib/paths.js';
 
 const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[ai-knowledge-base]';
@@ -36,13 +36,12 @@ async function main(): Promise<void> {
     typeof input.cwd === 'string' && input.cwd.length > 0 ? input.cwd : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
-  ensureStateLayout(paths);
 
   try {
     const result = await captureSession(input, { sessionsDir: paths.sessionsDir });
-    if (result.status === 'gitleaks-blocked') {
+    if (result.status === 'secret-scan-blocked') {
       process.stderr.write(
-        `${PACKAGE_TAG} gitleaks blocked stage-1 capture: ${result.error ?? 'unknown error'}\n`
+        `${PACKAGE_TAG} secret scan blocked stage-1 capture: ${result.error ?? 'unknown error'}\n`
       );
     }
     // All other statuses are intentionally silent. `ai-knowledge-base status`

@@ -7,7 +7,7 @@ import {
   type BootstrapRunner,
 } from '../lib/bootstrap.js';
 import { log } from '../lib/log.js';
-import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface BootstrapIncrementalOptions {
@@ -24,7 +24,6 @@ export async function runBootstrapIncrementalCommand(
 ): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
-  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
@@ -39,7 +38,7 @@ export async function runBootstrapIncrementalCommand(
     return 1;
   }
 
-  const promptTemplate = loadBootstrapPrompt(paths.stateDir);
+  const promptTemplate = loadBootstrapPrompt(paths.promptsDir);
   if (!promptTemplate) {
     log.error('Bootstrap-incremental prompt template not found.');
     return 1;
@@ -107,14 +106,14 @@ export async function runBootstrapIncrementalCommand(
         log.warn(`${failures.length} file(s) failed to process; see logs for details.`);
         for (const f of failures) log.plain(`  ! ${f.relPath}: ${f.error ?? 'unknown error'}`);
       }
-      log.plain('Review the proposals with `ai-knowledge-base proposals review`.');
+      log.plain('Review the proposals under `.ai/knowledge-base/_proposed/` before committing.');
       return 0;
     }
   }
 }
 
-function loadBootstrapPrompt(stateDir: string): string | null {
-  const local = join(stateDir, 'prompts', 'bootstrap-incremental.md');
+function loadBootstrapPrompt(promptsDir: string): string | null {
+  const local = join(promptsDir, 'bootstrap-incremental.md');
   if (existsSync(local)) return readFileSync(local, 'utf8');
   const fallback = join(packageTemplatesDir(), 'prompts', 'bootstrap-incremental.md');
   if (existsSync(fallback)) return readFileSync(fallback, 'utf8');

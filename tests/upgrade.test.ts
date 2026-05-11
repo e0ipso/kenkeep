@@ -89,7 +89,7 @@ describe('init --upgrade', () => {
   it('preserves a customized local prompt override', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
 
-    const promptFile = join(sandbox, '.ai/knowledge-base/.state/prompts/stage-2-extract.md');
+    const promptFile = join(sandbox, '.ai/knowledge-base/.config/prompts/stage-2-extract.md');
     writeFileSync(promptFile, '# my local override\n');
 
     const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
@@ -106,7 +106,7 @@ describe('init --upgrade', () => {
   it('re-copies a missing prompt during upgrade', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
 
-    const promptFile = join(sandbox, '.ai/knowledge-base/.state/prompts/stage-2-extract.md');
+    const promptFile = join(sandbox, '.ai/knowledge-base/.config/prompts/stage-2-extract.md');
     rmSync(promptFile);
 
     const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');

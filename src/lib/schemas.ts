@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const CaptureTriggerSchema = z.enum(['stop', 'session_end', 'pre_compact', 'manual']);
 export type CaptureTrigger = z.infer<typeof CaptureTriggerSchema>;
 
-export const GitleaksStatusSchema = z.enum(['clean', 'redacted', 'blocked', 'skipped']);
-export type GitleaksStatus = z.infer<typeof GitleaksStatusSchema>;
+export const SecretScanStatusSchema = z.enum(['clean', 'redacted', 'blocked', 'skipped']);
+export type SecretScanStatus = z.infer<typeof SecretScanStatusSchema>;
 
 export const Stage2StatusSchema = z.enum(['pending', 'done', 'failed', 'skipped']);
 export type Stage2Status = z.infer<typeof Stage2StatusSchema>;
@@ -19,7 +19,7 @@ export const SessionLogFrontmatterSchema = z.object({
   stage_2_completed_at: z.string().nullable(),
   stage_2_error: z.string().nullable(),
   stage_2_log: z.string().nullable(),
-  gitleaks_status: GitleaksStatusSchema,
+  secret_scan_status: SecretScanStatusSchema,
   topics: z.array(z.string()),
   proposals: z.object({
     practice: z.array(z.unknown()),
@@ -241,7 +241,6 @@ export const SettingsSchema = z
     indexBudgetTokens: z.number().int().positive().optional(),
     curationThreshold: z.number().int().positive().optional(),
     bootstrapTokenBudget: z.number().int().positive().optional(),
-    gitleaksRulesPath: z.string().nullable().optional(),
     logsRetentionDays: z.number().int().positive().optional(),
   })
   .strict();

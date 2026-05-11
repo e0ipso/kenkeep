@@ -4,14 +4,13 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { ClaudeAdapter } from '../adapters/claude.js';
 import { log } from '../lib/log.js';
-import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -22,20 +21,12 @@ export interface InitOptions {
   dryRun?: boolean;
 }
 
-/**
- * Layout versions:
- *   1 = legacy `.ai/.kb-builder/` for state, alongside `.ai/knowledge-base/`.
- *   2 = state co-located under `.ai/knowledge-base/.state/`.
- */
-export const CURRENT_LAYOUT_VERSION = 2;
-
 interface InstalledVersion {
   schema_version: 1;
   package: string;
   version: string;
   installed_at: string;
   assistants: string[];
-  layout_version?: number;
 }
 
 const GITIGNORE_BLOCK_START = '# >>> @e0ipso/ai-knowledge-base >>>';
@@ -59,15 +50,6 @@ export async function runInit(opts: InitOptions): Promise<void> {
   if (!existsSync(templatesDir)) {
     throw new Error(
       `Templates directory not found at ${templatesDir}. Run \`npm run build\` if developing locally.`
-    );
-  }
-
-  // Migrate any legacy `.ai/.kb-builder/` state inline so the rest of the
-  // command sees a single canonical layout.
-  const migration = ensureStateLayout(paths);
-  if (migration.migrated) {
-    log.info(
-      `Migrated legacy state from .ai/.kb-builder/ → .ai/knowledge-base/.state/ (${migration.movedEntries.length} entr${migration.movedEntries.length === 1 ? 'y' : 'ies'}).`
     );
   }
 
@@ -95,14 +77,14 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 2. Claude-specific files (commands + settings + hooks).
   await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
 
-  // 3. Prompts under .ai/knowledge-base/.state/prompts (for local override).
+  // 3. Prompts under .ai/knowledge-base/.config/prompts (for local override).
   const promptsSrc = join(templatesDir, 'prompts');
   if (existsSync(promptsSrc)) {
-    copyTree(promptsSrc, join(paths.stateDir, 'prompts'));
+    copyTree(promptsSrc, paths.promptsDir);
   }
 
-  // 4. Pre-commit secret-scan config (only if not already present).
-  installPreCommitConfig(paths.preCommitConfigFile, templatesDir);
+  // 4. Commit-time secret-scan scaffold (husky + lint-staged + secretlint).
+  installCommitScan(paths, templatesDir);
 
   // 5. Update .gitignore.
   updateGitignore(paths.gitignoreFile);
@@ -124,9 +106,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
   log.success('Initialized.');
   log.plain('');
   log.plain('Next steps:');
-  log.plain('  1. Review and commit `.ai/knowledge-base/`, `.claude/`, `.pre-commit-config.yaml`,');
-  log.plain('     and the updated `.gitignore`.');
-  log.plain('  2. Install pre-commit (https://pre-commit.com) and run `pre-commit install`.');
+  log.plain('  1. Review and commit `.ai/knowledge-base/`, `.claude/`, `.secretlintrc.json`,');
+  log.plain('     `.husky/`, the package.json changes, and the updated `.gitignore`.');
+  log.plain('  2. Run `npm install` so husky activates the pre-commit hook in your local clone.');
   log.plain('  3. Run `ai-knowledge-base doctor` to verify the setup.');
 }
 
@@ -147,37 +129,16 @@ interface UpgradeChange {
   kind:
     | 'hook-script'
     | 'skill'
-    | 'legacy-command-cleanup'
     | 'prompt-new'
     | 'prompt-preserved'
     | 'hook-registration'
     | 'gitignore'
     | 'config-json'
-    | 'pre-commit-config'
+    | 'secretlintrc'
+    | 'husky-pre-commit'
+    | 'package-json-scan'
     | 'installed-version';
   detail: string;
-}
-
-const LEGACY_KB_COMMAND_FILES = ['kb-add.md', 'kb-bootstrap.md', 'kb-curate.md'];
-
-/**
- * Removes legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files left
- * behind by older installs. Skills replaced the slash-command markdown layout
- * in v0.2; older repos may still carry these files alongside the new
- * `.claude/skills/` tree. Other files in `.claude/commands/` (user-authored
- * slash commands) are preserved.
- */
-function removeLegacyKbCommands(commandsDir: string): string[] {
-  if (!existsSync(commandsDir)) return [];
-  const removed: string[] = [];
-  for (const name of LEGACY_KB_COMMAND_FILES) {
-    const file = join(commandsDir, name);
-    if (existsSync(file)) {
-      rmSync(file, { force: true });
-      removed.push(name);
-    }
-  }
-  return removed;
 }
 
 async function runUpgrade(
@@ -234,20 +195,17 @@ async function runUpgrade(
   copyTree(join(templatesDir, 'claude', 'hooks'), paths.claudeHooksDir);
   copyTree(join(templatesDir, 'claude', 'skills'), paths.claudeSkillsDir);
 
-  // Clean up legacy slash-command markdown files left over from pre-skills installs.
-  removeLegacyKbCommands(paths.claudeCommandsDir);
-
   // Refresh hook registrations in .claude/settings.json (preserves user-defined hooks).
   await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
 
   // Prompts: copy only those missing locally, preserve customized ones.
-  copyPromptsPreservingLocal(join(templatesDir, 'prompts'), join(paths.stateDir, 'prompts'));
+  copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
   // Gitignore: idempotent block update covers new lines.
   updateGitignore(paths.gitignoreFile);
 
-  // Pre-commit config: only write if missing (init's existing behavior).
-  installPreCommitConfig(paths.preCommitConfigFile, templatesDir);
+  // Commit-time secret-scan scaffold (idempotent).
+  installCommitScan(paths, templatesDir);
 
   // Settings: only create if missing; never overwrite existing.
   if (!existsSync(paths.projectConfigFile)) {
@@ -255,7 +213,7 @@ async function runUpgrade(
     writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
   }
 
-  // Stamp the new installed-version (and current layout version).
+  // Stamp the new installed-version.
   writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.assistants);
 
   log.success(`Upgraded to ${current}.`);
@@ -299,33 +257,20 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
     }
   }
 
-  // Legacy slash-command markdown left over from pre-skills installs.
-  if (existsSync(ctx.paths.claudeCommandsDir)) {
-    const lingering = LEGACY_KB_COMMAND_FILES.filter(n =>
-      existsSync(join(ctx.paths.claudeCommandsDir, n))
-    );
-    if (lingering.length > 0) {
-      out.push({
-        kind: 'legacy-command-cleanup',
-        detail: `remove legacy .claude/commands/${lingering.join(', .claude/commands/')}`,
-      });
-    }
-  }
-
   // Prompts (preserve existing local overrides).
   const promptSrc = join(ctx.templatesDir, 'prompts');
   if (existsSync(promptSrc)) {
     for (const name of readdirSync(promptSrc)) {
-      const dst = join(ctx.paths.stateDir, 'prompts', name);
+      const dst = join(ctx.paths.promptsDir, name);
       if (!existsSync(dst)) {
         out.push({
           kind: 'prompt-new',
-          detail: `copy new prompt .ai/knowledge-base/.state/prompts/${name}`,
+          detail: `copy new prompt .ai/knowledge-base/.config/prompts/${name}`,
         });
       } else if (!filesEqual(join(promptSrc, name), dst)) {
         out.push({
           kind: 'prompt-preserved',
-          detail: `local override preserved: .ai/knowledge-base/.state/prompts/${name}`,
+          detail: `local override preserved: .ai/knowledge-base/.config/prompts/${name}`,
         });
       }
     }
@@ -348,11 +293,6 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
       kind: 'gitignore',
       detail: `add missing .gitignore lines: ${gitignoreState.missingLines.join(', ')}`,
     });
-  } else if (gitignoreState.staleLegacyLines.length > 0) {
-    out.push({
-      kind: 'gitignore',
-      detail: `drop stale legacy lines: ${gitignoreState.staleLegacyLines.join(', ')}`,
-    });
   }
 
   // .config.json: create only if absent.
@@ -363,22 +303,26 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
     });
   }
 
-  // pre-commit config (only if missing — init never overwrites).
-  if (!existsSync(ctx.paths.preCommitConfigFile)) {
-    out.push({ kind: 'pre-commit-config', detail: 'create .pre-commit-config.yaml' });
+  // Commit-time secret-scan scaffold (husky + lint-staged + secretlint).
+  if (!existsSync(ctx.paths.secretlintrcFile)) {
+    out.push({ kind: 'secretlintrc', detail: 'create .secretlintrc.json' });
+  }
+  if (!existsSync(ctx.paths.huskyPreCommitFile)) {
+    out.push({ kind: 'husky-pre-commit', detail: 'create .husky/pre-commit' });
+  }
+  if (packageJsonNeedsScanScaffold(ctx.paths.packageJsonFile)) {
+    out.push({
+      kind: 'package-json-scan',
+      detail: 'patch package.json (husky/lint-staged/secretlint devDeps + scripts)',
+    });
   }
 
-  // installed-version stamp (version bump or layout_version bump).
-  const installedLayout = ctx.installed.layout_version ?? 1;
-  if (ctx.installed.version !== ctx.current || installedLayout !== CURRENT_LAYOUT_VERSION) {
-    const parts: string[] = [];
-    if (ctx.installed.version !== ctx.current) {
-      parts.push(`version ${ctx.installed.version} → ${ctx.current}`);
-    }
-    if (installedLayout !== CURRENT_LAYOUT_VERSION) {
-      parts.push(`layout_version ${installedLayout} → ${CURRENT_LAYOUT_VERSION}`);
-    }
-    out.push({ kind: 'installed-version', detail: `stamp installed-version: ${parts.join(', ')}` });
+  // installed-version stamp (version bump).
+  if (ctx.installed.version !== ctx.current) {
+    out.push({
+      kind: 'installed-version',
+      detail: `stamp installed-version: version ${ctx.installed.version} → ${ctx.current}`,
+    });
   }
 
   return out;
@@ -387,15 +331,7 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
 interface GitignoreState {
   blockPresent: boolean;
   missingLines: string[];
-  staleLegacyLines: string[];
 }
-
-// Lines that used to be inside the managed block but no longer apply.
-// They're scrubbed on `updateGitignore`.
-const STALE_LEGACY_GITIGNORE_LINES = [
-  '.ai/.kb-builder/state.json',
-  '.ai/.kb-builder/bootstrap-state.json',
-];
 
 const EXPECTED_HOOK_COMMANDS: Array<{ event: string; command: string; async?: boolean }> = [
   { event: 'Stop', command: 'KB_BUILDER_HOOK=Stop node .claude/hooks/kb-capture.mjs' },
@@ -435,13 +371,12 @@ function hookRegistrationsNeedRefresh(settingsFile: string): boolean {
 
 function inspectGitignore(file: string): GitignoreState {
   if (!existsSync(file)) {
-    return { blockPresent: false, missingLines: GITIGNORE_LINES.slice(), staleLegacyLines: [] };
+    return { blockPresent: false, missingLines: GITIGNORE_LINES.slice() };
   }
   const body = readFileSync(file, 'utf8');
   const blockPresent = body.includes(GITIGNORE_BLOCK_START);
   const missing = GITIGNORE_LINES.filter(line => !body.includes(line));
-  const stale = STALE_LEGACY_GITIGNORE_LINES.filter(line => body.includes(line));
-  return { blockPresent, missingLines: missing, staleLegacyLines: stale };
+  return { blockPresent, missingLines: missing };
 }
 
 function skillDirsEqual(src: string, dst: string): boolean {
@@ -501,8 +436,6 @@ async function installClaude(
   if (existsSync(claudeTemplateDir)) {
     copyTree(claudeTemplateDir, claudeDir);
   }
-  // Sweep out legacy slash-command files from pre-skills installs.
-  removeLegacyKbCommands(join(claudeDir, 'commands'));
   await adapter.writeHookConfig(root, [
     { event: 'Stop', scriptPath: '.claude/hooks/kb-capture.mjs' },
     { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-capture.mjs' },
@@ -523,7 +456,6 @@ function writeInstalledVersion(file: string, stateDir: string, assistants: strin
     version: packageVersion(),
     installed_at: new Date().toISOString(),
     assistants,
-    layout_version: CURRENT_LAYOUT_VERSION,
   };
   mkdirSync(stateDir, { recursive: true });
   writeFileSync(file, `${JSON.stringify(installed, null, 2)}\n`);
@@ -535,17 +467,112 @@ function copyTree(src: string, dest: string): void {
   cpSync(src, dest, { recursive: true, force: true });
 }
 
-function installPreCommitConfig(target: string, templatesDir: string): void {
-  const src = join(templatesDir, 'precommit', 'pre-commit-config.yaml');
-  if (!existsSync(src)) return;
-  if (existsSync(target)) {
-    log.warn(
-      'A .pre-commit-config.yaml already exists; not overwriting. ' +
-        'Add the gitleaks repo entry manually if needed (see docs).'
+interface CommitScanPathsForInit {
+  secretlintrcFile: string;
+  huskyDir: string;
+  huskyPreCommitFile: string;
+  packageJsonFile: string;
+}
+
+const SECRET_SCAN_DEV_DEPS: Record<string, string> = {
+  husky: '^9.1.7',
+  'lint-staged': '^17.0.4',
+  secretlint: '^13.0.0',
+  '@secretlint/secretlint-rule-preset-recommend': '^13.0.0',
+};
+
+const SECRET_SCAN_LINT_STAGED = {
+  '*': ['secretlint'],
+};
+
+function installCommitScan(paths: CommitScanPathsForInit, templatesDir: string): void {
+  if (!existsSync(paths.packageJsonFile)) {
+    throw new Error(
+      'No package.json at repo root. The commit-time secret scan now runs via husky + ' +
+        'lint-staged + secretlint, which requires a Node project. Initialize npm in this ' +
+        'repo (e.g. `npm init -y`) or open an issue if you need non-Node support.'
     );
+  }
+
+  // .secretlintrc.json — write only if missing.
+  const secretlintTemplate = join(templatesDir, 'secret-scan', 'secretlintrc.json');
+  if (!existsSync(paths.secretlintrcFile) && existsSync(secretlintTemplate)) {
+    writeFileSync(paths.secretlintrcFile, readFileSync(secretlintTemplate, 'utf8'));
+  }
+
+  // .husky/pre-commit — write only if missing. If present with different content, skip and warn.
+  const huskyTemplate = join(templatesDir, 'husky', 'pre-commit');
+  if (existsSync(huskyTemplate)) {
+    mkdirSync(paths.huskyDir, { recursive: true });
+    if (!existsSync(paths.huskyPreCommitFile)) {
+      writeFileSync(paths.huskyPreCommitFile, readFileSync(huskyTemplate, 'utf8'), { mode: 0o755 });
+    } else {
+      const existing = readFileSync(paths.huskyPreCommitFile, 'utf8');
+      if (!existing.includes('lint-staged')) {
+        log.warn(
+          '.husky/pre-commit exists but does not invoke lint-staged. Add `npx lint-staged` to it ' +
+            'so secret scanning runs on every commit.'
+        );
+      }
+    }
+  }
+
+  // package.json — patch devDeps, prepare script, lint-staged config.
+  patchPackageJsonForScan(paths.packageJsonFile);
+}
+
+function patchPackageJsonForScan(file: string): void {
+  let pkg: Record<string, unknown>;
+  try {
+    pkg = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+  } catch (err) {
+    log.warn(`package.json unparseable (${(err as Error).message}); skipping scan-deps patch.`);
     return;
   }
-  writeFileSync(target, readFileSync(src, 'utf8'));
+  let changed = false;
+
+  const devDeps = (pkg['devDependencies'] as Record<string, string> | undefined) ?? {};
+  for (const [name, version] of Object.entries(SECRET_SCAN_DEV_DEPS)) {
+    if (devDeps[name] === undefined) {
+      devDeps[name] = version;
+      changed = true;
+    }
+  }
+  if (changed) pkg['devDependencies'] = devDeps;
+
+  const scripts = (pkg['scripts'] as Record<string, string> | undefined) ?? {};
+  if (scripts['prepare'] === undefined) {
+    scripts['prepare'] = 'husky';
+    pkg['scripts'] = scripts;
+    changed = true;
+  }
+
+  if (pkg['lint-staged'] === undefined) {
+    pkg['lint-staged'] = SECRET_SCAN_LINT_STAGED;
+    changed = true;
+  }
+
+  if (changed) {
+    writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+  }
+}
+
+function packageJsonNeedsScanScaffold(file: string): boolean {
+  if (!existsSync(file)) return true;
+  let pkg: Record<string, unknown>;
+  try {
+    pkg = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return true;
+  }
+  const devDeps = (pkg['devDependencies'] as Record<string, string> | undefined) ?? {};
+  for (const name of Object.keys(SECRET_SCAN_DEV_DEPS)) {
+    if (devDeps[name] === undefined) return true;
+  }
+  const scripts = (pkg['scripts'] as Record<string, string> | undefined) ?? {};
+  if (scripts['prepare'] === undefined) return true;
+  if (pkg['lint-staged'] === undefined) return true;
+  return false;
 }
 
 function updateGitignore(file: string): void {

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { ClaudeAdapter } from '../adapters/claude.js';
 import { runCurate, type CuratorRunner } from '../lib/curate.js';
 import { log } from '../lib/log.js';
-import { ensureStateLayout, findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface CurateCommandOptions {
@@ -15,7 +15,6 @@ export interface CurateCommandOptions {
 export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
-  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
@@ -24,7 +23,7 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     return 1;
   }
 
-  const promptTemplate = loadCuratorPrompt(paths.stateDir);
+  const promptTemplate = loadCuratorPrompt(paths.promptsDir);
   if (!promptTemplate) {
     log.error('Curator prompt template not found.');
     return 1;
@@ -68,13 +67,13 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
         `Curator finished: ${result.proposalsWritten} proposal(s), ${result.drops} drop(s) over ${result.batches} batch(es).`
       );
       log.plain(`Run id: ${result.runId ?? '(unknown)'}`);
-      log.plain('Review the proposals with `ai-knowledge-base proposals review`.');
+      log.plain('Review the proposals under `.ai/knowledge-base/_proposed/` before committing.');
       return 0;
   }
 }
 
-function loadCuratorPrompt(stateDir: string): string | null {
-  const local = join(stateDir, 'prompts', 'curator.md');
+function loadCuratorPrompt(promptsDir: string): string | null {
+  const local = join(promptsDir, 'curator.md');
   if (existsSync(local)) return readFileSync(local, 'utf8');
   const fallback = join(packageTemplatesDir(), 'prompts', 'curator.md');
   if (existsSync(fallback)) return readFileSync(fallback, 'utf8');

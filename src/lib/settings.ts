@@ -17,7 +17,6 @@ export const SETTINGS_DEFAULTS = {
   indexBudgetTokens: 2000,
   curationThreshold: 5,
   bootstrapTokenBudget: 10_000,
-  gitleaksRulesPath: null as string | null,
   logsRetentionDays: 30,
 } as const;
 
@@ -132,7 +131,6 @@ export function defaultProjectConfigBody(): string {
     indexBudgetTokens: SETTINGS_DEFAULTS.indexBudgetTokens,
     curationThreshold: SETTINGS_DEFAULTS.curationThreshold,
     bootstrapTokenBudget: SETTINGS_DEFAULTS.bootstrapTokenBudget,
-    gitleaksRulesPath: SETTINGS_DEFAULTS.gitleaksRulesPath,
     logsRetentionDays: SETTINGS_DEFAULTS.logsRetentionDays,
   };
   return `${JSON.stringify(body, null, 2)}\n`;

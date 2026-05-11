@@ -67,7 +67,7 @@ function seedSession(
     stage_2_completed_at: capturedAt,
     stage_2_error: null,
     stage_2_log: `_logs/stage-2/${sessionId}.jsonl`,
-    gitleaks_status: 'clean',
+    secret_scan_status: 'clean',
     topics: [],
     proposals: { practice, map },
   };
@@ -141,7 +141,7 @@ describe('listPendingSessions', () => {
       stage_2_completed_at: null,
       stage_2_error: null,
       stage_2_log: null,
-      gitleaks_status: 'clean',
+      secret_scan_status: 'clean',
       topics: [],
       proposals: { practice: [], map: [] },
     };

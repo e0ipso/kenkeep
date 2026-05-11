@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,11 +12,23 @@ export const repoRoot = resolve(here, '..');
 export const cliPath = join(repoRoot, 'dist/cli.js');
 
 export function makeSandbox(prefix = 'ai-kb-test-'): string {
-  return mkdtempSync(join(tmpdir(), prefix));
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  seedPackageJson(dir);
+  return dir;
 }
 
 export function cleanSandbox(path: string): void {
   rmSync(path, { recursive: true, force: true });
+}
+
+/**
+ * Writes a minimal package.json so `ai-knowledge-base init` can scaffold the
+ * husky + lint-staged + secretlint commit-time scan. `init` errors out without
+ * one.
+ */
+export function seedPackageJson(sandbox: string, extra: Record<string, unknown> = {}): void {
+  const body = { name: 'sandbox', version: '0.0.0', private: true, ...extra };
+  writeFileSync(join(sandbox, 'package.json'), `${JSON.stringify(body, null, 2)}\n`);
 }
 
 export interface RunResult {

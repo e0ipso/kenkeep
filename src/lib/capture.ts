@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDuplicate, recordHash } from './dedup-cache.js';
-import type { GitleaksResult, GitleaksScanner } from './gitleaks.js';
-import { scanAndRedact } from './gitleaks.js';
+import type { SecretScanResult, SecretScanner } from './secret-scan.js';
+import { scanAndRedact } from './secret-scan.js';
 import { appendToQueue } from './queue.js';
 import type { CaptureTrigger } from './schemas.js';
 import { buildSessionLogFilename, renderSessionLog, writeSessionLog } from './session-log.js';
@@ -21,19 +21,19 @@ export type CaptureStatus =
   | 'duplicate'
   | 'no-content'
   | 'no-transcript'
-  | 'gitleaks-blocked';
+  | 'secret-scan-blocked';
 
 export interface CaptureResult {
   status: CaptureStatus;
   sessionLogPath?: string;
-  gitleaksStatus?: GitleaksResult['status'];
+  secretScanStatus?: SecretScanResult['status'];
   error?: string;
 }
 
 export interface CaptureContext {
   sessionsDir: string;
   now?: () => Date;
-  scan?: GitleaksScanner;
+  scan?: SecretScanner;
   scanTimeoutMs?: number;
 }
 
@@ -78,12 +78,12 @@ export async function captureSession(
   }
 
   const scan = ctx.scan ?? ((text: string) => scanAndRedact(text, ctx.scanTimeoutMs ?? 1000));
-  const gitleaks = await scan(slice);
-  if (gitleaks.status === 'blocked') {
+  const scanResult = await scan(slice);
+  if (scanResult.status === 'blocked') {
     return {
-      status: 'gitleaks-blocked',
-      gitleaksStatus: 'blocked',
-      ...(gitleaks.error !== undefined ? { error: gitleaks.error } : {}),
+      status: 'secret-scan-blocked',
+      secretScanStatus: 'blocked',
+      ...(scanResult.error !== undefined ? { error: scanResult.error } : {}),
     };
   }
 
@@ -98,8 +98,8 @@ export async function captureSession(
     capturedBy: trigger,
     capturedAt,
     transcriptHash: hash,
-    gitleaksStatus: gitleaks.status,
-    body: gitleaks.status === 'redacted' ? gitleaks.redactedText : slice,
+    secretScanStatus: scanResult.status,
+    body: scanResult.status === 'redacted' ? scanResult.redactedText : slice,
   });
 
   const sessionLogPath = writeSessionLog(ctx.sessionsDir, filename, body);
@@ -116,6 +116,6 @@ export async function captureSession(
   return {
     status: 'written',
     sessionLogPath,
-    gitleaksStatus: gitleaks.status,
+    secretScanStatus: scanResult.status,
   };
 }

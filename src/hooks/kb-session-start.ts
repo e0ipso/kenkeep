@@ -13,7 +13,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSessionStartContext } from '../lib/session-start.js';
-import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 const PACKAGE_TAG = '[ai-knowledge-base]';
@@ -43,7 +43,6 @@ async function main(): Promise<void> {
     typeof input.cwd === 'string' && input.cwd.length > 0 ? input.cwd : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
-  ensureStateLayout(paths);
   if (!existsSync(paths.installedVersionFile)) return;
 
   try {

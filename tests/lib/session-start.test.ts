@@ -43,7 +43,7 @@ function seedSession(harness: Harness, sessionId: string, processed: boolean): v
     stage_2_completed_at: '2026-05-11T10:00:01Z',
     stage_2_error: null,
     stage_2_log: null,
-    gitleaks_status: 'clean',
+    secret_scan_status: 'clean',
     topics: [],
     proposals: { practice: [], map: [] },
   };

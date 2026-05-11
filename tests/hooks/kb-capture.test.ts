@@ -7,13 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 
 const exec = promisify(execFile);
-let gitleaksAvailable = false;
-try {
-  await exec('gitleaks', ['version'], { timeout: 2000 });
-  gitleaksAvailable = true;
-} catch {
-  gitleaksAvailable = false;
-}
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../..');
 const hookPath = join(repoRoot, 'dist/hooks/kb-capture.mjs');
@@ -106,43 +99,21 @@ describe('kb-capture hook (spawned)', () => {
     expect(sessionLogs(sandbox)).toHaveLength(0);
   });
 
-  it.skipIf(gitleaksAvailable)(
-    'reports gitleaks-blocked to stderr when gitleaks is missing and writes no session log',
-    async () => {
-      const transcript = join(sandbox, 't.jsonl');
-      writeTranscript(transcript);
+  it('writes a session log + queue entry when secretlint finds no secrets', async () => {
+    const transcript = join(sandbox, 't.jsonl');
+    writeTranscript(transcript);
 
-      const result = await runHook(sandbox, {
-        session_id: 's1',
-        transcript_path: transcript,
-        hook_event_name: 'Stop',
-        cwd: sandbox,
-      });
-
-      expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain('gitleaks');
-      expect(sessionLogs(sandbox)).toHaveLength(0);
-    }
-  );
-
-  it.skipIf(!gitleaksAvailable)(
-    'writes a session log + queue entry when gitleaks is available',
-    async () => {
-      const transcript = join(sandbox, 't.jsonl');
-      writeTranscript(transcript);
-
-      const result = await runHook(sandbox, {
-        session_id: 's1',
-        transcript_path: transcript,
-        hook_event_name: 'Stop',
-        cwd: sandbox,
-      });
-      expect(result.exitCode).toBe(0);
-      expect(sessionLogs(sandbox).length).toBeGreaterThan(0);
-      const queueFile = join(sandbox, '.ai/knowledge-base/_sessions/.queue.json');
-      expect(existsSync(queueFile)).toBe(true);
-    }
-  );
+    const result = await runHook(sandbox, {
+      session_id: 's1',
+      transcript_path: transcript,
+      hook_event_name: 'Stop',
+      cwd: sandbox,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(sessionLogs(sandbox).length).toBeGreaterThan(0);
+    const queueFile = join(sandbox, '.ai/knowledge-base/_sessions/.queue.json');
+    expect(existsSync(queueFile)).toBe(true);
+  });
 
   it('exits 0 on missing transcript without throwing', async () => {
     const result = await runHook(sandbox, {

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -43,11 +43,12 @@ describe('init', () => {
       '.claude/hooks/kb-stage2-drain.mjs',
       '.claude/hooks/kb-session-start.mjs',
       '.ai/knowledge-base/.state/installed-version',
-      '.ai/knowledge-base/.state/prompts/stage-2-extract.md',
-      '.ai/knowledge-base/.state/prompts/curator.md',
-      '.ai/knowledge-base/.state/prompts/bootstrap-incremental.md',
+      '.ai/knowledge-base/.config/prompts/stage-2-extract.md',
+      '.ai/knowledge-base/.config/prompts/curator.md',
+      '.ai/knowledge-base/.config/prompts/bootstrap-incremental.md',
       '.ai/knowledge-base/.config.json',
-      '.pre-commit-config.yaml',
+      '.secretlintrc.json',
+      '.husky/pre-commit',
       '.gitignore',
     ];
 
@@ -69,7 +70,6 @@ describe('init', () => {
     expect(installed.version.length).toBeGreaterThan(0);
     expect(installed.assistants).toEqual(['claude']);
     expect(typeof installed.installed_at).toBe('string');
-    expect(installed.layout_version).toBe(2);
   });
 
   it('appends an idempotent block to .gitignore', async () => {
@@ -101,13 +101,35 @@ describe('init', () => {
     expect(result.stderr + result.stdout).toMatch(/cursor|Unsupported assistant/i);
   });
 
-  it('does not overwrite an existing .pre-commit-config.yaml', async () => {
-    const existing = 'repos:\n  - repo: local\n    hooks: []\n';
-    writeFileSync(join(sandbox, '.pre-commit-config.yaml'), existing);
+  it('does not overwrite an existing .secretlintrc.json', async () => {
+    const existing = '{"rules": [{"id": "custom-rule"}]}\n';
+    writeFileSync(join(sandbox, '.secretlintrc.json'), existing);
 
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const after = readFileSync(join(sandbox, '.pre-commit-config.yaml'), 'utf8');
+    const after = readFileSync(join(sandbox, '.secretlintrc.json'), 'utf8');
     expect(after).toBe(existing);
+  });
+
+  it('errors clearly when package.json is missing', async () => {
+    rmSync(join(sandbox, 'package.json'), { force: true });
+    const result = await runCli(sandbox, ['init', '--assistants', 'claude']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toMatch(/package\.json|Node project/i);
+  });
+
+  it('patches package.json with husky/lint-staged/secretlint devDeps', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    const pkg = JSON.parse(readFileSync(join(sandbox, 'package.json'), 'utf8')) as {
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+      'lint-staged'?: Record<string, unknown>;
+    };
+    expect(pkg.devDependencies?.['husky']).toBeTruthy();
+    expect(pkg.devDependencies?.['lint-staged']).toBeTruthy();
+    expect(pkg.devDependencies?.['secretlint']).toBeTruthy();
+    expect(pkg.devDependencies?.['@secretlint/secretlint-rule-preset-recommend']).toBeTruthy();
+    expect(pkg.scripts?.['prepare']).toBe('husky');
+    expect(pkg['lint-staged']).toBeTruthy();
   });
 
   it('registers Stop, SessionEnd, and PreCompact capture hooks in .claude/settings.json', async () => {
@@ -177,89 +199,5 @@ describe('init', () => {
     expect(result.exitCode).toBe(0);
     expect(readFileSync(configFile, 'utf8')).toBe(customized);
     expect(result.stdout + result.stderr).toContain('.config.json already exists');
-  });
-
-  it('ships the rename — no references to the old `kb-builder` binary in copied prompts', async () => {
-    await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const skill = readFileSync(join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'), 'utf8');
-    expect(skill).not.toMatch(/\bkb-builder proposals/);
-    expect(skill).toContain('ai-knowledge-base proposals review');
-  });
-
-  it('cleans up legacy .claude/commands/kb-*.md files left by older installs', async () => {
-    // Simulate an older install: drop the legacy slash-command markdown
-    // alongside the soon-to-be-installed skills tree.
-    const legacyCommandsDir = join(sandbox, '.claude/commands');
-    const fsMod = await import('node:fs');
-    fsMod.mkdirSync(legacyCommandsDir, { recursive: true });
-    fsMod.writeFileSync(join(legacyCommandsDir, 'kb-add.md'), '# stale\n');
-    fsMod.writeFileSync(join(legacyCommandsDir, 'kb-bootstrap.md'), '# stale\n');
-    fsMod.writeFileSync(join(legacyCommandsDir, 'kb-curate.md'), '# stale\n');
-    // A user-authored slash command that init should NOT touch.
-    fsMod.writeFileSync(join(legacyCommandsDir, 'my-own.md'), '# user\n');
-
-    const result = await runCli(sandbox, ['init', '--assistants', 'claude']);
-    expect(result.exitCode).toBe(0);
-
-    expect(existsSync(join(legacyCommandsDir, 'kb-add.md'))).toBe(false);
-    expect(existsSync(join(legacyCommandsDir, 'kb-bootstrap.md'))).toBe(false);
-    expect(existsSync(join(legacyCommandsDir, 'kb-curate.md'))).toBe(false);
-    expect(existsSync(join(legacyCommandsDir, 'my-own.md'))).toBe(true);
-
-    // New skills tree is present.
-    expect(existsSync(join(sandbox, '.claude/skills/kb-add/SKILL.md'))).toBe(true);
-    expect(existsSync(join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'))).toBe(true);
-    expect(existsSync(join(sandbox, '.claude/skills/kb-curate/SKILL.md'))).toBe(true);
-  });
-
-  it('does not create the legacy `.ai/.kb-builder/` directory for fresh installs', async () => {
-    await runCli(sandbox, ['init', '--assistants', 'claude']);
-    expect(existsSync(join(sandbox, '.ai/.kb-builder'))).toBe(false);
-    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state'))).toBe(true);
-  });
-
-  it('migrates a legacy `.ai/.kb-builder/` install to `.ai/knowledge-base/.state/`', async () => {
-    // Simulate a legacy install: state files live under .ai/.kb-builder/.
-    const { mkdirSync } = await import('node:fs');
-    mkdirSync(join(sandbox, '.ai/.kb-builder/prompts'), { recursive: true });
-    writeFileSync(
-      join(sandbox, '.ai/.kb-builder/installed-version'),
-      JSON.stringify(
-        {
-          schema_version: 1,
-          package: '@e0ipso/ai-knowledge-base',
-          version: '0.0.0-test-legacy',
-          installed_at: '2026-01-01T00:00:00Z',
-          assistants: ['claude'],
-        },
-        null,
-        2
-      )
-    );
-    writeFileSync(
-      join(sandbox, '.ai/.kb-builder/state.json'),
-      JSON.stringify({ schema_version: 1, last_nudged_at: '2026-01-01T00:00:00Z' })
-    );
-    writeFileSync(
-      join(sandbox, '.ai/.kb-builder/bootstrap-state.json'),
-      JSON.stringify({ schema_version: 1, docs: {} })
-    );
-    writeFileSync(join(sandbox, '.ai/.kb-builder/prompts/curator.md'), '# legacy local override\n');
-
-    // Doctor auto-migrates.
-    const result = await runCli(sandbox, ['doctor']);
-    // Exit code is non-fatal (warnings only); migration message present.
-    expect(result.stdout + result.stderr).toMatch(/state layout migrated/i);
-
-    // New layout exists.
-    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state/installed-version'))).toBe(true);
-    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state/state.json'))).toBe(true);
-    expect(existsSync(join(sandbox, '.ai/knowledge-base/.state/bootstrap-state.json'))).toBe(true);
-    expect(
-      readFileSync(join(sandbox, '.ai/knowledge-base/.state/prompts/curator.md'), 'utf8')
-    ).toBe('# legacy local override\n');
-
-    // Legacy directory is removed.
-    expect(existsSync(join(sandbox, '.ai/.kb-builder'))).toBe(false);
   });
 });

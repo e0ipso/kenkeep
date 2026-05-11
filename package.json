@@ -55,13 +55,30 @@
     "security:fix": "npm audit fix",
     "security:fix-force": "npm audit fix --force",
     "prepublishOnly": "npm run build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "secretlint": "secretlint --secretlintignore .gitignore \"**/*\""
+  },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*": [
+      "secretlint"
+    ]
   },
   "dependencies": {
     "@inquirer/prompts": "^7.2.1",
+    "@secretlint/config-loader": "^13.0.0",
+    "@secretlint/core": "^13.0.0",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.0",
     "commander": "^13.0.0",
     "execa": "^9.5.2",
     "gray-matter": "^4.0.3",
+    "secretlint": "^13.0.0",
     "split2": "^4.2.0",
     "zod": "^3.24.1"
   },
@@ -81,6 +98,7 @@
     "conventional-changelog-conventionalcommits": "^8.0.0",
     "eslint": "^9.18.0",
     "husky": "^9.1.7",
+    "lint-staged": "^17.0.4",
     "prettier": "^3.4.2",
     "semantic-release": "^25.0.2",
     "tsup": "^8.3.5",

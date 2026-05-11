@@ -137,7 +137,7 @@ When you're done, summarize for the user:
 - Any cross-references you noticed but didn't follow (the user might want to direct you to those).
 - Any docs that looked stale or contradictory that the user should double-check.
 
-Then suggest the user run `ai-knowledge-base proposals review` to step through the proposals.
+Then suggest the user review the proposals under `.ai/knowledge-base/_proposed/` before committing them.
 
 ## Constraints
 

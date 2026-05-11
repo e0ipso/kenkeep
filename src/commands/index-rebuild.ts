@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateGraph, generateIndex, writeGraph, writeIndex } from '../lib/index-gen.js';
 import { log } from '../lib/log.js';
-import { ensureStateLayout, findRepoRoot, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface IndexRebuildOptions {
@@ -13,13 +13,11 @@ export interface IndexRebuildOptions {
  * Thin wrapper around the deterministic `generateIndex` / `generateGraph`
  * helpers. The curator already regenerates INDEX/GRAPH at the end of every
  * run; this command exists for the case where a contributor edits a node
- * file by hand (or runs `proposals review` and wants to refresh before
- * committing) and wants to refresh the index without a curate pass.
+ * file by hand and wants to refresh the index without a curate pass.
  */
 export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
-  ensureStateLayout(paths);
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(

@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CaptureTrigger, GitleaksStatus } from './schemas.js';
+import type { CaptureTrigger, SecretScanStatus } from './schemas.js';
 
 export interface SessionLogInput {
   sessionId: string;
   capturedBy: CaptureTrigger;
   capturedAt: string;
   transcriptHash: string;
-  gitleaksStatus: GitleaksStatus;
+  secretScanStatus: SecretScanStatus;
   body: string;
 }
 
@@ -29,7 +29,7 @@ export function renderSessionLog(input: SessionLogInput): string {
     'stage_2_completed_at: null',
     'stage_2_error: null',
     'stage_2_log: null',
-    `gitleaks_status: ${input.gitleaksStatus}`,
+    `secret_scan_status: ${input.secretScanStatus}`,
     'topics: []',
     'proposals:',
     '  practice: []',

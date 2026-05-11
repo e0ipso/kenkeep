@@ -6,7 +6,7 @@ allowed-tools: Write
 
 # kb-add
 
-Capture a single piece of knowledge that the user wants to record in the project KB. The output is a *proposal* under `.ai/knowledge-base/_proposed/additions/`, never a direct write into `nodes/`. A human reviews it later via `ai-knowledge-base proposals review`.
+Capture a single piece of knowledge that the user wants to record in the project KB. The output is a *proposal* under `.ai/knowledge-base/_proposed/additions/`, never a direct write into `nodes/`. A human reviews the proposal directory later before committing.
 
 ## What to gather from the user
 
@@ -62,4 +62,4 @@ Body: just the markdown the user gave you. Add a `# <title>` H1 at the top if th
 - Only use the `Write` tool, and only on a single file path under `.ai/knowledge-base/_proposed/additions/`.
 - Do not modify or read any other file in the KB.
 - Do not regenerate `INDEX.md` or `GRAPH.md` — that happens on the next `ai-knowledge-base curate` run.
-- After writing, tell the user: file path, the proposal id, and remind them to run `ai-knowledge-base proposals review`.
+- After writing, tell the user: file path, the proposal id, and remind them to review the proposal under `.ai/knowledge-base/_proposed/` before committing.

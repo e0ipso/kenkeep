@@ -15,8 +15,9 @@ mkdir kb-manual-test && cd kb-manual-test
 git init
 echo "node_modules" > .gitignore
 npm pack ../path/to/ai-knowledge-base
+npm init -y
 npx ./e0ipso-ai-knowledge-base-<v>.tgz init --assistants claude
-pre-commit install
+npm install
 ai-knowledge-base doctor
 ```
 
@@ -24,12 +25,12 @@ ai-knowledge-base doctor
 
 ## 1. Platform smoke
 
-For each OS, set up a clean sandbox and trigger one `Stop` capture. Confirm `_sessions/` contains one new file with `gitleaks_status: clean` and `stage_2_status: pending`.
+For each OS, set up a clean sandbox and trigger one `Stop` capture. Confirm `_sessions/` contains one new file with `secret_scan_status: clean` and `stage_2_status: pending`.
 
 - [ ] macOS (latest)
 - [ ] Linux (Ubuntu 22.04+)
 - [ ] Windows WSL2: hook command in `.claude/settings.json` uses `node`, forward slashes
-- [ ] Windows native PowerShell: best-effort. Watch for CRLF in `.claude/hooks/*.mjs` (must be LF) and `pre-commit install` failures on the gitleaks hook.
+- [ ] Windows native PowerShell: best-effort. Watch for CRLF in `.claude/hooks/*.mjs` (must be LF).
 
 ## 2. PreCompact timing
 
@@ -40,19 +41,19 @@ The hook contract is ≤1s wall-clock.
 - [ ] Resulting `_sessions/<log>.md` contains the **full transcript slice**, not a summary.
 - [ ] If the deadline fires, the next `Stop`/`SessionEnd` still produces a log covering the missed window.
 
-Diagnostic: `time node .claude/hooks/kb-capture.mjs < /dev/null` should be under 200ms cold. Over 1s usually means gitleaks (not on PATH, or scanning over a slow network drive).
+Diagnostic: `time node .claude/hooks/kb-capture.mjs < /dev/null` should be under 200ms cold. Over 1s usually means secretlint is loading from a slow filesystem, or the consumer hasn't run `npm install`.
 
-## 3. Gitleaks per platform
+## 3. Secretlint per platform
 
-After `pre-commit install`:
+After `npm install`:
 
-- [ ] macOS / Linux / WSL2: `which gitleaks` resolves under `~/.cache/pre-commit/...`. `doctor` reports it.
-- [ ] Native Windows: install via `scoop` or `choco`; `doctor` warns until then.
+- [ ] macOS / Linux / WSL2: `node_modules/@secretlint/core` exists. `doctor` reports secretlint resolvable.
+- [ ] Native Windows: same — secretlint is a pure-JS Node package, no platform-specific binaries.
 
 Redaction:
 
-- [ ] Add a fake secret (e.g. `AWS_SECRET_ACCESS_KEY="AKIAEXAMPLE1234567890"`) in a session. Trigger `Stop`.
-- [ ] The log shows `gitleaks_status: redacted`, the secret replaced by `<REDACTED:aws-access-token>`, and a `gitleaks_findings` list.
+- [ ] Add a fake secret (e.g. `GITHUB_TOKEN=ghp_1234567890abcdefghijklmnopqrstuvwxyz`) in a session. Trigger `Stop`.
+- [ ] The log shows `secret_scan_status: redacted` and the secret replaced by `[REDACTED:<rule-id>]`.
 
 ## 4. End-to-end happy path
 
@@ -63,7 +64,7 @@ Quality judgment.
 3. [ ] `_sessions/` shows one `stage_2_status: pending` log.
 4. [ ] Open a new session. Wait 30-90s. `_logs/stage-2/` has a new `.jsonl`. Log flips to `stage_2_status: done`.
 5. [ ] `curate` writes 1-4 proposals and regenerates `INDEX.md`. Are these the **right** facts to remember? (Target: ≥80% acceptance.)
-6. [ ] `proposals review`: accept all. Files land in `nodes/`.
+6. [ ] Promote each proposal under `_proposed/` into `nodes/` (strip the `proposal:` block, move the file). Run `ai-knowledge-base index rebuild`. Files land in `nodes/`.
 7. [ ] One more session. Ask Claude "what do you know about this project?" The response references something curated.
 
 If proposals are clearly noise, bump the stage-2 prompt's `Version:` and tighten "what to skip".
@@ -94,7 +95,7 @@ If proposals are clearly noise, bump the stage-2 prompt's `Version:` and tighten
 
 - [ ] In a sandbox with a small public repo (README + architecture.md), `init` and open Claude Code.
 - [ ] Run `/kb-bootstrap`. Agent reads source docs, writes proposals under `_proposed/additions/`, stops to ask for review.
-- [ ] `proposals review` walks each. Acceptances land in `nodes/`.
+- [ ] Walk `_proposed/` with `git diff` (or a tool like [self-review](https://github.com/e0ipso/self-review)). Promote acceptances into `nodes/`.
 - [ ] No proposal carries a literal secret or stale TODO from the source docs.
 
 ## 8. `bootstrap-incremental` chunking
@@ -122,7 +123,7 @@ If proposals are clearly noise, bump the stage-2 prompt's `Version:` and tighten
 Reset between scenarios.
 
 - [ ] Delete `installed-version`. Doctor errors, exit 1.
-- [ ] Delete `.pre-commit-config.yaml`. Doctor errors, exit 1.
+- [ ] Delete `.secretlintrc.json`. Doctor reports the commit-time scan as missing, exit 0 with a warning.
 - [ ] Hand-edit a node to add fake `derived_from: nonexistent.md`. Warning, exit 0.
 - [ ] Hand-edit a node's `summary` after a curate run. INDEX stale warning, exit 0.
 - [ ] Install v(N-1), drop v(N) binary without upgrading. Version-mismatch warning, exit 0.

@@ -53,12 +53,11 @@ CLI surface:
 
 | Command | Purpose |
 |---|---|
-| `ai-knowledge-base init --assistants <list>` | First-time setup; copies hooks, templates, and the recommended pre-commit secret-scan config. |
+| `ai-knowledge-base init --assistants <list>` | First-time setup; copies hooks, templates, scaffolds a husky `pre-commit` hook driven by `lint-staged` + `secretlint`, and patches the consumer's `package.json` with the required devDeps. |
 | `ai-knowledge-base status` | Show pending session logs, pending proposals, KB stats. |
 | `ai-knowledge-base curate` | Run the curator non-interactively (CI-friendly). |
 | `ai-knowledge-base node add` | Interactive: create a draft node from manual input; lands in `_proposed/additions/`. |
 | `ai-knowledge-base bootstrap-incremental --from <path>` | Incremental re-bootstrap from markdown docs; processes only files whose content hash changed since last run. |
-| `ai-knowledge-base proposals review` | Interactive TUI for accepting/rejecting proposals. |
 | `ai-knowledge-base index rebuild` | Regenerate `INDEX.md` and `GRAPH.md` from current nodes. |
 | `ai-knowledge-base doctor` | Verify hook installation, secret scanner availability, schema validity, INDEX freshness, dangling `derived_from` (with `--verbose`). |
 
@@ -114,8 +113,9 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   │       ├── bootstrap-state.json # source-doc content hashes (gitignored)
 │   │       └── prompts/            # local prompt overrides (committed)
 ├── .gitignore                       # contains _sessions/, _logs/, state.json
-├── .pre-commit-config.yaml          # gitleaks hook
-└── package.json                     # may add @e0ipso/ai-knowledge-base as devDependency for CI
+├── .secretlintrc.json               # secretlint config (recommended preset)
+├── .husky/pre-commit                # runs `npx lint-staged`
+└── package.json                     # adds husky/lint-staged/secretlint devDeps, prepare script, lint-staged block
 ```
 
 All AI-related state grouped under `.ai/`. Three things gitignored by default: `_sessions/`, `_logs/`, and `state.json`.
@@ -169,7 +169,7 @@ stage_2_status: pending          # pending | done | failed | skipped
 stage_2_completed_at: null
 stage_2_error: null
 stage_2_log: null                # path to _logs/stage-2/...jsonl when done
-gitleaks_status: clean           # clean | redacted | blocked
+secret_scan_status: clean        # clean | redacted | blocked | skipped
 topics: []                       # populated by stage 2
 proposals:                       # populated by stage 2
   practice: []                   # candidates for practice nodes
@@ -211,7 +211,7 @@ Stop / SessionEnd / PreCompact
 ┌────────────────────────────┐
 │ Stage 1                    │
 │ • SHA-256 dedup window     │
-│ • Gitleaks scan + redact   │
+│ • Secretlint scan + redact │
 │ • Write _sessions/<id>.md  │
 │ • Append to .queue.json    │
 │ • stage_2_status: pending  │
@@ -238,7 +238,7 @@ Next session:
 ### 5.1 Stage 1: deterministic, fast, blocking-safe
 
 - **Dedup.** SHA-256 of the transcript slice. 5-minute rolling cache in `_sessions/.dedup-cache.json`. If hash matches, exit silently.
-- **Gitleaks pass.** Shell out to `gitleaks detect --no-git --source=<temp-file>` (vendored binary; see §11). Findings → redact with `[REDACTED:<rule-id>]` placeholders. On crash or timeout (>1 second), abort with `gitleaks_status: blocked`.
+- **Secret-scan pass.** Programmatic call to `@secretlint/core`'s `lintSource()` using the recommended preset config. Findings (each with `range: [start, end]`) → redact with `[REDACTED:<rule-id>]` placeholders. On exception or timeout (>1 second), abort with `secret_scan_status: blocked`.
 - **Write the session log.** Valid frontmatter + `## Stage 1: redacted transcript slice`. `stage_2_status: pending`.
 - **Append to queue.** Atomic write to `_sessions/.queue.json` (read, append, write to temp, rename).
 - **Hard deadline:** stage 1 must complete within 1 second on any trigger.
@@ -445,7 +445,7 @@ The reviewer chooses by editing one line in the proposal frontmatter and moving 
 
 ### 6.7 Inline INDEX/GRAPH regeneration
 
-After all proposals are written to `_proposed/`, the curator regenerates `INDEX.md` and `GRAPH.md` from the current state of `nodes/` (deterministic, no LLM). The reviewer's commit then includes both proposals and regenerated index files atomically.
+After all proposals are written to `_proposed/`, the curator regenerates `INDEX.md` and `GRAPH.md` from the current state of `nodes/` (deterministic, no LLM). The reviewer's commit then includes both proposals and regenerated index files atomically. Review itself happens out-of-tree — proposals are plain markdown files that the reviewer walks with `git diff`, an editor, or a dedicated tool such as [self-review](https://github.com/e0ipso/self-review), and accepts by moving each file into `nodes/<kind>/` (stripping the `proposal:` block) before committing.
 
 ### 6.8 Superseded nodes stay in place
 
@@ -622,10 +622,10 @@ Excludes any file outside `nodes/`. `GRAPH.md` is the unfiltered, full edge list
 - **Frontmatter:** [`gray-matter`](https://github.com/jonschlinkert/gray-matter).
 - **Token counting:** `@anthropic-ai/tokenizer` if available at implementation time, else a documented 4-chars-per-token heuristic.
 - **AI calls:** `claude -p` subprocess via `execa`. No SDK package dependency. The user's existing Claude Code installation is the runtime.
-- **Process spawning:** [`execa`](https://github.com/sindresorhus/execa) for cross-platform subprocess work (gitleaks invocation and `claude -p` invocations).
-- **Secret scanning:** [`gitleaks`](https://github.com/gitleaks/gitleaks). Vendored via npm `optionalDependencies` per platform: `@e0ipso/ai-knowledge-base-gitleaks-darwin-arm64`, `-darwin-x64`, `-linux-x64`, `-linux-arm64`, `-win32-x64`. Each ~5 MB; consumer downloads only its platform's binary.
+- **Process spawning:** [`execa`](https://github.com/sindresorhus/execa) for cross-platform subprocess work (`claude -p` invocations).
+- **Secret scanning:** [`secretlint`](https://github.com/secretlint/secretlint) with `@secretlint/secretlint-rule-preset-recommend`. Called programmatically from the capture hook via `@secretlint/core`'s `lintSource()`. Plain npm packages — no per-platform binaries.
 - **CLI:** [`commander`](https://github.com/tj/commander.js).
-- **Interactive review TUI:** [`@inquirer/prompts`](https://github.com/SBoudrias/Inquirer.js).
+- **Interactive prompts (`node add`):** [`@inquirer/prompts`](https://github.com/SBoudrias/Inquirer.js).
 - **Stream parsing:** [`split2`](https://github.com/mcollina/split2) for line-delimited JSON streams from `claude -p --output-format stream-json`.
 - **Testing:** `vitest`.
 - **Release:** `semantic-release`.
@@ -784,9 +784,9 @@ export interface Adapter {
 
 ### 11.11 Secret scanning belt-and-suspenders, from M0
 
-**Decision.** Gitleaks runs both inside the capture hook and as a pre-commit hook, both shipped from M0.
+**Decision.** Secretlint (with `@secretlint/secretlint-rule-preset-recommend`) runs both inside the capture hook (programmatically via `@secretlint/core`) and as a husky `pre-commit` hook through `lint-staged`. Both shipped from M0.
 
-**Why.** Defense in depth. Capture covers automation-written files; pre-commit covers user-pasted content.
+**Why.** Defense in depth. Capture covers automation-written files; the pre-commit hook covers user-pasted content. Both pass through the same scanner so the rule set stays consistent.
 
 ### 11.12 Schema version from day 1
 
@@ -862,13 +862,13 @@ The policy is documented in the project's CONTRIBUTING.md so future schema autho
 
 Each phase shippable on its own.
 
-**M0 — Project skeleton + secret scanning + docs foundation.** npm package, TS+ESM build, `init` command that copies stub `.ai/knowledge-base/` and `.claude/`, installs the gitleaks pre-commit hook, writes `.ai/knowledge-base/.state/installed-version`. `ai-knowledge-base doctor` checks gitleaks, Node version, and `claude` CLI availability. Documentation foundation ships here too: minimal top-level `README.md`, `CONTRIBUTING.md` skeleton, in-KB `README.md` template that `init` copies, and the Jekyll/Just-the-Docs site skeleton (Home + Getting Started shell, deployed to GitHub Pages). No KB functionality yet, but the security guarantee and documentation scaffolding are in place from day 1.
+**M0 — Project skeleton + secret scanning + docs foundation.** npm package, TS+ESM build, `init` command that copies stub `.ai/knowledge-base/` and `.claude/`, scaffolds the husky + lint-staged + secretlint commit-time scan, writes `.ai/knowledge-base/.state/installed-version`. `ai-knowledge-base doctor` checks secretlint resolves in node_modules, Node version, and `claude` CLI availability. Documentation foundation ships here too: minimal top-level `README.md`, `CONTRIBUTING.md` skeleton, in-KB `README.md` template that `init` copies, and the Jekyll/Just-the-Docs site skeleton (Home + Getting Started shell, deployed to GitHub Pages). No KB functionality yet, but the security guarantee and documentation scaffolding are in place from day 1.
 
-**M1 — Stage 1 capture for all three triggers.** `Stop`, `SessionEnd`, and `PreCompact` hooks ship together. Dedup, gitleaks redaction, write session logs, append to `.queue.json`. Stress-test PreCompact on long sessions during this phase.
+**M1 — Stage 1 capture for all three triggers.** `Stop`, `SessionEnd`, and `PreCompact` hooks ship together. Dedup, secretlint redaction, write session logs, append to `.queue.json`. Stress-test PreCompact on long sessions during this phase.
 
 **M2 — Stage 2 drain.** `kb-stage2-drain.mjs` async SessionStart hook. Adapter's `runHeadless` implementation invoking `claude -p --output-format stream-json --verbose`. Stream-json log writing under `_logs/stage-2/`. Two-pass extraction prompt with role-aware rules. Tests with a mocked subprocess against fixture transcripts.
 
-**M3 — Curate pipeline + manual-add.** `/kb-curate` slash command, curator prompt with batching and contradiction handling, proposal generation, `_proposed/` layout. Validity windows and supersedes/superseded_by wired in. Lock file with PID + TTL. `_logs/curator/` writing. `ai-knowledge-base proposals review` TUI. Inline INDEX regen happens here. Manual-add path (`ai-knowledge-base node add` and `/kb-add`) ships in this phase since it shares the proposal-write infrastructure.
+**M3 — Curate pipeline + manual-add.** `/kb-curate` slash command, curator prompt with batching and contradiction handling, proposal generation, `_proposed/` layout. Validity windows and supersedes/superseded_by wired in. Lock file with PID + TTL. `_logs/curator/` writing. Inline INDEX regen happens here. Review is out-of-tree — proposals are markdown files the reviewer walks with `git diff` or a tool like [self-review](https://github.com/e0ipso/self-review). Manual-add path (`ai-knowledge-base node add` and `/kb-add`) ships in this phase since it shares the proposal-write infrastructure.
 
 **M3.5 — Bootstrap from existing docs.** `/kb-bootstrap` skill (agent-driven, in-session) for first-time bootstrap. `ai-knowledge-base bootstrap-incremental` CLI for re-runs. `bootstrap-state.json` schema and Zod validator. `_logs/bootstrap-incremental/` writing. Bootstrap-specific prompts under `templates/prompts/bootstrap-incremental.md` and `templates/claude/skills/kb-bootstrap/SKILL.md`. Ships after M3 because it depends on the proposal-write infrastructure (manual-add) and the chunking pattern (curator). Optional path for users — empty-KB start still works without invoking either bootstrap tool.
 
@@ -878,14 +878,14 @@ Each phase shippable on its own.
 
 ## 13. Testing strategy
 
-- **Unit tests** (`vitest`): frontmatter parsers, schema validators, INDEX generator (golden files), `nodes_hash` computation, dedup cache, gitleaks output parser, queue file atomic write, lock TTL, stale-INDEX detection, role-tagged transcript splitting, stream-json line parser.
+- **Unit tests** (`vitest`): frontmatter parsers, schema validators, INDEX generator (golden files), `nodes_hash` computation, dedup cache, secretlint redaction & finding-to-range conversion, queue file atomic write, lock TTL, stale-INDEX detection, role-tagged transcript splitting, stream-json line parser.
 - **Integration smoke tests with mocked subprocess:** stage-2 extractor against fixture transcripts (covering teaching moments, project-map introductions, role-aware filtering, ownership boundary cases); curator against fixture session-log + node sets (covering additions, modifications, contradictions, batching, dedup).
 - **Real-`claude` end-to-end suite:** a separate test suite (run on demand, not in CI by default) exercising one full capture → drain → curate → consume cycle against the actual `claude -p` CLI with a controlled fixture transcript. Catches drift in CLI behavior or prompt regressions that mocks miss.
-- **Manual testing checklist** in `docs/manual-test-plan.md`: PreCompact timing, hook installation on Windows, gitleaks vendored binary on each platform, real session capture quality, log file rotation behavior.
+- **Manual testing checklist** in `docs/manual-test-plan.md`: PreCompact timing, hook installation on Windows, secretlint redaction on each platform, real session capture quality, log file rotation behavior.
 
 ## 14. Open implementation questions
 
-1. **Settings file.** `.ai/knowledge-base/.config.json` (committed) for token budget, threshold, drain bound, gitleaks rules path, bootstrap-incremental token budget. User-level overrides at `~/.config/@e0ipso/ai-knowledge-base/config.json`. Project settings win.
+1. **Settings file.** `.ai/knowledge-base/.config.json` (committed) for token budget, threshold, drain bound, bootstrap-incremental token budget. (Secretlint config lives in the repo-root `.secretlintrc.json`, not here.) User-level overrides at `~/.config/@e0ipso/ai-knowledge-base/config.json`. Project settings win.
 
 2. **Stage-2 timeout.** Per-entry subprocess timeout (default 60s). On timeout, mark `failed` and continue.
 
@@ -974,7 +974,7 @@ Documentation grows with the code, not all at the end. Per-phase doc work:
 | M0 | Top-level README; CONTRIBUTING.md; in-KB README template; docs site skeleton (Home + empty Getting Started shell); GitHub Pages deployment configured |
 | M1 | Reference > Hook events; Reference > CLI command coverage for `init`, `doctor`, `status`; Getting Started > Installation page completed |
 | M2 | Customization > Editing the stage-2 prompt; Reference > Settings (token budget, drain bound, threshold); Troubleshooting > Reading `_logs/stage-2/` |
-| M3 | Reference > Skills; Reference > CLI for `curate`, `node add`, `proposals review`; Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/`; Getting Started > First capture → curate (end-to-end walkthrough) |
+| M3 | Reference > Skills; Reference > CLI for `curate`, `node add`; Reviewing proposals (out-of-tree, with `git diff` or self-review); Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/`; Getting Started > First capture → curate (end-to-end walkthrough) |
 | M3.5 | Bootstrap > First-time bootstrap (`/kb-bootstrap` agent-driven walkthrough); Bootstrap > Incremental bootstrap (CLI usage, glob filters, dry-run); Customization > Editing the bootstrap-incremental prompt; Reference > `bootstrap-state.json` schema; Reference > CLI for `bootstrap-incremental` |
 | M4 | Core Concepts > How it works; Core Concepts > Knowledge model; Reference > Frontmatter schemas; INDEX/GRAPH explanation |
 | M5 | Troubleshooting > Common issues (seeded with whatever the team has hit during M1–M4 testing); Architecture page; final pass on every page for accuracy |

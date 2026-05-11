@@ -34,7 +34,7 @@ Knowledge is captured automatically. Knowledge is curated deliberately, with a h
 1. **Persistent project memory.** Knowledge from one session survives into the next, and into sessions run by other teammates.
 2. **Truthful as of last curation.** When new sessions contradict old knowledge, the system surfaces the conflict for a human; it doesn't silently overwrite or silently ignore. Drift between captured sessions and the curated KB is bounded by curation cadence, which the contributor controls.
 3. **Low setup cost for consumers.** No installation beyond Claude Code and Node 22+. No API keys. No DB. No services.
-4. **Low friction for contributors.** Capture is automatic. Curation is one slash command, run when convenient.
+4. **Low friction for contributors.** Capture is automatic. Curation is one skill invocation, run when convenient.
 5. **Reviewable like code.** All KB changes go through git. A reviewer can read a diff, accept some, reject others; the audit trail is the commit history.
 6. **Safe by default.** No secrets, API keys, customer data, or other sensitive content ever lands in the KB.
 7. **Debuggable.** Every LLM-driven step (stage-2 extraction, curation) writes a verbose stream-json log so contributors can audit what the model saw and what it produced.
@@ -85,7 +85,7 @@ Capture happens via session-end hooks. After several sessions, a notification at
 
 > "I want to control when knowledge actually lands in the KB, so I'm not getting noisy commits after every coffee-break session."
 
-A `/kb:curate` slash command runs the curator on demand. Proposed changes appear in a `_proposed/` directory and don't affect the live KB until the contributor (acting as reviewer) moves them across and commits.
+The `kb-curate` Claude Code skill runs the curator on demand. Proposed changes appear in a `_proposed/` directory and don't affect the live KB until the contributor (acting as reviewer) moves them across and commits.
 
 > "I want to know when my new finding contradicts something the KB already says, so I can decide which is right."
 
@@ -93,7 +93,7 @@ The curator flags contradictions as a separate category. The reviewer sees them 
 
 > "I never want a session containing a database password to leak into a committed file."
 
-Two passes: a deterministic secret scanner runs on every session log before it is written, and the same scanner runs as a pre-commit hook. Both are installed by `init`.
+Two passes: a deterministic secret scanner (secretlint with the recommended preset) runs on every session log before it is written, and the same scanner runs as a husky `pre-commit` hook via `lint-staged`. Both are installed by `init`.
 
 > "When the curator does something weird, I want to be able to look at exactly what it saw and what it produced."
 
@@ -101,11 +101,11 @@ Every LLM-driven step writes a verbose log file under `_logs/` (gitignored). For
 
 > "I just realized something about the project, even though I'm not in a session. I want to add it to the KB now."
 
-Two paths into manual capture: `npx @e0ipso/ai-knowledge-base node add` from the terminal (interactive prompts collect kind, title, summary, body, tags), or `/kb:add` from inside a Claude Code session (the slash command guides the agent through the same fields and writes a draft node). Either path lands the result in `_proposed/additions/` for normal review, never directly in `nodes/`. Same human-in-the-loop guarantee as session-derived captures.
+Two paths into manual capture: `npx @e0ipso/ai-knowledge-base node add` from the terminal (interactive prompts collect kind, title, summary, body, tags), or the `kb-add` Claude Code skill from inside a session (the skill guides the agent through the same fields and writes a draft node). Either path lands the result in `_proposed/additions/` for normal review, never directly in `nodes/`. Same human-in-the-loop guarantee as session-derived captures.
 
 > "My project already has a bunch of READMEs, ADRs, and module docs. I don't want to start with an empty KB — I want the KB seeded from what's already documented."
 
-A `/kb:bootstrap` slash command runs an agent-driven first-time bootstrap inside a normal session. The agent surveys the project's docs directory, reads representative content, follows cross-references between docs, and writes seed proposals to `_proposed/additions/` with `rationale: "bootstrap: <source-doc>"` and `derived_from` pointing to the actual doc paths. The contributor reviews proposals via the standard flow. Bootstrap is a supervised one-off, not an autopilot.
+The `kb-bootstrap` Claude Code skill runs an agent-driven first-time bootstrap inside a normal session. The agent surveys the project's docs directory, reads representative content, follows cross-references between docs, and writes seed proposals to `_proposed/additions/` with `rationale: "bootstrap: <source-doc>"` and `derived_from` pointing to the actual doc paths. The contributor reviews proposals via the standard flow. Bootstrap is a supervised one-off, not an autopilot.
 
 > "I added some new docs after the initial bootstrap. I want them folded into the KB without re-processing everything."
 
@@ -140,7 +140,7 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 ### 8.1 First-time setup
 
 1. A contributor runs `npx <pkg> init --assistants claude`.
-2. The installer creates `.ai/knowledge-base/` with starter structure (including `_logs/` and `_sessions/` both gitignored), registers hooks under `.claude/`, adds a pre-commit hook for secret scanning, writes `.ai/knowledge-base/.state/installed-version`.
+2. The installer creates `.ai/knowledge-base/` with starter structure (including `_logs/` and `_sessions/` both gitignored), registers hooks under `.claude/`, installs the `kb-add`, `kb-bootstrap`, and `kb-curate` Claude Code skills, scaffolds a husky `pre-commit` hook driven by `lint-staged` + `secretlint`, writes `.ai/knowledge-base/.state/installed-version`, seeds an empty `.ai/knowledge-base/.config.json` for project-level tunables, and copies local prompt overrides into `.ai/knowledge-base/.config/prompts/`. Re-running with `init --upgrade` refreshes templates and skills while preserving `.config.json` and local prompt overrides.
 3. The contributor commits. KB is live but empty.
 
 ### 8.2 Daily session capture (automatic)
@@ -152,8 +152,8 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 
 ### 8.3 Curation (deliberate)
 
-1. After enough session logs accumulate (default threshold N=5), a nudge appears at session start: "You have 7 pending session logs. Run `/kb:curate` when ready." Throttled to at most once per hour.
-2. The contributor runs `/kb:curate`. The curator reads pending logs and current KB nodes, writes proposals to `_proposed/`, regenerates `INDEX.md`/`GRAPH.md` inline, and writes its stream-json trace to `_logs/curator/`.
+1. After enough session logs accumulate (default `curationThreshold` = 5; configurable per project), a nudge appears at session start: "You have 7 pending session logs. Invoke the `kb-curate` skill when ready." Throttled to at most once per hour.
+2. The contributor invokes the `kb-curate` skill. The curator reads pending logs and current KB nodes, writes proposals to `_proposed/`, regenerates `INDEX.md`/`GRAPH.md` inline, and writes its stream-json trace to `_logs/curator/`.
 3. The reviewer reviews proposals via git diff, moves accepted files into `nodes/`, deletes rejected proposals, commits.
 
 ### 8.4 Consuming the KB
@@ -171,7 +171,7 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 
 ### 8.6 First-time bootstrap from existing docs (optional, one-off)
 
-1. The contributor runs `/kb:bootstrap` inside a normal Claude Code session, optionally passing a path argument (defaults to common doc locations like `docs/`, `README.md`, top-level `*.md` files).
+1. The contributor invokes the `kb-bootstrap` skill inside a normal Claude Code session, optionally passing a path argument (defaults to common doc locations like `docs/`, `README.md`, top-level `*.md` files).
 2. The agent surveys the directory structure, reads representative content, follows cross-references, identifies candidate practice and map nodes, and writes proposals to `_proposed/additions/`. Each proposal carries `rationale: "bootstrap: <doc-path>"` and `derived_from: [<doc-path>]`.
 3. The agent updates `bootstrap-state.json` with content hashes of every doc it read.
 4. The contributor reviews proposals through the standard flow.
@@ -195,16 +195,22 @@ Incremental bootstrap is deterministic, fast, and safe to re-run. It does not at
 3. Each line is a stream-json message: prompt, assistant text, tool calls, final result. The contributor inspects what the model saw and produced.
 4. If a prompt change is needed, the contributor reports the issue or edits `templates/prompts/...` in the package.
 
+### 8.9 Tunables and log retention
+
+Operational defaults — curation threshold, lock TTL, index token budget, drain batch size, stage-2 timeout, bootstrap token budget, log retention window — can be overridden per-project via a committed `.ai/knowledge-base/.config.json` or per-user via `~/.config/ai-knowledge-base/config.json`. Project overrides win over user overrides; both win over built-in defaults. An unparseable file warns and falls back to defaults rather than bricking the CLI.
+
+`_logs/` grows unbounded by design (full stream-json traces are the audit trail). `npx @e0ipso/ai-knowledge-base logs prune --older-than <duration>` deletes traces older than the threshold; default retention is `logsRetentionDays` from the settings stack.
+
 ## 9. Failure modes the user sees
 
 | Failure | What the user sees |
 |---|---|
-| Stage-1 capture fails (gitleaks crashes, disk full) | Session log not written. Brief warning at next session start. Session content is lost; user can paste relevant parts manually. |
+| Stage-1 capture fails (secretlint crashes, disk full) | Session log not written. Brief warning at next session start. Session content is lost; user can paste relevant parts manually. |
 | Stage-2 extraction fails (CLI error, rate limit) | Session log retained as `stage_2_status: failed`. Visible in `ai-knowledge-base status`. Curator retries on next run. Full log under `_logs/stage-2/` for diagnosis. |
-| Gitleaks blocks a commit | Standard pre-commit error message identifies the file and rule. |
+| Secretlint blocks a commit | Standard `lint-staged` error message identifies the file and rule. |
 | `SessionStart` hook fails | Session starts without KB context. Single-line warning in transcript. The session works, just without injection. |
 | `INDEX.md` stale (someone hand-edited a node) | `ai-knowledge-base doctor` flags it. Pre-commit check (optional) refuses commit until `ai-knowledge-base index rebuild` is run. |
-| Two contributors run `/kb:curate` simultaneously | Second invocation aborts with "curation already in progress, started 4 minutes ago." Cleared by lock TTL after 30 minutes. |
+| Two contributors invoke `kb-curate` simultaneously | Second invocation aborts with "curation already in progress, started 4 minutes ago." Cleared by lock TTL (default 30 minutes, configurable). |
 | `derived_from` references a missing session log | Silent ignore in consume path. `ai-knowledge-base doctor --verbose` warns. Curator treats as "evidence not available" and proceeds. |
 
 ## 10. Success criteria
@@ -226,11 +232,9 @@ The system is working if, after three months of use on a real project:
 - Active learning loops where the AI proactively asks "should I save this?" mid-session.
 - Anything that requires running infrastructure.
 - Multi-assistant adapters beyond Claude Code.
-- `init --upgrade` (v1 init always copies fresh; v2 adds upgrade with three-way merge).
 
 ## 12. Open questions deferred to implementation or v2
 
 - For very large KBs, should the index injection be filtered by current task, or is the token budget alone sufficient? (Defer; decide based on real usage.)
-- Schema migration tooling. (`schema_version` field is in place from day 1 with a moderate bump policy; the migrator itself is v2.)
-- Log retention policy: `_logs/` will grow unbounded. Consider a `ai-knowledge-base logs prune --older-than <duration>` command in v1.5.
+- Schema migration tooling. **Out of scope, permanently.** `schema_version` exists to *fail loudly* on incompatible reads, not to feed a migrator. Breaking changes use a clean break — readers reject older shapes with a clear error directing users to re-init. No migrators, no compatibility shims, no legacy code paths ship in any version.
 - Whether incremental bootstrap should detect overlap with existing accepted nodes (curator-style modify/contradict logic) instead of always producing additions. (Deferred; v1 produces additions only and relies on the reviewer to catch duplicates.)

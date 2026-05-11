@@ -8,9 +8,8 @@ nav_order: 3
 ## Prerequisites
 
 - Node.js 22+
+- A Node project in the target repo (i.e. a `package.json` at the root). `init` patches it to wire up the commit-time secret scan.
 - [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/getting-started)
-- [pre-commit](https://pre-commit.com) (`pip install pre-commit` or `brew install pre-commit`)
-- [gitleaks](https://github.com/gitleaks/gitleaks) — installed automatically by `pre-commit install`
 
 No Anthropic API key required. The tool uses `claude -p` and inherits your existing Claude Code auth.
 
@@ -20,22 +19,24 @@ In the root of your repository:
 
 ```sh
 npx @e0ipso/ai-knowledge-base init --assistants claude
-pre-commit install
+npm install
 ai-knowledge-base doctor
 ```
 
-This creates:
+This creates / updates:
 
 - `.ai/knowledge-base/` — your knowledge base.
 - `.claude/` — hooks and skills used by Claude Code.
-- `.pre-commit-config.yaml` — wires up gitleaks.
+- `.secretlintrc.json` — config for [secretlint](https://github.com/secretlint/secretlint), which scans staged files at commit time.
+- `.husky/pre-commit` — runs `lint-staged` (which runs secretlint) before each commit.
+- `package.json` — adds `husky`, `lint-staged`, `secretlint`, and the `@secretlint/secretlint-rule-preset-recommend` preset as devDeps; adds the `prepare: husky` script; adds a `lint-staged` block.
 - A managed block in `.gitignore`.
 
-Commit everything.
+`npm install` activates husky (via the `prepare` script) so the pre-commit hook is live in your local clone. Commit everything.
 
 ## Verify
 
-`ai-knowledge-base doctor` checks your Node version, that `claude` and `gitleaks` are on PATH, and that the installation looks healthy. Exits 0 when clean.
+`ai-knowledge-base doctor` checks your Node version, that `claude` is on PATH, that secretlint is installed, that husky + lint-staged are wired, and that the installation looks healthy. Exits 0 when clean.
 
 ## Upgrading
 

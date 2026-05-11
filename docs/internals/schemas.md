@@ -82,7 +82,7 @@ stage_2_status: pending | done | failed | skipped
 stage_2_completed_at: <ISO> | null
 stage_2_error: <string> | null
 stage_2_log: _logs/stage-2/<id>__<ts>.jsonl | null
-gitleaks_status: clean | redacted | blocked | skipped
+secret_scan_status: clean | redacted | blocked | skipped
 topics: [string, ...]
 proposals:
   practice: [<Stage2Candidate>, ...]

@@ -25,7 +25,7 @@ All three hooks exit immediately if `KB_BUILDER_INTERNAL=1` is set. The extracto
 1. Read hook input from stdin.
 2. Parse the transcript (`user`/`assistant` text, role-tagged).
 3. SHA-256 dedup against `_sessions/.dedup-cache.json` (5-min window).
-4. Run gitleaks; replace findings with `[REDACTED:<RuleID>]`. If gitleaks is missing or crashes, capture aborts.
+4. Run secretlint (with the recommended preset); replace findings with `[REDACTED:<ruleId>]`. If secretlint fails to load or times out, capture aborts.
 5. Write `_sessions/<YYYYMMDD-HHmm-id>.md` with frontmatter and the redacted slice. Append the path to `_sessions/.queue.json` atomically.
 
 The only difference between the three triggers is the `captured_by` field (`stop`, `session_end`, `pre_compact`).
@@ -41,7 +41,7 @@ Never invokes the LLM. 1s deadline. A missed deadline exits silently; the next t
 | `transcript_path` missing | Exit silently. |
 | Transcript empty | Exit silently. |
 | Dedup hit (recent) | Skip as duplicate. |
-| Gitleaks missing or crashes | Log to stderr, no session log written. |
+| Secretlint fails to load or crashes | Log to stderr, no session log written. |
 | 1s deadline exceeded | Exit silently; next trigger retries. |
 
 ## `kb-stage2-drain.mjs` (extraction)

@@ -6,15 +6,15 @@ nav_order: 4
 
 # Customizing prompts
 
-The three LLM pipelines (stage-2 extraction, curator, bootstrap-incremental) each load their prompt from a local override path, falling back to the bundled template. To customize, edit the file under `.ai/knowledge-base/.state/prompts/`. Delete it to revert.
+The three LLM pipelines (stage-2 extraction, curator, bootstrap-incremental) each load their prompt from a local override path, falling back to the bundled template. To customize, edit the file under `.ai/knowledge-base/.config/prompts/`. Delete it to revert.
 
 Bump the top-of-file `Version: N` comment on every behavior change; logs record the prompt content so historic decisions stay auditable.
 
 | Pipeline | Local override | Bundled fallback |
 |---|---|---|
-| Stage-2 extraction | `.state/prompts/stage-2-extract.md` | `templates/prompts/stage-2-extract.md` |
-| Curator | `.state/prompts/curator.md` | `templates/prompts/curator.md` |
-| Bootstrap-incremental | `.state/prompts/bootstrap-incremental.md` | `templates/prompts/bootstrap-incremental.md` |
+| Stage-2 extraction | `.config/prompts/stage-2-extract.md` | `templates/prompts/stage-2-extract.md` |
+| Curator | `.config/prompts/curator.md` | `templates/prompts/curator.md` |
+| Bootstrap-incremental | `.config/prompts/bootstrap-incremental.md` | `templates/prompts/bootstrap-incremental.md` |
 
 For the agent-driven `/kb-bootstrap` skill, edit `.claude/skills/kb-bootstrap/SKILL.md` instead.
 
@@ -167,4 +167,4 @@ To re-run a single batch (no first-class command): clear `curator_processed_at` 
 
 ### Privacy
 
-Logs contain the **redacted** transcript. Secrets gitleaks caught are redacted; secrets it missed could appear. Treat `_logs/` with the same care as `_sessions/`. Both gitignored by default.
+Logs contain the **redacted** transcript. Secrets secretlint caught are redacted; secrets it missed could appear. Treat `_logs/` with the same care as `_sessions/`. Both gitignored by default.

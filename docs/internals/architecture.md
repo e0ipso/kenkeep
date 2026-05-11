@@ -25,7 +25,7 @@ src/
 
 ## Two CLI shapes
 
-- **Deterministic**: `init`, `doctor`, `status`, `node add`, `index rebuild`, `proposals review`. No LLM.
+- **Deterministic**: `init`, `doctor`, `status`, `node add`, `index rebuild`. No LLM.
 - **LLM-invoking**: `curate`, `bootstrap-incremental`. Spawn `claude -p` via `runHeadlessClaude`, parse stream-JSON, validate with Zod. All subprocesses set `KB_BUILDER_INTERNAL=1`.
 
 ## Pipelines
@@ -33,7 +33,7 @@ src/
 ```mermaid
 flowchart TB
     subgraph capture[Capture]
-        H1[Stop / SessionEnd / PreCompact] --> KB1[kb-capture.mjs<br/>sync, gitleaks redact]
+        H1[Stop / SessionEnd / PreCompact] --> KB1[kb-capture.mjs<br/>sync, secretlint redact]
         KB1 --> SL[_sessions/&lt;log&gt;.md<br/>pending]
         SL --> Q[_sessions/.queue.json]
     end
@@ -51,7 +51,7 @@ flowchart TB
     end
 
     subgraph review[Review]
-        PR --> RV[proposals review<br/>interactive]
+        PR --> RV[human review<br/>any diff tool]
         RV --> NODES[(nodes/&lt;kind&gt;/&lt;slug&gt;.md)]
         NODES --> IDX[INDEX.md / GRAPH.md]
     end
@@ -72,12 +72,12 @@ flowchart TB
 | `_sessions/.dedup-cache.json` | capture | 5-min SHA-256 window. |
 | `_logs/{stage-2,curator,bootstrap-incremental}/*.jsonl` | LLM pipelines | Stream-JSON traces. Gitignored. |
 | `_proposed/{additions,modifications,contradictions}/` | curator, node-add, bootstrap | Pending proposals. |
-| `nodes/{practice,map}/` | proposals review | Canonical accepted knowledge. |
+| `nodes/{practice,map}/` | human reviewer (promoted from `_proposed/`) | Canonical accepted knowledge. |
 | `INDEX.md` / `GRAPH.md` | curator, index-rebuild | Deterministic outputs derived from `nodes/`. |
 | `.state/installed-version` | init | Package version + selected assistants. Committed. |
 | `.state/state.json` | drain, curator, bootstrap, consume | Lock + `last_nudged_at`. Gitignored. |
 | `.state/bootstrap-state.json` | bootstrap | Doc SHA-256 cache. Gitignored. |
-| `.state/prompts/*` | init | Local prompt overrides. Committed. |
+| `.config/prompts/*` | init | Local prompt overrides. Committed. |
 
 ## Locking
 

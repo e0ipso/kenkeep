@@ -12,7 +12,7 @@ Start with `ai-knowledge-base doctor --verbose`.
 `.ai/knowledge-base/_sessions/` stays empty.
 
 - **Hooks aren't registered.** Check `.claude/settings.json` for the KB hook entries. Re-run `init --force` if missing.
-- **gitleaks isn't on PATH.** Capture refuses to write without it. Run `pre-commit install`.
+- **secretlint isn't installed.** Capture refuses to write when the secret scanner can't load. Run `npm install` (the project's devDeps include `secretlint` and the recommended preset after `init`).
 - **A wrapper script around `claude` leaked the internal flag** (`KB_BUILDER_INTERNAL=1`) into a normal session.
 
 ## Captured sessions never get extracted
@@ -39,7 +39,7 @@ ai-knowledge-base index rebuild
 
 ## Curator produces weird proposals
 
-The prompt has drifted from your project's needs. Edit `.ai/knowledge-base/.state/prompts/curator.md` and bump its `Version:` comment. See [Customization](internals/prompts.md).
+The prompt has drifted from your project's needs. Edit `.ai/knowledge-base/.config/prompts/curator.md` and bump its `Version:` comment. See [Customization](internals/prompts.md).
 
 ## Bootstrap re-processes done docs
 
@@ -56,9 +56,9 @@ The prompt has drifted from your project's needs. Edit `.ai/knowledge-base/.stat
 ai-knowledge-base logs prune --older-than 2w
 ```
 
-## Can't accept a contradiction
+## Reviewing proposals
 
-Contradictions require a resolution before they can be accepted. In `proposals review`, choose `supersede`, `keep_both`, or `reject` first.
+Proposals live as markdown files under `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`. Review them like any other diff — `git diff`, your editor, or a tool like [self-review](https://github.com/e0ipso/self-review) — and resolve contradictions by editing `proposal.suggested_resolution` to `supersede`, `keep_both`, or `reject` before promoting the file into `nodes/`.
 
 ## When all else fails
 

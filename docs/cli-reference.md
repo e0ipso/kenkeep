@@ -13,7 +13,7 @@ The `ai-knowledge-base` binary is available after install (or run via `npx`).
 ai-knowledge-base init --assistants claude [--force] [--upgrade [--dry-run]]
 ```
 
-First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, pre-commit config (if missing), and a managed `.gitignore` block.
+First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, the commit-time secret-scan scaffold (`.secretlintrc.json`, `.husky/pre-commit`, and a `lint-staged` block plus devDeps in `package.json`), and a managed `.gitignore` block. Requires a `package.json` at the repo root.
 
 - `--force` — overwrite existing files (never touches your project config).
 - `--upgrade` — refresh templates while preserving customizations. Pair with `--dry-run` to preview.
@@ -24,7 +24,7 @@ First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, p
 ai-knowledge-base doctor [--verbose]
 ```
 
-Checks Node version, that `claude` and `gitleaks` are on PATH, settings validity, INDEX freshness, and dangling references. Exits 0 when there are no errors.
+Checks Node version, that `claude` is on PATH, that secretlint resolves in `node_modules`, that the commit-time scan is wired (husky + lint-staged + `.secretlintrc.json`), settings validity, INDEX freshness, and dangling references. Exits 0 when there are no errors.
 
 ## `status`
 
@@ -41,14 +41,6 @@ ai-knowledge-base curate [--batch-size <n>] [--token-budget <n>] [--timeout <ms>
 ```
 
 Run the curator over all session logs that have been processed but not yet curated. Writes proposals to `_proposed/`.
-
-## `proposals review`
-
-```sh
-ai-knowledge-base proposals review [--list]
-```
-
-Interactive TUI for accepting or rejecting each pending proposal. `--list` prints pending proposals and exits.
 
 ## `node add`
 

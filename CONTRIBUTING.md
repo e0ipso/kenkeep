@@ -9,7 +9,9 @@ Prerequisites:
 - Node 22+
 - npm 10+ (or pnpm 9+)
 - Claude Code CLI on PATH for integration smoke tests (`claude --version`)
-- [`gitleaks`](https://github.com/gitleaks/gitleaks) and [`pre-commit`](https://pre-commit.com) on PATH for the secret-scan tests
+- No external binaries — the capture-hook secret scan runs [`secretlint`](https://github.com/secretlint/secretlint) programmatically from `node_modules`.
+
+Git hooks are managed by [husky](https://typicode.github.io/husky/) and installed automatically by `npm install` (via the `prepare` script). The `pre-commit` hook runs [`lint-staged`](https://github.com/lint-staged/lint-staged), which in turn runs ESLint, Prettier, and secretlint on staged files, followed by `typecheck` and `test:fast` across the project.
 
 Set up:
 
@@ -82,14 +84,14 @@ Before a significant release — schema bump, capture/curate/consume behavior ch
 
 ## Schema-version bump policy
 
-Every frontmatter and JSON state file in the system carries `schema_version: 1`. The policy is **moderate**: tools that read v1 must tolerate unknown additive fields without bumping, but renames/removals/semantic-shifts get an explicit migration boundary.
+Every frontmatter and JSON state file in the system carries `schema_version: 1`. The policy is **strict**: any breaking change to the on-disk shape gets a clean break — there are no migrators, no compatibility shims, and no legacy code paths. Users on the old shape re-initialize.
 
 Concretely:
 
-- **Bump `schema_version: 1 → 2`** when: removing a field; renaming a field; changing the semantics of a field (e.g. changing `kind` from string to enum-with-different-values); making a previously-optional field required.
+- **Bump `schema_version: 1 → 2`** when: removing a field; renaming a field; changing the semantics of a field; making a previously-optional field required.
 - **Do not bump** when: adding an optional field; adding a new enum case; relaxing a constraint.
 
-When you bump, ship a migrator in the same PR.
+When you bump, the reader rejects v1 files with a clear error directing the user to re-run `init`. Do not write a migrator.
 
 ## Prompt versioning
 

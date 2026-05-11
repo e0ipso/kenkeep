@@ -11,7 +11,7 @@ After install, the only thing you do by hand is **curate** and **review**. Every
 
 1. Code with Claude Code as usual.
 2. When you see the curate nudge (or whenever you feel like it), run `/kb-curate`.
-3. Run `ai-knowledge-base proposals review` and accept what's worth keeping.
+3. Review the resulting changes under `.ai/knowledge-base/` (any diff tool — e.g. `git diff` or [self-review](https://github.com/e0ipso/self-review)) and promote the proposals you want to keep into `nodes/`.
 4. Commit `.ai/knowledge-base/`.
 
 ## Curate
@@ -32,16 +32,11 @@ The curator looks at every captured session that's been processed but not yet cu
 
 ## Review proposals
 
-```sh
-ai-knowledge-base proposals review
-```
+Proposals are plain markdown files under `.ai/knowledge-base/_proposed/{additions,modifications,contradictions}/`. They are important — they may affect how the agent behaves in every future session.
 
-Walks you through each pending proposal:
+Walk the diff with whatever tool you like — `git diff`, your editor, or a dedicated reviewer such as [self-review](https://github.com/e0ipso/self-review). To accept a proposal, strip its `proposal:` frontmatter block and move the file into `nodes/<kind>/`. To reject, delete the file. For contradictions, set `proposal.suggested_resolution` to `supersede`, `keep_both`, or `reject` before promoting.
 
-- **Addition / modification** — accept (move into `nodes/`) or reject.
-- **Contradiction** — pick `supersede`, `keep_both`, or `reject`, then accept.
-
-Add `--list` to just see what's pending without entering the TUI.
+After acceptance, run `ai-knowledge-base index rebuild` to refresh `INDEX.md` and `GRAPH.md` before committing.
 
 ## Add knowledge manually
 

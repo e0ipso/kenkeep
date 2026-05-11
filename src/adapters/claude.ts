@@ -8,7 +8,7 @@ import type {
   HeadlessOpts,
   HookSpec,
   RoleTaggedTranscript,
-  SlashCommandSpec,
+  SkillSpec,
 } from './types.js';
 
 interface ClaudeSettings {
@@ -26,8 +26,8 @@ export class ClaudeAdapter implements Adapter {
     return '.claude/hooks';
   }
 
-  commandInstallPath(): string {
-    return '.claude/commands';
+  skillInstallPath(): string {
+    return '.claude/skills';
   }
 
   /**
@@ -108,8 +108,18 @@ export class ClaudeAdapter implements Adapter {
     return runHeadlessClaude(promptBody, stdin, schema, runOpts);
   }
 
-  renderSlashCommand(spec: SlashCommandSpec): string {
-    // Claude Code slash command files are plain markdown with optional frontmatter.
-    return `---\ndescription: ${JSON.stringify(spec.description)}\n---\n\n${spec.body.trim()}\n`;
+  renderSkill(spec: SkillSpec): string {
+    // Claude Code skills are directories containing a SKILL.md file with
+    // YAML frontmatter (name, description, optional allowed-tools) and a
+    // markdown body. This method returns the SKILL.md contents only; the
+    // caller is responsible for writing it under `<skillInstallPath()>/<name>/`.
+    const frontmatter = [
+      `name: ${spec.name}`,
+      `description: ${JSON.stringify(spec.description)}`,
+    ];
+    if (spec.allowedTools !== undefined) {
+      frontmatter.push(`allowed-tools: ${spec.allowedTools}`);
+    }
+    return `---\n${frontmatter.join('\n')}\n---\n\n${spec.body.trim()}\n`;
   }
 }

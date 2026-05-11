@@ -70,7 +70,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   if (shouldNudge) {
     lines.push('');
     lines.push(
-      `> You have ${pending} pending session log(s). Run \`/kb:curate\` (or \`ai-knowledge-base curate\`) when ready.`,
+      `> You have ${pending} pending session log(s). Run \`/kb-curate\` (or \`ai-knowledge-base curate\`) when ready.`,
     );
   }
 

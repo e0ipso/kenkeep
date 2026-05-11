@@ -72,7 +72,7 @@ Validity is informational, not enforced. Superseded nodes still live in `nodes/`
 `derived_from` lists the source of the node. Three flavors:
 
 - A session log filename (`20260510-1014-session-abc.md`) — the node came from a captured conversation.
-- A repo-relative path (`docs/architecture/auth.md`) — the node came from existing documentation via `/kb:bootstrap` or `bootstrap-incremental`.
+- A repo-relative path (`docs/architecture/auth.md`) — the node came from existing documentation via `/kb-bootstrap` or `bootstrap-incremental`.
 - An absolute path — rare, but supported for nodes seeded from outside the repo.
 
 `ai-knowledge-base doctor --verbose` lists `derived_from` references that no longer resolve on disk. Stale references are a warning, not an error — the consume path silently ignores them; the curator treats them as "evidence not available" and proceeds.

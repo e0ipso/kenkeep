@@ -25,9 +25,9 @@ You can verify it produced something with `ai-knowledge-base status`.
 
 The next time you open a Claude Code session, the async `kb-stage2-drain` hook fires. It spawns `claude -p` per queue entry, extracts practice and map candidates from each transcript, and writes them into the session log frontmatter as `proposals.{practice,map}`. The session log's `stage_2_status` flips to `done`. Status reflects this immediately.
 
-## 3. Run `/kb:curate`
+## 3. Run `/kb-curate`
 
-In any session, type `/kb:curate`. The slash command body delegates to:
+In any session, type `/kb-curate`. The skill body delegates to:
 
 ```sh
 ai-knowledge-base curate
@@ -71,7 +71,7 @@ ai-knowledge-base node add
 …or, in a session:
 
 ```
-/kb:add
+/kb-add
 ```
 
 Both land in `_proposed/additions/<kind>-<slug>.md` with `proposal.rationale: "manual"`, so they show up alongside curator-produced proposals during `proposals review`.

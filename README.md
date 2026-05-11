@@ -14,13 +14,13 @@ npx @e0ipso/ai-knowledge-base init --assistants claude
 ai-knowledge-base doctor
 ```
 
-That's the consumer path. After running `init`, AI sessions in this repo will automatically capture candidate knowledge; `ai-knowledge-base curate` (or `/kb:curate` from inside a session) turns captures into proposals you review with `git`.
+That's the consumer path. After running `init`, AI sessions in this repo will automatically capture candidate knowledge; `ai-knowledge-base curate` (or `/kb-curate` from inside a session) turns captures into proposals you review with `git`.
 
 If your repo already has READMEs, ADRs, and module docs, seed the KB from them:
 
 ```sh
 # In a Claude Code session:
-/kb:bootstrap
+/kb-bootstrap
 
 # Later, after adding more docs:
 npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/

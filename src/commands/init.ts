@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -128,7 +129,8 @@ function validateAssistants(assistants: string[]): void {
 interface UpgradeChange {
   kind:
     | 'hook-script'
-    | 'slash-command'
+    | 'skill'
+    | 'legacy-command-cleanup'
     | 'prompt-new'
     | 'prompt-preserved'
     | 'hook-registration'
@@ -137,6 +139,32 @@ interface UpgradeChange {
     | 'pre-commit-config'
     | 'installed-version';
   detail: string;
+}
+
+const LEGACY_KB_COMMAND_FILES = [
+  'kb-add.md',
+  'kb-bootstrap.md',
+  'kb-curate.md',
+];
+
+/**
+ * Removes legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files left
+ * behind by older installs. Skills replaced the slash-command markdown layout
+ * in v0.2; older repos may still carry these files alongside the new
+ * `.claude/skills/` tree. Other files in `.claude/commands/` (user-authored
+ * slash commands) are preserved.
+ */
+function removeLegacyKbCommands(commandsDir: string): string[] {
+  if (!existsSync(commandsDir)) return [];
+  const removed: string[] = [];
+  for (const name of LEGACY_KB_COMMAND_FILES) {
+    const file = join(commandsDir, name);
+    if (existsSync(file)) {
+      rmSync(file, { force: true });
+      removed.push(name);
+    }
+  }
+  return removed;
 }
 
 async function runUpgrade(
@@ -189,9 +217,12 @@ async function runUpgrade(
   log.plain('');
   log.info('Applying…');
 
-  // Hook scripts + slash commands: overwrite from templates.
+  // Hook scripts + skills: overwrite from templates.
   copyTree(join(templatesDir, 'claude', 'hooks'), paths.claudeHooksDir);
-  copyTree(join(templatesDir, 'claude', 'commands'), paths.claudeCommandsDir);
+  copyTree(join(templatesDir, 'claude', 'skills'), paths.claudeSkillsDir);
+
+  // Clean up legacy slash-command markdown files left over from pre-skills installs.
+  removeLegacyKbCommands(paths.claudeCommandsDir);
 
   // Refresh hook registrations in .claude/settings.json (preserves user-defined hooks).
   await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
@@ -242,15 +273,29 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
     }
   }
 
-  // Slash commands.
-  const cmdSrc = join(ctx.templatesDir, 'claude', 'commands');
-  if (existsSync(cmdSrc)) {
-    for (const name of readdirSync(cmdSrc)) {
-      const src = join(cmdSrc, name);
-      const dst = join(ctx.paths.claudeCommandsDir, name);
-      if (!existsSync(dst) || !filesEqual(src, dst)) {
-        out.push({ kind: 'slash-command', detail: `refresh .claude/commands/${name}` });
+  // Skills (one directory per skill containing SKILL.md + supporting files).
+  const skillSrc = join(ctx.templatesDir, 'claude', 'skills');
+  if (existsSync(skillSrc)) {
+    for (const skillName of readdirSync(skillSrc)) {
+      const srcDir = join(skillSrc, skillName);
+      if (!statSync(srcDir).isDirectory()) continue;
+      const dstDir = join(ctx.paths.claudeSkillsDir, skillName);
+      if (!existsSync(dstDir) || !skillDirsEqual(srcDir, dstDir)) {
+        out.push({ kind: 'skill', detail: `refresh .claude/skills/${skillName}/` });
       }
+    }
+  }
+
+  // Legacy slash-command markdown left over from pre-skills installs.
+  if (existsSync(ctx.paths.claudeCommandsDir)) {
+    const lingering = LEGACY_KB_COMMAND_FILES.filter((n) =>
+      existsSync(join(ctx.paths.claudeCommandsDir, n)),
+    );
+    if (lingering.length > 0) {
+      out.push({
+        kind: 'legacy-command-cleanup',
+        detail: `remove legacy .claude/commands/${lingering.join(', .claude/commands/')}`,
+      });
     }
   }
 
@@ -362,6 +407,26 @@ function inspectGitignore(file: string): GitignoreState {
   return { blockPresent, missingLines: missing };
 }
 
+function skillDirsEqual(src: string, dst: string): boolean {
+  const srcEntries = readdirSync(src).sort();
+  const dstEntries = readdirSync(dst).sort();
+  if (srcEntries.length !== dstEntries.length) return false;
+  for (let i = 0; i < srcEntries.length; i++) {
+    if (srcEntries[i] !== dstEntries[i]) return false;
+    const srcPath = join(src, srcEntries[i]!);
+    const dstPath = join(dst, dstEntries[i]!);
+    const srcStat = statSync(srcPath);
+    const dstStat = statSync(dstPath);
+    if (srcStat.isDirectory() !== dstStat.isDirectory()) return false;
+    if (srcStat.isDirectory()) {
+      if (!skillDirsEqual(srcPath, dstPath)) return false;
+    } else if (!filesEqual(srcPath, dstPath)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function filesEqual(a: string, b: string): boolean {
   try {
     const sa = statSync(a);
@@ -399,6 +464,8 @@ async function installClaude(
   if (existsSync(claudeTemplateDir)) {
     copyTree(claudeTemplateDir, claudeDir);
   }
+  // Sweep out legacy slash-command files from pre-skills installs.
+  removeLegacyKbCommands(join(claudeDir, 'commands'));
   await adapter.writeHookConfig(root, [
     { event: 'Stop', scriptPath: '.claude/hooks/kb-capture.mjs' },
     { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-capture.mjs' },

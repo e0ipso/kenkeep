@@ -1,15 +1,10 @@
 ---
-description: Capture a knowledge-base node manually from the current session. Writes to _proposed/additions/ for human review.
+name: kb-add
+description: Capture a knowledge-base node manually from the current session. Writes a single proposal file under `.ai/knowledge-base/_proposed/additions/` for a human reviewer; never writes directly into `nodes/`. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
+allowed-tools: Write
 ---
 
-<!--
-  Version: 1
-  Slash command body for `/kb:add`. Runs in the user's existing session
-  (no `claude -p` subprocess). The agent writes a proposal file directly
-  using the Write tool.
--->
-
-# /kb:add
+# kb-add
 
 Capture a single piece of knowledge that the user wants to record in the project KB. The output is a *proposal* under `.ai/knowledge-base/_proposed/additions/`, never a direct write into `nodes/`. A human reviews it later via `ai-knowledge-base proposals review`.
 

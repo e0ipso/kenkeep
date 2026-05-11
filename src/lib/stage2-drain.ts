@@ -293,5 +293,5 @@ function atomicWriteJson(file: string, data: unknown): void {
 }
 
 // Re-export for callers that want to append directly (e.g. tests / future
-// /kb:propose-from-session command).
+// /kb-propose-from-session skill).
 export { appendToQueue };

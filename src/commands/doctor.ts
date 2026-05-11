@@ -54,6 +54,14 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     result: checkClaudeHooks(paths.claudeSettingsFile, paths.claudeHooksDir),
   });
   checks.push({
+    name: 'Claude skills installed',
+    result: checkClaudeSkills(paths.claudeSkillsDir),
+  });
+  checks.push({
+    name: 'no legacy .claude/commands/kb-*.md',
+    result: checkLegacyKbCommands(paths.claudeCommandsDir),
+  });
+  checks.push({
     name: 'shipped prompts present',
     result: checkPrompts(paths.builderDir),
   });
@@ -296,6 +304,46 @@ function checkClaudeHooks(settingsFile: string, hooksDir: string): CheckResult {
     ok: false,
     level: 'error',
     detail: parts.join('; ') + '. Re-run `ai-knowledge-base init --assistants claude --force`.',
+  };
+}
+
+const EXPECTED_SKILLS = ['kb-add', 'kb-bootstrap', 'kb-curate'];
+
+function checkClaudeSkills(skillsDir: string): CheckResult {
+  if (!existsSync(skillsDir)) {
+    return {
+      ok: false,
+      level: 'error',
+      detail: `no .claude/skills/ directory. Re-run \`ai-knowledge-base init --assistants claude --force\`.`,
+    };
+  }
+  const missing = EXPECTED_SKILLS.filter((name) => !existsSync(join(skillsDir, name, 'SKILL.md')));
+  if (missing.length === 0) {
+    return { ok: true, detail: EXPECTED_SKILLS.join(', ') };
+  }
+  return {
+    ok: false,
+    level: 'error',
+    detail: `missing SKILL.md for: ${missing.join(', ')}. Re-run \`ai-knowledge-base init --upgrade\`.`,
+  };
+}
+
+const LEGACY_KB_COMMAND_FILES = ['kb-add.md', 'kb-bootstrap.md', 'kb-curate.md'];
+
+function checkLegacyKbCommands(commandsDir: string): CheckResult {
+  if (!existsSync(commandsDir)) {
+    return { ok: true, detail: 'no legacy commands directory' };
+  }
+  const lingering = LEGACY_KB_COMMAND_FILES.filter((n) => existsSync(join(commandsDir, n)));
+  if (lingering.length === 0) {
+    return { ok: true, detail: 'none present' };
+  }
+  return {
+    ok: false,
+    level: 'warn',
+    detail: `legacy slash-command file(s) found (the kb-* commands are now Skills under .claude/skills/): ${lingering
+      .map((n) => `.claude/commands/${n}`)
+      .join(', ')}. Run \`ai-knowledge-base init --upgrade\` to remove them.`,
   };
 }
 

@@ -20,7 +20,7 @@ End state: every successfully-processed session log carries `stage_2_status: don
 
 ## 2. Curate — turn candidates into proposals
 
-Trigger: explicit. Either `/kb:curate` (slash command) or `ai-knowledge-base curate` (CLI). The consume hook nudges the contributor when ≥ 5 session logs are pending, throttled to once per hour, but the contributor runs the curator deliberately.
+Trigger: explicit. Either `/kb-curate` (Claude Code skill) or `ai-knowledge-base curate` (CLI). The consume hook nudges the contributor when ≥ 5 session logs are pending, throttled to once per hour, but the contributor runs the curator deliberately.
 
 `ai-knowledge-base curate`:
 
@@ -76,7 +76,7 @@ End state: knowledge that was captured (and curated, and reviewed) is back in fr
                    stage_2_status: done
                    proposals: { practice, map }
                             │
-                            │   /kb:curate
+                            │   /kb-curate
                             ▼
                 ai-knowledge-base curate
                             │
@@ -102,7 +102,7 @@ End state: knowledge that was captured (and curated, and reviewed) is back in fr
 
 There are two **optional** pipelines that seed the KB from existing markdown documentation. They share the same proposal output path as the curator:
 
-- `/kb:bootstrap` — agent-driven, in-session, for the first time you adopt the KB on a project with existing docs.
+- `/kb-bootstrap` — agent-driven, in-session, for the first time you adopt the KB on a project with existing docs.
 - `ai-knowledge-base bootstrap-incremental --from <path>` — deterministic, hash-aware CLI for re-runs after docs change.
 
 See [Bootstrap](../bootstrap/) for both walkthroughs.
@@ -113,10 +113,10 @@ See [Bootstrap](../bootstrap/) for both walkthroughs.
 |---|---|
 | Stage-1 capture (Stop/SessionEnd/PreCompact) | Yes. Hooks fire automatically; gitleaks redacts; logs are written. |
 | Stage-2 extraction | Yes. Runs on next SessionStart in the background. |
-| Curate (stage-2 candidates → proposals) | **No.** You run `/kb:curate` or the CLI deliberately. The nudge is a notification, not a trigger. |
+| Curate (stage-2 candidates → proposals) | **No.** You run `/kb-curate` or the CLI deliberately. The nudge is a notification, not a trigger. |
 | Proposal review | **No.** You step through proposals interactively. |
 | INDEX/GRAPH regeneration | Yes, every time the curator runs (or `node add` finishes). |
 | Consume injection | Yes. The sync `SessionStart` hook injects INDEX on every session. |
-| Bootstrap (`/kb:bootstrap` or `bootstrap-incremental`) | **No.** Opt-in. |
+| Bootstrap (`/kb-bootstrap` or `bootstrap-incremental`) | **No.** Opt-in. |
 
 This split is deliberate. The expensive, judgment-heavy steps (curating, reviewing, bootstrapping) stay manual; the deterministic, cheap steps run on their own.

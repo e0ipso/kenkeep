@@ -6,7 +6,7 @@ nav_order: 5
 
 # `bootstrap-state.json` schema
 
-`bootstrap-state.json` records the SHA-256 of every doc the bootstrap pipelines have already processed. Both `/kb:bootstrap` (the agent-driven first-time pass) and `ai-knowledge-base bootstrap-incremental` (the CLI for re-runs) read and write this file. Hash-equal docs are skipped on subsequent runs.
+`bootstrap-state.json` records the SHA-256 of every doc the bootstrap pipelines have already processed. Both `/kb-bootstrap` (the agent-driven first-time pass, shipped as a Claude Code skill) and `ai-knowledge-base bootstrap-incremental` (the CLI for re-runs) read and write this file. Hash-equal docs are skipped on subsequent runs.
 
 - **Path:** `.ai/.kb-builder/bootstrap-state.json`
 - **Gitignored:** yes (the gitignore block written by `init` covers it).
@@ -43,7 +43,7 @@ nav_order: 5
 | Field | Type | Meaning |
 |---|---|---|
 | `schema_version` | `1` (literal) | Schema version. Bumped on breaking changes. |
-| `last_full_bootstrap_at` | ISO-8601 string \| null | Timestamp of the most recent `/kb:bootstrap` run. The slash command writes this when it finishes; never written by `bootstrap-incremental`. |
+| `last_full_bootstrap_at` | ISO-8601 string \| null | Timestamp of the most recent `/kb-bootstrap` run. The skill writes this when it finishes; never written by `bootstrap-incremental`. |
 | `last_incremental_at` | ISO-8601 string \| null | Timestamp of the most recent `bootstrap-incremental` run. Updated on every non-dry-run that processed ≥1 doc. |
 | `docs` | `Record<string, DocEntry>` | One entry per source doc that has been processed at least once. Keys are repo-root-relative posix paths. |
 
@@ -70,5 +70,5 @@ If `bootstrap-state.json` exists but fails Zod validation (e.g. someone hand-edi
 ## See also
 
 - [Bootstrap > Incremental bootstrap](../bootstrap/incremental-bootstrap.md) — the CLI that mutates this file.
-- [Bootstrap > First-time bootstrap](../bootstrap/first-time-bootstrap.md) — the slash command that seeds this file.
+- [Bootstrap > First-time bootstrap](../bootstrap/first-time-bootstrap.md) — the skill that seeds this file.
 - [IMPLEMENTATION §6.10.3](https://github.com/e0ipso/ai-knowledge-base/blob/main/IMPLEMENTATION.md#6103-bootstrap-state-file-schema) — design notes.

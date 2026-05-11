@@ -9,7 +9,7 @@ When you (or a teammate) run an AI coding session against this repo, the tool wa
 ## How knowledge gets here
 
 1. **Capture.** During an AI session, a hook records redacted slices of the transcript to `_sessions/`.
-2. **Curate.** When enough sessions accumulate, you run `/kb:curate` (or `ai-knowledge-base curate`). The curator reads pending sessions, compares them against existing nodes, and writes proposals to `_proposed/`.
+2. **Curate.** When enough sessions accumulate, you run `/kb-curate` (or `ai-knowledge-base curate`). The curator reads pending sessions, compares them against existing nodes, and writes proposals to `_proposed/`.
 3. **Review.** Proposals show up as files you can read like any code change. Accept by moving the file into `nodes/`, reject by deleting it.
 4. **Consume.** Every future session sees the new node in its injected index.
 
@@ -27,13 +27,13 @@ Each `.md` file in `nodes/` has a frontmatter header and a markdown body. Key fi
 Two paths, both human-in-the-loop:
 
 - From the terminal: `npx @e0ipso/ai-knowledge-base node add` (interactive prompts).
-- From inside a Claude Code session: `/kb:add`.
+- From inside a Claude Code session: `/kb-add`.
 
 Either way the result lands in `_proposed/additions/`, never directly in `nodes/`.
 
 ## Bootstrap from existing docs
 
-If your repo already has READMEs, ADRs, and module docs, you can seed the KB from them with `/kb:bootstrap` (a one-time, supervised pass) or `npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/` (for picking up new or changed docs later).
+If your repo already has READMEs, ADRs, and module docs, you can seed the KB from them with `/kb-bootstrap` (a one-time, supervised pass) or `npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/` (for picking up new or changed docs later).
 
 ## Subdirectories
 

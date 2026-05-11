@@ -8,7 +8,7 @@ nav_order: 3
 
 The `bootstrap-incremental` CLI invokes `claude -p` once per batch of source-doc content. The prompt template controls what the model treats as a candidate practice or map node, and what it discards as boilerplate. Tune it per project to match your docs' tone and conventions.
 
-For the agent-driven, in-session bootstrap (`/kb:bootstrap`), edit `.claude/commands/kb-bootstrap.md` instead — that file is a slash command body, not a `claude -p` prompt.
+For the agent-driven, in-session bootstrap (`/kb-bootstrap`), edit `.claude/skills/kb-bootstrap/SKILL.md` instead — that file is a Claude Code skill body, not a `claude -p` prompt.
 
 ## Where the prompt lives
 

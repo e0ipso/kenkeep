@@ -1,15 +1,10 @@
 ---
-description: Curate pending session logs into proposals (additions, modifications, contradictions). Wraps the `ai-knowledge-base curate` CLI.
+name: kb-curate
+description: Curate pending session logs into reviewable knowledge-base proposals (additions, modifications, contradictions) by running the `ai-knowledge-base curate` CLI. Use when the user wants to process accumulated session captures into proposals for review, or when the SessionStart nudge reports pending session logs.
+allowed-tools: Bash(ai-knowledge-base curate:*)
 ---
 
-<!--
-  Version: 1
-  Slash command body that delegates to the curator CLI. The CLI shells out
-  to `claude -p` internally; this command is just a convenient launcher for
-  the user.
--->
-
-# /kb:curate
+# kb-curate
 
 Run the curator over pending session logs and turn them into reviewable proposals.
 
@@ -28,6 +23,6 @@ Run the curator over pending session logs and turn them into reviewable proposal
 
 ## Constraints
 
-- Do not modify nodes/ directly. Only the human reviewer promotes proposals into the nodes/ tree.
+- Do not modify `nodes/` directly. Only the human reviewer promotes proposals into the `nodes/` tree.
 - If the command reports `locked`, do not retry — explain that another curate run is in progress.
 - If no session logs are pending, the command still regenerates INDEX/GRAPH; that's expected, not an error.

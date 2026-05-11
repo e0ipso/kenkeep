@@ -48,6 +48,7 @@ export interface RepoPaths {
   nodesDir: string;
   claudeDir: string;
   claudeCommandsDir: string;
+  claudeSkillsDir: string;
   claudeHooksDir: string;
   claudeSettingsFile: string;
   gitignoreFile: string;
@@ -72,6 +73,7 @@ export function repoPaths(root: string): RepoPaths {
     nodesDir: join(kbDir, 'nodes'),
     claudeDir,
     claudeCommandsDir: join(claudeDir, 'commands'),
+    claudeSkillsDir: join(claudeDir, 'skills'),
     claudeHooksDir: join(claudeDir, 'hooks'),
     claudeSettingsFile: join(claudeDir, 'settings.json'),
     gitignoreFile: join(root, '.gitignore'),

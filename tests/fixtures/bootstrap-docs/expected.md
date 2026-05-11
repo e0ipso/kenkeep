@@ -1,6 +1,6 @@
 # Expected bootstrap output for bootstrap-docs/ fixture
 
-This annotates what the agent-driven `/kb:bootstrap` and the deterministic `bootstrap-incremental` prompt should produce when run against the `bootstrap-docs/` fixture.
+This annotates what the agent-driven `/kb-bootstrap` and the deterministic `bootstrap-incremental` prompt should produce when run against the `bootstrap-docs/` fixture.
 
 ## Expected candidates by source doc
 
@@ -109,4 +109,4 @@ If the deterministic `bootstrap-incremental` runs on the same files (no merging 
 
 ## What the test of the test looks like
 
-If you run the agent-driven `/kb:bootstrap` against this fixture and get ~15 high-quality proposals with the merging described above, the prompt is calibrated correctly. If you get 25+ proposals with lots of obvious overlaps, the prompt is over-capturing or failing to merge. If you get 5 proposals, the prompt is under-capturing.
+If you run the agent-driven `/kb-bootstrap` against this fixture and get ~15 high-quality proposals with the merging described above, the prompt is calibrated correctly. If you get 25+ proposals with lots of obvious overlaps, the prompt is over-capturing or failing to merge. If you get 5 proposals, the prompt is under-capturing.

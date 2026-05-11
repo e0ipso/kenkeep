@@ -18,7 +18,7 @@ Upper-bound stage-2 calibration. A synthetic session containing four teaching mo
 
 A BravoPlatform-style Drupal docs tree used as input for both bootstrap pipelines:
 
-- `/kb:bootstrap` agent-driven first-time bootstrap.
+- `/kb-bootstrap` agent-driven first-time bootstrap.
 - `ai-knowledge-base bootstrap-incremental` CLI.
 
 `expected.md` annotates which proposals each pipeline should produce, with reasoning for confidence levels and merge behavior across docs.

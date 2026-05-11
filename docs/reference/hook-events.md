@@ -126,7 +126,7 @@ The consume hook is the M4 read path. Per invocation:
 1. **Recursion guard.** Exits immediately if `KB_BUILDER_INTERNAL=1` is set.
 2. **Resolve `INDEX.md`.** If missing, emits an "_The knowledge base is empty._" stub so the assistant still sees a coherent context. If present, parses the frontmatter and strips it before injection.
 3. **Stale detection.** Compares the frontmatter `nodes_hash` against `computeNodesHash(nodes/)`. On mismatch, appends `> KB index is stale — run \`ai-knowledge-base index rebuild\` to refresh.`
-4. **Nudge throttle.** Counts session logs with `stage_2_status: done` and no `curator_processed_at`. If the count ≥ threshold (default 5) AND `now - state.last_nudged_at ≥ 1 hour`, appends `> You have N pending session log(s). Run \`/kb:curate\` (or \`ai-knowledge-base curate\`) when ready.` and writes the new `last_nudged_at` back to `state.json`.
+4. **Nudge throttle.** Counts session logs with `stage_2_status: done` and no `curator_processed_at`. If the count ≥ threshold (default 5) AND `now - state.last_nudged_at ≥ 1 hour`, appends `> You have N pending session log(s). Run \`/kb-curate\` (or \`ai-knowledge-base curate\`) when ready.` and writes the new `last_nudged_at` back to `state.json`.
 5. **Emit.** Writes a single JSON line to stdout matching Claude Code's SessionStart contract:
 
    ```json

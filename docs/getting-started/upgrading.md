@@ -47,7 +47,8 @@ Sample output:
 Planned changes:
   • [hook-script]         refresh .claude/hooks/kb-capture.mjs
   • [hook-script]         refresh .claude/hooks/kb-stage2-drain.mjs
-  • [slash-command]       refresh .claude/commands/kb-bootstrap.md
+  • [skill]               refresh .claude/skills/kb-bootstrap/
+  • [legacy-command-cleanup] remove legacy .claude/commands/kb-bootstrap.md
   • [prompt-preserved]    local override preserved: .ai/.kb-builder/prompts/curator.md
   • [hook-registration]   refresh ai-knowledge-base hook entries in .claude/settings.json
   • [installed-version]   stamp installed-version: 1.0.0 → 1.5.0

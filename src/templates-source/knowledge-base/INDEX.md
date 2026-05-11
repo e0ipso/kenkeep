@@ -10,4 +10,4 @@ budget_tokens: 2000
 
 _0 nodes • 0 currently valid • 0 superseded_
 
-The knowledge base is empty. Run sessions and `/kb:curate` (or `ai-knowledge-base curate`) to populate it, or seed it from existing docs with `/kb:bootstrap`.
+The knowledge base is empty. Run sessions and `/kb-curate` (or `ai-knowledge-base curate`) to populate it, or seed it from existing docs with `/kb-bootstrap`.

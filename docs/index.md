@@ -15,7 +15,7 @@ npx @e0ipso/ai-knowledge-base init --assistants claude
 ai-knowledge-base doctor
 ```
 
-After `init`, AI sessions in this repo will automatically capture candidate knowledge. Run `ai-knowledge-base curate` (or `/kb:curate` from inside a session) to turn captures into reviewable proposals.
+After `init`, AI sessions in this repo will automatically capture candidate knowledge. Run `ai-knowledge-base curate` (or `/kb-curate` from inside a session) to turn captures into reviewable proposals.
 
 ## What's next
 

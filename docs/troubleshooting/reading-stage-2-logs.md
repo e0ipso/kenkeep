@@ -60,7 +60,7 @@ The `result` text isn't parseable JSON — the model emitted prose only. Same re
 The drain exhausted 3 attempts and gave up. The session log is preserved (you can still read the redacted transcript), but it will never produce proposals via the drain. To force a re-extraction:
 
 1. Manually flip the session log's frontmatter: `stage_2_status: pending`, clear `stage_2_error`.
-2. Re-add it to `.ai/knowledge-base/_sessions/.queue.json` (or use the M3 `/kb:propose-from-session` slash command once that ships).
+2. Re-add it to `.ai/knowledge-base/_sessions/.queue.json` (or use the M3 `/kb-propose-from-session` skill once that ships).
 
 ## Log retention
 

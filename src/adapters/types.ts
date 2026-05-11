@@ -9,10 +9,11 @@ export interface HookSpec {
   async?: boolean;
 }
 
-export interface SlashCommandSpec {
+export interface SkillSpec {
   name: string;
   description: string;
   body: string;
+  allowedTools?: string;
 }
 
 export interface HeadlessOpts {
@@ -31,7 +32,7 @@ export interface Adapter {
   name: string;
 
   hookInstallPath(): string;
-  commandInstallPath(): string;
+  skillInstallPath(): string;
 
   writeHookConfig(repoRoot: string, hooks: HookSpec[]): Promise<void>;
 
@@ -44,5 +45,5 @@ export interface Adapter {
     opts?: HeadlessOpts,
   ): Promise<T>;
 
-  renderSlashCommand(spec: SlashCommandSpec): string;
+  renderSkill(spec: SkillSpec): string;
 }

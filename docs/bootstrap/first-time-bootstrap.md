@@ -4,11 +4,11 @@ parent: Bootstrap
 nav_order: 1
 ---
 
-# First-time bootstrap (`/kb:bootstrap`)
+# First-time bootstrap (`/kb-bootstrap`)
 
 Run this once, when first wiring a knowledge base into a project that already has substantial markdown documentation. It is an agent-driven pass: the agent surveys your `docs/` tree, reads representative content, follows cross-references between docs, and writes seed proposals to `_proposed/additions/` for you to review.
 
-The slash command body lives at `.claude/commands/kb-bootstrap.md` — `init` copies it from the npm package's `templates/claude/commands/kb-bootstrap.md`.
+The skill body lives at `.claude/skills/kb-bootstrap/SKILL.md` — `init` copies it from the npm package's `templates/claude/skills/kb-bootstrap/SKILL.md`.
 
 ## When to use it
 
@@ -23,20 +23,20 @@ For deterministic re-runs after the first pass, use [incremental bootstrap](incr
 Inside a normal Claude Code session in the repo root:
 
 ```
-/kb:bootstrap
+/kb-bootstrap
 ```
 
 Or with a scoped path argument:
 
 ```
-/kb:bootstrap docs/architecture
+/kb-bootstrap docs/architecture
 ```
 
 The default scan covers `docs/`, top-level `README.md`, `CONTRIBUTING.md`, `ARCHITECTURE.md`, and any other `*.md` at the repo root.
 
 ## What the agent does
 
-1. **Surveys the structure.** Uses `Glob` and `LS` to map the documentation, briefly tells you what it found (entry-point docs, module READMEs, suspicious-looking `legacy/` or `archive/` dirs) so you can correct the plan before it dives in.
+1. **Surveys the structure.** Uses `Glob` and `Grep` to map the documentation, briefly tells you what it found (entry-point docs, module READMEs, suspicious-looking `legacy/` or `archive/` dirs) so you can correct the plan before it dives in.
 2. **Reads entry points first.** Top-level READMEs and index pages frame the vocabulary the agent uses to recognize candidates downstream.
 3. **Samples and follows references.** Skims long reference docs (skipping auto-generated tables), follows explicit cross-references like "see `docs/architecture/auth.md` for the auth design."
 4. **Splits candidates by kind.** Imperative guidance ("always use X") becomes a **practice** proposal; named entities ("Bravo Cards is our personalization module") become **map** proposals. Content that has both aspects is split across the two.
@@ -55,7 +55,7 @@ After the agent finishes, run `ai-knowledge-base proposals review` to step throu
 
 ## Stopping conditions
 
-The slash command body tells the agent to stop and ask you if:
+The skill body tells the agent to stop and ask you if:
 
 - The docs directory contains more than ~100 markdown files (likely needs scoping).
 - It encounters a doc that's clearly contentious or version-specific and can't tell which version is current.
@@ -68,8 +68,8 @@ Bootstrap is supervised. The agent defers to you when uncertain.
 - `ai-knowledge-base proposals review` — interactively accept/reject the agent's output.
 - `ai-knowledge-base bootstrap-incremental --from docs/` — re-run later, when docs change, to fold in deltas without re-processing everything.
 
-## Customizing the prompt
+## Customizing the skill
 
-The slash command body is plain markdown in your repo at `.claude/commands/kb-bootstrap.md`. Edit it like any other project asset. The shipped copy lives at `templates/claude/commands/kb-bootstrap.md` inside the npm package; bump its `Version: N` comment if you change behavior.
+The skill body is plain markdown in your repo at `.claude/skills/kb-bootstrap/SKILL.md`. Edit it like any other project asset. The shipped copy lives at `templates/claude/skills/kb-bootstrap/SKILL.md` inside the npm package.
 
 For the chunked extraction prompt used by `bootstrap-incremental`, see [Customization > Editing the bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md).

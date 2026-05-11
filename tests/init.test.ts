@@ -36,7 +36,9 @@ describe('init', () => {
       '.ai/knowledge-base/_logs/curator/.gitkeep',
       '.ai/knowledge-base/_logs/bootstrap-incremental/.gitkeep',
       '.claude/settings.json',
-      '.claude/commands/kb-bootstrap.md',
+      '.claude/skills/kb-add/SKILL.md',
+      '.claude/skills/kb-bootstrap/SKILL.md',
+      '.claude/skills/kb-curate/SKILL.md',
       '.claude/hooks/kb-capture.mjs',
       '.claude/hooks/kb-stage2-drain.mjs',
       '.claude/hooks/kb-session-start.mjs',
@@ -178,9 +180,38 @@ describe('init', () => {
 
   it('ships the rename — no references to the old `kb-builder` binary in copied prompts', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const slash = readFileSync(join(sandbox, '.claude/commands/kb-bootstrap.md'), 'utf8');
+    const skill = readFileSync(
+      join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'),
+      'utf8',
+    );
     // The on-disk dir `.ai/.kb-builder/` is kept; only the command name was renamed.
-    expect(slash).not.toMatch(/\bkb-builder proposals/);
-    expect(slash).toContain('ai-knowledge-base proposals review');
+    expect(skill).not.toMatch(/\bkb-builder proposals/);
+    expect(skill).toContain('ai-knowledge-base proposals review');
+  });
+
+  it('cleans up legacy .claude/commands/kb-*.md files left by older installs', async () => {
+    // Simulate an older install: drop the legacy slash-command markdown
+    // alongside the soon-to-be-installed skills tree.
+    const legacyCommandsDir = join(sandbox, '.claude/commands');
+    const fsMod = await import('node:fs');
+    fsMod.mkdirSync(legacyCommandsDir, { recursive: true });
+    fsMod.writeFileSync(join(legacyCommandsDir, 'kb-add.md'), '# stale\n');
+    fsMod.writeFileSync(join(legacyCommandsDir, 'kb-bootstrap.md'), '# stale\n');
+    fsMod.writeFileSync(join(legacyCommandsDir, 'kb-curate.md'), '# stale\n');
+    // A user-authored slash command that init should NOT touch.
+    fsMod.writeFileSync(join(legacyCommandsDir, 'my-own.md'), '# user\n');
+
+    const result = await runCli(sandbox, ['init', '--assistants', 'claude']);
+    expect(result.exitCode).toBe(0);
+
+    expect(existsSync(join(legacyCommandsDir, 'kb-add.md'))).toBe(false);
+    expect(existsSync(join(legacyCommandsDir, 'kb-bootstrap.md'))).toBe(false);
+    expect(existsSync(join(legacyCommandsDir, 'kb-curate.md'))).toBe(false);
+    expect(existsSync(join(legacyCommandsDir, 'my-own.md'))).toBe(true);
+
+    // New skills tree is present.
+    expect(existsSync(join(sandbox, '.claude/skills/kb-add/SKILL.md'))).toBe(true);
+    expect(existsSync(join(sandbox, '.claude/skills/kb-bootstrap/SKILL.md'))).toBe(true);
+    expect(existsSync(join(sandbox, '.claude/skills/kb-curate/SKILL.md'))).toBe(true);
   });
 });

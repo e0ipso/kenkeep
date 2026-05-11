@@ -8,7 +8,7 @@ permalink: /reference/
 # Reference
 
 - [CLI commands](cli.md) — every `ai-knowledge-base` subcommand.
-- [Slash commands](slash-commands.md) — `/kb:curate`, `/kb:add`, `/kb:bootstrap`.
+- [Skills](skills.md) — `/kb-curate`, `/kb-add`, `/kb-bootstrap` (migrated from slash commands).
 - [Hook events](hook-events.md) — the four registered Claude Code events (capture + stage-2 drain).
 - [Settings](settings.md) — defaults for the stage-2 drain (bounds, timeouts, lock TTL).
 - [`bootstrap-state.json` schema](bootstrap-state.md) — content-hash state recorded by the bootstrap pipelines.

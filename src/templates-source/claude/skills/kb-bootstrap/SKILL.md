@@ -1,10 +1,12 @@
 ---
-description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows references, writes proposals for human review.
+name: kb-bootstrap
+description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes proposal files under `.ai/knowledge-base/_proposed/additions/` for human review. Supervised by the user — never writes to `nodes/` directly. Use when the user wants to seed an empty knowledge base from the project's existing docs.
+allowed-tools: Read, Glob, Grep, Write, Bash(shasum:*), Bash(sha256sum:*), Bash(mkdir:*)
 ---
 
-# /kb:bootstrap
+# kb-bootstrap
 
-You are doing a one-time bootstrap of this project's knowledge base from its existing documentation. The user invoked this slash command in their normal Claude Code session, so they are watching and can correct you in-flight if you go off track.
+You are doing a one-time bootstrap of this project's knowledge base from its existing documentation. The user invoked this skill in their normal Claude Code session, so they are watching and can correct you in-flight if you go off track.
 
 ## Your task
 
@@ -18,7 +20,7 @@ Survey the project's existing markdown documentation, extract candidate knowledg
 
 ### 1. Survey the structure
 
-Use `Glob` and `LS` to map the documentation. Build a mental model of:
+Use `Glob` and `Grep` to map the documentation. Build a mental model of:
 - Which docs are entry points (top-level READMEs, docs site landing pages).
 - Which look like reference (per-module docs, API listings).
 - Which look like architectural narrative (ADRs, design docs).
@@ -123,7 +125,7 @@ Schema:
 }
 ```
 
-Use the `Bash` tool to compute SHA-256: `shasum -a 256 <file>` on macOS/Linux, or read the file and use a Node one-liner if needed.
+Use the `Bash` tool to compute SHA-256: `shasum -a 256 <file>` on macOS/Linux, or `sha256sum <file>` on Linux.
 
 ### 7. Report back
 
@@ -143,7 +145,7 @@ Then suggest the user run `ai-knowledge-base proposals review` to step through t
 - **Never auto-resolve perceived contradictions during bootstrap.** If you notice two docs that disagree, write both as separate proposals and mention the conflict in your final report. The reviewer decides.
 - **Don't hallucinate rationale.** Only include "because…" content that's actually present in the source. If the doc just says "use X," your proposal says "use X" — not "use X because of [made-up reason]."
 - **Don't try to read code files.** Stick to markdown documentation. The point of bootstrap is to extract what's already been written down.
-- **Tools allowed:** Read, Glob, LS, Grep, Bash (for sha256sum and `mkdir -p` only), Write (for proposals and the state file only). Do not run other Bash commands.
+- **Tools allowed:** `Read`, `Glob`, `Grep`, `Write` (for proposals and the state file only), `Bash` (for `shasum`/`sha256sum`/`mkdir -p` only). Do not run other Bash commands.
 
 ## When to stop
 

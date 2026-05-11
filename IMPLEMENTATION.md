@@ -12,7 +12,7 @@ Two separately versioned, separately distributed pieces:
 │  ─────────────────────────────────────────────  │
 │  • CLI: init, curate, status, doctor, ...       │
 │  • Hook scripts (compiled JS in templates/)    │
-│  • Slash command definitions                   │
+│  • Skill definitions (.claude/skills/...)      │
 │  • Stage-2 extractor & curator prompts         │
 └────────────────────────────────────────────────┘
                        │
@@ -46,7 +46,7 @@ Modeled on `e0ipso/ai-task-manager`:
 
 - Published as an npm package (`@e0ipso/ai-knowledge-base`).
 - Initialized per repo via `npx @e0ipso/ai-knowledge-base init --assistants claude`. The `--assistants` flag accepts a list and exists for forward-compatibility, but only `claude` is supported in v1.
-- The `init` command copies template files (hooks, slash commands, prompts) from the package's `templates/` directory into the consuming repo's `.claude/` and `.ai/knowledge-base/`. It also writes `.ai/.kb-builder/installed-version` recording which package version produced the templates — needed by future `init --upgrade` work even though upgrade itself is deferred to v2.
+- The `init` command copies template files (hooks, skills, prompts) from the package's `templates/` directory into the consuming repo's `.claude/` and `.ai/knowledge-base/`. It also writes `.ai/.kb-builder/installed-version` recording which package version produced the templates — needed by future `init --upgrade` work even though upgrade itself is deferred to v2.
 - TypeScript codebase, semantic-release for versioning, MIT license.
 
 CLI surface:
@@ -62,15 +62,15 @@ CLI surface:
 | `ai-knowledge-base index rebuild` | Regenerate `INDEX.md` and `GRAPH.md` from current nodes. |
 | `ai-knowledge-base doctor` | Verify hook installation, secret scanner availability, schema validity, INDEX freshness, dangling `derived_from` (with `--verbose`). |
 
-In-session UX (Claude Code slash commands installed by `init`):
+In-session UX (Claude Code skills installed by `init` under `.claude/skills/<name>/SKILL.md`):
 
-| Slash command | Purpose |
+| Skill | Purpose |
 |---|---|
-| `/kb:curate` | Trigger the curator from inside a session. |
-| `/kb:show <topic-or-slug>` | Read a specific node into context. |
-| `/kb:add` | Manually capture a node from inside a session; lands in `_proposed/additions/`. |
-| `/kb:bootstrap [path]` | Agent-driven first-time bootstrap from existing markdown docs. Writes proposals to `_proposed/additions/` and updates `bootstrap-state.json`. |
-| `/kb:propose-from-session` | Force a stage-2 extraction immediately, without waiting for `Stop`. |
+| `kb-curate` | Trigger the curator from inside a session. |
+| `kb-show <topic-or-slug>` | Read a specific node into context. |
+| `kb-add` | Manually capture a node from inside a session; lands in `_proposed/additions/`. |
+| `kb-bootstrap [path]` | Agent-driven first-time bootstrap from existing markdown docs. Writes proposals to `_proposed/additions/` and updates `bootstrap-state.json`. |
+| `kb-propose-from-session` | Force a stage-2 extraction immediately, without waiting for `Stop`. |
 
 ## 3. Directory layout
 
@@ -81,10 +81,10 @@ In-session UX (Claude Code slash commands installed by `init`):
 │   │   ├── kb-capture.mjs          # Stop, SessionEnd, PreCompact (stage 1 only)
 │   │   ├── kb-stage2-drain.mjs     # SessionStart (async): drain stage-2 queue
 │   │   └── kb-session-start.mjs    # SessionStart (sync): inject INDEX, threshold nudge
-│   ├── commands/
-│   │   ├── kb-curate.md
-│   │   ├── kb-show.md
-│   │   └── kb-propose-from-session.md
+│   ├── skills/
+│   │   ├── kb-add/SKILL.md
+│   │   ├── kb-bootstrap/SKILL.md
+│   │   └── kb-curate/SKILL.md
 │   └── settings.json               # hook registrations
 ├── .ai/
 │   ├── knowledge-base/
@@ -348,7 +348,7 @@ The curator is a graph-merge problem on top of stage-2 outputs. It also runs as 
 
 ### 6.1 Trigger and lock
 
-Triggered by `/kb:curate` slash command or `npx @e0ipso/ai-knowledge-base curate` CLI. The threshold nudge is a **passive notification, not a trigger** — it tells the user to run curate; nothing runs automatically.
+Triggered by `/kb-curate` slash command or `npx @e0ipso/ai-knowledge-base curate` CLI. The threshold nudge is a **passive notification, not a trigger** — it tells the user to run curate; nothing runs automatically.
 
 Acquires `.ai/.kb-builder/state.json` lock with PID + 30-minute TTL. Concurrent invocations block on the lock or abort with a clear message.
 
@@ -372,7 +372,7 @@ execa('claude', [
 })
 ```
 
-Output written to `.ai/knowledge-base/_logs/curator/<run-id>__<wallclock-timestamp>.jsonl`. The curator run-id is a short ULID generated at the start of `/kb:curate`.
+Output written to `.ai/knowledge-base/_logs/curator/<run-id>__<wallclock-timestamp>.jsonl`. The curator run-id is a short ULID generated at the start of `/kb-curate`.
 
 ### 6.4 Batching
 
@@ -456,7 +456,7 @@ Two entry points produce a node without going through capture:
 
 - **`ai-knowledge-base node add`** — Interactive CLI that uses `@inquirer/prompts` to collect the node's `kind`, `title`, `summary`, `body`, `tags`, and optional `relates_to`. Validates against the node Zod schema. Writes to `_proposed/additions/<kind>-<slug>.md` with `proposal.kind: addition`, `source_sessions: []`, `rationale: "manual"`, `derived_from: []`, `confidence: high`. Reviewer flow is unchanged.
 
-- **`/kb:add`** — Slash command whose body instructs the agent to ask the user for the same fields (kind, title, summary, body, tags), assemble the proposal frontmatter, and write it to `_proposed/additions/`. The slash command runs in the user's existing session; no `claude -p` subprocess needed. The agent is bound to file-write tools only for this command.
+- **`/kb-add`** — Skill whose body instructs the agent to ask the user for the same fields (kind, title, summary, body, tags), assemble the proposal frontmatter, and write it to `_proposed/additions/`. The skill runs in the user's existing session; no `claude -p` subprocess needed. The skill's `allowed-tools` frontmatter restricts the agent to `Write` only.
 
 Both paths land in `_proposed/additions/`, never directly in `nodes/`. The reviewer accepts or rejects via the same flow as session-derived proposals. This preserves the human-in-the-loop guarantee uniformly.
 
@@ -466,11 +466,11 @@ The manual-add path is also the v1 answer to "false-negative detection" — when
 
 Two distinct entry points for seeding the KB from existing markdown docs. They share output format and state file but are otherwise independent tools for different jobs.
 
-#### 6.10.1 First-time bootstrap (`/kb:bootstrap`, agent-driven)
+#### 6.10.1 First-time bootstrap (`/kb-bootstrap`, agent-driven)
 
-Slash command body lives in `templates/commands/kb-bootstrap.md`. When invoked in a Claude Code session, the body instructs the agent to:
+Skill body lives in `templates/claude/skills/kb-bootstrap/SKILL.md`. When invoked in a Claude Code session, the body instructs the agent to:
 
-1. Survey the docs structure (defaults to `docs/`, top-level `*.md`, `README.md`; explicit path overrides via slash command argument).
+1. Survey the docs structure (defaults to `docs/`, top-level `*.md`, `README.md`; explicit path overrides via skill argument).
 2. Read top-level entry points first; sample representative content from subdirectories.
 3. Follow cross-references between docs to understand context.
 4. Identify candidate practice and map nodes per the §6 PRD definitions, using doc-appropriate triggers (imperative statements, "must/should/always/never," noun-phrase definitions, section headers naming components).
@@ -482,9 +482,9 @@ Slash command body lives in `templates/commands/kb-bootstrap.md`. When invoked i
 6. Update `.ai/.kb-builder/bootstrap-state.json` with content hashes of every doc read.
 7. Report a summary: how many proposals produced, which docs were read, which were skipped and why.
 
-The agent runs in the user's existing session — no `claude -p` subprocess. The user supervises and can intervene mid-run. Tools allowed in the slash command: `Read`, `Glob`, `LS`, `Grep`, `Write` (for proposals and state file only — restricted via the slash command body).
+The agent runs in the user's existing session — no `claude -p` subprocess. The user supervises and can intervene mid-run. The skill's `allowed-tools` frontmatter restricts the agent to `Read`, `Glob`, `Grep`, `Write` (for proposals and state file only), and a narrow `Bash` allow-list for `shasum`/`sha256sum`/`mkdir`.
 
-This is intentionally a one-time, judgment-heavy operation. Re-running `/kb:bootstrap` is allowed but produces noise (the agent re-reads docs already reflected in nodes/). For ongoing maintenance, use `bootstrap-incremental` instead.
+This is intentionally a one-time, judgment-heavy operation. Re-running `/kb-bootstrap` is allowed but produces noise (the agent re-reads docs already reflected in nodes/). For ongoing maintenance, use `bootstrap-incremental` instead.
 
 #### 6.10.2 Incremental bootstrap (`ai-knowledge-base bootstrap-incremental`, CLI)
 
@@ -665,10 +665,11 @@ export interface HookSpec {
   async?: boolean;
 }
 
-export interface SlashCommandSpec {
-  name: string;              // "kb:curate"
-  description: string;
-  body: string;              // markdown body of the command
+export interface SkillSpec {
+  name: string;              // "kb-curate"
+  description: string;       // what the skill does; used for auto-invocation
+  body: string;              // markdown body of SKILL.md
+  allowedTools?: string;     // raw value for `allowed-tools` frontmatter
 }
 
 export interface HeadlessOpts {
@@ -687,7 +688,7 @@ export interface Adapter {
   name: string;                                             // "claude" | "cursor" | ...
 
   hookInstallPath(): string;                                // ".claude/hooks"
-  commandInstallPath(): string;                             // ".claude/commands"
+  skillInstallPath(): string;                               // ".claude/skills"
 
   writeHookConfig(repoRoot: string, hooks: HookSpec[]): Promise<void>;
 
@@ -703,7 +704,10 @@ export interface Adapter {
     opts?: HeadlessOpts
   ): Promise<T>;
 
-  renderSlashCommand(spec: SlashCommandSpec): string;
+  // Renders the body of `.claude/skills/<name>/SKILL.md` for Claude Code.
+  // For other assistants, this can adapt to whatever in-session UX format
+  // they support (custom prompts, command palettes, etc.).
+  renderSkill(spec: SkillSpec): string;
 }
 ```
 
@@ -839,13 +843,13 @@ The policy is documented in the project's CONTRIBUTING.md so future schema autho
 
 ### 11.20 Manual-add path uniformity
 
-**Decision.** Both `ai-knowledge-base node add` (CLI) and `/kb:add` (slash command) write to `_proposed/additions/`, never directly to `nodes/`. They produce proposals with `rationale: "manual"` so they're distinguishable in review.
+**Decision.** Both `ai-knowledge-base node add` (CLI) and `/kb-add` (slash command) write to `_proposed/additions/`, never directly to `nodes/`. They produce proposals with `rationale: "manual"` so they're distinguishable in review.
 
 **Why.** Two reasons. First, the human-in-the-loop guarantee is uniform: every change to `nodes/` goes through review, regardless of source. Second, this gives v1 a low-friction answer to "false-negative detection" — contributors who notice missing knowledge can capture it directly without waiting for a session that happens to teach the same thing. The acceptance metric (≥80% of proposals accepted) only catches false positives; manual-add is the workaround for false negatives.
 
 ### 11.21 Two-tool bootstrap design
 
-**Decision.** Bootstrap from existing docs ships as two separate tools: `/kb:bootstrap` (agent-driven, in-session, for first-time use) and `ai-knowledge-base bootstrap-incremental` (CLI, deterministic, for re-runs).
+**Decision.** Bootstrap from existing docs ships as two separate tools: `/kb-bootstrap` (agent-driven, in-session, for first-time use) and `ai-knowledge-base bootstrap-incremental` (CLI, deterministic, for re-runs).
 
 **Why.** The two jobs have opposite characteristics. First-time bootstrap on a real project's messy docs needs judgment — following cross-references, recognizing boilerplate, understanding project conventions. That's an in-session agent task with the user supervising. Trying to do this with a fixed CLI prompt produces a flood of mediocre proposals that takes longer to review than running the agent once. Incremental bootstrap on a few changed files needs the opposite: cheap, deterministic, scriptable, no supervision. A 20-minute agent exploration for three new files is wrong; a chunked `claude -p` extraction is right.
 
@@ -863,9 +867,9 @@ Each phase shippable on its own.
 
 **M2 — Stage 2 drain.** `kb-stage2-drain.mjs` async SessionStart hook. Adapter's `runHeadless` implementation invoking `claude -p --output-format stream-json --verbose`. Stream-json log writing under `_logs/stage-2/`. Two-pass extraction prompt with role-aware rules. Tests with a mocked subprocess against fixture transcripts.
 
-**M3 — Curate pipeline + manual-add.** `/kb:curate` slash command, curator prompt with batching and contradiction handling, proposal generation, `_proposed/` layout. Validity windows and supersedes/superseded_by wired in. Lock file with PID + TTL. `_logs/curator/` writing. `ai-knowledge-base proposals review` TUI. Inline INDEX regen happens here. Manual-add path (`ai-knowledge-base node add` and `/kb:add`) ships in this phase since it shares the proposal-write infrastructure.
+**M3 — Curate pipeline + manual-add.** `/kb-curate` slash command, curator prompt with batching and contradiction handling, proposal generation, `_proposed/` layout. Validity windows and supersedes/superseded_by wired in. Lock file with PID + TTL. `_logs/curator/` writing. `ai-knowledge-base proposals review` TUI. Inline INDEX regen happens here. Manual-add path (`ai-knowledge-base node add` and `/kb-add`) ships in this phase since it shares the proposal-write infrastructure.
 
-**M3.5 — Bootstrap from existing docs.** `/kb:bootstrap` slash command (agent-driven, in-session) for first-time bootstrap. `ai-knowledge-base bootstrap-incremental` CLI for re-runs. `bootstrap-state.json` schema and Zod validator. `_logs/bootstrap-incremental/` writing. Bootstrap-specific prompts under `templates/prompts/bootstrap-incremental.md` and `templates/commands/kb-bootstrap.md`. Ships after M3 because it depends on the proposal-write infrastructure (manual-add) and the chunking pattern (curator). Optional path for users — empty-KB start still works without invoking either bootstrap tool.
+**M3.5 — Bootstrap from existing docs.** `/kb-bootstrap` skill (agent-driven, in-session) for first-time bootstrap. `ai-knowledge-base bootstrap-incremental` CLI for re-runs. `bootstrap-state.json` schema and Zod validator. `_logs/bootstrap-incremental/` writing. Bootstrap-specific prompts under `templates/prompts/bootstrap-incremental.md` and `templates/claude/skills/kb-bootstrap/SKILL.md`. Ships after M3 because it depends on the proposal-write infrastructure (manual-add) and the chunking pattern (curator). Optional path for users — empty-KB start still works without invoking either bootstrap tool.
 
 **M4 — SessionStart consumption.** `INDEX.md` generator (called inline by curate), `kb-session-start.mjs` hook, threshold nudge with hourly throttle, stale-INDEX detection, dangling-`derived_from` doctor warnings.
 
@@ -911,7 +915,7 @@ Copied by `init` into `.ai/knowledge-base/README.md`. Explains to a teammate bro
 - What this directory is.
 - How knowledge gets here (capture → curate → consume, briefly).
 - How to read a node (kind, validity windows, provenance).
-- How to propose a new node manually (`ai-knowledge-base node add` or `/kb:add`).
+- How to propose a new node manually (`ai-knowledge-base node add` or `/kb-add`).
 - Link to the project docs site for deeper info.
 
 Aimed at the **consumer** persona — someone who pulls the repo and wonders what `.ai/knowledge-base/` is.
@@ -933,14 +937,14 @@ Core Concepts
   ├── How it works                Capture / curate / consume pipeline
   └── Knowledge model             practice/map, validity windows, provenance
 Bootstrap
-  ├── First-time bootstrap        /kb:bootstrap agent-driven walkthrough
+  ├── First-time bootstrap        /kb-bootstrap agent-driven walkthrough
   └── Incremental bootstrap       ai-knowledge-base bootstrap-incremental CLI usage
 Customization
   ├── Editing the prompts         stage-2, curator, and bootstrap prompt customization
   └── Settings reference          .config.json and user-level overrides
 Reference
   ├── CLI commands                Every ai-knowledge-base subcommand
-  ├── Slash commands              /kb:curate, /kb:show, /kb:add, /kb:bootstrap, /kb:propose-from-session
+  ├── Skills                      /kb-curate, /kb-show, /kb-add, /kb-bootstrap, /kb-propose-from-session
   ├── Frontmatter schemas         Node, session log, proposal — full Zod schemas
   ├── Hook events                 Stop / SessionEnd / PreCompact / SessionStart
   └── Failure modes               One page per failure type with recovery steps
@@ -969,8 +973,8 @@ Documentation grows with the code, not all at the end. Per-phase doc work:
 | M0 | Top-level README; CONTRIBUTING.md; in-KB README template; docs site skeleton (Home + empty Getting Started shell); GitHub Pages deployment configured |
 | M1 | Reference > Hook events; Reference > CLI command coverage for `init`, `doctor`, `status`; Getting Started > Installation page completed |
 | M2 | Customization > Editing the stage-2 prompt; Reference > Settings (token budget, drain bound, threshold); Troubleshooting > Reading `_logs/stage-2/` |
-| M3 | Reference > Slash commands; Reference > CLI for `curate`, `node add`, `proposals review`; Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/`; Getting Started > First capture → curate (end-to-end walkthrough) |
-| M3.5 | Bootstrap > First-time bootstrap (`/kb:bootstrap` agent-driven walkthrough); Bootstrap > Incremental bootstrap (CLI usage, glob filters, dry-run); Customization > Editing the bootstrap-incremental prompt; Reference > `bootstrap-state.json` schema; Reference > CLI for `bootstrap-incremental` |
+| M3 | Reference > Skills; Reference > CLI for `curate`, `node add`, `proposals review`; Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/`; Getting Started > First capture → curate (end-to-end walkthrough) |
+| M3.5 | Bootstrap > First-time bootstrap (`/kb-bootstrap` agent-driven walkthrough); Bootstrap > Incremental bootstrap (CLI usage, glob filters, dry-run); Customization > Editing the bootstrap-incremental prompt; Reference > `bootstrap-state.json` schema; Reference > CLI for `bootstrap-incremental` |
 | M4 | Core Concepts > How it works; Core Concepts > Knowledge model; Reference > Frontmatter schemas; INDEX/GRAPH explanation |
 | M5 | Troubleshooting > Common issues (seeded with whatever the team has hit during M1–M4 testing); Architecture page; final pass on every page for accuracy |
 
@@ -979,7 +983,7 @@ Each phase's PR includes its own doc updates. No PR ships code without the corre
 ### 15.6 Documentation principles
 
 - **README is a billboard, not a manual.** Anything more than the pitch + quick-start belongs on the docs site.
-- **Every CLI command, slash command, config key, and frontmatter field has a reference page entry.** No exceptions; the doctor command can verify completeness.
+- **Every CLI command, skill, config key, and frontmatter field has a reference page entry.** No exceptions; the doctor command can verify completeness.
 - **Examples beat prose.** Each customization page has a working before/after example.
 - **Show stream-json traces in troubleshooting docs.** Real fragments from real runs, redacted, with annotations.
 - **Architecture page is honest about trade-offs.** Documents what was rejected and why, not just what was chosen — future adapter authors need this context.

@@ -14,13 +14,13 @@ The package installs an `ai-knowledge-base` binary. After `npm install -g @e0ips
 ai-knowledge-base init --assistants <list> [--force] [--upgrade [--dry-run]]
 ```
 
-First-time setup for a repo. Copies the directory skeleton, slash commands, hook scripts, and pre-commit config; registers the capture hook against three Claude Code events; writes `.ai/.kb-builder/installed-version`.
+First-time setup for a repo. Copies the directory skeleton, the Claude Code skills (`kb-add`, `kb-bootstrap`, `kb-curate`), hook scripts, and pre-commit config; registers the capture hook against three Claude Code events; writes `.ai/.kb-builder/installed-version`. If the repo carries legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files from an older install, those are removed (user-authored slash commands in `.claude/commands/` are left untouched).
 
 Flags:
 
 - `-a, --assistants <list>` (required) — comma-separated list of AI assistants to wire up. v1 supports `claude` only; the list form exists for forward compatibility.
 - `-f, --force` — overwrite existing files. Without this flag, re-running `init` on an already-initialized repo exits with a notice and does nothing. `--force` does **not** overwrite an existing `.ai/knowledge-base/.config.json` (use the file's own editor) and is incompatible with `--upgrade` (use one or the other).
-- `-u, --upgrade` — refresh hooks, slash commands, prompts, and hook registrations to match the current package version, while preserving local prompt overrides under `.ai/.kb-builder/prompts/` and the existing `.config.json`. Prints a preflight changelist, then applies. Combine with `--dry-run` to print the preflight only.
+- `-u, --upgrade` — refresh hooks, skills, prompts, and hook registrations to match the current package version, while preserving local prompt overrides under `.ai/.kb-builder/prompts/` and the existing `.config.json`. Also removes legacy `.claude/commands/kb-{add,bootstrap,curate}.md` files left by older installs. Prints a preflight changelist, then applies. Combine with `--dry-run` to print the preflight only.
 - `--dry-run` — only meaningful with `--upgrade`. Lists planned changes without writing.
 
 See [Getting Started > Upgrading](../getting-started/upgrading.md) for a walkthrough.
@@ -28,7 +28,7 @@ See [Getting Started > Upgrading](../getting-started/upgrading.md) for a walkthr
 What `init` writes:
 
 - `.ai/knowledge-base/` — node directories, `_proposed/`, `_sessions/`, `_logs/`, plus an in-KB `README.md`, `INDEX.md`, and `GRAPH.md` stub.
-- `.claude/commands/kb-bootstrap.md` — the bootstrap slash command body (other slash commands ship in M3).
+- `.claude/skills/{kb-add,kb-bootstrap,kb-curate}/SKILL.md` — the three Claude Code skills that drive the in-session knowledge-base UX.
 - `.claude/hooks/kb-capture.mjs` — compiled stage-1 capture script (Stop / SessionEnd / PreCompact).
 - `.claude/settings.json` — registers the three hooks; merges with any existing user-defined hooks.
 - `.ai/.kb-builder/installed-version` — JSON marker recording the package version and selected assistants.
@@ -93,7 +93,7 @@ Interactive CLI for capturing a single node manually. Uses `@inquirer/prompts` t
 
 After writing the proposal, INDEX and GRAPH are regenerated so the index doesn't drift while a manual proposal sits awaiting review.
 
-The same path is available in-session as the `/kb:add` slash command.
+The same path is available in-session as the `kb-add` skill (invoke with `/kb-add`).
 
 ## `proposals review`
 

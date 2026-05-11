@@ -11,7 +11,7 @@ The package installs an `ai-knowledge-base` binary. After `npm install -g @e0ips
 ## `init`
 
 ```sh
-ai-knowledge-base init --assistants <list> [--force]
+ai-knowledge-base init --assistants <list> [--force] [--upgrade [--dry-run]]
 ```
 
 First-time setup for a repo. Copies the directory skeleton, slash commands, hook scripts, and pre-commit config; registers the capture hook against three Claude Code events; writes `.ai/.kb-builder/installed-version`.
@@ -19,7 +19,11 @@ First-time setup for a repo. Copies the directory skeleton, slash commands, hook
 Flags:
 
 - `-a, --assistants <list>` (required) — comma-separated list of AI assistants to wire up. v1 supports `claude` only; the list form exists for forward compatibility.
-- `-f, --force` — overwrite existing files. Without this flag, re-running `init` on an already-initialized repo exits with a notice and does nothing.
+- `-f, --force` — overwrite existing files. Without this flag, re-running `init` on an already-initialized repo exits with a notice and does nothing. `--force` does **not** overwrite an existing `.ai/knowledge-base/.config.json` (use the file's own editor) and is incompatible with `--upgrade` (use one or the other).
+- `-u, --upgrade` — refresh hooks, slash commands, prompts, and hook registrations to match the current package version, while preserving local prompt overrides under `.ai/.kb-builder/prompts/` and the existing `.config.json`. Prints a preflight changelist, then applies. Combine with `--dry-run` to print the preflight only.
+- `--dry-run` — only meaningful with `--upgrade`. Lists planned changes without writing.
+
+See [Getting Started > Upgrading](../getting-started/upgrading.md) for a walkthrough.
 
 What `init` writes:
 
@@ -135,6 +139,45 @@ Flags:
 - `--timeout <ms>` — per-batch subprocess timeout. Default `120000`.
 
 See [Bootstrap > Incremental bootstrap](../bootstrap/incremental-bootstrap.md) for usage recipes and [Reference > `bootstrap-state.json` schema](bootstrap-state.md) for the state file shape.
+
+## `logs prune`
+
+```sh
+ai-knowledge-base logs prune [--older-than <duration>] [--dry-run]
+```
+
+Walks `.ai/knowledge-base/_logs/{stage-2,curator,bootstrap-incremental}` and deletes JSONL files whose mtime is older than the cutoff. Reports per-bucket counts and freed bytes. Stream-json logs accumulate across every stage-2 drain, curate run, and bootstrap-incremental run; v1.5 ships this as the manual pressure-release valve. (No automated pruning yet — a future release may key off `settings.logsRetentionDays`.)
+
+Flags:
+
+- `--older-than <duration>` — `ms`-package style. Accepts `30d`, `2w`, `12h`, `45m`, `30s`, `500ms`, `1y`. Defaults to `<settings.logsRetentionDays>d` (`30d` out of the box).
+- `--dry-run` — list what would be deleted without touching files. Still reports bytes-freed estimates from `stat`.
+
+Examples:
+
+```sh
+# Show what's eligible at the default 30-day cutoff.
+ai-knowledge-base logs prune --dry-run
+
+# Aggressive: keep only the last week.
+ai-knowledge-base logs prune --older-than 7d
+
+# Daily housekeeping in a long-running CI job.
+ai-knowledge-base logs prune --older-than 1d
+```
+
+Output format:
+
+```
+• Deleted 12 log file(s) older than 30d (2026-04-11T10:00:00.000Z).
+  • stage-2: 8/14 eligible — 4.2 MB
+  • curator: 3/9 eligible — 1.1 MB
+  • bootstrap-incremental: 1/2 eligible — 220 KB
+
+✓ freed 5.5 MB across 3 bucket(s).
+```
+
+See also: [Troubleshooting > Pruning logs](../troubleshooting/pruning-logs.md).
 
 ## `index rebuild`
 

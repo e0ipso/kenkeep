@@ -14,6 +14,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSessionStartContext } from '../lib/session-start.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { resolveSettings } from '../lib/settings.js';
 
 const PACKAGE_TAG = '[ai-knowledge-base]';
 const HARD_DEADLINE_MS = 1000;
@@ -45,11 +46,13 @@ async function main(): Promise<void> {
   if (!existsSync(paths.installedVersionFile)) return;
 
   try {
+    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const result = buildSessionStartContext({
       kbDir: paths.kbDir,
       nodesDir: paths.nodesDir,
       sessionsDir: paths.sessionsDir,
       stateFile: join(paths.builderDir, 'state.json'),
+      threshold: settings.curationThreshold,
     });
     process.stdout.write(
       `${JSON.stringify({

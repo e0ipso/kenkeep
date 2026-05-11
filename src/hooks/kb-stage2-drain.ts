@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHeadlessClaude } from '../lib/headless.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { resolveSettings } from '../lib/settings.js';
 import { drainStage2Queue, type Stage2Runner } from '../lib/stage2-drain.js';
 
 const PACKAGE_TAG = '[ai-knowledge-base]';
@@ -48,12 +49,17 @@ async function main(): Promise<void> {
     runHeadlessClaude(prompt, stdin, schema, opts);
 
   try {
+    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const summary = await drainStage2Queue({
       sessionsDir: paths.sessionsDir,
       logsDir: paths.logsDir,
       stateFile: join(paths.builderDir, 'state.json'),
       promptTemplate,
       runner,
+      maxEntries: settings.drainBound,
+      maxAttempts: settings.maxAttempts,
+      timeoutMs: settings.stage2Timeout,
+      lockTtlMs: settings.lockTtlMs,
     });
     if (summary.status === 'locked') {
       // Another drain is in flight; nothing to do.

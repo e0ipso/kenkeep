@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { generateGraph, generateIndex, writeGraph, writeIndex } from '../lib/index-gen.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { resolveSettings } from '../lib/settings.js';
 
 export interface IndexRebuildOptions {
   budgetTokens?: number;
@@ -27,7 +28,12 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   }
 
   mkdirSync(paths.kbDir, { recursive: true });
-  const genOpts: { budgetTokens?: number; now: Date } = { now: new Date() };
+  const { settings, warnings } = resolveSettings({ projectFile: paths.projectConfigFile });
+  for (const w of warnings) log.warn(w);
+  const genOpts: { budgetTokens?: number; now: Date } = {
+    now: new Date(),
+    budgetTokens: settings.indexBudgetTokens,
+  };
   if (opts.budgetTokens !== undefined) genOpts.budgetTokens = opts.budgetTokens;
 
   const index = generateIndex(paths.nodesDir, genOpts);

@@ -4,6 +4,7 @@ import { ClaudeAdapter } from '../adapters/claude.js';
 import { runCurate, type CuratorRunner } from '../lib/curate.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { resolveSettings } from '../lib/settings.js';
 
 export interface CurateCommandOptions {
   batchSize?: number;
@@ -33,6 +34,8 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     adapter.runHeadless(prompt, stdin, schema, runnerOpts);
 
   log.info('Curating pending session logs…');
+  const { settings, warnings } = resolveSettings({ projectFile: paths.projectConfigFile });
+  for (const w of warnings) log.warn(w);
   const baseOpts = {
     kbDir: paths.kbDir,
     sessionsDir: paths.sessionsDir,
@@ -42,6 +45,8 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     stateFile: join(paths.builderDir, 'state.json'),
     promptTemplate,
     runner,
+    lockTtlMs: settings.lockTtlMs,
+    indexBudgetTokens: settings.indexBudgetTokens,
   };
   const result = await runCurate({
     ...baseOpts,

@@ -6,29 +6,72 @@ nav_order: 4
 
 # Settings
 
-Settings are not yet exposed as a `.config.json` file (planned for M3). The defaults baked into the package are documented below for completeness.
+`ai-knowledge-base` reads its tunable knobs from a two-layer settings file:
 
-## Stage-2 drain (M2)
+1. **Project-level**: `.ai/knowledge-base/.config.json` (committed to the repo). Created by `init` populated with the package defaults.
+2. **User-level**: `~/.config/@e0ipso/ai-knowledge-base/config.json` (or `$XDG_CONFIG_HOME/@e0ipso/ai-knowledge-base/config.json` if set). Not committed.
 
-These settings live in `src/lib/stage2-drain.ts` and `src/lib/headless.ts`. They are not currently user-configurable; the values are the result of "what makes sense for a small-to-medium KB and a single contributor."
+Both files are optional. Resolution order (later wins):
 
-| Setting | Default | Where applied | Behavior |
+```
+package defaults  ←  user file  ←  project file
+```
+
+This means the repo's own `.config.json` is always authoritative. The user file lets a contributor reduce e.g. `stage2Timeout` for a slow box without touching the project's checked-in config.
+
+## File shape
+
+```json
+{
+  "schema_version": 1,
+  "drainBound": 5,
+  "maxAttempts": 3,
+  "stage2Timeout": 60000,
+  "lockTtlMs": 1800000,
+  "indexBudgetTokens": 2000,
+  "curationThreshold": 5,
+  "bootstrapTokenBudget": 10000,
+  "gitleaksRulesPath": null,
+  "logsRetentionDays": 30
+}
+```
+
+The Zod schema is strict: unknown keys cause `doctor` to fail with a validation error. Every key except `schema_version` is optional; omitted keys fall through to the next layer.
+
+A malformed user file is not fatal — `resolveSettings()` emits a warning to the calling command and treats the file as absent so a corrupted user override cannot brick the CLI.
+
+## Keys
+
+| Key | Type | Default | Behavior |
 |---|---|---|---|
-| `drainBound` | 5 entries | `drainStage2Queue` | Maximum number of queue entries processed per `SessionStart` invocation. Remaining entries are deferred to the next session. Keeps a long backlog from blocking a quick session start, even though the hook is async. |
-| `maxAttempts` | 3 attempts | `drainStage2Queue` | A queue entry that fails (parse error, schema mismatch, timeout, non-zero exit) is rotated to the back of the queue with `attempts` incremented. After the third failure the session log is marked `stage_2_status: skipped` and the entry is removed from the queue. |
-| `stage2Timeout` | 60,000 ms | `runHeadlessClaude` | Per-entry wall-clock deadline for the spawned `claude -p` subprocess. A timeout counts as a failed attempt for retry purposes. |
-| `lockTtl` | 30 minutes | `acquireLock` | If a `state.json` lock is older than its TTL it is treated as stale and reclaimed. Prevents a crashed drain from blocking subsequent runs forever. |
+| `drainBound` | int > 0 | `5` | Maximum number of stage-2 queue entries the async drain processes per `SessionStart`. Remaining entries are deferred to the next session. Keeps a long backlog from blocking a quick session start. |
+| `maxAttempts` | int > 0 | `3` | A failed stage-2 entry (parse error, schema mismatch, timeout, non-zero exit) is rotated to the back of the queue with `attempts` incremented. After this many failures the session log is marked `stage_2_status: skipped` and the entry is removed. |
+| `stage2Timeout` | int > 0 (ms) | `60000` | Per-entry wall-clock deadline for the spawned `claude -p` stage-2 subprocess. A timeout counts as a failed attempt for retry purposes. |
+| `lockTtlMs` | int > 0 (ms) | `1800000` (30 min) | TTL for the `.ai/.kb-builder/state.json` lock. A lock older than its TTL is treated as stale and reclaimed, preventing a crashed run from blocking subsequent invocations. Applies to the stage-2 drain, curator, and bootstrap-incremental locks. |
+| `indexBudgetTokens` | int > 0 | `2000` | INDEX.md token budget (~4 chars/token). Per-kind sections trim oldest entries until the rendered body fits; trimmed counts go into a "_N additional nodes hidden by token budget_" footer. |
+| `curationThreshold` | int > 0 | `5` | Number of pending session logs that triggers the curate-nudge on the next `SessionStart`. The nudge is throttled to at most once per hour. |
+| `bootstrapTokenBudget` | int > 0 | `10000` | Approximate per-batch token budget for `ai-knowledge-base bootstrap-incremental`. Docs are atomic — a single oversized doc lands in its own batch. |
+| `gitleaksRulesPath` | string or null | `null` | Reserved for a future capture-time gitleaks rule override. Not yet honored by the capture hook; v1.5 ships the setting so users can write the path now without a future schema bump. |
+| `logsRetentionDays` | int > 0 | `30` | Default `--older-than` window for `ai-knowledge-base logs prune`. The CLI flag still wins when given. |
 
-## Stage-2 drain lock
+## CLI flags vs. settings
 
-`.ai/.kb-builder/state.json` carries `{ schema_version: 1, lock?: { name, pid, acquired_at, ttl_ms }, last_nudged_at? }`. The lock guards against two concurrent `SessionStart` events draining the same queue. Fields:
+Per-command flags (`--batch-size`, `--token-budget`, `--timeout`, `--budget-tokens`) always override the settings value for that run. Use flags for one-off experiments, the settings file for the steady state.
+
+## Lock state
+
+`.ai/.kb-builder/state.json` carries `{ schema_version: 1, lock?: { name, pid, acquired_at, ttl_ms }, last_nudged_at? }`. The lock guards against concurrent stage-2 drains, curate runs, and bootstrap-incremental runs. Field reference:
 
 | Field | Purpose |
 |---|---|
-| `name` | Always `"stage2-drain"` for the drain. Curator (M3) will use its own name. |
-| `pid` | The OS pid of the process holding the lock. Mostly informational; the lock is released by name+pid match. |
+| `name` | `"stage2-drain"`, `"curator"`, or `"bootstrap-incremental"`. |
+| `pid` | OS pid of the process holding the lock. Mostly informational; the lock is released by name+pid match. |
 | `acquired_at` | ISO 8601 timestamp. Compared against `ttl_ms` to decide whether a lock is stale. |
-| `ttl_ms` | Lock TTL in milliseconds. 1,800,000 (30 minutes) by default. |
+| `ttl_ms` | Lock TTL in milliseconds. Sourced from `lockTtlMs` above. |
+
+## Doctor
+
+`ai-knowledge-base doctor` runs a `settings file is valid` check. If `.config.json` is missing the check is a warning (defaults are in effect); if it is unparseable or fails Zod validation the check is an error and `doctor` exits 1.
 
 ## Stage-2 log files
 
@@ -38,7 +81,7 @@ Each drain invocation writes one stream-json file per processed entry under `.ai
 .ai/knowledge-base/_logs/stage-2/<session-id>__YYYYMMDDTHHMMSSZ.jsonl
 ```
 
-The path is recorded in the session log's `stage_2_log` field. Logs are gitignored by default. See [Troubleshooting > Reading the stage-2 log](../troubleshooting/reading-stage-2-logs.md).
+The path is recorded in the session log's `stage_2_log` field. Logs are gitignored by default. See [Troubleshooting > Reading the stage-2 log](../troubleshooting/reading-stage-2-logs.md). Use `ai-knowledge-base logs prune` to bound their growth.
 
 ## Frontmatter changes on stage-2 completion
 
@@ -56,7 +99,3 @@ proposals:
 ```
 
 On failure, only `stage_2_status` (`failed` or `skipped`), `stage_2_completed_at` (set only when `skipped`), `stage_2_error`, and `stage_2_log` are updated; `proposals` is left empty.
-
-## Future settings (planned for M3)
-
-`.ai/knowledge-base/.config.json` (committed) plus `~/.config/@e0ipso/ai-knowledge-base/config.json` (per-user override). Will surface: `drainBound`, `maxAttempts`, `stage2Timeout`, `lockTtl`, INDEX token budget, curation threshold, gitleaks ruleset path. Project settings win.

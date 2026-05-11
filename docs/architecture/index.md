@@ -138,16 +138,61 @@ The non-LLM parts of the system are deterministic:
 
 Tests rely on this: see `tests/lib/index-gen.test.ts` for golden-file comparisons.
 
+## Testing strategy
+
+Three layers, each catching a different class of regression. Together they cover the system without making every PR pay for the slowest one.
+
+### Unit + integration (default `npm test`)
+
+```sh
+npm test               # vitest run, all 24+ test files
+```
+
+Includes:
+
+- **Pure-function tests** for every `src/lib/` module — frontmatter parsers, Zod schemas, INDEX generator (golden-file), `nodes_hash`, dedup cache, gitleaks parser, queue atomic-write, lock TTL, stale-INDEX detection, role-tagged transcript splitter, stream-json line parser, settings resolver, duration parser, logs-prune walker.
+- **Integration tests** for every LLM-invoking pipeline (`stage2-drain`, `curate`, `bootstrap`) using the `Stage2Runner` / `CuratorRunner` / `BootstrapRunner` seams: tests inject a fake runner that returns the schema-shaped JSON directly, bypassing the `claude -p` subprocess entirely. The seam is the same one the real `ClaudeAdapter.runHeadless` plugs into, so the pipeline code path is exercised in full — only the subprocess is faked.
+- **CLI integration tests** that build the package, run the actual binary against a temp-directory sandbox, and assert on stdout, exit codes, and filesystem state. See `tests/init.test.ts`, `tests/upgrade.test.ts`, `tests/doctor.test.ts`, `tests/logs-prune.test.ts`.
+
+These run on every PR; the suite finishes in ~10 seconds locally.
+
+### Real-`claude` end-to-end (`tests/e2e/`)
+
+Gated behind `KB_RUN_REAL_CLAUDE=1` so the default test run never spawns subprocesses against the Anthropic API. When enabled, `tests/e2e/full-cycle.test.ts` exercises one full cycle on a synthetic repo:
+
+1. `ai-knowledge-base init` populates a temp directory.
+2. A fixture session log carrying the bravo-insider transcript lands in `_sessions/` with `stage_2_status: pending`.
+3. `drainStage2Queue` runs against the real `claude -p` with the shipped stage-2 prompt and a 5-minute timeout.
+4. `runCurate` runs against the real `claude -p` with the shipped curator prompt.
+5. The proposals-review TUI's "accept all" path (via the `actions` test seam) promotes every proposal into `nodes/`.
+6. `ai-knowledge-base index rebuild` produces `INDEX.md`.
+7. The test asserts at least one node exists and that either a node or `INDEX.md` mentions "Bravo Insider" — a project-unique substring from the fixture transcript.
+
+The assertion is intentionally loose (any haystack matches) so that minor wording drift between Claude model versions doesn't break it. If it regresses, the failing run leaves the stream-json logs under the temp sandbox's `_logs/stage-2/` and `_logs/curator/` for inspection.
+
+The suite is run manually via the `E2E (real-claude)` GitHub Actions workflow (`workflow_dispatch`-only). The workflow installs `@anthropic-ai/claude-code` globally and authenticates via `ANTHROPIC_API_KEY`. See [`CONTRIBUTING.md`](https://github.com/e0ipso/ai-knowledge-base/blob/main/CONTRIBUTING.md#real-claude-e2e-suite) for when to trigger it.
+
+### Manual testing
+
+`docs/manual-test-plan.md` (planned) covers tests that resist automation: PreCompact timing on long sessions, hook installation on Windows, vendored gitleaks binary on each platform, and real session-capture quality. These are exercises performed before a significant release.
+
+### Mocking strategy summary
+
+| What | How | Why |
+|---|---|---|
+| `claude -p` subprocess in unit tests | Fake `Stage2Runner`/`CuratorRunner`/`BootstrapRunner` returning schema-shaped JSON | Pipeline code is exercised; no API spend or determinism worries. |
+| `claude -p` subprocess at the spawn layer | `SpawnFn` seam in `runHeadlessClaude` | Lets us test the `headless.ts` parser against handcrafted stream-json fragments without process startup cost. |
+| File system | Sandbox temp directory + `cleanSandbox()` | No global state leakage between tests. |
+| `claude` CLI for E2E | Real binary, gated by env var | Catches prompt regressions, CLI flag drift, and model-output-shape surprises that the JSON-shaped mocks can't see. |
+
 ## What's intentionally not here
 
 Per [IMPLEMENTATION §12](https://github.com/e0ipso/ai-knowledge-base/blob/main/IMPLEMENTATION.md#12-implementation-phases):
 
-- **No `.config.json`.** Configuration values live in code as named constants. v1.5 will add a config file.
-- **No `init --upgrade`.** Re-run with `--force`; the gitignore-block and `.claude/settings.json` merging are idempotent.
-- **No `logs prune`.** v1.5.
 - **No multi-assistant adapter dispatch.** v2.
 - **No `bootstrap-incremental` overlap detection.** v2 (always writes additions; reviewer rejects duplicates).
 - **No managed-MCP injection.** The INDEX-as-additionalContext pattern is the entire injection surface.
+- **No auto-prune of `_logs/`.** v1.5 ships `ai-knowledge-base logs prune` as the manual valve; a future release may automate it via `settings.logsRetentionDays`.
 
 These are constraints, not omissions. Each one trades expressiveness for "the code is easy to read end-to-end in an afternoon."
 

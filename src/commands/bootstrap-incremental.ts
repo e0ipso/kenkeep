@@ -8,6 +8,7 @@ import {
 } from '../lib/bootstrap.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { resolveSettings } from '../lib/settings.js';
 
 export interface BootstrapIncrementalOptions {
   from: string;
@@ -47,6 +48,9 @@ export async function runBootstrapIncrementalCommand(
   const runner: BootstrapRunner = (prompt, stdin, schema, runnerOpts) =>
     adapter.runHeadless(prompt, stdin, schema, runnerOpts);
 
+  const { settings, warnings } = resolveSettings({ projectFile: paths.projectConfigFile });
+  for (const w of warnings) log.warn(w);
+
   const ctx: BootstrapContext = {
     sourceDir,
     repoRoot: root,
@@ -57,6 +61,8 @@ export async function runBootstrapIncrementalCommand(
     bootstrapStateFile: join(paths.builderDir, 'bootstrap-state.json'),
     promptTemplate,
     runner,
+    tokenBudget: settings.bootstrapTokenBudget,
+    lockTtlMs: settings.lockTtlMs,
   };
   if (opts.include !== undefined) ctx.include = opts.include;
   if (opts.exclude !== undefined) ctx.exclude = opts.exclude;

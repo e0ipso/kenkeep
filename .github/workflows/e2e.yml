@@ -1,0 +1,51 @@
+name: E2E (real-claude)
+
+# Manual-only — this workflow spawns real `claude -p` subprocesses and so
+# burns API credits. Do NOT add `push` or `pull_request` triggers.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you running the real-claude E2E?'
+        required: false
+        default: 'manual smoke'
+
+jobs:
+  e2e:
+    name: full capture → drain → curate → review cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      KB_RUN_REAL_CLAUDE: '1'
+      # Required by `claude -p` when run with an API key (the default in CI).
+      # OAuth subscription flow does not work in a non-interactive runner.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      NO_COLOR: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Install the official Claude Code CLI (the binary the test invokes
+      # under the hood). Pin to a specific channel; the suite expects the
+      # `-p`, `--output-format stream-json`, `--verbose`, and `--allowedTools`
+      # flags. If you upgrade the CLI and the test starts failing on
+      # subprocess flags, that's the contract breaking.
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Verify claude CLI
+        run: claude --version
+
+      - name: Run real-claude E2E
+        run: npx vitest run tests/e2e --reporter=verbose

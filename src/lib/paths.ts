@@ -41,6 +41,7 @@ export interface RepoPaths {
   kbDir: string;
   builderDir: string;
   installedVersionFile: string;
+  projectConfigFile: string;
   sessionsDir: string;
   proposedDir: string;
   logsDir: string;
@@ -64,6 +65,7 @@ export function repoPaths(root: string): RepoPaths {
     kbDir,
     builderDir,
     installedVersionFile: join(builderDir, 'installed-version'),
+    projectConfigFile: join(kbDir, '.config.json'),
     sessionsDir: join(kbDir, '_sessions'),
     proposedDir: join(kbDir, '_proposed'),
     logsDir: join(kbDir, '_logs'),

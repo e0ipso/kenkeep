@@ -6,7 +6,8 @@ import matter from 'gray-matter';
 import { log } from '../lib/log.js';
 import { computeNodesHash, readAllNodes } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import { IndexFrontmatterSchema } from '../lib/schemas.js';
+import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
+import { packageVersion } from '../lib/version.js';
 
 const exec = promisify(execFile);
 
@@ -36,6 +37,10 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     result: checkInstalledVersion(paths.installedVersionFile),
   });
   checks.push({
+    name: 'installed-version is current',
+    result: checkInstalledVersionCurrent(paths.installedVersionFile),
+  });
+  checks.push({
     name: 'pre-commit config installed',
     result: checkPreCommit(paths.preCommitConfigFile),
   });
@@ -51,6 +56,10 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
   checks.push({
     name: 'shipped prompts present',
     result: checkPrompts(paths.builderDir),
+  });
+  checks.push({
+    name: 'settings file is valid',
+    result: checkSettings(paths.projectConfigFile),
   });
   checks.push({
     name: 'INDEX.md is fresh',
@@ -194,6 +203,34 @@ function checkInstalledVersion(file: string): CheckResult {
   }
 }
 
+function checkInstalledVersionCurrent(file: string): CheckResult {
+  if (!existsSync(file)) {
+    return {
+      ok: false,
+      level: 'warn',
+      detail: 'no installed-version stamp; skipping currency check.',
+    };
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as { version?: string };
+    const installed = typeof parsed.version === 'string' ? parsed.version : null;
+    const current = packageVersion();
+    if (installed === null) {
+      return { ok: false, level: 'warn', detail: 'installed-version has no `version` field.' };
+    }
+    if (installed === current) {
+      return { ok: true, detail: `${current}` };
+    }
+    return {
+      ok: false,
+      level: 'warn',
+      detail: `installed ${installed} ≠ package ${current}. Run \`ai-knowledge-base init --upgrade\` to refresh templates.`,
+    };
+  } catch (err) {
+    return { ok: false, level: 'warn', detail: `unreadable: ${(err as Error).message}` };
+  }
+}
+
 function checkPreCommit(file: string): CheckResult {
   if (!existsSync(file)) {
     return {
@@ -302,6 +339,40 @@ function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
   } catch (err) {
     return { ok: false, level: 'warn', detail: `unreadable: ${(err as Error).message}` };
   }
+}
+
+function checkSettings(file: string): CheckResult {
+  if (!existsSync(file)) {
+    return {
+      ok: false,
+      level: 'warn',
+      detail: `no .ai/knowledge-base/.config.json — package defaults are in effect. Run \`ai-knowledge-base init --upgrade\` to create one.`,
+    };
+  }
+  let raw: string;
+  try {
+    raw = readFileSync(file, 'utf8');
+  } catch (err) {
+    return { ok: false, level: 'error', detail: `unreadable: ${(err as Error).message}` };
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, level: 'error', detail: `invalid JSON: ${(err as Error).message}` };
+  }
+  const parsed = SettingsSchema.safeParse(json);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      level: 'error',
+      detail: `schema validation failed: ${parsed.error.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ')}`,
+    };
+  }
+  const keys = Object.keys(parsed.data).filter((k) => k !== 'schema_version').length;
+  return { ok: true, detail: `valid (${keys} override(s))` };
 }
 
 function checkGitignore(file: string): CheckResult {

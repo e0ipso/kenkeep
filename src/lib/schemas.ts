@@ -223,6 +223,30 @@ export const BootstrapDocEntrySchema = z.object({
 });
 export type BootstrapDocEntry = z.infer<typeof BootstrapDocEntrySchema>;
 
+/**
+ * Settings shipped in `.ai/knowledge-base/.config.json` (project-level, committed)
+ * and `~/.config/@e0ipso/ai-knowledge-base/config.json` (user-level overrides).
+ *
+ * Every field is optional in the on-disk file; `resolveSettings()` layers the
+ * documented defaults under user-level overrides under project-level overrides.
+ * The `schema_version` field is the only required key when a file is present.
+ */
+export const SettingsSchema = z
+  .object({
+    schema_version: z.literal(1),
+    drainBound: z.number().int().positive().optional(),
+    maxAttempts: z.number().int().positive().optional(),
+    stage2Timeout: z.number().int().positive().optional(),
+    lockTtlMs: z.number().int().positive().optional(),
+    indexBudgetTokens: z.number().int().positive().optional(),
+    curationThreshold: z.number().int().positive().optional(),
+    bootstrapTokenBudget: z.number().int().positive().optional(),
+    gitleaksRulesPath: z.string().nullable().optional(),
+    logsRetentionDays: z.number().int().positive().optional(),
+  })
+  .strict();
+export type SettingsFile = z.infer<typeof SettingsSchema>;
+
 export const BootstrapStateSchema = z.object({
   schema_version: z.literal(1),
   last_full_bootstrap_at: z.string().nullable().optional(),

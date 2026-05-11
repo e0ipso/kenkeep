@@ -28,6 +28,7 @@ export interface DrainContext {
   maxEntries?: number;
   maxAttempts?: number;
   timeoutMs?: number;
+  lockTtlMs?: number;
   pid?: number;
 }
 
@@ -68,6 +69,7 @@ export async function drainStage2Queue(ctx: DrainContext): Promise<DrainSummary>
     name: STAGE2_LOCK_NAME,
     pid,
     now: now(),
+    ...(ctx.lockTtlMs !== undefined ? { ttlMs: ctx.lockTtlMs } : {}),
   });
   if (!lockHeld) {
     return { status: 'locked', processed: [], remaining: readQueue(queueFile).entries.length };

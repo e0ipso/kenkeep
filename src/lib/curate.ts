@@ -48,6 +48,8 @@ export interface CurateContext {
   batchSize?: number;
   tokenBudget?: number;
   timeoutMs?: number;
+  lockTtlMs?: number;
+  indexBudgetTokens?: number;
   now?: () => Date;
   pid?: number;
   /** Test seam: override ULID. */
@@ -267,6 +269,7 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
     name: CURATOR_LOCK_NAME,
     pid,
     now: now(),
+    ...(ctx.lockTtlMs !== undefined ? { ttlMs: ctx.lockTtlMs } : {}),
   });
   if (!acquired) {
     return {
@@ -461,7 +464,9 @@ function markSessionsProcessed(sessions: PendingSession[], runId: string, now: D
 
 function regenerateIndexAndGraph(ctx: CurateContext, now: Date): void {
   mkdirSync(ctx.kbDir, { recursive: true });
-  const index = generateIndex(ctx.nodesDir, { now });
+  const indexOpts: { now: Date; budgetTokens?: number } = { now };
+  if (ctx.indexBudgetTokens !== undefined) indexOpts.budgetTokens = ctx.indexBudgetTokens;
+  const index = generateIndex(ctx.nodesDir, indexOpts);
   writeIndex(join(ctx.kbDir, 'INDEX.md'), index);
   const graph = generateGraph(ctx.nodesDir, { now });
   writeGraph(join(ctx.kbDir, 'GRAPH.md'), graph);

@@ -95,11 +95,43 @@ Flags:
 
 - `--list` — print the pending proposals and exit. Useful for CI or scripting.
 
+## `bootstrap-incremental`
+
+```sh
+ai-knowledge-base bootstrap-incremental --from <path> \
+  [--include <glob>] [--exclude <glob>] \
+  [--dry-run] [--token-budget <n>] [--timeout <ms>]
+```
+
+Re-bootstrap the KB from markdown documentation under `--from`. Hash-aware: processes only files whose SHA-256 changed since the last run (recorded in `.ai/.kb-builder/bootstrap-state.json`). The command:
+
+1. Walks `--from` recursively, applying `.gitignore`, `--include`, and `--exclude` filters. Paths are matched relative to the repo root with posix separators.
+2. Computes SHA-256 for each remaining file and compares it against `bootstrap-state.json`. Unchanged files are reported and skipped.
+3. Acquires the `bootstrap-incremental` lock on `.ai/.kb-builder/state.json` (PID + 30-minute TTL). If another bootstrap is running, exits with `locked` and no work done.
+4. Chunks the to-process set into batches sized by `--token-budget` (~4 chars per token; default `10000`).
+5. Spawns one `claude -p` subprocess per batch with the [bootstrap-incremental prompt](../customization/bootstrap-incremental-prompt.md), streaming JSON output to `.ai/knowledge-base/_logs/bootstrap-incremental/<ulid>__<timestamp>.jsonl`.
+6. Writes one `addition` proposal per LLM-emitted candidate under `.ai/knowledge-base/_proposed/additions/`, with `proposal.rationale: "bootstrap: <source-doc>"`, `derived_from: [<source-doc>]`, and `confidence: medium` by default.
+7. Updates `bootstrap-state.json` with the new hash, timestamp, and proposal paths for each processed doc. Failed docs are left untouched so a re-run retries.
+
+`--dry-run` reports what would be processed without invoking the LLM, writing proposals, or mutating state.
+
+Glob syntax: `**` matches any number of path segments; `*` matches anything within a single segment; `?` matches a single non-slash character. `--include` and `--exclude` are repeatable; the include set acts as a whitelist (a file must match at least one include glob), the exclude set acts as a blocklist (any match wins).
+
+Flags:
+
+- `--from <path>` (required) — directory (or single file) to scan. Resolved relative to the repo root.
+- `--include <glob>` — only process files matching at least one include glob. Repeatable.
+- `--exclude <glob>` — skip any file matching one of these globs. Repeatable.
+- `--dry-run` — report without invoking the LLM or mutating state.
+- `--token-budget <n>` — approximate per-batch input token budget. Default `10000`.
+- `--timeout <ms>` — per-batch subprocess timeout. Default `120000`.
+
+See [Bootstrap > Incremental bootstrap](../bootstrap/incremental-bootstrap.md) for usage recipes and [Reference > `bootstrap-state.json` schema](bootstrap-state.md) for the state file shape.
+
 ## Commands available in later phases
 
 | Command | Phase |
 |---|---|
-| `bootstrap-incremental` | M3.5 |
 | `index rebuild` | M4 / M5 |
 
 When those phases ship, this page will document each subcommand's full flag set and exit codes.

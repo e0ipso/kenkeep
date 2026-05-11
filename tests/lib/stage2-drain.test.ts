@@ -144,10 +144,11 @@ describe('drainStage2Queue', () => {
 
   it('returns status=locked when another process holds the lock', async () => {
     seedSession(harness, 's2', '[USER]: hi');
+    const lockTime = new Date('2026-05-11T10:00:00Z');
     acquireLock(harness.stateFile, {
       name: STAGE2_LOCK_NAME,
       pid: 999_999,
-      now: new Date('2026-05-11T10:00:00Z'),
+      now: lockTime,
     });
 
     const summary = await drainStage2Queue({
@@ -157,6 +158,9 @@ describe('drainStage2Queue', () => {
       promptTemplate: PROMPT_TEMPLATE,
       runner: successRunner(),
       pid: 12345,
+      // Pin "now" inside the lock's TTL so this test is deterministic
+      // regardless of wall-clock drift from the fixture timestamp above.
+      now: () => new Date(lockTime.getTime() + 60_000),
     });
 
     expect(summary.status).toBe('locked');

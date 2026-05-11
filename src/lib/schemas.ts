@@ -189,3 +189,44 @@ export const GraphFrontmatterSchema = z.object({
   node_count: z.number().int().nonnegative(),
 });
 export type GraphFrontmatter = z.infer<typeof GraphFrontmatterSchema>;
+
+/**
+ * Candidate emitted by the bootstrap-incremental prompt. Same shape as the
+ * stage-2 candidate plus `derived_from` (the source-doc paths the chunk
+ * provided). `supports_existing_node` and `contradicts_existing_node` are
+ * always null in bootstrap output (the prompt forces this) but kept in the
+ * schema to match the shared candidate shape.
+ */
+export const BootstrapCandidateSchema = z.object({
+  kind: z.enum(['practice', 'map']),
+  tags: z.array(z.string()),
+  title: z.string(),
+  summary: z.string(),
+  body: z.string(),
+  confidence: ConfidenceSchema,
+  derived_from: z.array(z.string()),
+  supports_existing_node: z.string().nullable(),
+  contradicts_existing_node: z.string().nullable(),
+});
+export type BootstrapCandidate = z.infer<typeof BootstrapCandidateSchema>;
+
+export const BootstrapOutputSchema = z.object({
+  practice: z.array(BootstrapCandidateSchema),
+  map: z.array(BootstrapCandidateSchema),
+});
+export type BootstrapOutput = z.infer<typeof BootstrapOutputSchema>;
+
+export const BootstrapDocEntrySchema = z.object({
+  content_sha256: z.string(),
+  last_processed_at: z.string(),
+  produced_proposals: z.array(z.string()),
+});
+export type BootstrapDocEntry = z.infer<typeof BootstrapDocEntrySchema>;
+
+export const BootstrapStateSchema = z.object({
+  schema_version: z.literal(1),
+  last_full_bootstrap_at: z.string().nullable().optional(),
+  last_incremental_at: z.string().nullable().optional(),
+  docs: z.record(BootstrapDocEntrySchema),
+});
+export type BootstrapState = z.infer<typeof BootstrapStateSchema>;

@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { runBootstrapIncrementalCommand } from './commands/bootstrap-incremental.js';
 import { runCurateCommand } from './commands/curate.js';
 import { runDoctor } from './commands/doctor.js';
 import { runInit } from './commands/init.js';
@@ -73,6 +74,60 @@ async function main(): Promise<void> {
       const code = await runCurateCommand(curateOpts);
       process.exit(code);
     });
+
+  program
+    .command('bootstrap-incremental')
+    .description(
+      'Incrementally bootstrap the KB from markdown docs under --from; processes only files whose content hash changed since last run.',
+    )
+    .requiredOption('--from <path>', 'directory (or file) to scan for markdown documentation')
+    .option(
+      '--include <glob>',
+      'glob to whitelist files (relative to repo root, repeatable)',
+      (value: string, prev: string[] = []) => [...prev, value],
+      [] as string[],
+    )
+    .option(
+      '--exclude <glob>',
+      'glob to skip files (relative to repo root, repeatable)',
+      (value: string, prev: string[] = []) => [...prev, value],
+      [] as string[],
+    )
+    .option('--dry-run', 'report what would be processed without invoking the LLM', false)
+    .option('--token-budget <n>', 'approx token budget per batch (default 10000)', (v) =>
+      parseInt(v, 10),
+    )
+    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', (v) =>
+      parseInt(v, 10),
+    )
+    .action(
+      async (opts: {
+        from: string;
+        include: string[];
+        exclude: string[];
+        dryRun?: boolean;
+        tokenBudget?: number;
+        timeout?: number;
+      }) => {
+        const cmdOpts: {
+          from: string;
+          include?: string[];
+          exclude?: string[];
+          dryRun?: boolean;
+          tokenBudget?: number;
+          timeoutMs?: number;
+        } = { from: opts.from };
+        if (opts.include.length > 0) cmdOpts.include = opts.include;
+        if (opts.exclude.length > 0) cmdOpts.exclude = opts.exclude;
+        if (opts.dryRun) cmdOpts.dryRun = true;
+        if (typeof opts.tokenBudget === 'number' && !Number.isNaN(opts.tokenBudget))
+          cmdOpts.tokenBudget = opts.tokenBudget;
+        if (typeof opts.timeout === 'number' && !Number.isNaN(opts.timeout))
+          cmdOpts.timeoutMs = opts.timeout;
+        const code = await runBootstrapIncrementalCommand(cmdOpts);
+        process.exit(code);
+      },
+    );
 
   const nodeGroup = program.command('node').description('Manage knowledge-base nodes.');
   nodeGroup

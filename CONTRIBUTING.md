@@ -76,6 +76,10 @@ Run it on demand when:
 
 The suite asserts on a stable project-unique substring from the fixture transcript ("Bravo Insider") so that minor wording drift between Claude model versions doesn't break it. If the assertion regresses, inspect the JSONL log under the temp sandbox's `_logs/stage-2/` and `_logs/curator/` to see exactly what the model produced.
 
+### Manual test plan
+
+Before a significant release — schema bump, capture/curate/consume behavior change, pinned Claude Code CLI bump — work through [`docs/manual-test-plan.md`](docs/manual-test-plan.md). It covers the checks that resist automation: per-platform smoke (macOS / Linux / WSL2 / native Windows), PreCompact timing on long sessions, real capture quality, `init --upgrade` from the previous published version, concurrent-pipeline locking, and a few intentionally-broken-state doctor exit-code checks. Record results in the release PR description.
+
 ## Schema-version bump policy
 
 Every frontmatter and JSON state file in the system carries `schema_version: 1`. The policy is **moderate**: tools that read v1 must tolerate unknown additive fields without bumping, but renames/removals/semantic-shifts get an explicit migration boundary.

@@ -174,7 +174,7 @@ The suite is run manually via the `E2E (real-claude)` GitHub Actions workflow (`
 
 ### Manual testing
 
-`docs/manual-test-plan.md` (planned) covers tests that resist automation: PreCompact timing on long sessions, hook installation on Windows, vendored gitleaks binary on each platform, and real session-capture quality. These are exercises performed before a significant release.
+[Manual test plan](../manual-test-plan.md) covers tests that resist automation: PreCompact timing on long sessions, hook installation on Windows, vendored gitleaks binary on each platform, and real session-capture quality. These are exercises performed before a significant release.
 
 ### Mocking strategy summary
 

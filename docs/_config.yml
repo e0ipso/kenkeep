@@ -1,29 +1,57 @@
 title: "@e0ipso/ai-knowledge-base"
-description: "Build and maintain a per-repo knowledge base from AI coding sessions."
+description: Build and maintain a per-repo knowledge base from AI coding sessions.
+url: https://mateuaguilo.com
+baseurl: "/ai-knowledge-base"
+
+# Just the Docs theme configuration
 remote_theme: just-the-docs/just-the-docs
-url: https://e0ipso.github.io
-baseurl: /ai-knowledge-base
 
+# Theme settings
 color_scheme: light
-
 search_enabled: true
 heading_anchors: true
 
+# Mermaid support (built into Just the Docs)
+mermaid:
+  version: "10.6.1"
+
+# Navigation
+nav_sort: case_sensitive
+
+# Repository link in header
 aux_links:
-  GitHub:
+  "View on GitHub":
     - "https://github.com/e0ipso/ai-knowledge-base"
-  npm:
+  "npm":
     - "https://www.npmjs.com/package/@e0ipso/ai-knowledge-base"
 
-# Top-level navigation
-nav_external_links: []
+# Make aux links open in a new tab
+aux_links_new_tab: true
 
+# SEO and social media
+author: e0ipso
+twitter:
+  username: e0ipso
+
+# Jekyll plugins
 plugins:
-  - jekyll-remote-theme
+  - jekyll-sitemap
+  - jekyll-feed
   - jekyll-seo-tag
 
+# Markdown processing
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  syntax_highlighter: rouge
+
+# Exclude from processing
 exclude:
+  - README.md
   - Gemfile
   - Gemfile.lock
   - node_modules
-  - vendor
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { ClaudeAdapter } from '../adapters/claude.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { defaultProjectConfigBody } from '../lib/settings.js';
 import { packageVersion } from '../lib/version.js';
 
 export interface InitOptions {
@@ -99,7 +100,18 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 5. Update .gitignore.
   updateGitignore(paths.gitignoreFile);
 
-  // 6. Write installed-version marker.
+  // 6. Write default settings file unless one is already present. `--force`
+  // intentionally does not overwrite an existing .config.json — users edit it.
+  if (!existsSync(paths.projectConfigFile)) {
+    mkdirSync(paths.kbDir, { recursive: true });
+    writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
+  } else if (opts.force) {
+    log.warn(
+      `.ai/knowledge-base/.config.json already exists; not overwriting (use \`init --upgrade\` to refresh templates without touching settings).`,
+    );
+  }
+
+  // 7. Write installed-version marker.
   const installed: InstalledVersion = {
     schema_version: 1,
     package: '@e0ipso/ai-knowledge-base',

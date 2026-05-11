@@ -58,6 +58,7 @@ export interface BootstrapContext {
   dryRun?: boolean;
   tokenBudget?: number;
   timeoutMs?: number;
+  lockTtlMs?: number;
   now?: () => Date;
   pid?: number;
   /** Test seam: override the run id. */
@@ -424,6 +425,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
     name: BOOTSTRAP_LOCK_NAME,
     pid,
     now: now(),
+    ...(ctx.lockTtlMs !== undefined ? { ttlMs: ctx.lockTtlMs } : {}),
   });
   if (!acquired) {
     return {

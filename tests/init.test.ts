@@ -44,6 +44,7 @@ describe('init', () => {
       '.ai/.kb-builder/prompts/stage-2-extract.md',
       '.ai/.kb-builder/prompts/curator.md',
       '.ai/.kb-builder/prompts/bootstrap-incremental.md',
+      '.ai/knowledge-base/.config.json',
       '.pre-commit-config.yaml',
       '.gitignore',
     ];
@@ -146,6 +147,33 @@ describe('init', () => {
         }),
       ]),
     );
+  });
+
+  it('writes a default .config.json populated with defaults', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    const body = JSON.parse(
+      readFileSync(join(sandbox, '.ai/knowledge-base/.config.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(body['schema_version']).toBe(1);
+    expect(body['drainBound']).toBe(5);
+    expect(body['maxAttempts']).toBe(3);
+    expect(body['stage2Timeout']).toBe(60000);
+    expect(body['indexBudgetTokens']).toBe(2000);
+    expect(body['curationThreshold']).toBe(5);
+    expect(body['bootstrapTokenBudget']).toBe(10000);
+    expect(body['logsRetentionDays']).toBe(30);
+  });
+
+  it('does not overwrite an existing .config.json even with --force', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    const configFile = join(sandbox, '.ai/knowledge-base/.config.json');
+    const customized = JSON.stringify({ schema_version: 1, drainBound: 99 }, null, 2) + '\n';
+    writeFileSync(configFile, customized);
+
+    const result = await runCli(sandbox, ['init', '--assistants', 'claude', '--force']);
+    expect(result.exitCode).toBe(0);
+    expect(readFileSync(configFile, 'utf8')).toBe(customized);
+    expect(result.stdout + result.stderr).toContain('.config.json already exists');
   });
 
   it('ships the rename — no references to the old `kb-builder` binary in copied prompts', async () => {

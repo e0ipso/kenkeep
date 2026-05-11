@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
@@ -30,6 +32,19 @@ describe('doctor', () => {
     expect(combined).toContain('installed-version');
     expect(combined).toContain('pre-commit config installed');
     expect(combined).toContain('.gitignore lists ai-knowledge-base paths');
+    expect(combined).toContain('settings file is valid');
+  });
+
+  it('flags an invalid .config.json as an error', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    writeFileSync(
+      join(sandbox, '.ai/knowledge-base/.config.json'),
+      JSON.stringify({ schema_version: 1, drainBound: -1 }),
+    );
+    const result = await runCli(sandbox, ['doctor']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout + result.stderr).toContain('settings file is valid');
+    expect(result.stdout + result.stderr).toContain('schema validation failed');
   });
 });
 

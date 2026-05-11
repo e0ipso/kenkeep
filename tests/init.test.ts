@@ -38,6 +38,7 @@ describe('init', () => {
       '.claude/settings.json',
       '.claude/commands/kb-bootstrap.md',
       '.claude/hooks/kb-capture.mjs',
+      '.claude/hooks/kb-stage2-drain.mjs',
       '.ai/.kb-builder/installed-version',
       '.ai/.kb-builder/prompts/stage-2-extract.md',
       '.ai/.kb-builder/prompts/curator.md',
@@ -117,6 +118,22 @@ describe('init', () => {
         `KB_BUILDER_HOOK=${event} node .claude/hooks/kb-capture.mjs`,
       );
     }
+  });
+
+  it('registers SessionStart drain hook with async: true', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
+      hooks?: Record<
+        string,
+        Array<{ hooks: Array<{ type: string; command: string; async?: boolean }> }>
+      >;
+    };
+    const entries = settings.hooks?.['SessionStart'];
+    expect(entries, 'expected SessionStart hook entry').toBeDefined();
+    expect(entries?.[0]?.hooks[0]?.command).toBe(
+      'KB_BUILDER_HOOK=SessionStart node .claude/hooks/kb-stage2-drain.mjs',
+    );
+    expect(entries?.[0]?.hooks[0]?.async).toBe(true);
   });
 
   it('ships the rename — no references to the old `kb-builder` binary in copied prompts', async () => {

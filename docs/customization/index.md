@@ -1,19 +1,16 @@
 ---
 title: Customization
 nav_order: 5
-has_children: false
+has_children: true
 permalink: /customization/
 ---
 
 # Customization
 
-_Filled in across M2–M3.5._
+Pages:
 
-Topics:
+- [Editing the stage-2 prompt](stage-2-prompt.md) — tune the capture extractor for your project's vocabulary.
+- Editing the curator prompt — _coming in M3._
+- Editing the bootstrap-incremental prompt — _coming in M3.5._
 
-- Editing the stage-2 extraction prompt (`templates/prompts/stage-2-extract.md`).
-- Editing the curator prompt (`templates/prompts/curator.md`).
-- Editing the bootstrap-incremental prompt (`templates/prompts/bootstrap-incremental.md`).
-- Settings reference (`.ai/knowledge-base/.config.json` and `~/.config/@e0ipso/ai-knowledge-base/config.json`).
-
-Prompts are copied to `.ai/.kb-builder/prompts/` during `init` so you can override locally; hooks pick up the local copy if present and fall back to the bundled template.
+Prompts are copied to `.ai/.kb-builder/prompts/` during `init` so you can override locally; hooks pick up the local copy if present and fall back to the bundled template. Reference settings live under [Reference > Settings](../reference/settings.md).

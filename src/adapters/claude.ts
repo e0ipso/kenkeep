@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { ZodSchema } from 'zod';
+import { runHeadlessClaude, type RunHeadlessOptions } from '../lib/headless.js';
 import { parseTranscriptJsonl } from '../lib/transcript.js';
 import type {
   Adapter,
@@ -94,12 +96,16 @@ export class ClaudeAdapter implements Adapter {
   }
 
   async runHeadless<T>(
-    _promptBody: string,
-    _stdin: string,
-    _schema: import('zod').ZodSchema<T>,
-    _opts?: HeadlessOpts,
+    promptBody: string,
+    stdin: string,
+    schema: ZodSchema<T>,
+    opts?: HeadlessOpts,
   ): Promise<T> {
-    throw new Error('runHeadless() is implemented in M2');
+    const runOpts: RunHeadlessOptions = {};
+    if (opts?.timeoutMs !== undefined) runOpts.timeoutMs = opts.timeoutMs;
+    if (opts?.allowedTools !== undefined) runOpts.allowedTools = opts.allowedTools;
+    if (opts?.logFile !== undefined) runOpts.logFile = opts.logFile;
+    return runHeadlessClaude(promptBody, stdin, schema, runOpts);
   }
 
   renderSlashCommand(spec: SlashCommandSpec): string {

@@ -6,7 +6,10 @@ nav_order: 3
 
 # Hook events
 
-`init` registers a single hook script — `.claude/hooks/kb-capture.mjs` — against three Claude Code events. The script implements the **stage-1 capture** pipeline: dedup, secret-scan with redaction, write a session log to `.ai/knowledge-base/_sessions/`, and append to `.queue.json` for the stage-2 worker.
+`init` registers two hook scripts:
+
+- `.claude/hooks/kb-capture.mjs` — runs on `Stop`, `SessionEnd`, and `PreCompact`. Implements **stage-1 capture**: dedup, secret-scan with redaction, write a session log, append to `.queue.json`.
+- `.claude/hooks/kb-stage2-drain.mjs` — runs on `SessionStart` with `async: true`. Drains the stage-2 queue by spawning `claude -p` for each pending session log; updates the log's frontmatter with the structured extraction output.
 
 ## Registered events
 
@@ -15,12 +18,13 @@ nav_order: 3
 | `Stop` | Captures after every assistant turn ends. The transcript hash changes turn-by-turn, so this produces one log per substantive checkpoint within a session. | Synchronous, ≤1 s deadline. Dedup window prevents overlap with the other two events. |
 | `SessionEnd` | Captures when the user explicitly closes or clears the session. The strongest signal that the session is done. | Same pipeline as `Stop`. |
 | `PreCompact` | Fires immediately before Claude Code compacts context. Without this, content about to be discarded would be lost. | Same pipeline as `Stop`. The 1-second deadline still applies; if you have a very long transcript and capture would exceed it, the hook exits silently rather than blocking compaction. |
+| `SessionStart` | Runs the **stage-2 drain** (M2). For each entry in `.queue.json`, spawns `claude -p --output-format stream-json --verbose` against the redacted transcript slice and writes the structured extraction back into the session log's frontmatter. | `async: true` — stdout does not flow into the parent session. Stops after `drainBound` entries (default 5), the rest are deferred to the next session. |
 
-All three events route through the same script, so the only difference in the resulting session log is the `captured_by` frontmatter field (`stop`, `session_end`, or `pre_compact`).
+The three stage-1 events route through the same `kb-capture.mjs` script, so the only difference in the resulting session log is the `captured_by` frontmatter field (`stop`, `session_end`, or `pre_compact`). `SessionStart` is wired separately to `kb-stage2-drain.mjs`.
 
 ## Recursion guard
 
-The hook checks `KB_BUILDER_INTERNAL=1` in its environment and exits immediately if set. Stage-2 (M2) and the curator (M3) spawn `claude -p` subprocesses with this env var so that the child Claude Code instance doesn't fire its own capture hooks and trigger recursive work.
+Both hooks check `KB_BUILDER_INTERNAL=1` in their environment and exit immediately if set. The stage-2 drain (and the curator in M3) spawns `claude -p` subprocesses with this env var so that the child Claude Code instance doesn't fire its own capture or drain hooks and trigger recursive work.
 
 If you wrap the `claude` CLI in a script that spawns sessions for any reason, set `KB_BUILDER_INTERNAL=1` in those subprocesses.
 
@@ -37,7 +41,18 @@ If you wrap the `claude` CLI in a script that spawns sessions for any reason, se
 
 - Run the LLM. Stage 2 (M2) reads the queue asynchronously on the next `SessionStart` and spawns `claude -p` to produce structured proposals.
 - Block on long operations. The hook has a hard 1-second deadline. If anything (gitleaks, disk I/O) goes long, the hook exits silently and the content for that trigger is lost. Subsequent triggers (the next Stop, SessionEnd, PreCompact) will re-attempt.
-- Capture anything on `SessionStart`. That event is reserved for the stage-2 drain hook (M2) and the consume-side INDEX injection hook (M4).
+
+## Stage 2 (drain on SessionStart)
+
+The drain hook is async, so the user does not wait on it. Per invocation:
+
+1. **Recursion guard.** Exits immediately if `KB_BUILDER_INTERNAL=1` is set (the env var the drain itself sets on the children it spawns).
+2. **Lock.** Acquires the stage-2 lock in `.ai/.kb-builder/state.json` (PID + 30-minute TTL). If another drain is already running, this invocation exits without doing anything. Stale locks are reclaimed after TTL.
+3. **Load the prompt.** Prefers the per-repo override at `.ai/.kb-builder/prompts/stage-2-extract.md` (written by `init`); falls back to the version bundled with the package.
+4. **Iterate the queue.** Up to `drainBound` (default 5) entries per invocation. The rest are deferred to subsequent sessions.
+5. **Per entry:** loads the session log, extracts the redacted transcript slice, substitutes it into the prompt, spawns `claude -p --allowedTools '' --output-format stream-json --verbose`, and writes the full stream into `.ai/knowledge-base/_logs/stage-2/<session-id>__<timestamp>.jsonl`.
+6. **Parse the final result message.** Validated against the stage-2 Zod schema. On success: the session log's frontmatter is updated with `stage_2_status: done`, the log path, the populated `proposals.{practice,map}` arrays, and a deduped `topics` list.
+7. **Failure handling.** Parse error, schema mismatch, non-zero exit, or timeout (`stage2Timeout`, default 60 s) all count as one failed attempt. The entry rotates to the back of the queue with `attempts` incremented. After 3 attempts, the session log is marked `stage_2_status: skipped` and the entry is removed.
 
 ## Failure modes
 
@@ -72,4 +87,24 @@ After `init`, `.claude/settings.json` contains a block per event:
 }
 ```
 
-The same pattern repeats for `SessionEnd` and `PreCompact`. Existing user-defined hooks in the same file are preserved on re-init.
+The same pattern repeats for `SessionEnd` and `PreCompact`. `SessionStart` carries `"async": true` so the drain does not block session startup:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "KB_BUILDER_HOOK=SessionStart node .claude/hooks/kb-stage2-drain.mjs",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Existing user-defined hooks in the same file are preserved on re-init.

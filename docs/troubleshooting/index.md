@@ -1,17 +1,16 @@
 ---
 title: Troubleshooting
 nav_order: 7
-has_children: false
+has_children: true
 permalink: /troubleshooting/
 ---
 
 # Troubleshooting
 
-_Filled in progressively as failure modes are encountered in M1–M4._
+Pages:
 
-Topics:
+- [Reading stage-2 logs](reading-stage-2-logs.md) — interpreting the stream-json traces under `_logs/stage-2/`.
+- Reading curator logs — _coming in M3._
+- Common issues — _coming progressively in M3–M5._
 
-- Reading `_logs/stage-2/` and `_logs/curator/` (stream-json traces).
-- Common issues — gitleaks blocking a commit, stale `INDEX.md`, two concurrent curate runs, missing `derived_from` references.
-
-For now, see [PRD §9](https://github.com/e0ipso/ai-knowledge-base/blob/main/PRD.md#9-failure-modes-the-user-sees) for the canonical list of failure modes and recovery steps.
+For the canonical list of failure modes and recovery steps, see [PRD §9](https://github.com/e0ipso/ai-knowledge-base/blob/main/PRD.md#9-failure-modes-the-user-sees).

@@ -78,6 +78,11 @@ export async function runInit(opts: InitOptions): Promise<void> {
       { event: 'Stop', scriptPath: '.claude/hooks/kb-capture.mjs' },
       { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-capture.mjs' },
       { event: 'PreCompact', scriptPath: '.claude/hooks/kb-capture.mjs' },
+      {
+        event: 'SessionStart',
+        scriptPath: '.claude/hooks/kb-stage2-drain.mjs',
+        async: true,
+      },
     ]);
   }
 

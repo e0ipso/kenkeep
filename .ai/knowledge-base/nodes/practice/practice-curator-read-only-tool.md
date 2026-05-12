@@ -4,11 +4,6 @@ id: practice-curator-read-only-tool
 title: "The curator's only allowed tool is Read"
 kind: practice
 tags: [curator, prompts, tools, claude-code]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/prompts.md
 relates_to: []

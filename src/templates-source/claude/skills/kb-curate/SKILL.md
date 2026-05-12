@@ -1,7 +1,7 @@
 ---
 name: kb-curate
 description: Curate pending session logs into knowledge-base nodes by running the `ai-knowledge-base curate` CLI, then resolve any contradictions surfaced by the curator with the user in-session. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
-allowed-tools: Bash(ai-knowledge-base curate:*), Read, Edit, Write
+allowed-tools: Bash(ai-knowledge-base curate:*), Bash(rm:*), Read, Edit, Write
 ---
 
 # kb-curate
@@ -23,7 +23,7 @@ Run `ai-knowledge-base curate` in the project root. The command:
 
 ### 2. Report the summary
 
-Tell the user the curator's headline numbers (nodes written, drops, batches, run id). If the command reported any failures (`add_collision` or `modify_missing_target`), surface those clearly - the user may need to clean up the offending candidate manually.
+Tell the user the curator's headline numbers (nodes written, drops, batches, run id). If the command reported any failures (`add_collision` or `modify_missing_target`), surface those clearly so the user may need to clean up the offending candidate manually.
 
 ### 3. Resolve pending conflicts
 
@@ -31,13 +31,12 @@ Read `.ai/knowledge-base/.state/pending-conflicts.json`. For every entry in `con
 
 1. Read the existing node referenced by `target_node_id` (under `nodes/<kind>/<target_node_id>.md`).
 2. Present both sides to the user concisely:
-   - **Existing node** - title, summary, the relevant body excerpt.
-   - **Proposed contradiction** - `proposed_node.title`, `summary`, `body`, plus the curator's `rationale`.
-3. Ask the user to choose one of:
-   - **Supersede** - overwrite the existing node with the proposed content. Set the new node's `supersedes` field to the old id and refresh `valid_from`/`updated`. Use `Edit` or `Write`.
-   - **Keep both** - write the proposed content as a new node (different `id`) with `relates_to: [<old-id>]`. Use `Write`.
-   - **Reject** - do nothing on disk; the conflict is dismissed.
-4. Once the user has decided and you've applied (or skipped) the change, **remove the entry from `pending-conflicts.json`**. Use `Edit` to delete just that one entry; never overwrite the whole file with a stale snapshot.
+   - **Existing node**: title, summary, the relevant body excerpt.
+   - **Proposed contradiction**: `proposed_node.title`, `summary`, `body`, plus the curator's `rationale`.
+3. Ask the user to choose exactly one of two actions:
+   - **Replace**: overwrite the existing node with the proposed content. Run `rm nodes/<kind>/<target_node_id>.md` first, then write the proposed node file. The proposed node may reuse the deleted id (the previous file is gone) or introduce a fresh id; use whichever the `proposed_node.id` field specifies. Use `Bash` for the `rm`, then `Write` for the new file. The human reviewer accepts the replacement via `git commit` or rejects it via `git restore`.
+   - **Reject**: take no action on disk; the existing node stays as is and the proposal is discarded.
+4. Once the user has decided (Replace or Reject) and you've applied the change, **remove the entry from `pending-conflicts.json`**. Use `Edit` to delete just that one entry; never overwrite the whole file with a stale snapshot.
 
 If the user defers a conflict ("I'll think about it"), leave the entry in place. `ai-knowledge-base status` reports the count, so it won't be forgotten.
 
@@ -48,6 +47,6 @@ Tell the user to review the changed nodes with `git diff nodes/` and commit when
 ## Constraints
 
 - The curator wrapper writes directly to `nodes/`. **You** only modify `nodes/` while resolving contradictions, and only with the user's explicit decision per conflict.
-- If `ai-knowledge-base curate` reports `locked`, do not retry - explain that another curate run is in progress.
+- If `ai-knowledge-base curate` reports `locked`, do not retry; explain that another curate run is in progress.
 - If no session logs are pending, the command still regenerates INDEX/GRAPH; that's expected, not an error.
-- If `pending-conflicts.json` is missing or has `conflicts: []`, there's nothing to resolve - skip step 3.
+- If `pending-conflicts.json` is missing or has `conflicts: []`, there's nothing to resolve; skip step 3.

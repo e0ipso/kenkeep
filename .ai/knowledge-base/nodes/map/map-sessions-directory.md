@@ -4,11 +4,6 @@ id: map-sessions-directory
 title: "_sessions/: captured session logs (gitignored by default)"
 kind: map
 tags: [storage, capture, sessions, gitignore]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/architecture.md
   - docs/internals/schemas.md

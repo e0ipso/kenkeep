@@ -4,11 +4,6 @@ id: practice-determinism-contract
 title: "INDEX/GRAPH and nodes_hash are deterministic and content-addressed"
 kind: practice
 tags: [determinism, hashing, index, graph, testing]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/architecture.md
   - docs/internals/schemas.md

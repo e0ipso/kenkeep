@@ -98,25 +98,9 @@ function formatFailures(failures: NodeLoadFailure[]): string {
   return lines.join('\n');
 }
 
-const TIMESTAMP_FIELDS = new Set(['valid_from', 'valid_until', 'updated']);
-
-/**
- * Render a single zod issue as `<path>: <message>` plus an actionable hint
- * when the issue is the "unquoted ISO timestamp" case (YAML auto-parsed the
- * value as a Date, which the schema's `z.string()` rejects).
- */
 export function formatIssue(issue: z.ZodIssue): string {
   const path = issue.path.length > 0 ? issue.path.join('.') : '(root)';
-  return `${path}: ${issue.message}${unquotedTimestampHint(issue)}`;
-}
-
-function unquotedTimestampHint(issue: z.ZodIssue): string {
-  if (issue.code !== 'invalid_type') return '';
-  const field = issue.path[issue.path.length - 1];
-  if (typeof field !== 'string' || !TIMESTAMP_FIELDS.has(field)) return '';
-  const received = (issue as z.ZodInvalidTypeIssue).received;
-  if (received !== 'date') return '';
-  return ' (quote the ISO timestamp, e.g. valid_from: "2026-05-12T00:00:00Z")';
+  return `${path}: ${issue.message}`;
 }
 
 export function findNodeById(nodesDir: string, id: string): NodeFile | null {

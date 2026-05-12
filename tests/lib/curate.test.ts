@@ -79,11 +79,6 @@ function seedExistingNode(
     title: `${id} title`,
     kind,
     tags: [],
-    valid_from: '2026-01-01T00:00:00Z',
-    valid_until: null,
-    updated: '2026-01-01T00:00:00Z',
-    supersedes: null,
-    superseded_by: null,
     derived_from: [],
     relates_to: [],
     depends_on: [],
@@ -127,13 +122,8 @@ function makeAction(
             confidence: 'high',
             derived_from: ['session-1.md'],
             relates_to: [],
-            supersedes: null,
-            valid_from: '2026-05-12T10:00:00Z',
-            valid_until: null,
-            superseded_by: null,
           },
     rationale: 'because',
-    suggested_resolution: null,
   };
   return { ...base, ...overrides };
 }
@@ -197,10 +187,6 @@ describe('dedupActions', () => {
         confidence: 'low',
         derived_from: [],
         relates_to: [],
-        supersedes: null,
-        valid_from: '2026-05-12T10:00:00Z',
-        valid_until: null,
-        superseded_by: null,
       },
     });
     const b = makeAction('add', {
@@ -214,10 +200,6 @@ describe('dedupActions', () => {
         confidence: 'high',
         derived_from: [],
         relates_to: [],
-        supersedes: null,
-        valid_from: '2026-05-12T10:00:00Z',
-        valid_until: null,
-        superseded_by: null,
       },
     });
     const merged = dedupActions([a, b]);
@@ -257,10 +239,6 @@ describe('runCurate', () => {
           confidence: 'high',
           derived_from: ['session-s1.md'],
           relates_to: [],
-          supersedes: null,
-          valid_from: '2026-05-12T10:00:00Z',
-          valid_until: null,
-          superseded_by: null,
         },
       }),
     ];
@@ -304,10 +282,6 @@ describe('runCurate', () => {
           confidence: 'high',
           derived_from: [],
           relates_to: [],
-          supersedes: null,
-          valid_from: '2026-05-12T10:00:00Z',
-          valid_until: null,
-          superseded_by: null,
         },
       }),
       makeAction('contradict', { target_node_id: 'practice-contra-target' }),
@@ -352,10 +326,6 @@ describe('runCurate', () => {
           confidence: 'high',
           derived_from: [],
           relates_to: [],
-          supersedes: null,
-          valid_from: '2026-05-12T10:00:00Z',
-          valid_until: null,
-          superseded_by: null,
         },
       }),
     ];
@@ -383,10 +353,6 @@ describe('runCurate', () => {
           confidence: 'high',
           derived_from: [],
           relates_to: [],
-          supersedes: null,
-          valid_from: '2026-05-12T10:00:00Z',
-          valid_until: null,
-          superseded_by: null,
         },
       }),
     ];

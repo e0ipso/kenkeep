@@ -4,11 +4,6 @@ id: practice-no-llm-pipelines-in-ci
 title: "Never run curate or bootstrap-incremental in CI"
 kind: practice
 tags: [ci, curate, bootstrap, policy]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/daily-use.md
 relates_to: [map-ai-knowledge-base-cli]

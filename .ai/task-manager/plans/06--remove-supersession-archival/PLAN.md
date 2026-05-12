@@ -284,21 +284,21 @@ No circular dependencies.
 **Validation Gates:**
 - Reference: `/config/hooks/POST_PHASE.md`
 
-### Phase 1: Schema foundation
+### ✅ Phase 1: Schema foundation
 **Parallel Tasks:**
-- Task 001: Slim `NodeFrontmatterSchema` and `CuratorProposedNodeSchema`
+- ✔️ Task 001: Slim `NodeFrontmatterSchema` and `CuratorProposedNodeSchema`
 
-### Phase 2: Source, content, prompts, and docs in parallel
+### ✅ Phase 2: Source, content, prompts, and docs in parallel
 **Parallel Tasks:**
-- Task 002: Drop removed-field plumbing from curator pipeline and node-add (depends on: 001)
-- Task 003: Remove partition, status line, and "Recently superseded" block from index-gen (depends on: 001)
-- Task 004: Rewrite curator prompt and KB skill templates for binary replace/reject conflict model (depends on: 001)
-- Task 005: Rewrite all existing node files to match the slim schema (depends on: 001)
-- Task 007: Rewrite user docs, IMPLEMENTATION.md, and KB template files for the slim schema (depends on: 001)
+- ✔️ Task 002: Drop removed-field plumbing from curator pipeline and node-add (depends on: 001)
+- ✔️ Task 003: Remove partition, status line, and "Recently superseded" block from index-gen (depends on: 001)
+- ✔️ Task 004: Rewrite curator prompt and KB skill templates for binary replace/reject conflict model (depends on: 001)
+- ✔️ Task 005: Rewrite all existing node files to match the slim schema (depends on: 001)
+- ✔️ Task 007: Rewrite user docs, IMPLEMENTATION.md, and KB template files for the slim schema (depends on: 001)
 
-### Phase 3: Tests follow the source changes
+### ✅ Phase 3: Tests follow the source changes
 **Parallel Tasks:**
-- Task 006: Update tests and fixtures to the slim schema and binary conflict model (depends on: 001, 002, 003)
+- ✔️ Task 006: Update tests and fixtures to the slim schema and binary conflict model (depends on: 001, 002, 003)
 
 ### Phase 4: Regenerate and verify
 **Parallel Tasks:**

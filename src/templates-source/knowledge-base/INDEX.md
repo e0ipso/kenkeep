@@ -6,6 +6,6 @@ node_count: 0
 
 # Knowledge base index
 
-_0 nodes • 0 valid • 0 superseded_
+_0 nodes • ~0 estimated tokens_
 
 The knowledge base is empty. Run sessions and `/kb-curate` (or `ai-knowledge-base curate`) to populate it, or seed it from existing docs with `/kb-bootstrap`.

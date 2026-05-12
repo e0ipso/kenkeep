@@ -30,7 +30,7 @@ Either everything is already curated, or some session logs have invalid frontmat
 ## Curator reported `add_collision` or `modify_missing_target` failures
 
 - **`add_collision`**: the curator wanted to write a new node, but a node with that id already exists. Pick a different title for the candidate (rerun curate after deleting/editing the offending session log) or treat the existing node as the canonical version.
-- **`modify_missing_target`**: the curator pointed at a `target_node_id` that's not on disk - usually because the node was renamed or deleted between captures. Either restore the target file or treat the modification as an addition by editing the session log so the next curate run reproposes it as `add`.
+- **`modify_missing_target`**: the curator pointed at a `target_node_id` that's not on disk, usually because the node was renamed or deleted between captures. Either restore the target file or treat the modification as an addition by editing the session log so the next curate run reproposes it as `add`.
 
 ## `INDEX.md` is stale
 
@@ -67,9 +67,9 @@ The curator writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`. Review
 
 ## Resolving curator contradictions
 
-The curator never overwrites a node it conflicts with. Conflicts land in `.ai/knowledge-base/.state/pending-conflicts.json` and surface in `ai-knowledge-base status`. Run `/kb-curate` and the skill will walk each entry with you (existing node side-by-side with the new claim) and let you choose: supersede, keep both, or reject. The skill applies your decision by editing the relevant node and removes the entry from the file.
+The curator never overwrites a node it conflicts with. Conflicts land in `.ai/knowledge-base/.state/pending-conflicts.json` and surface in `ai-knowledge-base status`. Run `/kb-curate` and the skill will walk each entry with you (existing node side-by-side with the new claim) and let you choose: Replace (delete the existing node file and write the proposed one) or Reject (do nothing). The skill applies your decision and removes the entry from the file.
 
-If you'd rather resolve manually: read `pending-conflicts.json`, edit the relevant node yourself, then delete the entry from the JSON array.
+If you'd rather resolve manually: read `pending-conflicts.json`, edit (or delete) the relevant node yourself, then remove the entry from the JSON array.
 
 ## When all else fails
 

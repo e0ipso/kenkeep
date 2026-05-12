@@ -4,11 +4,6 @@ id: practice-atomic-prs-with-paired-docs
 title: "One logical change per PR, with the docs update for that change"
 kind: practice
 tags: [git, pr, review, docs]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - CONTRIBUTING.md
 relates_to: []

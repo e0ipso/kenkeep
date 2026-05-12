@@ -24,7 +24,6 @@ export interface NodeAddOptions {
     relatesTo?: string;
     confidence?: Confidence;
   };
-  now?: Date;
 }
 
 export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
@@ -65,7 +64,6 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
     return 1;
   }
   const id = ensureUniqueId(existingIds, baseId);
-  const now = (opts.now ?? new Date()).toISOString();
 
   const frontmatter: NodeFrontmatter = {
     schema_version: 1,
@@ -73,11 +71,6 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
     title,
     kind,
     tags,
-    valid_from: now,
-    valid_until: null,
-    updated: now,
-    supersedes: null,
-    superseded_by: null,
     derived_from: [],
     relates_to: relatesTo,
     depends_on: [],

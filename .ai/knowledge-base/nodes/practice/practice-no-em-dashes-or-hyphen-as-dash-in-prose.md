@@ -4,11 +4,6 @@ id: practice-no-em-dashes-or-hyphen-as-dash-in-prose
 title: "No em-dashes or hyphen-as-dash in prose"
 kind: practice
 tags: [prose, style, docs, commits]
-valid_from: "2026-05-12T11:20:00Z"
-valid_until: null
-updated: "2026-05-12T11:20:00Z"
-supersedes: null
-superseded_by: null
 derived_from: []
 relates_to: []
 depends_on: []

@@ -4,11 +4,6 @@ id: map-claude-hooks
 title: "The three Claude Code hooks registered by init"
 kind: map
 tags: [hooks, claude-code, capture, extract, consume]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/hooks.md
   - docs/internals/architecture.md

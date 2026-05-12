@@ -72,7 +72,7 @@ Skip:
 
 For each candidate, write a node file at `.ai/knowledge-base/nodes/<kind>/<kind>-<slug>.md`. **Before writing, check whether the file already exists** - bootstrap is conservative and never overwrites an existing node. If you hit a collision, refine the title or skip the candidate and call it out in your final report.
 
-Use the standard node frontmatter. Quote every string value, including the ISO timestamps, so YAML does not auto-parse them as Date objects (the schema rejects non-string timestamps):
+Use the standard node frontmatter:
 
 ```yaml
 ---
@@ -81,11 +81,6 @@ id: <kind>-<slug>
 title: "..."
 kind: practice | map
 tags: [tag1, tag2, ...]
-valid_from: "<today's ISO timestamp>"
-valid_until: null
-updated: "<today's ISO timestamp>"
-supersedes: null
-superseded_by: null
 derived_from:
   - <source-doc-path-relative-to-repo>
 relates_to: []
@@ -96,7 +91,7 @@ summary: "≤140 char summary"
 
 # <Title>
 
-<Body in markdown - 1-4 short paragraphs.>
+<Body in markdown, 1 to 4 short paragraphs.>
 ```
 
 Default `confidence: medium` for bootstrap content. Existing docs may be stale or aspirational; the reviewer needs to assess each one with `git diff`. Use `confidence: high` only when the doc explicitly states the rule with rationale and the doc looks actively maintained.

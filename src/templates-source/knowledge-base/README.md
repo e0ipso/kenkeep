@@ -1,10 +1,10 @@
 # Project knowledge base
 
-This directory holds the project's AI-session-derived knowledge base. It is built and maintained by [`@e0ipso/ai-knowledge-base`](https://github.com/e0ipso/ai-knowledge-base). Everything inside it is plain markdown - you can read it in any editor or on the GitHub web UI.
+This directory holds the project's AI-session-derived knowledge base. It is built and maintained by [`@e0ipso/ai-knowledge-base`](https://github.com/e0ipso/ai-knowledge-base). Everything inside it is plain markdown; you can read it in any editor or on the GitHub web UI.
 
 ## What this is
 
-When you (or a teammate) run an AI coding session against this repo, the tool watches the session and extracts candidate knowledge - project conventions, prohibitions, named modules and features, gotchas. The curator turns those candidates into knowledge nodes under `nodes/`. You review and accept the new content via `git`. A `SessionStart` hook injects a token-budgeted index of these nodes into every new AI session, so the assistant starts each conversation with the project's accumulated context.
+When you (or a teammate) run an AI coding session against this repo, the tool watches the session and extracts candidate knowledge: project conventions, prohibitions, named modules and features, gotchas. The curator turns those candidates into knowledge nodes under `nodes/`. You review and accept the new content via `git`. A `SessionStart` hook injects a token-budgeted index of these nodes into every new AI session, so the assistant starts each conversation with the project's accumulated context.
 
 ## How knowledge gets here
 
@@ -17,10 +17,11 @@ When you (or a teammate) run an AI coding session against this repo, the tool wa
 
 Each `.md` file in `nodes/` has a frontmatter header and a markdown body. Key fields:
 
-- `kind`: `practice` (how we build things - conventions, prohibitions, gotchas) or `map` (what exists in the project - features, vocabulary, locations).
-- `valid_from` / `valid_until`: the temporal window during which the fact is considered current. `valid_until: null` means still valid.
-- `superseded_by` / `supersedes`: when a decision is reversed, the old node stays in place with `valid_until` set and links to the new node.
-- `derived_from`: list of session log filenames that produced or refined this node. (Note: `_sessions/` is gitignored by default, so provenance only resolves for the original contributor unless your team commits it.)
+- `kind`: `practice` (how we build things: conventions, prohibitions, gotchas) or `map` (what exists in the project: features, vocabulary, locations).
+- `tags`: free-form labels grouped under `## By topic` in `INDEX.md`.
+- `derived_from`: list of session log filenames or doc paths that produced or refined this node. (Note: `_sessions/` is gitignored by default, so provenance only resolves for the original contributor unless your team commits it.)
+- `relates_to` / `depends_on`: loose and strict cross-references rendered in `GRAPH.md`.
+- `summary`: ≤140-character one-liner injected via `INDEX.md`. Git history is the timeline of record for when a node was written or rewritten.
 
 ## Manually adding a node
 
@@ -37,12 +38,12 @@ If your repo already has READMEs, ADRs, and module docs, you can seed the KB fro
 
 ## Subdirectories
 
-- `nodes/` - knowledge nodes, organized by kind (`practice/`, `map/`). Reviewed via git.
-- `_sessions/` - raw captured transcripts (gitignored by default).
-- `_logs/` - stream-json traces from LLM-driven runs (gitignored).
-- `.state/pending-conflicts.json` - contradictions surfaced by the curator, awaiting resolution by the kb-curate skill.
-- `INDEX.md` - token-budgeted summary; injected into every new session. Regenerated automatically on commit.
-- `GRAPH.md` - full edge listing of nodes; available for the assistant to read on demand. Regenerated automatically on commit.
+- `nodes/`: knowledge nodes, organized by kind (`practice/`, `map/`). Reviewed via git.
+- `_sessions/`: raw captured transcripts (gitignored by default).
+- `_logs/`: stream-json traces from LLM-driven runs (gitignored).
+- `.state/pending-conflicts.json`: contradictions surfaced by the curator, awaiting resolution by the kb-curate skill.
+- `INDEX.md`: token-budgeted summary; injected into every new session. Regenerated automatically on commit.
+- `GRAPH.md`: full edge listing of nodes; available for the assistant to read on demand. Regenerated automatically on commit.
 
 ## Learn more
 

@@ -7,25 +7,25 @@ This annotates what the agent-driven `/kb-bootstrap` and the deterministic `boot
 ### `README.md`
 
 **Practice:**
-- "Use constructor-based DI in controllers; do not call `\\Drupal::service()` from controllers." `confidence: medium` (stated as a convention but no rationale in this doc — rationale appears in `dependency-injection.md` which the agent should follow and merge).
-- "All analytics events flow through `bravo_analytics.dispatcher`; do not call `gtag()` or backend-specific tracking directly." `confidence: medium` (same — rationale is elsewhere).
+- "Use constructor-based DI in controllers; do not call `\\Drupal::service()` from controllers." `confidence: medium` (stated as a convention but no rationale in this doc; rationale appears in `dependency-injection.md` which the agent should follow and merge).
+- "All analytics events flow through `bravo_analytics.dispatcher`; do not call `gtag()` or backend-specific tracking directly." `confidence: medium` (same; rationale is elsewhere).
 - "Tests run with `vendor/bin/phpunit -c web/core`." `confidence: high` (explicit, complete in this doc).
 
 **Map:**
-- "BravoPlatform — Drupal-10-based content platform." `confidence: high`.
-- "Repo layout: custom modules under `modules/custom/`, themes under `themes/custom/`, docs under `docs/`." `confidence: high`. (Optional — borderline whether this is worth a node. Lean yes for bootstrap, since map nodes during bootstrap are about establishing project vocabulary and structure.)
+- "BravoPlatform: Drupal-10-based content platform." `confidence: high`.
+- "Repo layout: custom modules under `modules/custom/`, themes under `themes/custom/`, docs under `docs/`." `confidence: high`. (Optional, borderline whether this is worth a node. Lean yes for bootstrap, since map nodes during bootstrap are about establishing project vocabulary and structure.)
 
 ### `docs/architecture/README.md`
 
 **Practice:**
-- "When making a significant architectural change, write a new doc rather than updating old docs in place; link the old doc with 'superseded by'." `confidence: medium`.
+- "When making a significant architectural change, write a new doc rather than updating old docs in place; cross-link the related docs via `relates_to`." `confidence: medium`.
 
 (The note about referencing module READMEs is a soft convention, not capture-worthy on its own.)
 
 ### `docs/architecture/dependency-injection.md`
 
 **Practice:**
-- "Custom controllers, services, and form classes use constructor injection; `\\Drupal::service()` from inside these classes is not permitted. Hook implementations are an exception but should delegate to injected services." `confidence: high` — full rationale (testing, refactoring) included.
+- "Custom controllers, services, and form classes use constructor injection; `\\Drupal::service()` from inside these classes is not permitted. Hook implementations are an exception but should delegate to injected services." `confidence: high`, full rationale (testing, refactoring) included.
 
 This should **merge with** the README-level mention into a single proposal, with `derived_from: [README.md, docs/architecture/dependency-injection.md]`. The agent-driven bootstrap should recognize the overlap and produce one richer node, not two.
 
@@ -33,9 +33,9 @@ This should **merge with** the README-level mention into a single proposal, with
 
 **Practice:**
 - "For most rendering routes, use Drupal's default cache tags (`$entity->getCacheTags()`)." `confidence: high`.
-- "For personalized content (varies by authenticated user), use `cache.contexts: ['user']` and `cache.tags: ['user:' . $current_user->id()]` — never entity-based tags. Two failure modes otherwise: cross-user leakage and site-wide invalidation." `confidence: high`.
+- "For personalized content (varies by authenticated user), use `cache.contexts: ['user']` and `cache.tags: ['user:' . $current_user->id()]`, never entity-based tags. Two failure modes otherwise: cross-user leakage and site-wide invalidation." `confidence: high`.
 
-The two are a related pair — one is the default rule, the other is the personalization exception. They should be written as two separate proposal nodes with `relates_to` linking them. A naive prompt might fold them into one node and lose clarity.
+The two are a related pair: one is the default rule, the other is the personalization exception. They should be written as two separate proposal nodes with `relates_to` linking them. A naive prompt might fold them into one node and lose clarity.
 
 **Skip:**
 - The PII handling reference (the doc says "not yet written; planned"). Aspirational, no actual content.
@@ -52,7 +52,7 @@ The two are a related pair — one is the default rule, the other is the persona
 ### `docs/modules/bravo_cards.md`
 
 **Map:**
-- "bravo_cards — card-feed rendering module at `modules/custom/bravo_cards/`. Services: `CardSourceResolver` picks entities for a feed; `CardFieldMapper` maps entity fields to card fields. Supports article, event, content_type_x (added Q1 2026)." `confidence: high`.
+- "bravo_cards, card-feed rendering module at `modules/custom/bravo_cards/`. Services: `CardSourceResolver` picks entities for a feed; `CardFieldMapper` maps entity fields to card fields. Supports article, event, content_type_x (added Q1 2026)." `confidence: high`.
 
 **Practice:**
 - "When adding support for a new content type to card feeds, update `CardFieldMapper::getMappingForBundle()` and add a kernel test." `confidence: high`.
@@ -60,10 +60,10 @@ The two are a related pair — one is the default rule, the other is the persona
 ### `docs/modules/bravo_analytics.md`
 
 **Map:**
-- "bravo_analytics.dispatcher — central analytics event service. Server API: `->track($event, $payload)`. Frontend shim: `Drupal.bravoAnalytics.track(name, payload)`. Backends are pluggable via `BackendInterface` and the `bravo_analytics_backend` service tag. Currently configured to Segment." `confidence: high`.
+- "bravo_analytics.dispatcher, central analytics event service. Server API: `->track($event, $payload)`. Frontend shim: `Drupal.bravoAnalytics.track(name, payload)`. Backends are pluggable via `BackendInterface` and the `bravo_analytics_backend` service tag. Currently configured to Segment." `confidence: high`.
 
 **Practice:**
-- This module's README repeats the "use the dispatcher, not direct backend calls" rule with full rationale (three backend changes — GA → Segment → Heap → Segment). The agent-driven bootstrap should recognize the overlap with the README's mention and merge into a single proposal with richer rationale and full backend history. `derived_from: [README.md, docs/modules/bravo_analytics.md]`. `confidence: high`.
+- This module's README repeats the "use the dispatcher, not direct backend calls" rule with full rationale (three backend changes: GA, Segment, Heap, Segment). The agent-driven bootstrap should recognize the overlap with the README's mention and merge into a single proposal with richer rationale and full backend history. `derived_from: [README.md, docs/modules/bravo_analytics.md]`. `confidence: high`.
 
 ### `docs/modules/bravo_seo.md`
 
@@ -71,33 +71,33 @@ The two are a related pair — one is the default rule, the other is the persona
 - "Use `bravo_seo.schema_emitter` for schema.org structured data; do not use Drupal's metatag module schema output. Custom mappings live in `config/schemata/`." `confidence: high`.
 
 **Map:**
-- "bravo_seo.schema_emitter — service for emitting schema.org JSON-LD with project-specific property mappings. Mappings live in `config/schemata/`." `confidence: high`.
+- "bravo_seo.schema_emitter, service for emitting schema.org JSON-LD with project-specific property mappings. Mappings live in `config/schemata/`." `confidence: high`.
 
 ### `CONTRIBUTING.md`
 
 **Practice:**
 - "Code style: Drupal coding standards via `phpcs --standard=Drupal modules/custom`." `confidence: high`.
-- "Unit and kernel tests required for any new service class. Functional tests run in CI only." `confidence: high` (overlaps with `docs/modules/README.md` — should merge).
+- "Unit and kernel tests required for any new service class. Functional tests run in CI only." `confidence: high` (overlaps with `docs/modules/README.md`; should merge).
 - "Conventional commit format: `<type>(<scope>): <description>`. Types: feat, fix, refactor, docs, test, chore." `confidence: high`.
-- "At least one approving review required before merging to main." `confidence: medium` (project-specific but boilerplate-adjacent — judgment call).
+- "At least one approving review required before merging to main." `confidence: medium` (project-specific but boilerplate-adjacent; judgment call).
 
 **Skip:**
-- The setup commands. These are project orientation but the level of detail (`composer install`) is more "how to run the project" than "knowledge" — borderline; the agent might capture it as a single map-style node about "how to bring up a local environment" rather than four separate captures.
+- The setup commands. These are project orientation but the level of detail (`composer install`) is more "how to run the project" than "knowledge"; borderline. The agent might capture it as a single map-style node about "how to bring up a local environment" rather than four separate captures.
 
 ## Expected totals
 
 If the agent-driven bootstrap merges overlapping captures correctly:
 
-- **Practice candidates: ~9-10** (DI, analytics dispatcher rule, testing requirement, conventional commits, code style, default cache tags, personalized cache tags, schema_emitter, architectural-doc supersession convention, content-type-mapping update procedure).
+- **Practice candidates: ~9-10** (DI, analytics dispatcher rule, testing requirement, conventional commits, code style, default cache tags, personalized cache tags, schema_emitter, architectural-doc cross-linking convention, content-type-mapping update procedure).
 - **Map candidates: ~6** (BravoPlatform overview, repo layout, module-layout convention, bravo_cards, bravo_analytics.dispatcher, bravo_seo.schema_emitter).
 
 If the deterministic `bootstrap-incremental` runs on the same files (no merging across files):
 
-- Same content but typically **2-3 more proposals total** due to per-file dedup limits — the DI rule, the analytics rule, and the testing rule each appear in 2-3 files and would produce duplicates that the curator (or a later dedup pass) would need to consolidate. This is expected and acceptable: the CLI is for incremental re-runs where docs are processed file-by-file. The agent path has better cross-file judgment.
+- Same content but typically **2-3 more proposals total** due to per-file dedup limits: the DI rule, the analytics rule, and the testing rule each appear in 2-3 files and would produce duplicates that the curator (or a later dedup pass) would need to consolidate. This is expected and acceptable: the CLI is for incremental re-runs where docs are processed file-by-file. The agent path has better cross-file judgment.
 
 ## Failure modes this fixture catches
 
-1. **Aspirational content captured.** A bad prompt might create a proposal node from the PII reference ("PII handling — encryption at rest planned") or the Redis migration TODO. Both must be skipped because the source is explicit that the content doesn't exist yet.
+1. **Aspirational content captured.** A bad prompt might create a proposal node from the PII reference ("PII handling, encryption at rest planned") or the Redis migration TODO. Both must be skipped because the source is explicit that the content doesn't exist yet.
 
 2. **Boilerplate captured.** `composer install`, MIT-style PR review process, standard `phpcs` runs. The bootstrap-incremental prompt should be tighter on these than the agent path; both should produce few.
 

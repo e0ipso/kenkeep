@@ -88,13 +88,8 @@ function contradictAction(targetId: string): CuratorAction {
       confidence: 'high',
       derived_from: [],
       relates_to: [],
-      supersedes: null,
-      valid_from: '2026-05-12T10:00:00Z',
-      valid_until: null,
-      superseded_by: null,
     },
     rationale: 'user reversed the decision',
-    suggested_resolution: null,
   };
 }
 
@@ -127,6 +122,14 @@ describe('conflict side-channel', () => {
     expect(typeof c.id).toBe('string');
     // No node was written for the contradict.
     expect(existsSync(join(harness.nodesDir, 'practice', 'practice-new-claim.md'))).toBe(false);
+    // The conflict, wrapped in a PendingConflictsFile envelope, parses cleanly
+    // against the slim schema (no removed fields on proposed_node).
+    const envelope = { schema_version: 1, conflicts: result.conflicts };
+    const parsed = PendingConflictsFileSchema.parse(envelope);
+    const proposed = parsed.conflicts[0]!.proposed_node!;
+    for (const removed of ['valid_from', 'valid_until', 'updated', 'supersedes', 'superseded_by']) {
+      expect(proposed).not.toHaveProperty(removed);
+    }
   });
 });
 
@@ -152,11 +155,6 @@ describe('curate command writes pending-conflicts.json + status surfaces it', ()
         title: 'Old',
         kind: 'practice',
         tags: [],
-        valid_from: '2026-01-01T00:00:00Z',
-        valid_until: null,
-        updated: '2026-01-01T00:00:00Z',
-        supersedes: null,
-        superseded_by: null,
         derived_from: [],
         relates_to: [],
         depends_on: [],

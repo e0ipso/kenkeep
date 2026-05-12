@@ -1,9 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import matter from 'gray-matter';
 import { computeNodesHash, readAllNodes, type NodeFile } from './nodes.js';
-import { GraphFrontmatterSchema, IndexFrontmatterSchema, type NodeFrontmatter } from './schemas.js';
+import { GraphFrontmatterSchema, IndexFrontmatterSchema } from './schemas.js';
 
-export const RECENT_SUPERSEDED_LIMIT = 5;
+const CHARS_PER_TOKEN = 4;
 
 export interface GeneratedIndex {
   content: string;
@@ -17,27 +17,6 @@ export interface GeneratedGraph {
   nodeCount: number;
 }
 
-function isValid(fm: NodeFrontmatter): boolean {
-  return fm.valid_until === null;
-}
-
-function partition(nodes: NodeFile[]): { valid: NodeFile[]; superseded: NodeFile[] } {
-  const valid: NodeFile[] = [];
-  const superseded: NodeFile[] = [];
-  for (const n of nodes) {
-    if (isValid(n.frontmatter)) valid.push(n);
-    else superseded.push(n);
-  }
-  return { valid, superseded };
-}
-
-function sortByUpdatedDesc(a: NodeFile, b: NodeFile): number {
-  if (a.frontmatter.updated === b.frontmatter.updated) {
-    return a.frontmatter.id.localeCompare(b.frontmatter.id);
-  }
-  return a.frontmatter.updated < b.frontmatter.updated ? 1 : -1;
-}
-
 function relPathFromKb(node: NodeFile): string {
   const marker = '/nodes/';
   const idx = node.path.lastIndexOf(marker);
@@ -46,9 +25,7 @@ function relPathFromKb(node: NodeFile): string {
 }
 
 /**
- * Count incoming `relates_to` + `depends_on` edges per node id across the
- * full input set (valid plus superseded), so that flipping a node's validity
- * status does not destabilize the catalog sort.
+ * Count incoming `relates_to` + `depends_on` edges per node id.
  */
 export function computeInDegree(nodes: NodeFile[]): Map<string, number> {
   const m = new Map<string, number>();
@@ -80,11 +57,11 @@ function makeCatalogComparator(inDegree: Map<string, number>) {
  * then alpha; titles within a bucket by in-degree DESC then alpha.
  */
 export function renderTagIndex(
-  validNodes: NodeFile[],
+  nodes: NodeFile[],
   inDegree: Map<string, number>
 ): string {
   const buckets = new Map<string, NodeFile[]>();
-  for (const n of validNodes) {
+  for (const n of nodes) {
     for (const t of n.frontmatter.tags) {
       let bucket = buckets.get(t);
       if (!bucket) {
@@ -117,38 +94,44 @@ export function renderTagIndex(
   return lines.join('\n');
 }
 
+function estimateTokens(nodes: NodeFile[]): number {
+  let chars = 0;
+  for (const n of nodes) {
+    chars += n.frontmatter.title.length;
+    chars += n.frontmatter.summary.length;
+    chars += n.body.length;
+  }
+  return Math.max(0, Math.ceil(chars / CHARS_PER_TOKEN));
+}
+
 /**
  * Render INDEX.md from the current state of `nodesDir`. Deterministic, no LLM.
- * INDEX is a catalog: every valid node appears, sorted by graph in-degree
+ * INDEX is a catalog: every node appears, sorted by graph in-degree
  * within each section. See IMPLEMENTATION.md §8.
  */
 export function generateIndex(nodesDir: string): GeneratedIndex {
   const nodes = readAllNodes(nodesDir);
-  const { valid, superseded } = partition(nodes);
   const inDegree = computeInDegree(nodes);
 
-  const validByKind: Record<'practice' | 'map', NodeFile[]> = { practice: [], map: [] };
-  for (const n of valid) validByKind[n.frontmatter.kind].push(n);
+  const byKind: Record<'practice' | 'map', NodeFile[]> = { practice: [], map: [] };
+  for (const n of nodes) byKind[n.frontmatter.kind].push(n);
   const cmp = makeCatalogComparator(inDegree);
-  validByKind.practice.sort(cmp);
-  validByKind.map.sort(cmp);
-  superseded.sort(sortByUpdatedDesc);
+  byKind.practice.sort(cmp);
+  byKind.map.sort(cmp);
 
   const hash = computeNodesHash(nodesDir);
   const nodeCount = nodes.length;
-  const validCount = valid.length;
-  const supersededCount = superseded.length;
+  const estimatedTokens = estimateTokens(nodes);
 
   const sections: Array<{ heading: string; bullets: NodeFile[] }> = [
-    { heading: '## Conventions (how we build)', bullets: validByKind.practice },
-    { heading: '## Components (what exists)', bullets: validByKind.map },
+    { heading: '## Conventions (how we build)', bullets: byKind.practice },
+    { heading: '## Components (what exists)', bullets: byKind.map },
   ];
 
-  const recentSuperseded = superseded.slice(0, RECENT_SUPERSEDED_LIMIT);
-  const tagBlock = renderTagIndex(valid, inDegree);
+  const tagBlock = renderTagIndex(nodes, inDegree);
 
-  const header = `# KB Index\n\n_${nodeCount} nodes • ${validCount} valid • ${supersededCount} superseded_\n`;
-  const body = renderBody(header, sections, tagBlock, recentSuperseded);
+  const header = `# KB Index\n\n_${nodeCount} nodes • ~${estimatedTokens} estimated tokens_\n`;
+  const body = renderBody(header, sections, tagBlock);
 
   const fm = IndexFrontmatterSchema.parse({
     schema_version: 1,
@@ -162,8 +145,7 @@ export function generateIndex(nodesDir: string): GeneratedIndex {
 function renderBody(
   header: string,
   sections: Array<{ heading: string; bullets: NodeFile[] }>,
-  tagBlock: string,
-  recentSuperseded: NodeFile[]
+  tagBlock: string
 ): string {
   const parts: string[] = [header];
   for (const s of sections) {
@@ -177,16 +159,6 @@ function renderBody(
   }
   parts.push('');
   parts.push(tagBlock);
-  if (recentSuperseded.length > 0) {
-    parts.push('');
-    parts.push('## Recently superseded');
-    for (const n of recentSuperseded) {
-      const successor = n.frontmatter.superseded_by
-        ? ` (superseded by ${n.frontmatter.superseded_by})`
-        : '';
-      parts.push(`- **${n.frontmatter.title}**${successor} [\`${relPathFromKb(n)}\`]`);
-    }
-  }
   return parts.join('\n');
 }
 
@@ -206,17 +178,13 @@ export function generateGraph(nodesDir: string): GeneratedGraph {
     lines.push('');
     for (const n of nodes) {
       const fm = n.frontmatter;
-      const status = fm.valid_until === null ? 'valid' : 'superseded';
       lines.push(`## ${fm.id}`);
       lines.push('');
       lines.push(`- **kind:** ${fm.kind}`);
-      lines.push(`- **status:** ${status}`);
       lines.push(`- **title:** ${fm.title}`);
       if (fm.tags.length > 0) lines.push(`- **tags:** ${fm.tags.join(', ')}`);
       if (fm.relates_to.length > 0) lines.push(`- **relates_to:** ${fm.relates_to.join(', ')}`);
       if (fm.depends_on.length > 0) lines.push(`- **depends_on:** ${fm.depends_on.join(', ')}`);
-      if (fm.supersedes) lines.push(`- **supersedes:** ${fm.supersedes}`);
-      if (fm.superseded_by) lines.push(`- **superseded_by:** ${fm.superseded_by}`);
       if (fm.derived_from.length > 0)
         lines.push(`- **derived_from:** ${fm.derived_from.join(', ')}`);
       lines.push('');

@@ -118,11 +118,6 @@ export const NodeFrontmatterSchema = z.object({
   title: z.string(),
   kind: NodeKindSchema,
   tags: z.array(z.string()),
-  valid_from: z.string(),
-  valid_until: z.string().nullable(),
-  updated: z.string(),
-  supersedes: z.string().nullable(),
-  superseded_by: z.string().nullable(),
   derived_from: z.array(z.string()),
   relates_to: z.array(z.string()),
   depends_on: z.array(z.string()),
@@ -145,10 +140,6 @@ export const CuratorProposedNodeSchema = z.object({
   confidence: ConfidenceSchema,
   derived_from: z.array(z.string()),
   relates_to: z.array(z.string()),
-  supersedes: z.string().nullable(),
-  valid_from: z.string(),
-  valid_until: z.string().nullable(),
-  superseded_by: z.string().nullable(),
 });
 export type CuratorProposedNode = z.infer<typeof CuratorProposedNodeSchema>;
 
@@ -158,7 +149,6 @@ export const CuratorActionSchema = z.object({
   target_node_id: z.string().nullable(),
   proposed_node: CuratorProposedNodeSchema.nullable(),
   rationale: z.string(),
-  suggested_resolution: z.enum(['supersede', 'keep_both', 'reject']).nullable(),
 });
 export type CuratorAction = z.infer<typeof CuratorActionSchema>;
 

@@ -4,11 +4,6 @@ id: map-index-and-graph-files
 title: "INDEX.md and GRAPH.md: deterministic outputs derived from nodes/"
 kind: map
 tags: [index, graph, deterministic, generated]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-13T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/how-it-works.md
   - docs/internals/architecture.md
@@ -24,7 +19,7 @@ summary: "INDEX.md is the catalog of every valid node (title, path, tags) inject
 Two artifacts are regenerated deterministically (no LLM) from `nodes/`, and together they form three layers: INDEX is the catalog, node files are the detail, GRAPH is the traversal companion.
 
 - **`INDEX.md`** is the catalog: every valid node appears, sorted by graph in-degree within each section (in-degree DESC, title ASC tiebreaker). Each bullet is title, path, and `#`-prefixed tags. A `## By topic` block lists every distinct tag (bucket size DESC, alpha tiebreaker) with the titles that carry it. The `kb-session-start.mjs` hook injects this into every new Claude Code session via the SessionStart `additionalContext` channel.
-- **`GRAPH.md`** is the full edge listing (`supersedes` / `superseded_by`, `derived_from`, `relates_to`, `depends_on`). It is **not** injected; the assistant reads it on demand when it needs the whole graph.
+- **`GRAPH.md`** is the full edge listing (`derived_from`, `relates_to`, `depends_on`). It is **not** injected; the assistant reads it on demand when it needs the whole graph.
 
 Frontmatter (validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`) carries `schema_version`, `nodes_hash`, and `node_count`. `nodes_hash` is content-addressed and mtime-independent; consume compares it to the live tree and flags drift.
 

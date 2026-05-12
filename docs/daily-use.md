@@ -38,17 +38,17 @@ The curator reads every captured session that's been processed but not yet curat
 - **contradict** → records the conflict in `.ai/knowledge-base/.state/pending-conflicts.json` and writes nothing.
 - **drop** → no change.
 
-The curator never auto-resolves a contradiction. The `/kb-curate` skill walks each entry in `pending-conflicts.json` with you in-session and applies your choice (supersede, keep both, reject) by editing the affected node, then removes the resolved entry.
+The curator never auto-resolves a contradiction. The `/kb-curate` skill walks each entry in `pending-conflicts.json` with you in-session. You pick Replace (delete the existing node file and write the proposed one) or Reject (do nothing). The skill applies your choice and removes the resolved entry.
 
 ## Review changes
 
-The KB lives in `nodes/`. Review with `git diff nodes/`, your editor, or a tool like [self-review](https://github.com/e0ipso/self-review). They are important - they may affect how the agent behaves in every future session.
+The KB lives in `nodes/`. Review with `git diff nodes/`, your editor, or a tool like [self-review](https://github.com/e0ipso/self-review). They are important; they may affect how the agent behaves in every future session.
 
 To accept: `git add` and `git commit`. The lint-staged pre-commit hook regenerates and stages `INDEX.md`/`GRAPH.md` so the injected index stays in lockstep.
 
 To reject: `git restore nodes/<kind>/<file>.md` (or delete the file if it's a new addition).
 
-For curator-detected contradictions, let the `/kb-curate` skill walk you through them - that's the authoritative resolution path.
+For curator-detected contradictions, let the `/kb-curate` skill walk you through them; that's the authoritative resolution path.
 
 ## Add knowledge manually
 
@@ -75,7 +75,7 @@ From inside a Claude Code session:
 /kb-bootstrap docs/architecture    # scope to a path
 ```
 
-The skill surveys your docs, splits them into practice and map nodes, and writes them directly under `nodes/`. Existing nodes are never overwritten - collisions are skipped and reported. Review with `git diff nodes/` and commit the ones you want.
+The skill surveys your docs, splits them into practice and map nodes, and writes them directly under `nodes/`. Existing nodes are never overwritten; collisions are skipped and reported. Review with `git diff nodes/` and commit the ones you want.
 
 For re-runs after editing docs:
 
@@ -83,7 +83,7 @@ For re-runs after editing docs:
 npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
 ```
 
-Hash-aware - only reprocesses docs that changed since the last run. Same conservative collision behavior.
+Hash-aware: only reprocesses docs that changed since the last run. Same conservative collision behavior.
 
 ## What about CI?
 

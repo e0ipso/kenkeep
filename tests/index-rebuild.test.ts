@@ -17,11 +17,6 @@ function writeNode(sandbox: string, kind: 'practice' | 'map', id: string): void 
     title: id,
     kind,
     tags: [],
-    valid_from: '2026-01-01T00:00:00Z',
-    valid_until: null,
-    updated: '2026-01-01T00:00:00Z',
-    supersedes: null,
-    superseded_by: null,
     derived_from: [],
     relates_to: [],
     depends_on: [],
@@ -106,29 +101,24 @@ describe('index rebuild', () => {
     expect(staged).toContain('.ai/knowledge-base/GRAPH.md');
   });
 
-  it('refuses to rebuild when a node has unquoted ISO timestamps', async () => {
+  it('refuses to rebuild when a node has invalid frontmatter', async () => {
     const dir = join(sandbox, '.ai/knowledge-base/nodes/practice');
     mkdirSync(dir, { recursive: true });
-    const badPath = join(dir, 'practice-unquoted.md');
+    const badPath = join(dir, 'practice-missing-summary.md');
+    // Missing required `summary` triggers schema validation failure.
     writeFileSync(
       badPath,
       [
         '---',
         'schema_version: 1',
-        'id: practice-unquoted',
-        'title: "unquoted timestamps"',
+        'id: practice-missing-summary',
+        'title: "missing summary"',
         'kind: practice',
         'tags: []',
-        'valid_from: 2026-05-12T00:00:00Z',
-        'valid_until: null',
-        'updated: 2026-05-12T00:00:00Z',
-        'supersedes: null',
-        'superseded_by: null',
         'derived_from: []',
         'relates_to: []',
         'depends_on: []',
         'confidence: high',
-        'summary: "s"',
         '---',
         '',
         'body',
@@ -141,9 +131,8 @@ describe('index rebuild', () => {
 
     expect(result.exitCode).not.toBe(0);
     const combined = result.stdout + result.stderr;
-    expect(combined).toContain('practice-unquoted.md');
-    expect(combined).toContain('valid_from');
-    expect(combined).toContain('quote the ISO timestamp');
+    expect(combined).toContain('practice-missing-summary.md');
+    expect(combined).toContain('summary');
     // INDEX.md must not be overwritten to an empty (0-node) state.
     expect(readFileSync(indexPath, 'utf8')).toBe(before);
   });

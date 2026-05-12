@@ -7,11 +7,6 @@ tags:
   - kb-pipeline
   - artifact
   - vocabulary
-valid_from: '2026-05-12T15:47:26.762Z'
-valid_until: null
-updated: '2026-05-12T15:50:15.078Z'
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260512-1527-aa21a0a11614.md
 relates_to:

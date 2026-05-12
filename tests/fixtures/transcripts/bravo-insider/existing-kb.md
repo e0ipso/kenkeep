@@ -13,11 +13,6 @@ id: practice-controller-dependency-injection
 title: "Inject services via constructor; never use \\Drupal::service() in controllers"
 kind: practice
 tags: [drupal, di, controller]
-valid_from: 2026-02-14T10:00:00Z
-valid_until: null
-updated: 2026-02-14T10:00:00Z
-supersedes: null
-superseded_by: null
 derived_from:
   - 2026-02-14-1000-controller-di.md
 relates_to: []
@@ -44,11 +39,6 @@ id: map-bravo-cards
 title: "Bravo Cards — card-feed rendering module"
 kind: map
 tags: [module, bravo-cards, ui]
-valid_from: 2026-01-08T15:00:00Z
-valid_until: null
-updated: 2026-03-22T11:45:00Z
-supersedes: null
-superseded_by: null
 derived_from:
   - 2026-01-08-1500-cards-intro.md
   - 2026-03-22-1145-cards-content-type-x.md
@@ -78,11 +68,6 @@ id: practice-analytics-direct-ga
 title: "Use vanilla Google Analytics events for client-side tracking"
 kind: practice
 tags: [analytics, ga, frontend]
-valid_from: 2025-08-01T09:00:00Z
-valid_until: null
-updated: 2025-08-01T09:00:00Z
-supersedes: null
-superseded_by: null
 derived_from:
   - 2025-08-01-0900-analytics-rollout.md
 relates_to: []
@@ -111,11 +96,6 @@ id: practice-cache-tags-default
 title: "Use Drupal default cache tags for entity-rendering pages"
 kind: practice
 tags: [caching, drupal, cache-tags]
-valid_from: 2025-11-05T13:30:00Z
-valid_until: null
-updated: 2025-11-05T13:30:00Z
-supersedes: null
-superseded_by: null
 derived_from:
   - 2025-11-05-1330-caching-intro.md
 relates_to: []

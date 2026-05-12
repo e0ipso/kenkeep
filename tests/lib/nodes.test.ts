@@ -24,11 +24,6 @@ function seedNode(dir: string, kind: 'practice' | 'map', id: string, body = '# b
     `title: "${id} title"`,
     `kind: ${kind}`,
     'tags: [a, b]',
-    'valid_from: "2026-01-01T00:00:00Z"',
-    'valid_until: null',
-    'updated: "2026-01-01T00:00:00Z"',
-    'supersedes: null',
-    'superseded_by: null',
     'derived_from: []',
     'relates_to: []',
     'depends_on: []',
@@ -74,28 +69,22 @@ describe('nodes helpers', () => {
     expect(failures[0]!.file).toBe(brokenPath);
   });
 
-  it('aggregates failures across multiple bad files and hints at unquoted timestamps', () => {
+  it('aggregates failures across multiple malformed files', () => {
     mkdirSync(join(root, 'practice'), { recursive: true });
-    const unquotedPath = join(root, 'practice', 'practice-unquoted.md');
+    const missingFieldPath = join(root, 'practice', 'practice-missing-summary.md');
     writeFileSync(
-      unquotedPath,
+      missingFieldPath,
       [
         '---',
         'schema_version: 1',
-        'id: practice-unquoted',
-        'title: "unquoted timestamps"',
+        'id: practice-missing-summary',
+        'title: "no summary"',
         'kind: practice',
         'tags: []',
-        'valid_from: 2026-05-12T00:00:00Z',
-        'valid_until: null',
-        'updated: 2026-05-12T00:00:00Z',
-        'supersedes: null',
-        'superseded_by: null',
         'derived_from: []',
         'relates_to: []',
         'depends_on: []',
         'confidence: high',
-        'summary: "s"',
         '---',
         '',
         'body',
@@ -111,8 +100,9 @@ describe('nodes helpers', () => {
       caught = err as InvalidNodeFrontmatterError;
     }
     expect(caught).toBeInstanceOf(InvalidNodeFrontmatterError);
-    expect(caught!.failures.map(f => f.file).sort()).toEqual([garbagePath, unquotedPath].sort());
-    expect(caught!.message).toContain('quote the ISO timestamp');
+    expect(caught!.failures.map(f => f.file).sort()).toEqual(
+      [garbagePath, missingFieldPath].sort()
+    );
   });
 
   it('computeNodesHash is deterministic and content-sensitive', () => {
@@ -156,11 +146,6 @@ describe('nodes helpers', () => {
       title: 'Write test',
       kind: 'practice',
       tags: ['x'],
-      valid_from: '2026-05-12T10:00:00Z',
-      valid_until: null,
-      updated: '2026-05-12T10:00:00Z',
-      supersedes: null,
-      superseded_by: null,
       derived_from: ['session-1.md'],
       relates_to: [],
       depends_on: [],

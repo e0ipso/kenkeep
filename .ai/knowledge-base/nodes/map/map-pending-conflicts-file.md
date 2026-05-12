@@ -4,11 +4,6 @@ id: map-pending-conflicts-file
 title: ".state/pending-conflicts.json: curator-detected contradictions"
 kind: map
 tags: [state, curator, contradictions, kb-curate]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/schemas.md
   - docs/how-it-works.md
@@ -39,4 +34,4 @@ When the curator decides a candidate contradicts an existing node, it does **not
 }
 ```
 
-The `/kb-curate` skill reads this file after the curator subprocess exits, walks each entry with the user (existing node side-by-side with the new claim), asks for a resolution (supersede / keep both / reject), applies it by editing the relevant `nodes/<kind>/<id>.md`, and removes the resolved entry from the array. `ai-knowledge-base status` reports the count.
+The `/kb-curate` skill reads this file after the curator subprocess exits, walks each entry with the user (existing node side-by-side with the new claim), asks for a resolution (replace or reject), applies it by deleting (replace) or leaving (reject) the relevant `nodes/<kind>/<id>.md`, and removes the resolved entry from the array. `ai-knowledge-base status` reports the count.

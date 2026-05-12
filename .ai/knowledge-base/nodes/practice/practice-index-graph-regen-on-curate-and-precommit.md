@@ -9,11 +9,6 @@ tags:
   - graph
   - commit-workflow
   - lint-staged
-valid_from: '2026-05-12T09:59:17.929Z'
-valid_until: null
-updated: '2026-05-12T11:48:24.254Z'
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260512-0959-f963bf78b135.md
 relates_to:

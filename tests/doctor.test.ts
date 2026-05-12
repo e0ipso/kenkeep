@@ -37,29 +37,24 @@ describe('doctor', () => {
     expect(combined).toContain('kb-add, kb-bootstrap, kb-curate');
   });
 
-  it('flags nodes with unquoted ISO timestamps and skips the dangling check', async () => {
+  it('flags nodes with invalid frontmatter and skips the dangling check', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
     const dir = join(sandbox, '.ai/knowledge-base/nodes/practice');
     mkdirSync(dir, { recursive: true });
+    // Missing required `summary` field triggers schema validation failure.
     writeFileSync(
-      join(dir, 'practice-unquoted.md'),
+      join(dir, 'practice-broken.md'),
       [
         '---',
         'schema_version: 1',
-        'id: practice-unquoted',
-        'title: "unquoted timestamps"',
+        'id: practice-broken',
+        'title: "broken frontmatter"',
         'kind: practice',
         'tags: []',
-        'valid_from: 2026-05-12T00:00:00Z',
-        'valid_until: null',
-        'updated: 2026-05-12T00:00:00Z',
-        'supersedes: null',
-        'superseded_by: null',
         'derived_from: []',
         'relates_to: []',
         'depends_on: []',
         'confidence: high',
-        'summary: "s"',
         '---',
         '',
         'body',
@@ -71,10 +66,9 @@ describe('doctor', () => {
     expect(result.exitCode).toBe(1);
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('node frontmatter valid');
-    expect(combined).toContain('failed validation');
-    expect(combined).toContain('practice-unquoted.md');
-    expect(combined).toContain('valid_from');
-    expect(combined).toContain('skipped — nodes failed frontmatter validation');
+    expect(combined).toContain('practice-broken.md');
+    expect(combined).toContain('summary');
+    expect(combined).toContain('skipped');
   });
 
   it('flags an invalid config.yaml as an error', async () => {

@@ -4,11 +4,6 @@ id: practice-recursion-guard-env-var
 title: "Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess"
 kind: practice
 tags: [hooks, recursion, env-vars, claude-code]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/hooks.md
   - docs/internals/architecture.md

@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:2fbf6882adcdba808ce46c00d7fb2b614c7698c086fd4e4d482106f3461fe8b3'
+nodes_hash: 'sha256:0ba77978f6a241c29ddb773ac6634d112f629fa36121c75057873ab6fbc9c8e4'
 node_count: 41
 ---
 # KB Graph
@@ -10,7 +10,6 @@ Total nodes: 41
 ## map-adapter-interface
 
 - **kind:** map
-- **status:** valid
 - **title:** Adapter interface: src/adapters/types.ts
 - **tags:** adapters, interface, claude-code, extension-point
 - **relates_to:** practice-v1-claude-code-only, map-ai-knowledge-base-cli
@@ -19,7 +18,6 @@ Total nodes: 41
 ## map-ai-knowledge-base-cli
 
 - **kind:** map
-- **status:** valid
 - **title:** ai-knowledge-base CLI: the package binary
 - **tags:** cli, commander, binary
 - **relates_to:** map-kb-claude-skills, map-adapter-interface
@@ -28,7 +26,6 @@ Total nodes: 41
 ## map-bootstrap-state-file
 
 - **kind:** map
-- **status:** valid
 - **title:** .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap
 - **tags:** state, bootstrap, hashing, gitignore
 - **relates_to:** practice-bootstrap-skip-changelog-and-implementation
@@ -37,7 +34,6 @@ Total nodes: 41
 ## map-build-templates-script
 
 - **kind:** map
-- **status:** valid
 - **title:** scripts/build-templates.mjs: regenerates templates/ from sources
 - **tags:** build, templates, script
 - **relates_to:** map-templates-npm-artifact, practice-do-not-commit-bundled-output
@@ -46,7 +42,6 @@ Total nodes: 41
 ## map-claude-hooks
 
 - **kind:** map
-- **status:** valid
 - **title:** The three Claude Code hooks registered by init
 - **tags:** hooks, claude-code, capture, extract, consume
 - **relates_to:** practice-hooks-meet-1s-deadline, practice-recursion-guard-env-var
@@ -55,7 +50,6 @@ Total nodes: 41
 ## map-dedup-cache
 
 - **kind:** map
-- **status:** valid
 - **title:** dedup-cache: sha256-of-slice cache with 5-minute TTL
 - **tags:** dedup, kb-pipeline, cache
 - **relates_to:** map-kb-capture-hook, practice-one-session-log-per-session-id
@@ -64,7 +58,6 @@ Total nodes: 41
 ## map-dogfood-claude-hooks-output
 
 - **kind:** map
-- **status:** valid
 - **title:** .claude/hooks/*.mjs: this repo's own init output (dogfooding)
 - **tags:** dogfooding, hooks, claude
 - **relates_to:** map-templates-npm-artifact, map-claude-hooks, practice-do-not-commit-bundled-output
@@ -73,7 +66,6 @@ Total nodes: 41
 ## map-index-and-graph-files
 
 - **kind:** map
-- **status:** valid
 - **title:** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/
 - **tags:** index, graph, deterministic, generated
 - **relates_to:** map-nodes-directory, practice-determinism-contract
@@ -82,7 +74,6 @@ Total nodes: 41
 ## map-kb-capture-hook
 
 - **kind:** map
-- **status:** valid
 - **title:** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact
 - **tags:** hook, capture, kb-pipeline
 - **relates_to:** map-claude-hooks, map-dedup-cache, map-session-log-and-queue-helpers
@@ -91,7 +82,6 @@ Total nodes: 41
 ## map-kb-claude-skills
 
 - **kind:** map
-- **status:** valid
 - **title:** Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap
 - **tags:** skills, claude-code, curate, add, bootstrap
 - **relates_to:** map-ai-knowledge-base-cli, map-pending-conflicts-file
@@ -100,7 +90,6 @@ Total nodes: 41
 ## map-kb-proposal-drain
 
 - **kind:** map
-- **status:** valid
 - **title:** kb-proposal-drain: async worker that runs the extraction step
 - **tags:** worker, proposal, kb-pipeline
 - **relates_to:** map-claude-hooks
@@ -109,7 +98,6 @@ Total nodes: 41
 ## map-map-node
 
 - **kind:** map
-- **status:** valid
 - **title:** Map node: what-exists, named entities and vocabulary
 - **tags:** vocabulary, node-kind, map
 - **relates_to:** map-practice-node, map-nodes-directory
@@ -118,7 +106,6 @@ Total nodes: 41
 ## map-nodes-directory
 
 - **kind:** map
-- **status:** valid
 - **title:** nodes/: the canonical knowledge tree
 - **tags:** storage, nodes, canonical, git
 - **relates_to:** map-practice-node, map-map-node, map-index-and-graph-files
@@ -127,7 +114,6 @@ Total nodes: 41
 ## map-pending-conflicts-file
 
 - **kind:** map
-- **status:** valid
 - **title:** .state/pending-conflicts.json: curator-detected contradictions
 - **tags:** state, curator, contradictions, kb-curate
 - **relates_to:** map-claude-hooks, map-kb-claude-skills, practice-curator-read-only-tool
@@ -136,7 +122,6 @@ Total nodes: 41
 ## map-practice-node
 
 - **kind:** map
-- **status:** valid
 - **title:** Practice node: how-we-build, imperative guidance
 - **tags:** vocabulary, node-kind, practice
 - **relates_to:** map-map-node, map-nodes-directory
@@ -145,7 +130,6 @@ Total nodes: 41
 ## map-project-config-json
 
 - **kind:** map
-- **status:** valid
 - **title:** .ai/knowledge-base/config.yaml: project-level tunables
 - **tags:** settings, config, tunables, yaml
 - **relates_to:** practice-config-yaml-not-json
@@ -154,7 +138,6 @@ Total nodes: 41
 ## map-project-documentation-layout
 
 - **kind:** map
-- **status:** valid
 - **title:** Project documentation layout
 - **tags:** docs, directory-layout, bootstrap
 - **relates_to:** practice-bootstrap-skip-changelog-and-implementation
@@ -163,7 +146,6 @@ Total nodes: 41
 ## map-proposal-artifact
 
 - **kind:** map
-- **status:** valid
 - **title:** Proposal: structured candidate nodes extracted from a Transcript
 - **tags:** kb-pipeline, artifact, vocabulary
 - **relates_to:** map-transcript-artifact, map-kb-proposal-drain
@@ -172,7 +154,6 @@ Total nodes: 41
 ## map-session-log-and-queue-helpers
 
 - **kind:** map
-- **status:** valid
 - **title:** session-log and queue helpers in src/lib
 - **tags:** module, kb-pipeline, helpers
 - **relates_to:** map-kb-capture-hook, practice-one-session-log-per-session-id
@@ -181,7 +162,6 @@ Total nodes: 41
 ## map-sessions-directory
 
 - **kind:** map
-- **status:** valid
 - **title:** _sessions/: captured session logs (gitignored by default)
 - **tags:** storage, capture, sessions, gitignore
 - **relates_to:** map-claude-hooks, map-nodes-directory
@@ -190,7 +170,6 @@ Total nodes: 41
 ## map-state-json-file
 
 - **kind:** map
-- **status:** valid
 - **title:** .state/state.json: lock and nudge timestamp
 - **tags:** state, lock, nudge, gitignore
 - **relates_to:** map-claude-hooks
@@ -199,7 +178,6 @@ Total nodes: 41
 ## map-templates-npm-artifact
 
 - **kind:** map
-- **status:** valid
 - **title:** templates/: shipped npm artifact, regenerated on publish
 - **tags:** npm, publish, artifact
 - **relates_to:** map-build-templates-script, map-adapter-interface, practice-do-not-commit-bundled-output
@@ -208,7 +186,6 @@ Total nodes: 41
 ## map-transcript-artifact
 
 - **kind:** map
-- **status:** valid
 - **title:** Transcript: raw session capture in the KB pipeline
 - **tags:** kb-pipeline, artifact, vocabulary
 - **relates_to:** map-proposal-artifact, map-sessions-directory
@@ -217,7 +194,6 @@ Total nodes: 41
 ## practice-atomic-prs-with-paired-docs
 
 - **kind:** practice
-- **status:** valid
 - **title:** One logical change per PR, with the docs update for that change
 - **tags:** git, pr, review, docs
 - **derived_from:** CONTRIBUTING.md
@@ -225,7 +201,6 @@ Total nodes: 41
 ## practice-bootstrap-skip-changelog-and-implementation
 
 - **kind:** practice
-- **status:** valid
 - **title:** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap
 - **tags:** bootstrap, kb, docs, scope
 - **relates_to:** map-project-documentation-layout, practice-no-schema-migrators
@@ -234,7 +209,6 @@ Total nodes: 41
 ## practice-config-yaml-not-json
 
 - **kind:** practice
-- **status:** valid
 - **title:** ai-knowledge-base config is YAML, never JSON
 - **tags:** config, yaml, ai-knowledge-base
 - **relates_to:** map-project-config-json
@@ -243,7 +217,6 @@ Total nodes: 41
 ## practice-conventional-commits
 
 - **kind:** practice
-- **status:** valid
 - **title:** Conventional Commits are required: they drive the release
 - **tags:** git, releases, commits, semantic-release
 - **derived_from:** CONTRIBUTING.md
@@ -251,7 +224,6 @@ Total nodes: 41
 ## practice-curator-read-only-tool
 
 - **kind:** practice
-- **status:** valid
 - **title:** The curator's only allowed tool is Read
 - **tags:** curator, prompts, tools, claude-code
 - **derived_from:** docs/internals/prompts.md
@@ -259,7 +231,6 @@ Total nodes: 41
 ## practice-determinism-contract
 
 - **kind:** practice
-- **status:** valid
 - **title:** INDEX/GRAPH and nodes_hash are deterministic and content-addressed
 - **tags:** determinism, hashing, index, graph, testing
 - **relates_to:** map-index-and-graph-files, map-nodes-directory
@@ -268,7 +239,6 @@ Total nodes: 41
 ## practice-do-not-commit-bundled-output
 
 - **kind:** practice
-- **status:** valid
 - **title:** Don't commit bundled/generated output to the repo
 - **tags:** build-output, gitignore, repo-hygiene
 - **relates_to:** map-build-templates-script, map-templates-npm-artifact, map-dogfood-claude-hooks-output
@@ -277,7 +247,6 @@ Total nodes: 41
 ## practice-hooks-meet-1s-deadline
 
 - **kind:** practice
-- **status:** valid
 - **title:** Sync hooks must finish in under 1 second
 - **tags:** hooks, performance, claude-code, contract
 - **relates_to:** map-claude-hooks
@@ -286,7 +255,6 @@ Total nodes: 41
 ## practice-index-graph-regen-on-curate-and-precommit
 
 - **kind:** practice
-- **status:** valid
 - **title:** INDEX.md and GRAPH.md regenerate only on curate and pre-commit
 - **tags:** kb, index, graph, commit-workflow, lint-staged
 - **relates_to:** map-index-and-graph-files, practice-determinism-contract, practice-no-llm-pipelines-in-ci
@@ -295,14 +263,12 @@ Total nodes: 41
 ## practice-no-em-dashes-or-hyphen-as-dash-in-prose
 
 - **kind:** practice
-- **status:** valid
 - **title:** No em-dashes or hyphen-as-dash in prose
 - **tags:** prose, style, docs, commits
 
 ## practice-no-llm-pipelines-in-ci
 
 - **kind:** practice
-- **status:** valid
 - **title:** Never run curate or bootstrap-incremental in CI
 - **tags:** ci, curate, bootstrap, policy
 - **relates_to:** map-ai-knowledge-base-cli
@@ -311,7 +277,6 @@ Total nodes: 41
 ## practice-no-schema-migrators
 
 - **kind:** practice
-- **status:** valid
 - **title:** Strict schema-version policy: clean break, no migrators
 - **tags:** schema, versioning, policy, no-legacy
 - **relates_to:** map-zod-schemas
@@ -320,7 +285,6 @@ Total nodes: 41
 ## practice-one-session-log-per-session-id
 
 - **kind:** practice
-- **status:** valid
 - **title:** One session log per session_id, not per assistant turn
 - **tags:** kb-capture, session-log, hooks, dedup
 - **relates_to:** map-kb-capture-hook, map-dedup-cache, map-session-log-and-queue-helpers
@@ -329,7 +293,6 @@ Total nodes: 41
 ## practice-prompt-versioning
 
 - **kind:** practice
-- **status:** valid
 - **title:** Bump the Version: N comment on every prompt behavior change
 - **tags:** prompts, versioning, changelog
 - **derived_from:** CONTRIBUTING.md, docs/internals/prompts.md
@@ -337,7 +300,6 @@ Total nodes: 41
 ## practice-recursion-guard-env-var
 
 - **kind:** practice
-- **status:** valid
 - **title:** Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess
 - **tags:** hooks, recursion, env-vars, claude-code
 - **relates_to:** map-claude-hooks
@@ -346,7 +308,6 @@ Total nodes: 41
 ## practice-sessions-and-proposal-logs-are-intermediate-artifacts
 
 - **kind:** practice
-- **status:** valid
 - **title:** Session logs and extraction logs are intermediate artifacts, safe to wipe
 - **tags:** cleanup, kb-pipeline, intermediate-artifacts
 - **relates_to:** map-sessions-directory, map-nodes-directory
@@ -355,7 +316,6 @@ Total nodes: 41
 ## practice-v1-claude-code-only
 
 - **kind:** practice
-- **status:** valid
 - **title:** v1 ships Claude Code only; the adapter interface is preparation, not plurality
 - **tags:** adapters, scope, claude-code, v1
 - **relates_to:** map-adapter-interface
@@ -364,7 +324,6 @@ Total nodes: 41
 ## practice-verify-shipped-artifact-before-delete
 
 - **kind:** practice
-- **status:** valid
 - **title:** Verify shipped-artifact status before deleting tracked files
 - **tags:** safety, destructive-actions, verification
 - **relates_to:** practice-do-not-commit-bundled-output, map-templates-npm-artifact

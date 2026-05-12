@@ -95,26 +95,26 @@ The transcript contained several things that must not appear in the output:
 
 ## Confidence calibration check
 
-All four practice nodes are `confidence: high` because the user stated the rules explicitly. Two have explicit rationale (analytics dispatcher, cache tags), which would also warrant `high`. The schema.org node has weaker rationale ("we have custom property mappings") — that's still `high` because the rule itself is explicit.
+All four practice nodes are `confidence: high` because the user stated the rules explicitly. Two have explicit rationale (analytics dispatcher, cache tags), which would also warrant `high`. The schema.org node has weaker rationale ("we have custom property mappings"); that's still `high` because the rule itself is explicit.
 
-The `bravo_seo.schema_emitter` map node is `confidence: medium` because the user mentioned it in passing without exploring it — we know what it does (custom schema.org) but not where it lives or its API surface.
+The `bravo_seo.schema_emitter` map node is `confidence: medium` because the user mentioned it in passing without exploring it: we know what it does (custom schema.org) but not where it lives or its API surface.
 
 ## Curator follow-up checks against existing-kb.md
 
 When this proposal output flows into the curator with the four existing nodes from the fixture KB, the curator should:
 
-1. **Practice DI node:** proposal says "constructor injection." Existing `practice-controller-dependency-injection` covers it. → **modify** (the new candidate adds the explicit "see CardFeedController" pointer and is consistent with the existing node, but doesn't add real new content) OR **drop** (essentially the same). Lean drop.
+1. **Practice DI node:** proposal says "constructor injection." Existing `practice-controller-dependency-injection` covers it. Either **modify** (the new candidate adds the explicit "see CardFeedController" pointer and is consistent with the existing node, but doesn't add real new content) or **drop** (essentially the same). Lean drop.
 
-2. **Practice analytics dispatcher node:** existing `practice-analytics-direct-ga` says "use vanilla GA." Direct contradiction. → **contradict**. The new node says "use the dispatcher (we moved off GA)" and the existing node says "use GA directly." Cannot both be true. Resolution will be `supersede`.
+2. **Practice analytics dispatcher node:** existing `practice-analytics-direct-ga` says "use vanilla GA." Direct contradiction. **contradict**. The new node says "use the dispatcher (we moved off GA)" and the existing node says "use GA directly." Cannot both be true. The kb-curate skill resolves the conflict in-session by asking the user to either replace (the old node file is deleted and a new node is written; the new node's id may match the deleted one) or reject (no change).
 
-3. **Practice personalized cache tags node:** existing `practice-cache-tags-default` says "use default cache tags." The new candidate is an *exception* for personalized content, not a contradiction — the default rule still holds for non-personalized routes. → **add** with `relates_to: [practice-cache-tags-default]`. The curator should NOT contradict the existing node.
+3. **Practice personalized cache tags node:** existing `practice-cache-tags-default` says "use default cache tags." The new candidate is an *exception* for personalized content, not a contradiction: the default rule still holds for non-personalized routes. **add** with `relates_to: [practice-cache-tags-default]`. The curator should NOT contradict the existing node.
 
-4. **Practice schema.org node:** no existing node. → **add**.
+4. **Practice schema.org node:** no existing node. **add**.
 
-5. **Map Bravo Insider:** no existing node. → **add**.
+5. **Map Bravo Insider:** no existing node. **add**.
 
-6. **Map dispatcher:** no existing node. → **add**.
+6. **Map dispatcher:** no existing node. **add**.
 
-7. **Map schema_emitter:** no existing node. → **add**.
+7. **Map schema_emitter:** no existing node. **add**.
 
-The cache-tags case is the critical one — the curator prompt explicitly warns against treating exceptions as contradictions, and this is exactly the case that tests it.
+The cache-tags case is the critical one: the curator prompt explicitly warns against treating exceptions as contradictions, and this is exactly the case that tests it.

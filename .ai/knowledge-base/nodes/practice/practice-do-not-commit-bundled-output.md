@@ -7,11 +7,6 @@ tags:
   - build-output
   - gitignore
   - repo-hygiene
-valid_from: '2026-05-12T14:51:07.760Z'
-valid_until: null
-updated: '2026-05-12T15:50:15.077Z'
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260512-1439-722a03fa9cbe.md
 relates_to:

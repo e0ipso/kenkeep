@@ -11,9 +11,6 @@ interface NodeSeed {
   title: string;
   summary: string;
   tags?: string[];
-  updated?: string;
-  valid_until?: string | null;
-  superseded_by?: string | null;
   relates_to?: string[];
   depends_on?: string[];
 }
@@ -29,11 +26,6 @@ function seedNodes(root: string, seeds: NodeSeed[]): void {
       title: s.title,
       kind: s.kind,
       tags: s.tags ?? [],
-      valid_from: '2026-01-01T00:00:00Z',
-      valid_until: s.valid_until ?? null,
-      updated: s.updated ?? '2026-01-01T00:00:00Z',
-      supersedes: null,
-      superseded_by: s.superseded_by ?? null,
       derived_from: [],
       relates_to: s.relates_to ?? [],
       depends_on: s.depends_on ?? [],
@@ -87,7 +79,10 @@ describe('generateIndex', () => {
     expect(out.content).toContain('**#foo (2):**');
     expect(out.content).toContain('**#bar (2):**');
     expect(out.content).toMatch(/nodes_hash:\s+['"]?sha256:/);
-    expect(out.content).toMatch(/3 nodes • 3 valid • 0 superseded/);
+    expect(out.content).toMatch(/_3 nodes • ~\d+ estimated tokens_/);
+    // Regression: removed features must not reappear.
+    expect(out.content).not.toContain('Recently superseded');
+    expect(out.content).not.toContain('superseded');
   });
 
   it('sorts nodes within a section by in-degree DESC, with title ASC as tiebreaker', () => {
@@ -121,24 +116,6 @@ describe('generateIndex', () => {
     expect(refAIdx).toBeLessThan(refBIdx);
   });
 
-  it('lists superseded nodes in their own section and counts them as invalid', () => {
-    seedNodes(root, [
-      {
-        kind: 'practice',
-        id: 'practice-old',
-        title: 'Old',
-        summary: 'old summary',
-        valid_until: '2026-04-01T00:00:00Z',
-        superseded_by: 'practice-new',
-      },
-      { kind: 'practice', id: 'practice-new', title: 'New', summary: 'new summary' },
-    ]);
-    const out = generateIndex(root);
-    expect(out.content).toContain('## Recently superseded');
-    expect(out.content).toContain('superseded by practice-new');
-    expect(out.content).toMatch(/2 nodes • 1 valid • 1 superseded/);
-  });
-
   it('renders an empty index gracefully when nodes/ is missing', () => {
     const out = generateIndex(join(root, 'nope'));
     expect(out.nodeCount).toBe(0);
@@ -162,5 +139,9 @@ describe('generateGraph', () => {
     expect(out.content).toContain('## practice-a');
     expect(out.content).toContain('## map-b');
     expect(out.content).toContain('Total nodes: 2');
+    // Regression: removed per-node lines must not reappear.
+    expect(out.content).not.toContain('**status:**');
+    expect(out.content).not.toContain('**supersedes:**');
+    expect(out.content).not.toContain('**superseded_by:**');
   });
 });

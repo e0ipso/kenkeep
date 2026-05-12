@@ -8,11 +8,6 @@ tags:
   - config
   - tunables
   - yaml
-valid_from: '2026-05-12T10:09:28.964Z'
-valid_until: null
-updated: '2026-05-12T11:48:24.255Z'
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260512-1009-937d05692312.md
 relates_to:

@@ -512,7 +512,6 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
           nodesDir: ctx.nodesDir,
           existingIds,
           seenSlugs,
-          now: now(),
         });
         if (written === 'collision') {
           skippedCollisions += 1;
@@ -574,7 +573,6 @@ interface WriteBootstrapNodeArgs {
   nodesDir: string;
   existingIds: Set<string>;
   seenSlugs: Set<string>;
-  now: Date;
 }
 
 /**
@@ -583,7 +581,7 @@ interface WriteBootstrapNodeArgs {
  * Bootstrap is conservative: never overwrite existing nodes.
  */
 function writeBootstrapNode(args: WriteBootstrapNodeArgs): string | 'collision' {
-  const { candidate, derivedFrom, nodesDir, existingIds, seenSlugs, now } = args;
+  const { candidate, derivedFrom, nodesDir, existingIds, seenSlugs } = args;
   const baseId = deriveNodeId(candidate.kind, candidate.title);
   if (existingIds.has(baseId) || nodeFileExists(nodesDir, candidate.kind, baseId)) {
     return 'collision';
@@ -596,11 +594,6 @@ function writeBootstrapNode(args: WriteBootstrapNodeArgs): string | 'collision' 
     title: candidate.title,
     kind: candidate.kind,
     tags: candidate.tags,
-    valid_from: now.toISOString(),
-    valid_until: null,
-    updated: now.toISOString(),
-    supersedes: null,
-    superseded_by: null,
     derived_from: derivedFrom,
     relates_to: [],
     depends_on: [],

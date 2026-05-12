@@ -5,7 +5,7 @@ nav_order: 2
 
 # How it works
 
-Three things happen on a loop. You only ever drive one of them by hand - and even that one mostly drives itself.
+Three things happen on a loop. You only ever drive one of them by hand, and even that one mostly drives itself.
 
 ```mermaid
 flowchart LR
@@ -20,35 +20,35 @@ flowchart LR
 
 ## 1. Capture (automatic)
 
-When a Claude Code session ends, a hook reads the transcript, runs it through [secretlint](https://github.com/secretlint/secretlint) (with the recommended preset) to redact secrets, and writes it to `.ai/knowledge-base/_sessions/`. Then a background extractor turns that transcript into structured _candidates_ - small bits of practice or vocabulary worth remembering.
+When a Claude Code session ends, a hook reads the transcript, runs it through [secretlint](https://github.com/secretlint/secretlint) (with the recommended preset) to redact secrets, and writes it to `.ai/knowledge-base/_sessions/`. Then a background extractor turns that transcript into structured _candidates_ (small bits of practice or vocabulary worth remembering).
 
 You don't run this. It just happens.
 
 ## 2. Curate (mostly automatic)
 
-When captured candidates accumulate, the system nudges you in the next session. You confirm (or run `/kb-curate` directly), and the curator runs autonomously as a `claude -p` subprocess - it reads pending candidates, compares them to existing nodes, and applies its decisions directly to `.ai/knowledge-base/nodes/`:
+When captured candidates accumulate, the system nudges you in the next session. You confirm (or run `/kb-curate` directly), and the curator runs autonomously as a `claude -p` subprocess: it reads pending candidates, compares them to existing nodes, and applies its decisions directly to `.ai/knowledge-base/nodes/`:
 
-- **Additions** - write a new node file.
-- **Modifications** - overwrite an existing node file.
-- **Contradictions** - record the conflict in `.ai/knowledge-base/.state/pending-conflicts.json` and write nothing. The `/kb-curate` skill reads that file after the curator exits and walks each conflict with you in-session, applying your chosen resolution by editing the relevant node.
+- **Additions**: write a new node file.
+- **Modifications**: overwrite an existing node file.
+- **Contradictions**: record the conflict in `.ai/knowledge-base/.state/pending-conflicts.json` and write nothing. The `/kb-curate` skill reads that file after the curator exits and walks each conflict with you in-session. You pick Replace (delete the existing node file and write the proposed one) or Reject (do nothing).
 
 As part of the same run, the curator regenerates `INDEX.md` and `GRAPH.md` deterministically (no LLM) so the index reflects the current `nodes/` tree.
 
 ## 3. Review (you decide)
 
-Review the changes under `.ai/knowledge-base/nodes/` with `git diff`. They are important - they may affect how the agent behaves in every future session. Tools like [self-review](https://github.com/e0ipso/self-review) work too. Accept with `git commit`, reject with `git restore <path>`. The lint-staged pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit so the index never drifts from the committed nodes.
+Review the changes under `.ai/knowledge-base/nodes/` with `git diff`. They are important; they may affect how the agent behaves in every future session. Tools like [self-review](https://github.com/e0ipso/self-review) work too. Accept with `git commit`, reject with `git restore <path>`. The lint-staged pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit so the index never drifts from the committed nodes.
 
 ## Storage & graph
 
 Every kept fact is a markdown file under `nodes/` with YAML frontmatter. Two kinds:
 
-- **Practice** - _how we build._ Imperative guidance: conventions, prohibitions, gotchas.
-- **Map** - _what exists._ Named things: modules, services, vocabulary.
+- **Practice**: _how we build._ Imperative guidance (conventions, prohibitions, gotchas).
+- **Map**: _what exists._ Named things (modules, services, vocabulary).
 
-Frontmatter carries the edges of a directed graph: `supersedes` / `superseded_by` for versioning, `derived_from` for provenance, `relates_to` (loose) and `depends_on` (strict) for cross-references. Two artifacts are regenerated deterministically from `nodes/` every curate run:
+Frontmatter carries the edges of a directed graph: `derived_from` for provenance, `relates_to` (loose) and `depends_on` (strict) for cross-references. Two artifacts are regenerated deterministically from `nodes/` every curate run:
 
-- **`INDEX.md`** - catalog of every valid node (title, path, and tags). This is what gets injected into every new session.
-- **`GRAPH.md`** - full edge listing. Not injected; the assistant reads it on demand when it needs the whole graph.
+- **`INDEX.md`**: catalog of every node (title, path, and tags). This is what gets injected into every new session.
+- **`GRAPH.md`**: full edge listing. Not injected; the assistant reads it on demand when it needs the whole graph.
 
 Everything is plain text, diffable, reviewable, version-controlled like any code. The full frontmatter shape lives in [Schemas](internals/schemas.md).
 

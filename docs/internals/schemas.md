@@ -6,11 +6,11 @@ nav_order: 3
 
 # Schemas
 
-Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. The schemas in [`src/lib/schemas.ts`](https://github.com/e0ipso/ai-knowledge-base/blob/main/src/lib/schemas.ts) are the source of truth - when this page disagrees with the code, the code wins.
+Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. The schemas in [`src/lib/schemas.ts`](https://github.com/e0ipso/ai-knowledge-base/blob/main/src/lib/schemas.ts) are the source of truth; when this page disagrees with the code, the code wins.
 
 All shapes carry `schema_version: 2`. A schema mismatch is a parse failure; the file is silently dropped.
 
-## Node - `nodes/{practice,map}/<slug>.md`
+## Node (`nodes/{practice,map}/<slug>.md`)
 
 ```yaml
 ---
@@ -19,11 +19,6 @@ id: practice-prefer-constructor-injection   # <kind>-<slug>
 title: "..."
 kind: practice | map
 tags: [string, ...]
-valid_from: 2026-05-10T14:30:00Z
-valid_until: null                            # ISO-8601 or null
-updated: 2026-05-10T14:30:00Z
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260510-1014-session-abc.md
 relates_to: [string, ...]
@@ -33,23 +28,38 @@ summary: "≤140 char summary, used in INDEX.md"
 ---
 ```
 
-Validated by `NodeFrontmatterSchema`.
+Validated by `NodeFrontmatterSchema`. Git history is the timeline of record; the frontmatter carries no separate timestamps.
+
+### Field rationale
+
+- `schema_version`: integer schema marker. A mismatch is a parse failure.
+- `id`: stable identifier in the form `<kind>-<slug>`. Used by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions.
+- `title`: human-readable label rendered in `INDEX.md`.
+- `kind`: `practice` (how we build) or `map` (what exists). Drives directory placement under `nodes/<kind>/` and the `INDEX.md` section the node lands in.
+- `tags`: free-form labels used by the `## By topic` section in `INDEX.md`.
+- `derived_from`: list of sources (session log filename, repo-relative doc path, or absolute path). `doctor --verbose` lists dangling refs; the consume path silently ignores them.
+- `relates_to`: loose cross-references, rendered in `GRAPH.md`. Not enforced.
+- `depends_on`: strict cross-references, rendered in `GRAPH.md`. Not enforced.
+- `confidence`: `low`, `medium`, or `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale.
+- `summary`: ≤140-character one-liner injected via `INDEX.md`.
 
 ### Two kinds
 
-- **Practice** - _how we build._ Imperative guidance.
-- **Map** - _what exists._ Named entities (modules, services, vocabulary).
+- **Practice**: _how we build._ Imperative guidance.
+- **Map**: _what exists._ Named entities (modules, services, vocabulary).
 
 The proposal prompt splits combined statements: "use `bravo_analytics.dispatcher`, our event-tracking service" becomes one practice (use the dispatcher) and one map (what the dispatcher is).
 
-### Validity, provenance, relations
+### Conflict resolution
 
-- `valid_from` / `valid_until` are ISO-8601. A node is current when `valid_until` is `null`. Accepting a `supersede` contradiction sets `valid_until` and `superseded_by` on the target. Informational; nothing enforces it.
-- `derived_from` lists sources (session log filename, repo-relative doc path, or absolute path). `doctor --verbose` lists dangling refs; the consume path silently ignores them.
-- `relates_to` (loose) and `depends_on` (strict) feed `GRAPH.md`. Not enforced.
-- `confidence` is `low` / `medium` / `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale.
+When the curator emits a `contradict` action, the `/kb-curate` skill walks each entry in `pending-conflicts.json` with the user. The menu is binary:
 
-## Pending conflicts - `.state/pending-conflicts.json`
+| Choice | On-disk effect | Side effects |
+|---|---|---|
+| Replace | Delete the existing `nodes/<kind>/<target_node_id>.md` and write the proposed node in its place. | The conflict entry is removed from `pending-conflicts.json`. |
+| Reject | None. The existing node file is untouched and the proposed node is not written. | The conflict entry is removed from `pending-conflicts.json`. |
+
+## Pending conflicts (`.state/pending-conflicts.json`)
 
 The curator records `contradict` actions here instead of writing conflicting nodes to disk. Validated by `PendingConflictsFileSchema`.
 
@@ -76,12 +86,12 @@ The `/kb-curate` skill reads this file after the curator subprocess exits, walks
 
 `runCurate` returns a `failures: FailureReport[]` array alongside `conflicts`. Failures cover two cases the curator must not paper over:
 
-- `reason: "add_collision"` - an `add` action targets a node that already exists on disk.
-- `reason: "modify_missing_target"` - a `modify` action's `target_node_id` doesn't resolve to an existing file.
+- `reason: "add_collision"`: an `add` action targets a node that already exists on disk.
+- `reason: "modify_missing_target"`: a `modify` action's `target_node_id` doesn't resolve to an existing file.
 
 Failures are reported in CLI output and not persisted; rerun the curator after fixing the underlying issue.
 
-## Session log - `_sessions/<YYYYMMDD-HHmm-id>.md`
+## Session log (`_sessions/<YYYYMMDD-HHmm-id>.md`)
 
 ```yaml
 schema_version: 2
@@ -205,10 +215,10 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
 
 Lifecycle:
 
-- **First run** - file is created with `docs: {}`.
-- **Hash hit** - doc is skipped; `last_processed_at` is not updated.
-- **Hash miss** - doc is queued. On success, the entry is overwritten. On failure, the entry is left untouched so a re-run retries.
-- **`--dry-run`** - file is read, never written.
-- **Force re-bootstrap** - delete the file.
+- **First run**: file is created with `docs: {}`.
+- **Hash hit**: doc is skipped; `last_processed_at` is not updated.
+- **Hash miss**: doc is queued. On success, the entry is overwritten. On failure, the entry is left untouched so a re-run retries.
+- **`--dry-run`**: file is read, never written.
+- **Force re-bootstrap**: delete the file.
 
 A malformed file is treated as missing. Validated by `BootstrapStateSchema`. Gitignored.

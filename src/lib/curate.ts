@@ -447,7 +447,7 @@ function persistAction(action: CuratorAction, ctx: PersistContext): PersistOutco
         },
       };
     }
-    const frontmatter = buildNodeFrontmatter(proposedNode, targetId, ctx.now);
+    const frontmatter = buildNodeFrontmatter(proposedNode, targetId);
     writeNodeFile({ nodesDir: ctx.nodesDir, frontmatter, body: proposedNode.body });
     return { kind: 'wrote' };
   }
@@ -467,15 +467,14 @@ function persistAction(action: CuratorAction, ctx: PersistContext): PersistOutco
   }
   const id = ensureUniqueId(new Set([...ctx.existingIds, ...ctx.seenSlugs]), baseId);
   ctx.seenSlugs.add(id);
-  const frontmatter = buildNodeFrontmatter(proposedNode, id, ctx.now);
+  const frontmatter = buildNodeFrontmatter(proposedNode, id);
   writeNodeFile({ nodesDir: ctx.nodesDir, frontmatter, body: proposedNode.body });
   return { kind: 'wrote' };
 }
 
 function buildNodeFrontmatter(
   proposedNode: NonNullable<CuratorAction['proposed_node']>,
-  id: string,
-  now: Date
+  id: string
 ): NodeFrontmatter {
   return {
     schema_version: 1,
@@ -483,11 +482,6 @@ function buildNodeFrontmatter(
     title: proposedNode.title,
     kind: proposedNode.kind,
     tags: proposedNode.tags,
-    valid_from: proposedNode.valid_from,
-    valid_until: proposedNode.valid_until ?? null,
-    updated: now.toISOString(),
-    supersedes: proposedNode.supersedes ?? null,
-    superseded_by: proposedNode.superseded_by ?? null,
     derived_from: proposedNode.derived_from,
     relates_to: proposedNode.relates_to,
     depends_on: [],

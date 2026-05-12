@@ -4,11 +4,6 @@ id: map-map-node
 title: "Map node: what-exists, named entities and vocabulary"
 kind: map
 tags: [vocabulary, node-kind, map]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/how-it-works.md
   - docs/internals/schemas.md

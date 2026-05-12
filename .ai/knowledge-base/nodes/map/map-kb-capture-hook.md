@@ -7,11 +7,6 @@ tags:
   - hook
   - capture
   - kb-pipeline
-valid_from: '2026-05-12T14:51:02.976Z'
-valid_until: null
-updated: '2026-05-12T15:50:15.076Z'
-supersedes: null
-superseded_by: null
 derived_from:
   - 20260512-1438-e5b4618a5295.md
 relates_to:

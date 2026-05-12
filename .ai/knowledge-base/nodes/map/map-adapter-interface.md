@@ -4,11 +4,6 @@ id: map-adapter-interface
 title: "Adapter interface: src/adapters/types.ts"
 kind: map
 tags: [adapters, interface, claude-code, extension-point]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/architecture.md
 relates_to: [practice-v1-claude-code-only, map-ai-knowledge-base-cli]

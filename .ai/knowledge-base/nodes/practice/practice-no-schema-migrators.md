@@ -4,11 +4,6 @@ id: practice-no-schema-migrators
 title: "Strict schema-version policy: clean break, no migrators"
 kind: practice
 tags: [schema, versioning, policy, no-legacy]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - CONTRIBUTING.md
 relates_to: [map-zod-schemas]

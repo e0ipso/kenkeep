@@ -4,11 +4,6 @@ id: map-state-json-file
 title: ".state/state.json: lock and nudge timestamp"
 kind: map
 tags: [state, lock, nudge, gitignore]
-valid_from: "2026-05-12T00:00:00Z"
-valid_until: null
-updated: "2026-05-12T00:00:00Z"
-supersedes: null
-superseded_by: null
 derived_from:
   - docs/internals/schemas.md
   - docs/internals/architecture.md

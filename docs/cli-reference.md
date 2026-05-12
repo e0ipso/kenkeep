@@ -80,18 +80,16 @@ Delete old run logs under `_logs/`. `--older-than` accepts forms like `30d`, `2w
 
 ## Project settings
 
-Project-level settings live in `.ai/knowledge-base/.config.json` (committed). A user-level file at `~/.config/@e0ipso/ai-knowledge-base/config.json` can set personal defaults; the project file wins.
+Project-level settings live in `.ai/knowledge-base/config.yaml` (committed). A user-level file at `~/.config/ai-knowledge-base/config.yaml` can set personal defaults; the project file wins.
 
-```json
-{
-  "schema_version": 1,
-  "drainBound": 5,
-  "stage2Timeout": 60000,
-  "indexBudgetTokens": 2000,
-  "curationThreshold": 5,
-  "bootstrapTokenBudget": 10000,
-  "logsRetentionDays": 30
-}
+```yaml
+schema_version: 1
+drainBound: 5
+stage2Timeout: 60000
+indexBudgetTokens: 2000
+curationThreshold: 5
+bootstrapTokenBudget: 10000
+logsRetentionDays: 30
 ```
 
 | Key | Default | What it does |

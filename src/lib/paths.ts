@@ -83,7 +83,7 @@ export function repoPaths(root: string): RepoPaths {
     configDir,
     promptsDir,
     installedVersionFile: join(stateDir, 'installed-version'),
-    projectConfigFile: join(kbDir, '.config.json'),
+    projectConfigFile: join(kbDir, 'config.yaml'),
     sessionsDir: join(kbDir, '_sessions'),
     logsDir: join(kbDir, '_logs'),
     nodesDir: join(kbDir, 'nodes'),

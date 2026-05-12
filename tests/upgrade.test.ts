@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
 
@@ -58,11 +59,11 @@ describe('init --upgrade', () => {
     expect(after.installed_at).toBe(beforeInstalled);
   });
 
-  it('refreshes hooks but preserves a customized .config.json', async () => {
+  it('refreshes hooks but preserves a customized config.yaml', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
 
-    const configFile = join(sandbox, '.ai/knowledge-base/.config.json');
-    const customized = JSON.stringify({ schema_version: 1, drainBound: 42 }, null, 2) + '\n';
+    const configFile = join(sandbox, '.ai/knowledge-base/config.yaml');
+    const customized = 'schema_version: 1\ndrainBound: 42\n';
     writeFileSync(configFile, customized);
 
     // Mark installed-version older so upgrade applies.
@@ -75,7 +76,7 @@ describe('init --upgrade', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/Upgraded to/);
 
-    // .config.json untouched.
+    // config.yaml untouched.
     expect(readFileSync(configFile, 'utf8')).toBe(customized);
 
     // Hooks present.
@@ -120,9 +121,9 @@ describe('init --upgrade', () => {
     expect(result.stdout).toMatch(/copy new prompt/);
   });
 
-  it('creates .config.json on upgrade when missing', async () => {
+  it('creates config.yaml on upgrade when missing', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const configFile = join(sandbox, '.ai/knowledge-base/.config.json');
+    const configFile = join(sandbox, '.ai/knowledge-base/config.yaml');
     rmSync(configFile);
 
     const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
@@ -133,7 +134,7 @@ describe('init --upgrade', () => {
     const result = await runCli(sandbox, ['init', '--assistants', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
     expect(existsSync(configFile)).toBe(true);
-    const body = JSON.parse(readFileSync(configFile, 'utf8'));
+    const body = yaml.load(readFileSync(configFile, 'utf8')) as Record<string, unknown>;
     expect(body.schema_version).toBe(1);
     expect(body.drainBound).toBe(5);
   });

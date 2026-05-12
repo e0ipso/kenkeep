@@ -140,7 +140,7 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 ### 8.1 First-time setup
 
 1. A contributor runs `npx <pkg> init --assistants claude`.
-2. The installer creates `.ai/knowledge-base/` with starter structure (including `_logs/` and `_sessions/` both gitignored), registers hooks under `.claude/`, installs the `kb-add`, `kb-bootstrap`, and `kb-curate` Claude Code skills, scaffolds a husky `pre-commit` hook driven by `lint-staged` + `secretlint`, writes `.ai/knowledge-base/.state/installed-version`, seeds an empty `.ai/knowledge-base/.config.json` for project-level tunables, and copies local prompt overrides into `.ai/knowledge-base/.config/prompts/`. Re-running with `init --upgrade` refreshes templates and skills while preserving `.config.json` and local prompt overrides.
+2. The installer creates `.ai/knowledge-base/` with starter structure (including `_logs/` and `_sessions/` both gitignored), registers hooks under `.claude/`, installs the `kb-add`, `kb-bootstrap`, and `kb-curate` Claude Code skills, scaffolds a husky `pre-commit` hook driven by `lint-staged` + `secretlint`, writes `.ai/knowledge-base/.state/installed-version`, seeds an empty `.ai/knowledge-base/config.yaml` for project-level tunables, and copies local prompt overrides into `.ai/knowledge-base/.config/prompts/`. Re-running with `init --upgrade` refreshes templates and skills while preserving `config.yaml` and local prompt overrides.
 3. The contributor commits. KB is live but empty.
 
 ### 8.2 Daily session capture (automatic)
@@ -199,7 +199,7 @@ Incremental bootstrap is deterministic, fast, and safe to re-run. It does not at
 
 ### 8.9 Tunables and log retention
 
-Operational defaults - curation threshold, lock TTL, index token budget, drain batch size, stage-2 timeout, bootstrap token budget, log retention window - can be overridden per-project via a committed `.ai/knowledge-base/.config.json` or per-user via `~/.config/ai-knowledge-base/config.json`. Project overrides win over user overrides; both win over built-in defaults. An unparseable file warns and falls back to defaults rather than bricking the CLI.
+Operational defaults - curation threshold, lock TTL, index token budget, drain batch size, stage-2 timeout, bootstrap token budget, log retention window - can be overridden per-project via a committed `.ai/knowledge-base/config.yaml` or per-user via `~/.config/ai-knowledge-base/config.yaml`. Project overrides win over user overrides; both win over built-in defaults. An unparseable file warns and falls back to defaults rather than bricking the CLI.
 
 `_logs/` grows unbounded by design (full stream-json traces are the audit trail). `npx @e0ipso/ai-knowledge-base logs prune --older-than <duration>` deletes traces older than the threshold; default retention is `logsRetentionDays` from the settings stack.
 

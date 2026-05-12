@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
+import yaml from 'js-yaml';
 import { log } from '../lib/log.js';
 import { computeNodesHash, readAllNodes } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
@@ -378,7 +379,7 @@ function checkSettings(file: string): CheckResult {
     return {
       ok: false,
       level: 'warn',
-      detail: `no .ai/knowledge-base/.config.json — package defaults are in effect. Run \`ai-knowledge-base init --upgrade\` to create one.`,
+      detail: `no .ai/knowledge-base/config.yaml, package defaults are in effect. Run \`ai-knowledge-base init --upgrade\` to create one.`,
     };
   }
   let raw: string;
@@ -387,13 +388,13 @@ function checkSettings(file: string): CheckResult {
   } catch (err) {
     return { ok: false, level: 'error', detail: `unreadable: ${(err as Error).message}` };
   }
-  let json: unknown;
+  let loaded: unknown;
   try {
-    json = JSON.parse(raw);
+    loaded = yaml.load(raw);
   } catch (err) {
-    return { ok: false, level: 'error', detail: `invalid JSON: ${(err as Error).message}` };
+    return { ok: false, level: 'error', detail: `invalid YAML: ${(err as Error).message}` };
   }
-  const parsed = SettingsSchema.safeParse(json);
+  const parsed = SettingsSchema.safeParse(loaded);
   if (!parsed.success) {
     return {
       ok: false,

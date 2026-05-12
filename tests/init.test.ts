@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
 
@@ -43,7 +44,7 @@ describe('init', () => {
       '.ai/knowledge-base/.config/prompts/stage-2-extract.md',
       '.ai/knowledge-base/.config/prompts/curator.md',
       '.ai/knowledge-base/.config/prompts/bootstrap-incremental.md',
-      '.ai/knowledge-base/.config.json',
+      '.ai/knowledge-base/config.yaml',
       '.secretlintrc.json',
       '.husky/pre-commit',
       '.lintstagedrc.cjs',
@@ -192,10 +193,10 @@ describe('init', () => {
     );
   });
 
-  it('writes a default .config.json populated with defaults', async () => {
+  it('writes a default config.yaml populated with defaults', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const body = JSON.parse(
-      readFileSync(join(sandbox, '.ai/knowledge-base/.config.json'), 'utf8')
+    const body = yaml.load(
+      readFileSync(join(sandbox, '.ai/knowledge-base/config.yaml'), 'utf8')
     ) as Record<string, unknown>;
     expect(body['schema_version']).toBe(1);
     expect(body['drainBound']).toBe(5);
@@ -207,15 +208,15 @@ describe('init', () => {
     expect(body['logsRetentionDays']).toBe(30);
   });
 
-  it('does not overwrite an existing .config.json even with --force', async () => {
+  it('does not overwrite an existing config.yaml even with --force', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
-    const configFile = join(sandbox, '.ai/knowledge-base/.config.json');
-    const customized = JSON.stringify({ schema_version: 1, drainBound: 99 }, null, 2) + '\n';
+    const configFile = join(sandbox, '.ai/knowledge-base/config.yaml');
+    const customized = 'schema_version: 1\ndrainBound: 99\n';
     writeFileSync(configFile, customized);
 
     const result = await runCli(sandbox, ['init', '--assistants', 'claude', '--force']);
     expect(result.exitCode).toBe(0);
     expect(readFileSync(configFile, 'utf8')).toBe(customized);
-    expect(result.stdout + result.stderr).toContain('.config.json already exists');
+    expect(result.stdout + result.stderr).toContain('config.yaml already exists');
   });
 });

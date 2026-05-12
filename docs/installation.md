@@ -38,6 +38,37 @@ This creates / updates:
 
 `ai-knowledge-base doctor` checks your Node version, that `claude` is on PATH, that secretlint is installed, that husky + lint-staged are wired, and that the installation looks healthy. Exits 0 when clean.
 
+## Seed from existing docs
+
+If you're installing into a repo that already has READMEs, ADRs, or module docs, you can seed the knowledge base from them in one of two ways.
+
+### Supervised, from a Claude Code session
+
+```
+/kb-bootstrap                      # scans docs/ and root *.md
+/kb-bootstrap docs/architecture    # scope to a path
+```
+
+The `kb-bootstrap` skill surveys your markdown, splits content into `practice` and `map` nodes, and writes them directly under `.ai/knowledge-base/nodes/`. It is judgmental, not exhaustive: it samples, follows cross-references, and stops to ask you when scope is unclear. Existing nodes are never overwritten; collisions are skipped and reported. Review with `git diff nodes/` and commit the ones you want.
+
+Use this for the first pass. You stay in the loop and can correct it in flight.
+
+### Headless, hash-aware re-runs
+
+```sh
+npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
+```
+
+This spawns `claude -p` under the hood, chunks the candidate docs by a token budget, and writes nodes deterministically. It records each doc's SHA-256 in `.ai/knowledge-base/.state/bootstrap-state.json`, so re-runs only reprocess docs that changed. Same conservative collision behavior as the skill.
+
+Useful options:
+
+- `--include <glob>` / `--exclude <glob>`: scope which markdown to consider.
+- `--dry-run`: list what would be processed without calling the model.
+- `--token-budget <n>`: override the per-batch token budget (default `10000`, also configurable as `bootstrapTokenBudget` in `.ai/knowledge-base/.config.json`). The budget exists because each batch is one `claude -p` call bound by a 120s timeout: smaller batches keep failures local and avoid context-window degradation. Crank it up if your docs are small; leave it alone otherwise.
+
+Do not run `bootstrap-incremental` in CI. It spawns the model and produces changes that still need human review.
+
 ## Upgrading
 
 When a new version of the package ships:

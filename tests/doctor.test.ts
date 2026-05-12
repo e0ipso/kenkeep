@@ -37,11 +37,11 @@ describe('doctor', () => {
     expect(combined).toContain('kb-add, kb-bootstrap, kb-curate');
   });
 
-  it('flags an invalid .config.json as an error', async () => {
+  it('flags an invalid config.yaml as an error', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
     writeFileSync(
-      join(sandbox, '.ai/knowledge-base/.config.json'),
-      JSON.stringify({ schema_version: 1, drainBound: -1 })
+      join(sandbox, '.ai/knowledge-base/config.yaml'),
+      'schema_version: 1\ndrainBound: -1\n'
     );
     const result = await runCli(sandbox, ['doctor']);
     expect(result.exitCode).toBe(1);

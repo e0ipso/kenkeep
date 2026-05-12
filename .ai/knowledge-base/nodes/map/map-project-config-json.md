@@ -1,7 +1,7 @@
 ---
 schema_version: 1
 id: map-project-config-json
-title: ".ai/knowledge-base/.config.json: project-level tunables"
+title: ".ai/knowledge-base/config.yaml: project-level tunables"
 kind: map
 tags: [settings, config, tunables]
 valid_from: 2026-05-12T00:00:00Z
@@ -14,10 +14,10 @@ derived_from:
 relates_to: [map-ai-knowledge-base-cli]
 depends_on: []
 confidence: high
-summary: "Project-level tunables, committed. Layered behind a user file at ~/.config/@e0ipso/ai-knowledge-base/config.json; project wins; CLI flags win over both."
+summary: "Project-level tunables, committed. Layered behind a user file at ~/.config/ai-knowledge-base/config.yaml; project wins; CLI flags win over both."
 ---
 
-# `.ai/knowledge-base/.config.json`: project-level tunables
+# `.ai/knowledge-base/config.yaml`: project-level tunables
 
 Project-level settings. Committed. Defaults defined in `src/lib/settings.ts`.
 
@@ -31,6 +31,6 @@ Project-level settings. Committed. Defaults defined in `src/lib/settings.ts`.
 | `bootstrapTokenBudget` | `10000` | Per-batch budget for `bootstrap-incremental`. |
 | `logsRetentionDays` | `30` | Default window for `logs prune`. |
 
-A user-level file at `~/.config/@e0ipso/ai-knowledge-base/config.json` provides personal defaults. Precedence: CLI flags > project `.config.json` > user file > built-in defaults. An unparseable file warns and falls back to defaults rather than bricking the CLI.
+A user-level file at `~/.config/ai-knowledge-base/config.yaml` provides personal defaults. Precedence: CLI flags > project `config.yaml` > user file > built-in defaults. An unparseable file warns and falls back to defaults rather than bricking the CLI.
 
 Validated by the `ProjectConfigSchema` shape in `src/lib/schemas.ts`. Carries `schema_version: 1`.

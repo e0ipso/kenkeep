@@ -72,12 +72,12 @@ If curator output is clearly noise, bump the stage-2 prompt's `Version:` and tig
 ## 5. `init --upgrade` against an older install
 
 1. [ ] Install the last published version. Commit.
-2. [ ] Edit `stage-2-extract.md` (add a sentinel) and add a custom key to `.config.json`.
+2. [ ] Edit `stage-2-extract.md` (add a sentinel) and add a custom key to `config.yaml`.
 3. [ ] Install the candidate build.
 4. [ ] `init --upgrade --dry-run`. Read the changelist.
 5. [ ] `init --upgrade`. Confirm:
    - [ ] Sentinel comment preserved.
-   - [ ] Custom `.config.json` key preserved.
+   - [ ] Custom `config.yaml` key preserved.
    - [ ] `kb-capture.mjs` reflects the new version.
    - [ ] `installed-version` shows the new version.
 6. [ ] `doctor` exits 0, no version mismatch.
@@ -114,8 +114,8 @@ If curator output is clearly noise, bump the stage-2 prompt's `Version:` and tig
 
 ## 10. Settings layering
 
-- [ ] Edit `~/.config/@e0ipso/ai-knowledge-base/config.json` to set `indexBudgetTokens: 999`. Without a project file, `index rebuild` reports budget 999.
-- [ ] Add project `.config.json` with `indexBudgetTokens: 1500`. Re-render reports 1500.
+- [ ] Edit `~/.config/ai-knowledge-base/config.yaml` to set `indexBudgetTokens: 999`. Without a project file, `index rebuild` reports budget 999.
+- [ ] Add project `config.yaml` with `indexBudgetTokens: 1500`. Re-render reports 1500.
 - [ ] Pass `--budget-tokens 2500`. CLI wins, reports 2500.
 
 ## 11. Doctor exit codes

@@ -891,7 +891,7 @@ Each phase shippable on its own.
 
 ## 14. Open implementation questions
 
-1. **Settings file.** `.ai/knowledge-base/.config.json` (committed) for token budget, threshold, drain bound, bootstrap-incremental token budget. (Secretlint config lives in the repo-root `.secretlintrc.json`, not here.) User-level overrides at `~/.config/@e0ipso/ai-knowledge-base/config.json`. Project settings win.
+1. **Settings file.** `.ai/knowledge-base/config.yaml` (committed) for token budget, threshold, drain bound, bootstrap-incremental token budget. (Secretlint config lives in the repo-root `.secretlintrc.json`, not here.) User-level overrides at `~/.config/ai-knowledge-base/config.yaml`. Project settings win.
 
 2. **Stage-2 timeout.** Per-entry subprocess timeout (default 60s). On timeout, mark `failed` and continue.
 
@@ -948,7 +948,7 @@ Bootstrap
   └── Incremental bootstrap       ai-knowledge-base bootstrap-incremental CLI usage
 Customization
   ├── Editing the prompts         stage-2, curator, and bootstrap prompt customization
-  └── Settings reference          .config.json and user-level overrides
+  └── Settings reference          config.yaml and user-level overrides
 Reference
   ├── CLI commands                Every ai-knowledge-base subcommand
   ├── Skills                      /kb-curate, /kb-show, /kb-add, /kb-bootstrap, /kb-propose-from-session

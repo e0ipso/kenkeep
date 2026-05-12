@@ -32,7 +32,7 @@ async function main(): Promise<void> {
     .option('-f, --force', 'overwrite existing ai-knowledge-base files', false)
     .option(
       '-u, --upgrade',
-      'refresh hooks/slash commands/prompts to the current package version while preserving local overrides and .config.json',
+      'refresh hooks/slash commands/prompts to the current package version while preserving local overrides and config.yaml',
       false
     )
     .option('--dry-run', 'with --upgrade: list planned changes without writing', false)

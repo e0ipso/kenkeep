@@ -66,7 +66,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
       readFileSync(paths.installedVersionFile, 'utf8')
     ) as InstalledVersion;
     log.warn(
-      `Already initialized (version ${existing.version}). Re-run with --force to overwrite templates, or use \`init --upgrade\` to refresh templates while preserving local prompt overrides and \`.config.json\`.`
+      `Already initialized (version ${existing.version}). Re-run with --force to overwrite templates, or use \`init --upgrade\` to refresh templates while preserving local prompt overrides and \`config.yaml\`.`
     );
     return;
   }
@@ -90,13 +90,13 @@ export async function runInit(opts: InitOptions): Promise<void> {
   updateGitignore(paths.gitignoreFile);
 
   // 6. Write default settings file unless one is already present. `--force`
-  // intentionally does not overwrite an existing .config.json — users edit it.
+  // intentionally does not overwrite an existing config.yaml — users edit it.
   if (!existsSync(paths.projectConfigFile)) {
     mkdirSync(paths.kbDir, { recursive: true });
     writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
   } else if (opts.force) {
     log.warn(
-      `.ai/knowledge-base/.config.json already exists; not overwriting (use \`init --upgrade\` to refresh templates without touching settings).`
+      `.ai/knowledge-base/config.yaml already exists; not overwriting (use \`init --upgrade\` to refresh templates without touching settings).`
     );
   }
 
@@ -133,7 +133,7 @@ interface UpgradeChange {
     | 'prompt-preserved'
     | 'hook-registration'
     | 'gitignore'
-    | 'config-json'
+    | 'config-yaml'
     | 'secretlintrc'
     | 'husky-pre-commit'
     | 'lintstagedrc'
@@ -296,11 +296,11 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
     });
   }
 
-  // .config.json: create only if absent.
+  // config.yaml: create only if absent.
   if (!existsSync(ctx.paths.projectConfigFile)) {
     out.push({
-      kind: 'config-json',
-      detail: 'create default .ai/knowledge-base/.config.json',
+      kind: 'config-yaml',
+      detail: 'create default .ai/knowledge-base/config.yaml',
     });
   }
 

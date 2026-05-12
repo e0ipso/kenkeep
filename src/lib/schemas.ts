@@ -241,8 +241,8 @@ export const FailureReportSchema = z.object({
 export type FailureReport = z.infer<typeof FailureReportSchema>;
 
 /**
- * Settings shipped in `.ai/knowledge-base/.config.json` (project-level, committed)
- * and `~/.config/@e0ipso/ai-knowledge-base/config.json` (user-level overrides).
+ * Settings shipped in `.ai/knowledge-base/config.yaml` (project-level, committed)
+ * and `~/.config/ai-knowledge-base/config.yaml` (user-level overrides).
  *
  * Every field is optional in the on-disk file; `resolveSettings()` layers the
  * documented defaults under user-level overrides under project-level overrides.

@@ -88,6 +88,42 @@ describe('index rebuild', () => {
     expect(doc.stdout + doc.stderr).toContain('INDEX.md is fresh');
     expect((doc.stdout + doc.stderr).toLowerCase()).not.toContain('stale (nodes_hash');
   });
+
+  it('--stage runs `git add` on INDEX.md and GRAPH.md after writing', async () => {
+    // Baseline commit so the diff is meaningful.
+    await exec('git', ['add', '.'], { cwd: sandbox });
+    await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], {
+      cwd: sandbox,
+    });
+    writeNode(sandbox, 'practice', 'practice-foo');
+    const result = await runCli(sandbox, ['index', 'rebuild', '--stage']);
+    expect(result.exitCode).toBe(0);
+    const { stdout } = await exec('git', ['diff', '--cached', '--name-only'], { cwd: sandbox });
+    const staged = stdout.trim().split('\n');
+    expect(staged).toContain('.ai/knowledge-base/INDEX.md');
+    expect(staged).toContain('.ai/knowledge-base/GRAPH.md');
+  });
+
+  it('--stage no-ops when nodes/ has not changed since the last index write', async () => {
+    await exec('git', ['add', '.'], { cwd: sandbox });
+    await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], {
+      cwd: sandbox,
+    });
+    // Bring INDEX.md in sync with current (empty) nodes/ tree.
+    expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
+    await exec('git', ['add', '.'], { cwd: sandbox });
+    await exec(
+      'git',
+      ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'baseline'],
+      { cwd: sandbox }
+    );
+    // No node changes — --stage should short-circuit and nothing should be staged.
+    const result = await runCli(sandbox, ['index', 'rebuild', '--stage']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('already match nodes/');
+    const { stdout } = await exec('git', ['diff', '--cached', '--name-only'], { cwd: sandbox });
+    expect(stdout.trim()).toBe('');
+  });
 });
 
 describe('doctor: stale INDEX detection', () => {

@@ -85,11 +85,11 @@ Capture happens via session-end hooks. After several sessions, a notification at
 
 > "I want to control when knowledge actually lands in the KB, so I'm not getting noisy commits after every coffee-break session."
 
-The `kb-curate` Claude Code skill runs the curator on demand. Proposed changes appear in a `_proposed/` directory and don't affect the live KB until the contributor (acting as reviewer) moves them across and commits.
+The `kb-curate` Claude Code skill runs the curator on demand. The curator writes nodes directly into `nodes/<kind>/<slug>.md` (new files for additions, in-place rewrites for modifications). Nothing lands in the live KB until the contributor reviews the diff with `git` and commits.
 
 > "I want to know when my new finding contradicts something the KB already says, so I can decide which is right."
 
-The curator flags contradictions as a separate category. The reviewer sees them side-by-side: old fact, new fact, supporting session log, three suggested resolutions (supersede, keep both with validity windows, reject).
+The curator flags contradictions as a separate category. It does not write conflicting nodes to disk; instead, it records each conflict in `.ai/knowledge-base/.state/pending-conflicts.json`. The kb-curate skill reads that file after the curator subprocess exits and walks each conflict with the contributor in-session: existing node side-by-side with the new claim, plus a chosen resolution (supersede, keep both with validity windows, reject) that the skill applies by editing `nodes/`.
 
 > "I never want a session containing a database password to leak into a committed file."
 
@@ -101,11 +101,11 @@ Every LLM-driven step writes a verbose log file under `_logs/` (gitignored). For
 
 > "I just realized something about the project, even though I'm not in a session. I want to add it to the KB now."
 
-Two paths into manual capture: `npx @e0ipso/ai-knowledge-base node add` from the terminal (interactive prompts collect kind, title, summary, body, tags), or the `kb-add` Claude Code skill from inside a session (the skill guides the agent through the same fields and writes a draft node). Either path lands the result in `_proposed/additions/` for normal review, never directly in `nodes/`. Same human-in-the-loop guarantee as session-derived captures.
+Two paths into manual capture: `npx @e0ipso/ai-knowledge-base node add` from the terminal (interactive prompts collect kind, title, summary, body, tags), or the `kb-add` Claude Code skill from inside a session (the skill guides the agent through the same fields and writes a node). Either path writes directly to `nodes/<kind>/<slug>.md`. Acceptance is `git commit`; rejection is `git restore <path>`. Same human-in-the-loop guarantee as session-derived captures, just with git as the review surface instead of a separate staging directory.
 
 > "My project already has a bunch of READMEs, ADRs, and module docs. I don't want to start with an empty KB — I want the KB seeded from what's already documented."
 
-The `kb-bootstrap` Claude Code skill runs an agent-driven first-time bootstrap inside a normal session. The agent surveys the project's docs directory, reads representative content, follows cross-references between docs, and writes seed proposals to `_proposed/additions/` with `rationale: "bootstrap: <source-doc>"` and `derived_from` pointing to the actual doc paths. The contributor reviews proposals via the standard flow. Bootstrap is a supervised one-off, not an autopilot.
+The `kb-bootstrap` Claude Code skill runs an agent-driven first-time bootstrap inside a normal session. The agent surveys the project's docs directory, reads representative content, follows cross-references between docs, and writes nodes directly to `nodes/<kind>/<slug>.md` with `derived_from` pointing to the actual doc paths. Bootstrap is conservative: it never overwrites an existing node — collisions are skipped and reported. The contributor reviews each new node with `git diff nodes/` and accepts what they want. Bootstrap is a supervised one-off, not an autopilot.
 
 > "I added some new docs after the initial bootstrap. I want them folded into the KB without re-processing everything."
 
@@ -129,7 +129,7 @@ Plain markdown. Browse in any editor or on the GitHub web UI.
 
 > "I want to see proposed KB changes the same way I see code changes."
 
-Proposals land as files in `_proposed/`. Reviewer accepts via standard git workflow: move accepted files into `nodes/`, commit. Either as a dedicated PR with a `[KB]` prefix in the title (recommended for shared repos with formal review) or bundled with the code change that motivated them (recommended for solo contributors). The system does not enforce either workflow.
+Proposed KB changes *are* code changes. Skills and the curator write directly to `nodes/<kind>/<slug>.md`; the reviewer inspects with `git diff nodes/`, accepts with `git commit`, and rejects with `git restore <path>`. The pre-commit hook regenerates `INDEX.md`/`GRAPH.md` from the staged nodes and stages them into the same commit so the index never drifts. KB commits can land as a dedicated PR with a `[KB]` prefix (recommended for shared repos with formal review) or bundled with the code change that motivated them (recommended for solo contributors). The system does not enforce either workflow.
 
 > "I want to know which session a piece of knowledge came from."
 
@@ -153,8 +153,9 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 ### 8.3 Curation (deliberate)
 
 1. After enough session logs accumulate (default `curationThreshold` = 5; configurable per project), a nudge appears at session start: "You have 7 pending session logs. Invoke the `kb-curate` skill when ready." Throttled to at most once per hour.
-2. The contributor invokes the `kb-curate` skill. The curator reads pending logs and current KB nodes, writes proposals to `_proposed/`, regenerates `INDEX.md`/`GRAPH.md` inline, and writes its stream-json trace to `_logs/curator/`.
-3. The reviewer reviews proposals via git diff, moves accepted files into `nodes/`, deletes rejected proposals, commits.
+2. The contributor invokes the `kb-curate` skill. The curator reads pending logs and current KB nodes, then applies its decisions directly to `nodes/`: new files for `add` actions, in-place rewrites for `modify` actions. `contradict` actions are recorded in `.ai/knowledge-base/.state/pending-conflicts.json` instead of writing conflicting files. The curator regenerates `INDEX.md`/`GRAPH.md` inline and writes its stream-json trace to `_logs/curator/`.
+3. The kb-curate skill reads `pending-conflicts.json` and walks each conflict with the contributor in-session, applying the chosen resolution by editing the affected node. Once resolved, the skill removes the entry from the file.
+4. The reviewer inspects all changes with `git diff nodes/`, accepts with `git commit` (the pre-commit hook stages a fresh `INDEX.md`/`GRAPH.md` into the same commit), and rejects unwanted changes with `git restore <path>`.
 
 ### 8.4 Consuming the KB
 
@@ -166,15 +167,16 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 ### 8.5 Handling contradictions
 
 1. During curation, the curator detects that a new session log conflicts with an existing node.
-2. The curator writes a proposal under `_proposed/contradictions/` containing: the old node's relevant excerpt, the new finding, the session log it came from, and three suggested resolutions.
-3. The reviewer picks one. The KB records both old and new states with explicit validity windows; nothing is deleted.
+2. The curator records the conflict in `.ai/knowledge-base/.state/pending-conflicts.json` (target node id, proposed new content, rationale, run id). It does **not** write the conflicting node to `nodes/`.
+3. The kb-curate skill reads the file after the curator subprocess exits, presents each conflict to the contributor in-session (old node side-by-side with the new claim), and asks for a resolution: supersede (overwrite the old node), keep both (write the new claim as a sibling node with `relates_to` linking them), or reject (do nothing). The skill applies the chosen action by editing or creating the relevant `nodes/<kind>/<slug>.md`, then removes the entry from `pending-conflicts.json`.
+4. The reviewer commits the resulting `nodes/` change. The KB records both old and new states with explicit validity windows when superseding; nothing is deleted.
 
 ### 8.6 First-time bootstrap from existing docs (optional, one-off)
 
 1. The contributor invokes the `kb-bootstrap` skill inside a normal Claude Code session, optionally passing a path argument (defaults to common doc locations like `docs/`, `README.md`, top-level `*.md` files).
-2. The agent surveys the directory structure, reads representative content, follows cross-references, identifies candidate practice and map nodes, and writes proposals to `_proposed/additions/`. Each proposal carries `rationale: "bootstrap: <doc-path>"` and `derived_from: [<doc-path>]`.
+2. The agent surveys the directory structure, reads representative content, follows cross-references, identifies candidate practice and map nodes, and writes them directly to `nodes/<kind>/<slug>.md`. Each node carries `derived_from: [<doc-path>]`. Bootstrap is conservative: existing nodes are never overwritten; collisions are skipped and reported.
 3. The agent updates `bootstrap-state.json` with content hashes of every doc it read.
-4. The contributor reviews proposals through the standard flow.
+4. The contributor reviews the new nodes with `git diff nodes/` and commits the ones they want; `git restore` discards the rest.
 
 The contributor can supervise and intervene mid-session if the agent goes off track. This is a one-time, judgment-heavy operation — running it once is the expected case.
 
@@ -183,10 +185,10 @@ The contributor can supervise and intervene mid-session if the agent goes off tr
 1. The team adds new docs (a new ADR, a fresh module README) or significantly revises existing ones.
 2. The contributor runs `npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/`.
 3. The CLI reads `bootstrap-state.json`, hashes every file under `--from`, skips files whose hash is unchanged, and runs chunked extraction on the rest.
-4. New proposals land in `_proposed/additions/`. The state file is updated.
-5. The contributor reviews via the standard flow.
+4. New nodes are written directly to `nodes/<kind>/<slug>.md`. Existing-node collisions are skipped (and counted in the run summary). The state file is updated.
+5. The contributor reviews with `git diff nodes/` and commits.
 
-Incremental bootstrap is deterministic, fast, and safe to re-run. It does not attempt to detect overlap with existing accepted nodes — if a re-extracted proposal duplicates an existing node, the reviewer rejects it.
+Incremental bootstrap is deterministic, fast, and safe to re-run. It does not attempt to detect overlap with existing accepted nodes via curator-style modify/contradict logic — if an extracted candidate would collide with an existing node, the new candidate is dropped and reported, not merged.
 
 ### 8.8 Debugging an LLM run
 

@@ -136,6 +136,7 @@ interface UpgradeChange {
     | 'config-json'
     | 'secretlintrc'
     | 'husky-pre-commit'
+    | 'lintstagedrc'
     | 'package-json-scan'
     | 'installed-version';
   detail: string;
@@ -310,10 +311,13 @@ function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
   if (!existsSync(ctx.paths.huskyPreCommitFile)) {
     out.push({ kind: 'husky-pre-commit', detail: 'create .husky/pre-commit' });
   }
+  if (!existsSync(ctx.paths.lintstagedrcFile)) {
+    out.push({ kind: 'lintstagedrc', detail: 'create .lintstagedrc.cjs' });
+  }
   if (packageJsonNeedsScanScaffold(ctx.paths.packageJsonFile)) {
     out.push({
       kind: 'package-json-scan',
-      detail: 'patch package.json (husky/lint-staged/secretlint devDeps + scripts)',
+      detail: 'patch package.json (husky/secretlint devDeps + prepare script)',
     });
   }
 
@@ -472,6 +476,7 @@ interface CommitScanPathsForInit {
   huskyDir: string;
   huskyPreCommitFile: string;
   packageJsonFile: string;
+  lintstagedrcFile: string;
 }
 
 const SECRET_SCAN_DEV_DEPS: Record<string, string> = {
@@ -481,9 +486,18 @@ const SECRET_SCAN_DEV_DEPS: Record<string, string> = {
   '@secretlint/secretlint-rule-preset-recommend': '^13.0.0',
 };
 
-const SECRET_SCAN_LINT_STAGED = {
+/**
+ * `.lintstagedrc.cjs` content. Serial execution is enforced by the
+ * `--concurrent false` flag in `.husky/pre-commit`, so secretlint runs
+ * before `index rebuild`. The function form on the nodes glob ignores
+ * filenames so `index rebuild --stage` runs once per commit, not once
+ * per staged node.
+ */
+const LINT_STAGED_RC = `module.exports = {
   '*': ['secretlint'],
+  '.ai/knowledge-base/nodes/**/*.md': () => ['ai-knowledge-base index rebuild --stage'],
 };
+`;
 
 function installCommitScan(paths: CommitScanPathsForInit, templatesDir: string): void {
   if (!existsSync(paths.packageJsonFile)) {
@@ -517,7 +531,14 @@ function installCommitScan(paths: CommitScanPathsForInit, templatesDir: string):
     }
   }
 
-  // package.json — patch devDeps, prepare script, lint-staged config.
+  // .lintstagedrc.cjs — write only if missing (preserves user customizations).
+  if (!existsSync(paths.lintstagedrcFile)) {
+    writeFileSync(paths.lintstagedrcFile, LINT_STAGED_RC);
+  }
+
+  // package.json — patch devDeps + prepare script. Lint-staged config lives
+  // in `.lintstagedrc.cjs` (above); we no longer add a `lint-staged` block to
+  // package.json.
   patchPackageJsonForScan(paths.packageJsonFile);
 }
 
@@ -547,11 +568,6 @@ function patchPackageJsonForScan(file: string): void {
     changed = true;
   }
 
-  if (pkg['lint-staged'] === undefined) {
-    pkg['lint-staged'] = SECRET_SCAN_LINT_STAGED;
-    changed = true;
-  }
-
   if (changed) {
     writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
   }
@@ -571,7 +587,6 @@ function packageJsonNeedsScanScaffold(file: string): boolean {
   }
   const scripts = (pkg['scripts'] as Record<string, string> | undefined) ?? {};
   if (scripts['prepare'] === undefined) return true;
-  if (pkg['lint-staged'] === undefined) return true;
   return false;
 }
 

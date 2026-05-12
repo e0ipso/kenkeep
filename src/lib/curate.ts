@@ -6,16 +6,18 @@ import { generateGraph, generateIndex, writeGraph, writeIndex } from './index-ge
 import {
   deriveNodeId,
   ensureUniqueId,
-  proposalFilename,
+  nodeFileExists,
   readAllNodes,
-  writeProposalFile,
+  writeNodeFile,
 } from './nodes.js';
 import {
+  type ConflictReport,
   CuratorOutputSchema,
   type CuratorAction,
   type CuratorOutput,
+  type FailureReport,
+  type NodeFrontmatter,
   type NodeKind,
-  type ProposalFrontmatter,
   SessionLogFrontmatterSchema,
   Stage2CandidateSchema,
   type Stage2Candidate,
@@ -40,7 +42,6 @@ export interface CurateContext {
   kbDir: string;
   sessionsDir: string;
   nodesDir: string;
-  proposedDir: string;
   logsDir: string;
   stateFile: string;
   promptTemplate: string;
@@ -61,9 +62,11 @@ export interface CurateResult {
   runId?: string;
   batches: number;
   candidates: number;
-  proposalsWritten: number;
+  nodesWritten: number;
   drops: number;
   pendingSessions: number;
+  failures: FailureReport[];
+  conflicts: ConflictReport[];
   reason?: string;
 }
 
@@ -259,9 +262,11 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
       status: 'no-pending',
       batches: 0,
       candidates: 0,
-      proposalsWritten: 0,
+      nodesWritten: 0,
       drops: 0,
       pendingSessions: 0,
+      failures: [],
+      conflicts: [],
     };
   }
 
@@ -276,9 +281,11 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
       status: 'locked',
       batches: 0,
       candidates: 0,
-      proposalsWritten: 0,
+      nodesWritten: 0,
       drops: 0,
       pendingSessions: pending.length,
+      failures: [],
+      conflicts: [],
       reason: 'another curate run holds the lock',
     };
   }
@@ -304,24 +311,36 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
     }
 
     const merged = dedupActions(allActions);
-    const existingIds = new Set(readAllNodes(ctx.nodesDir).map(n => n.frontmatter.id));
+    const existingNodes = readAllNodes(ctx.nodesDir);
+    const existingIds = new Set(existingNodes.map(n => n.frontmatter.id));
     const seenSlugs = new Set<string>();
-    let proposalsWritten = 0;
+    let nodesWritten = 0;
     let drops = 0;
+    const failures: FailureReport[] = [];
+    const conflicts: ConflictReport[] = [];
 
     for (const action of merged) {
-      if (action.action === 'drop' || !action.proposed_node) {
-        drops += 1;
-        continue;
-      }
-      const written = persistAction(action, {
-        proposedDir: ctx.proposedDir,
+      const outcome = persistAction(action, {
+        nodesDir: ctx.nodesDir,
         existingIds,
         seenSlugs,
-        runLogPath: relativeToKb(ctx.kbDir, logFile),
+        runId,
         now: now(),
       });
-      if (written) proposalsWritten += 1;
+      switch (outcome.kind) {
+        case 'wrote':
+          nodesWritten += 1;
+          break;
+        case 'dropped':
+          drops += 1;
+          break;
+        case 'failed':
+          failures.push(outcome.failure);
+          break;
+        case 'conflict':
+          conflicts.push(outcome.conflict);
+          break;
+      }
     }
 
     markSessionsProcessed(pending, runId, now());
@@ -335,9 +354,11 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
         (sum, s) => sum + s.practiceCandidates.length + s.mapCandidates.length,
         0
       ),
-      proposalsWritten,
+      nodesWritten,
       drops,
       pendingSessions: pending.length,
+      failures,
+      conflicts,
     };
   } finally {
     releaseLock(ctx.stateFile, CURATOR_LOCK_NAME, pid);
@@ -345,34 +366,94 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
 }
 
 interface PersistContext {
-  proposedDir: string;
+  nodesDir: string;
   existingIds: Set<string>;
   seenSlugs: Set<string>;
-  runLogPath: string;
+  runId: string;
   now: Date;
 }
 
-function persistAction(action: CuratorAction, ctx: PersistContext): boolean {
-  const proposedNode = action.proposed_node;
-  if (!proposedNode) return false;
-  const folder = proposalFolderFor(action.action);
-  const kind: NodeKind = proposedNode.kind;
-  const id = ensureUniqueId(
-    new Set([...ctx.existingIds, ...ctx.seenSlugs]),
-    proposedNode.id || deriveNodeId(kind, proposedNode.title)
-  );
-  ctx.seenSlugs.add(id);
-  const filename = proposalFilename(kind, id);
+type PersistOutcome =
+  | { kind: 'wrote' }
+  | { kind: 'dropped' }
+  | { kind: 'failed'; failure: FailureReport }
+  | { kind: 'conflict'; conflict: ConflictReport };
 
-  const frontmatter: ProposalFrontmatter = {
+function persistAction(action: CuratorAction, ctx: PersistContext): PersistOutcome {
+  if (action.action === 'drop' || !action.proposed_node) {
+    return { kind: 'dropped' };
+  }
+  const proposedNode = action.proposed_node;
+
+  if (action.action === 'contradict') {
+    return {
+      kind: 'conflict',
+      conflict: {
+        id: `${ctx.runId}-${ctx.existingIds.size + ctx.seenSlugs.size + 1}`,
+        detected_at: ctx.now.toISOString(),
+        run_id: ctx.runId,
+        candidate_origin: action.candidate_origin,
+        target_node_id: action.target_node_id ?? null,
+        rationale: action.rationale,
+        proposed_node: proposedNode,
+      },
+    };
+  }
+
+  const kind: NodeKind = proposedNode.kind;
+
+  if (action.action === 'modify') {
+    const targetId = action.target_node_id ?? proposedNode.id;
+    if (!targetId || !ctx.existingIds.has(targetId)) {
+      return {
+        kind: 'failed',
+        failure: {
+          reason: 'modify_missing_target',
+          candidate_origin: action.candidate_origin,
+          node_id: targetId ?? proposedNode.id,
+          detail: `modify target ${targetId ?? '(unset)'} not found in nodes/`,
+        },
+      };
+    }
+    const frontmatter = buildNodeFrontmatter(proposedNode, targetId, ctx.now);
+    writeNodeFile({ nodesDir: ctx.nodesDir, frontmatter, body: proposedNode.body });
+    return { kind: 'wrote' };
+  }
+
+  // action === 'add'
+  const baseId = proposedNode.id || deriveNodeId(kind, proposedNode.title);
+  if (ctx.existingIds.has(baseId) || nodeFileExists(ctx.nodesDir, kind, baseId)) {
+    return {
+      kind: 'failed',
+      failure: {
+        reason: 'add_collision',
+        candidate_origin: action.candidate_origin,
+        node_id: baseId,
+        detail: `add target nodes/${kind}/${baseId}.md already exists; rerun curate or escalate to modify`,
+      },
+    };
+  }
+  const id = ensureUniqueId(new Set([...ctx.existingIds, ...ctx.seenSlugs]), baseId);
+  ctx.seenSlugs.add(id);
+  const frontmatter = buildNodeFrontmatter(proposedNode, id, ctx.now);
+  writeNodeFile({ nodesDir: ctx.nodesDir, frontmatter, body: proposedNode.body });
+  return { kind: 'wrote' };
+}
+
+function buildNodeFrontmatter(
+  proposedNode: NonNullable<CuratorAction['proposed_node']>,
+  id: string,
+  now: Date
+): NodeFrontmatter {
+  return {
     schema_version: 1,
     id,
     title: proposedNode.title,
-    kind,
+    kind: proposedNode.kind,
     tags: proposedNode.tags,
     valid_from: proposedNode.valid_from,
     valid_until: proposedNode.valid_until ?? null,
-    updated: ctx.now.toISOString(),
+    updated: now.toISOString(),
     supersedes: proposedNode.supersedes ?? null,
     superseded_by: proposedNode.superseded_by ?? null,
     derived_from: proposedNode.derived_from,
@@ -380,48 +461,7 @@ function persistAction(action: CuratorAction, ctx: PersistContext): boolean {
     depends_on: [],
     confidence: proposedNode.confidence,
     summary: proposedNode.summary,
-    proposal: {
-      kind: proposalKindFor(action.action),
-      source_sessions: parseSourceSessions(action.candidate_origin),
-      target_node: action.target_node_id ?? null,
-      rationale: action.rationale,
-      // The curator must not auto-resolve contradictions; we always write null
-      // here regardless of what the model emitted in `suggested_resolution`.
-      suggested_resolution: null,
-      curator_log: ctx.runLogPath,
-    },
   };
-
-  writeProposalFile({
-    proposedDir: ctx.proposedDir,
-    proposalKind: folder,
-    filename,
-    frontmatter,
-    body: proposedNode.body,
-  });
-  return true;
-}
-
-function proposalFolderFor(
-  action: CuratorAction['action']
-): 'additions' | 'modifications' | 'contradictions' {
-  if (action === 'modify') return 'modifications';
-  if (action === 'contradict') return 'contradictions';
-  return 'additions';
-}
-
-function proposalKindFor(
-  action: CuratorAction['action']
-): 'addition' | 'modification' | 'contradiction' {
-  if (action === 'modify') return 'modification';
-  if (action === 'contradict') return 'contradiction';
-  return 'addition';
-}
-
-function parseSourceSessions(origin: string): string[] {
-  // candidate_origin = "<session_id>:<practice|map>:<index>"
-  const [sessionId] = origin.split(':');
-  return sessionId ? [sessionId] : [];
 }
 
 /**
@@ -470,13 +510,6 @@ function regenerateIndexAndGraph(ctx: CurateContext, now: Date): void {
   writeIndex(join(ctx.kbDir, 'INDEX.md'), index);
   const graph = generateGraph(ctx.nodesDir, { now });
   writeGraph(join(ctx.kbDir, 'GRAPH.md'), graph);
-}
-
-function relativeToKb(kbDir: string, file: string): string {
-  if (file.startsWith(kbDir)) {
-    return file.slice(kbDir.length).replace(/^[\\/]/, '');
-  }
-  return file;
 }
 
 function compactStamp(d: Date): string {

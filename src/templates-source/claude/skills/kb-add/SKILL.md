@@ -1,12 +1,12 @@
 ---
 name: kb-add
-description: Capture a knowledge-base node manually from the current session. Writes a single proposal file under `.ai/knowledge-base/_proposed/additions/` for a human reviewer; never writes directly into `nodes/`. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
+description: Capture a knowledge-base node manually from the current session. Writes a new node directly under `.ai/knowledge-base/nodes/<kind>/`. The reviewer accepts via `git commit` and rejects via `git restore`. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 allowed-tools: Write
 ---
 
 # kb-add
 
-Capture a single piece of knowledge that the user wants to record in the project KB. The output is a *proposal* under `.ai/knowledge-base/_proposed/additions/`, never a direct write into `nodes/`. A human reviews the proposal directory later before committing.
+Capture a single piece of knowledge that the user wants to record in the project KB. The output is a new node file under `.ai/knowledge-base/nodes/<kind>/`. Review and acceptance happen through git: the user inspects the change with `git diff`, accepts with `git commit`, or rejects with `git restore <file>`.
 
 ## What to gather from the user
 
@@ -20,11 +20,11 @@ Ask the user concise questions and gather:
 6. **relates_to** *(optional)* — node ids this should link to. Useful for exceptions, siblings, extensions.
 7. **Confidence** — `high`, `medium`, or `low`. Default to `high` for manual entries; recommend `medium` when the user is uncertain.
 
-If anything is missing or ambiguous, ask — once you write the proposal, you cannot easily edit it without an extra round-trip.
+If anything is missing or ambiguous, ask before writing — the file lands directly in `nodes/`, and editing it after a commit means another commit.
 
 ## What to write
 
-Create the file at `.ai/knowledge-base/_proposed/additions/<kind>-<slug>.md`. The slug is derived from the title: lowercase, ascii letters and digits only, hyphens between words. If a file with that name already exists, append a short discriminator (e.g. `-2`).
+Create the file at `.ai/knowledge-base/nodes/<kind>/<kind>-<slug>.md`. The slug is derived from the title: lowercase, ascii letters and digits only, hyphens between words. **Before writing, check whether the file already exists** (e.g. via `Read`-equivalent intuition or by trying a more specific title). If a node with the same id already exists, do not overwrite — ask the user whether to refine the title or edit the existing node directly.
 
 Frontmatter (every field is required; null where indicated):
 
@@ -35,7 +35,7 @@ id: <kind>-<slug>
 title: "<title>"
 kind: <practice|map>
 tags: [<tag1>, <tag2>, ...]
-valid_from: <now in ISO 8601 UTC, e.g. 2026-05-11T10:00:00Z>
+valid_from: <now in ISO 8601 UTC, e.g. 2026-05-12T10:00:00Z>
 valid_until: null
 updated: <same as valid_from>
 supersedes: null
@@ -45,13 +45,6 @@ relates_to: [<id1>, <id2>, ...]   # or [] if none
 depends_on: []
 confidence: <high|medium|low>
 summary: "<summary>"
-proposal:
-  kind: addition
-  source_sessions: []
-  target_node: null
-  rationale: "manual"
-  suggested_resolution: null
-  curator_log: null
 ---
 ```
 
@@ -59,7 +52,7 @@ Body: just the markdown the user gave you. Add a `# <title>` H1 at the top if th
 
 ## Constraints
 
-- Only use the `Write` tool, and only on a single file path under `.ai/knowledge-base/_proposed/additions/`.
+- Only use the `Write` tool, and only on a single file path under `.ai/knowledge-base/nodes/<kind>/`.
 - Do not modify or read any other file in the KB.
-- Do not regenerate `INDEX.md` or `GRAPH.md` — that happens on the next `ai-knowledge-base curate` run.
-- After writing, tell the user: file path, the proposal id, and remind them to review the proposal under `.ai/knowledge-base/_proposed/` before committing.
+- Do not regenerate `INDEX.md` or `GRAPH.md` — the lint-staged pre-commit hook does that automatically (`ai-knowledge-base index rebuild --stage`) when the user commits.
+- After writing, tell the user the file path and remind them to review with `git diff` and accept with `git commit` (or reject with `git restore <path>`).

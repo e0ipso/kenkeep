@@ -5,12 +5,12 @@ import { log } from '../lib/log.js';
 import {
   deriveNodeId,
   ensureUniqueId,
-  proposalFilename,
+  nodeFileExists,
   readAllNodes,
-  writeProposalFile,
+  writeNodeFile,
 } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import type { Confidence, NodeKind, ProposalFrontmatter } from '../lib/schemas.js';
+import type { Confidence, NodeFrontmatter, NodeKind } from '../lib/schemas.js';
 
 export interface NodeAddOptions {
   yes?: boolean;
@@ -56,10 +56,18 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
   const confidence: Confidence = answers.confidence ?? 'high';
 
   const existingIds = new Set(readAllNodes(paths.nodesDir).map(n => n.frontmatter.id));
-  const id = ensureUniqueId(existingIds, deriveNodeId(kind, title));
+  const baseId = deriveNodeId(kind, title);
+  if (existingIds.has(baseId) || nodeFileExists(paths.nodesDir, kind, baseId)) {
+    log.error(
+      `A node with id ${baseId} already exists at nodes/${kind}/${baseId}.md. ` +
+        'Pick a different title, or edit the existing node directly.'
+    );
+    return 1;
+  }
+  const id = ensureUniqueId(existingIds, baseId);
   const now = (opts.now ?? new Date()).toISOString();
 
-  const frontmatter: ProposalFrontmatter = {
+  const frontmatter: NodeFrontmatter = {
     schema_version: 1,
     id,
     title,
@@ -75,36 +83,20 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
     depends_on: [],
     confidence,
     summary,
-    proposal: {
-      kind: 'addition',
-      source_sessions: [],
-      target_node: null,
-      rationale: 'manual',
-      suggested_resolution: null,
-      curator_log: null,
-    },
   };
 
-  const filename = proposalFilename(kind, id);
-  const filePath = writeProposalFile({
-    proposedDir: paths.proposedDir,
-    proposalKind: 'additions',
-    filename,
-    frontmatter,
-    body,
-  });
+  const filePath = writeNodeFile({ nodesDir: paths.nodesDir, frontmatter, body });
 
-  // INDEX/GRAPH reflect committed nodes, not proposals — but the curator
-  // step is what wires that up. Regenerate here for consistency with the
-  // curate command (which regenerates on every run); this also exercises the
-  // generator path so manual `node add` doesn't silently leave a stale index.
+  // Refresh INDEX/GRAPH so the manual write doesn't leave a stale index. The
+  // pre-commit hook will also do this via `index rebuild --stage` when
+  // committing, but this keeps things consistent for read-only tooling.
   const index = generateIndex(paths.nodesDir, { now: new Date(now) });
   writeIndex(`${paths.kbDir}/INDEX.md`, index);
   const graph = generateGraph(paths.nodesDir, { now: new Date(now) });
   writeGraph(`${paths.kbDir}/GRAPH.md`, graph);
 
-  log.success(`Wrote proposal: ${filePath}`);
-  log.plain('Review under `.ai/knowledge-base/_proposed/` before committing.');
+  log.success(`Wrote node: ${filePath}`);
+  log.plain('Review with `git diff` and `git commit` to accept, or `git restore` to reject.');
   return 0;
 }
 
@@ -146,7 +138,7 @@ async function promptForNode(): Promise<{
     default: 'high',
   })) as Confidence;
   const body = await input({
-    message: 'Body markdown (one line; for longer content, edit the proposal after writing)',
+    message: 'Body markdown (one line; for longer content, edit the node file after writing)',
   });
   return { kind, title, summary, tags, body, relatesTo, confidence };
 }

@@ -23,13 +23,12 @@ function sandbox(): string {
       schema_version: 1,
       package: '@e0ipso/ai-knowledge-base',
       version: '0.0.0-test',
-      installed_at: '2026-05-11T10:00:00Z',
+      installed_at: '2026-05-12T10:00:00Z',
       assistants: ['claude'],
     })
   );
   mkdirSync(join(root, '.ai/knowledge-base/nodes/practice'), { recursive: true });
   mkdirSync(join(root, '.ai/knowledge-base/nodes/map'), { recursive: true });
-  mkdirSync(join(root, '.ai/knowledge-base/_proposed/additions'), { recursive: true });
   return root;
 }
 
@@ -46,7 +45,7 @@ describe('node add', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('writes a proposal file with rationale=manual and proposal.kind=addition', async () => {
+  it('writes a node file directly under nodes/<kind>/ with no proposal block', async () => {
     const code = await runNodeAdd({
       preset: {
         kind: 'practice',
@@ -55,20 +54,19 @@ describe('node add', () => {
         tags: 'releases, gpg',
         body: '# Use commit signing\n\nDetails.',
       },
-      now: new Date('2026-05-11T10:00:00Z'),
+      now: new Date('2026-05-12T10:00:00Z'),
     });
     expect(code).toBe(0);
-    const dir = join(cwd, '.ai/knowledge-base/_proposed/additions');
+    const dir = join(cwd, '.ai/knowledge-base/nodes/practice');
     const files = readdirSync(dir);
     expect(files).toHaveLength(1);
     const fm = matter(readFileSync(join(dir, files[0]!), 'utf8')).data as Record<string, unknown>;
     expect(fm['kind']).toBe('practice');
-    expect((fm['proposal'] as { kind: string; rationale: string }).rationale).toBe('manual');
-    expect((fm['proposal'] as { kind: string }).kind).toBe('addition');
+    expect(fm).not.toHaveProperty('proposal');
     expect(existsSync(join(cwd, '.ai/knowledge-base/INDEX.md'))).toBe(true);
   });
 
-  it('avoids id collisions with existing nodes', async () => {
+  it('fails loud when an existing node would be overwritten', async () => {
     writeFileSync(
       join(cwd, '.ai/knowledge-base/nodes/practice/practice-use-foo.md'),
       matter.stringify('# Use Foo\nBody.\n', {
@@ -89,7 +87,7 @@ describe('node add', () => {
         summary: 'orig',
       })
     );
-    await runNodeAdd({
+    const code = await runNodeAdd({
       preset: {
         kind: 'practice',
         title: 'Use Foo',
@@ -97,9 +95,17 @@ describe('node add', () => {
         tags: '',
         body: 'New body',
       },
-      now: new Date('2026-05-11T10:00:00Z'),
+      now: new Date('2026-05-12T10:00:00Z'),
     });
-    const files = readdirSync(join(cwd, '.ai/knowledge-base/_proposed/additions'));
-    expect(files[0]).toBe('practice-use-foo-2.md');
+    expect(code).toBe(1);
+    // Original untouched.
+    const after = readFileSync(
+      join(cwd, '.ai/knowledge-base/nodes/practice/practice-use-foo.md'),
+      'utf8'
+    );
+    expect(after).toContain('Body.');
+    expect(after).not.toContain('New body');
+    // No second file created.
+    expect(readdirSync(join(cwd, '.ai/knowledge-base/nodes/practice')).length).toBe(1);
   });
 });

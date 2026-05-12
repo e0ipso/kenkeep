@@ -11,8 +11,8 @@ Three things happen on a loop. You only ever drive one of them by hand — and e
 flowchart LR
     A[AI session ends] --> B[Capture<br/>auto, redacted]
     B --> C[Extract candidates<br/>auto, background]
-    C --> D[Curate<br/>nudged, autonomous]
-    D --> E[Review<br/>you decide]
+    C --> D[Curate<br/>nudged, autonomous<br/>writes to nodes/]
+    D --> E[Review<br/>git diff / commit / restore]
     E --> F[(nodes/<br/>committed markdown)]
     F --> G[Inject into next session<br/>auto]
     G --> A
@@ -26,17 +26,17 @@ You don't run this. It just happens.
 
 ## 2. Curate (mostly automatic)
 
-When captured candidates accumulate, the system nudges you in the next session. You confirm (or run `/kb-curate` directly), and the curator runs autonomously as a `claude -p` subprocess — it reads pending candidates, merges them against existing nodes, and writes three kinds of _proposals_ under `.ai/knowledge-base/_proposed/`:
+When captured candidates accumulate, the system nudges you in the next session. You confirm (or run `/kb-curate` directly), and the curator runs autonomously as a `claude -p` subprocess — it reads pending candidates, compares them to existing nodes, and applies its decisions directly to `.ai/knowledge-base/nodes/`:
 
-- **Additions** — new things to remember.
-- **Modifications** — updates to something already kept.
-- **Contradictions** — the new candidate disagrees with something already kept.
+- **Additions** — write a new node file.
+- **Modifications** — overwrite an existing node file.
+- **Contradictions** — record the conflict in `.ai/knowledge-base/.state/pending-conflicts.json` and write nothing. The `/kb-curate` skill reads that file after the curator exits and walks each conflict with you in-session, applying your chosen resolution by editing the relevant node.
 
-The curator only stops to ask you when the merge is genuinely ambiguous. As part of the same run, it regenerates `INDEX.md` and `GRAPH.md` deterministically (no LLM) so the index and proposals stay in lockstep.
+As part of the same run, the curator regenerates `INDEX.md` and `GRAPH.md` deterministically (no LLM) so the index reflects the current `nodes/` tree.
 
 ## 3. Review (you decide)
 
-Review the changes to the `.ai/knowledge-base/` directory. They are important — they may affect how the agent behaves in every future session. You can use a tool like [self-review](https://github.com/e0ipso/self-review) to walk the diff and capture any feedback before committing.
+Review the changes under `.ai/knowledge-base/nodes/` with `git diff`. They are important — they may affect how the agent behaves in every future session. Tools like [self-review](https://github.com/e0ipso/self-review) work too. Accept with `git commit`, reject with `git restore <path>`. The lint-staged pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit so the index never drifts from the committed nodes.
 
 ## Storage & graph
 
@@ -58,9 +58,10 @@ Everything is plain text, diffable, reviewable, version-controlled like any code
 |---|---|---|
 | Capture session | session end (hook) | automatic |
 | Extract candidates | capture completes | automatic (background) |
-| Curate → proposals | system nudge or `/kb-curate` | autonomous AI (asks only when ambiguous) |
-| Regenerate `INDEX.md` / `GRAPH.md` | end of curate run | automatic (deterministic) |
-| Review changes to `.ai/knowledge-base/` | when proposals exist | **you** (any diff tool, e.g. [self-review](https://github.com/e0ipso/self-review)) |
+| Curate → write to `nodes/` | system nudge or `/kb-curate` | autonomous AI (asks only when contradicting) |
+| Resolve contradictions | curator records one in `pending-conflicts.json` | `/kb-curate` skill walks each one with **you** |
+| Regenerate `INDEX.md` / `GRAPH.md` | end of curate run + every commit (lint-staged) | automatic (deterministic) |
+| Review changes to `nodes/` | whenever the curator wrote something | **you** (`git diff`, `git restore`, `git commit`) |
 | Inject `INDEX.md` into new sessions | session start | automatic |
 
 The cheap deterministic steps and the bulk-AI steps run on their own. The one place we keep humans in the loop is reviewing what to keep.

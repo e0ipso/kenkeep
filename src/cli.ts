@@ -58,7 +58,7 @@ async function main(): Promise<void> {
 
   program
     .command('status')
-    .description('Show pending session logs, pending proposals, and KB stats.')
+    .description('Show pending session logs, pending curator conflicts, and KB stats.')
     .action(async () => {
       await runStatus();
     });
@@ -149,7 +149,7 @@ async function main(): Promise<void> {
   const nodeGroup = program.command('node').description('Manage knowledge-base nodes.');
   nodeGroup
     .command('add')
-    .description('Interactively draft a new node; writes a proposal under _proposed/additions/.')
+    .description('Interactively draft a new node; writes directly to nodes/<kind>/<id>.md.')
     .action(async () => {
       const code = await runNodeAdd();
       process.exit(code);
@@ -160,10 +160,17 @@ async function main(): Promise<void> {
     .command('rebuild')
     .description('Regenerate INDEX.md and GRAPH.md from the current nodes/ tree (deterministic).')
     .option('--budget-tokens <n>', 'INDEX.md token budget (default 2000)', v => parseInt(v, 10))
-    .action(async (opts: { budgetTokens?: number }) => {
-      const rebuildOpts: { budgetTokens?: number } = {};
+    .option(
+      '--stage',
+      'after writing, `git add` INDEX.md and GRAPH.md (no-op outside a git repo)',
+      false
+    )
+    .allowExcessArguments(true)
+    .action(async (opts: { budgetTokens?: number; stage?: boolean }) => {
+      const rebuildOpts: { budgetTokens?: number; stage?: boolean } = {};
       if (typeof opts.budgetTokens === 'number' && !Number.isNaN(opts.budgetTokens))
         rebuildOpts.budgetTokens = opts.budgetTokens;
+      if (opts.stage) rebuildOpts.stage = true;
       const code = await runIndexRebuild(rebuildOpts);
       process.exit(code);
     });

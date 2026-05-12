@@ -28,9 +28,6 @@ describe('init', () => {
       '.ai/knowledge-base/GRAPH.md',
       '.ai/knowledge-base/nodes/practice/.gitkeep',
       '.ai/knowledge-base/nodes/map/.gitkeep',
-      '.ai/knowledge-base/_proposed/additions/.gitkeep',
-      '.ai/knowledge-base/_proposed/modifications/.gitkeep',
-      '.ai/knowledge-base/_proposed/contradictions/.gitkeep',
       '.ai/knowledge-base/_sessions/.gitkeep',
       '.ai/knowledge-base/_logs/stage-2/.gitkeep',
       '.ai/knowledge-base/_logs/curator/.gitkeep',
@@ -49,12 +46,16 @@ describe('init', () => {
       '.ai/knowledge-base/.config.json',
       '.secretlintrc.json',
       '.husky/pre-commit',
+      '.lintstagedrc.cjs',
       '.gitignore',
     ];
 
     for (const rel of expected) {
       expect(existsSync(join(sandbox, rel)), `expected ${rel}`).toBe(true);
     }
+
+    // _proposed/ must not be created — the architecture writes directly to nodes/.
+    expect(existsSync(join(sandbox, '.ai/knowledge-base/_proposed'))).toBe(false);
   });
 
   it('stamps installed-version with current package version', async () => {
@@ -117,7 +118,7 @@ describe('init', () => {
     expect(result.stderr + result.stdout).toMatch(/package\.json|Node project/i);
   });
 
-  it('patches package.json with husky/lint-staged/secretlint devDeps', async () => {
+  it('patches package.json with husky/lint-staged/secretlint devDeps + prepare script', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
     const pkg = JSON.parse(readFileSync(join(sandbox, 'package.json'), 'utf8')) as {
       devDependencies?: Record<string, string>;
@@ -129,7 +130,24 @@ describe('init', () => {
     expect(pkg.devDependencies?.['secretlint']).toBeTruthy();
     expect(pkg.devDependencies?.['@secretlint/secretlint-rule-preset-recommend']).toBeTruthy();
     expect(pkg.scripts?.['prepare']).toBe('husky');
-    expect(pkg['lint-staged']).toBeTruthy();
+    // lint-staged config lives in `.lintstagedrc.cjs`, not package.json.
+    expect(pkg['lint-staged']).toBeUndefined();
+  });
+
+  it('writes .lintstagedrc.cjs with secretlint and `index rebuild --stage` entries', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    const cfg = readFileSync(join(sandbox, '.lintstagedrc.cjs'), 'utf8');
+    expect(cfg).toContain('secretlint');
+    expect(cfg).toContain('.ai/knowledge-base/nodes/**/*.md');
+    expect(cfg).toContain('ai-knowledge-base index rebuild --stage');
+  });
+
+  it('husky pre-commit invokes lint-staged with serial execution', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    const hook = readFileSync(join(sandbox, '.husky/pre-commit'), 'utf8');
+    expect(hook).toContain('lint-staged');
+    // Serial execution keeps secretlint ahead of `index rebuild --stage`.
+    expect(hook).toContain('--concurrent false');
   });
 
   it('registers Stop, SessionEnd, and PreCompact capture hooks in .claude/settings.json', async () => {

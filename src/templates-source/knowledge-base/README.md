@@ -4,14 +4,14 @@ This directory holds the project's AI-session-derived knowledge base. It is buil
 
 ## What this is
 
-When you (or a teammate) run an AI coding session against this repo, the tool watches the session and extracts candidate knowledge — project conventions, prohibitions, named modules and features, gotchas. Those candidates are reviewed by a human and committed to this directory as knowledge nodes. A `SessionStart` hook injects a token-budgeted index of these nodes into every new AI session, so the assistant starts each conversation with the project's accumulated context.
+When you (or a teammate) run an AI coding session against this repo, the tool watches the session and extracts candidate knowledge — project conventions, prohibitions, named modules and features, gotchas. The curator turns those candidates into knowledge nodes under `nodes/`. You review and accept the new content via `git`. A `SessionStart` hook injects a token-budgeted index of these nodes into every new AI session, so the assistant starts each conversation with the project's accumulated context.
 
 ## How knowledge gets here
 
 1. **Capture.** During an AI session, a hook records redacted slices of the transcript to `_sessions/`.
-2. **Curate.** When enough sessions accumulate, you run `/kb-curate` (or `ai-knowledge-base curate`). The curator reads pending sessions, compares them against existing nodes, and writes proposals to `_proposed/`.
-3. **Review.** Proposals show up as files you can read like any code change. Accept by moving the file into `nodes/`, reject by deleting it.
-4. **Consume.** Every future session sees the new node in its injected index.
+2. **Curate.** When enough sessions accumulate, you run `/kb-curate` (or `ai-knowledge-base curate`). The curator reads pending sessions and applies its decisions directly to `nodes/`: new files for `add` actions, in-place rewrites for `modify`. Contradictions land in `.state/pending-conflicts.json` for the curate skill to surface to you in-session.
+3. **Review.** The changes show up in `git status` like any other code change. Inspect with `git diff`, accept with `git commit`, reject with `git restore <file>`. The lint-staged pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit.
+4. **Consume.** Every future session sees the new nodes in its injected index.
 
 ## How to read a node
 
@@ -24,25 +24,25 @@ Each `.md` file in `nodes/` has a frontmatter header and a markdown body. Key fi
 
 ## Manually adding a node
 
-Two paths, both human-in-the-loop:
+Two paths, both human-in-the-loop via git:
 
 - From the terminal: `npx @e0ipso/ai-knowledge-base node add` (interactive prompts).
 - From inside a Claude Code session: `/kb-add`.
 
-Either way the result lands in `_proposed/additions/`, never directly in `nodes/`.
+Either way the result lands in `nodes/<kind>/<kind>-<slug>.md`. Review with `git diff` and commit to accept.
 
 ## Bootstrap from existing docs
 
-If your repo already has READMEs, ADRs, and module docs, you can seed the KB from them with `/kb-bootstrap` (a one-time, supervised pass) or `npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/` (for picking up new or changed docs later).
+If your repo already has READMEs, ADRs, and module docs, you can seed the KB from them with `/kb-bootstrap` (a one-time, supervised pass) or `npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/` (for picking up new or changed docs later). Both write directly to `nodes/`; you review with `git diff` and accept the ones you want.
 
 ## Subdirectories
 
-- `nodes/` — accepted knowledge nodes, organized by kind (`practice/`, `map/`).
-- `_proposed/` — pending changes awaiting human review (`additions/`, `modifications/`, `contradictions/`).
+- `nodes/` — knowledge nodes, organized by kind (`practice/`, `map/`). Reviewed via git.
 - `_sessions/` — raw captured transcripts (gitignored by default).
 - `_logs/` — stream-json traces from LLM-driven runs (gitignored).
-- `INDEX.md` — token-budgeted summary; injected into every new session.
-- `GRAPH.md` — full edge listing of nodes; available for the assistant to read on demand.
+- `.state/pending-conflicts.json` — contradictions surfaced by the curator, awaiting resolution by the kb-curate skill.
+- `INDEX.md` — token-budgeted summary; injected into every new session. Regenerated automatically on commit.
+- `GRAPH.md` — full edge listing of nodes; available for the assistant to read on demand. Regenerated automatically on commit.
 
 ## Learn more
 

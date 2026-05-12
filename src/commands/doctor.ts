@@ -240,27 +240,14 @@ function checkInstalledVersionCurrent(file: string): CheckResult {
 
 type CommitScanPaths = Pick<
   ReturnType<typeof import('../lib/paths.js').repoPaths>,
-  'secretlintrcFile' | 'huskyPreCommitFile' | 'packageJsonFile'
+  'secretlintrcFile' | 'huskyPreCommitFile' | 'packageJsonFile' | 'lintstagedrcFile'
 >;
 
 function checkCommitTimeSecretScan(paths: CommitScanPaths): CheckResult {
   const missing: string[] = [];
   if (!existsSync(paths.secretlintrcFile)) missing.push('.secretlintrc.json');
   if (!existsSync(paths.huskyPreCommitFile)) missing.push('.husky/pre-commit');
-
-  let hasLintStaged = false;
-  if (existsSync(paths.packageJsonFile)) {
-    try {
-      const pkg = JSON.parse(readFileSync(paths.packageJsonFile, 'utf8')) as {
-        'lint-staged'?: Record<string, unknown>;
-      };
-      hasLintStaged =
-        pkg['lint-staged'] !== undefined && Object.keys(pkg['lint-staged']).length > 0;
-    } catch {
-      // unparseable — treat as missing
-    }
-  }
-  if (!hasLintStaged) missing.push('lint-staged config in package.json');
+  if (!existsSync(paths.lintstagedrcFile)) missing.push('.lintstagedrc.cjs');
 
   if (missing.length === 0) {
     return { ok: true, detail: 'husky + lint-staged + secretlint wired' };

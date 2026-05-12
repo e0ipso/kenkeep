@@ -73,6 +73,6 @@ describe('status', () => {
     expect(result.stdout).toContain('Practice nodes: 0');
     expect(result.stdout).toContain('Map nodes:      0');
     expect(result.stdout).toContain('Stage-2 queue:           0');
-    expect(result.stdout).toContain('Additions:       0');
+    expect(result.stdout).toContain('Curator conflicts:       0');
   });
 });

@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
-import {
-  NodeFrontmatterSchema,
-  ProposalFrontmatterSchema,
-  type NodeFrontmatter,
-  type NodeKind,
-  type ProposalFrontmatter,
-} from './schemas.js';
+import { NodeFrontmatterSchema, type NodeFrontmatter, type NodeKind } from './schemas.js';
 
 export interface NodeFile {
   path: string;
@@ -99,9 +100,17 @@ export function deriveNodeId(kind: NodeKind, title: string): string {
   return `${kind}-${slugify(title)}`;
 }
 
-export function proposalFilename(kind: NodeKind, slugOrId: string): string {
+export function nodeFilename(kind: NodeKind, slugOrId: string): string {
   const slug = slugOrId.startsWith(`${kind}-`) ? slugOrId : `${kind}-${slugify(slugOrId)}`;
   return `${slug}.md`;
+}
+
+export function nodeFilePath(nodesDir: string, kind: NodeKind, idOrSlug: string): string {
+  return join(nodesDir, kind, nodeFilename(kind, idOrSlug));
+}
+
+export function nodeFileExists(nodesDir: string, kind: NodeKind, idOrSlug: string): boolean {
+  return existsSync(nodeFilePath(nodesDir, kind, idOrSlug));
 }
 
 export function ensureUniqueId(existingIds: Set<string>, candidate: string): string {
@@ -115,51 +124,24 @@ export function ensureUniqueId(existingIds: Set<string>, candidate: string): str
   return `${candidate}-${disc}`;
 }
 
-export interface WriteProposalArgs {
-  proposedDir: string;
-  proposalKind: 'additions' | 'modifications' | 'contradictions';
-  filename: string;
-  frontmatter: ProposalFrontmatter;
+export interface WriteNodeArgs {
+  nodesDir: string;
+  frontmatter: NodeFrontmatter;
   body: string;
 }
 
-export function writeProposalFile(args: WriteProposalArgs): string {
-  const validated = ProposalFrontmatterSchema.parse(args.frontmatter);
-  const targetDir = join(args.proposedDir, args.proposalKind);
+/**
+ * Atomically writes `nodes/<kind>/<id>.md`. Validates frontmatter, writes
+ * to a tmp sibling, then renames into place. Returns the absolute path.
+ */
+export function writeNodeFile(args: WriteNodeArgs): string {
+  const validated = NodeFrontmatterSchema.parse(args.frontmatter);
+  const targetDir = join(args.nodesDir, validated.kind);
   mkdirSync(targetDir, { recursive: true });
-  const filePath = join(targetDir, args.filename);
+  const filePath = join(targetDir, nodeFilename(validated.kind, validated.id));
+  const tmp = `${filePath}.tmp`;
   const out = matter.stringify(args.body.trimEnd() + '\n', validated);
-  writeFileSync(filePath, out);
+  writeFileSync(tmp, out);
+  renameSync(tmp, filePath);
   return filePath;
-}
-
-export function listProposalFiles(proposedDir: string): {
-  additions: string[];
-  modifications: string[];
-  contradictions: string[];
-} {
-  return {
-    additions: listMd(join(proposedDir, 'additions')),
-    modifications: listMd(join(proposedDir, 'modifications')),
-    contradictions: listMd(join(proposedDir, 'contradictions')),
-  };
-}
-
-function listMd(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter(n => n.endsWith('.md'))
-    .map(n => join(dir, n))
-    .sort();
-}
-
-export function readProposalFile(file: string): {
-  frontmatter: ProposalFrontmatter;
-  body: string;
-} | null {
-  if (!existsSync(file)) return null;
-  const parsed = matter(readFileSync(file, 'utf8'));
-  const result = ProposalFrontmatterSchema.safeParse(parsed.data);
-  if (!result.success) return null;
-  return { frontmatter: result.data, body: parsed.content };
 }

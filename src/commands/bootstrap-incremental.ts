@@ -55,7 +55,7 @@ export async function runBootstrapIncrementalCommand(
     sourceDir,
     repoRoot: root,
     kbDir: paths.kbDir,
-    proposedDir: paths.proposedDir,
+    nodesDir: paths.nodesDir,
     logsDir: paths.logsDir,
     stateFile: join(paths.stateDir, 'state.json'),
     bootstrapStateFile: join(paths.stateDir, 'bootstrap-state.json'),
@@ -97,8 +97,12 @@ export async function runBootstrapIncrementalCommand(
         return 0;
       }
       log.success(
-        `Bootstrap finished: ${result.proposalsWritten} proposal(s) across ${result.batches} batch(es); ` +
-          `${toProcess} processed, ${result.unchanged} unchanged.`
+        `Bootstrap finished: ${result.nodesWritten} node(s) written across ${result.batches} batch(es); ` +
+          `${toProcess} processed, ${result.unchanged} unchanged` +
+          (result.skippedCollisions > 0
+            ? `, ${result.skippedCollisions} skipped (target node already exists)`
+            : '') +
+          '.'
       );
       if (result.runId) log.plain(`Run id: ${result.runId}`);
       const failures = result.processed.filter(p => p.status === 'failed');
@@ -106,7 +110,7 @@ export async function runBootstrapIncrementalCommand(
         log.warn(`${failures.length} file(s) failed to process; see logs for details.`);
         for (const f of failures) log.plain(`  ! ${f.relPath}: ${f.error ?? 'unknown error'}`);
       }
-      log.plain('Review the proposals under `.ai/knowledge-base/_proposed/` before committing.');
+      log.plain('Review new nodes with `git diff nodes/` before committing.');
       return 0;
     }
   }

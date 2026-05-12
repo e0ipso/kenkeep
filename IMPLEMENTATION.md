@@ -53,22 +53,22 @@ CLI surface:
 
 | Command | Purpose |
 |---|---|
-| `ai-knowledge-base init --assistants <list>` | First-time setup; copies hooks, templates, scaffolds a husky `pre-commit` hook driven by `lint-staged` + `secretlint`, and patches the consumer's `package.json` with the required devDeps. |
-| `ai-knowledge-base status` | Show pending session logs, pending proposals, KB stats. |
-| `ai-knowledge-base curate` | Run the curator non-interactively (CI-friendly). |
-| `ai-knowledge-base node add` | Interactive: create a draft node from manual input; lands in `_proposed/additions/`. |
-| `ai-knowledge-base bootstrap-incremental --from <path>` | Incremental re-bootstrap from markdown docs; processes only files whose content hash changed since last run. |
-| `ai-knowledge-base index rebuild` | Regenerate `INDEX.md` and `GRAPH.md` from current nodes. |
+| `ai-knowledge-base init --assistants <list>` | First-time setup; copies hooks, templates, scaffolds a husky `pre-commit` hook driven by `lint-staged` + `secretlint`, writes `.lintstagedrc.cjs` (which also wires `index rebuild --stage` on `nodes/**/*.md`), and patches the consumer's `package.json` with the required devDeps and `prepare` script. |
+| `ai-knowledge-base status` | Show pending session logs, pending curator conflicts, KB stats. |
+| `ai-knowledge-base curate` | Run the curator non-interactively (CI-friendly). Writes node files directly under `nodes/`; conflicts go to `.state/pending-conflicts.json` for in-session resolution. |
+| `ai-knowledge-base node add` | Interactive: create a node from manual input; writes directly to `nodes/<kind>/<id>.md`. |
+| `ai-knowledge-base bootstrap-incremental --from <path>` | Incremental re-bootstrap from markdown docs; processes only files whose content hash changed since last run. Writes nodes directly. |
+| `ai-knowledge-base index rebuild [--stage]` | Regenerate `INDEX.md` and `GRAPH.md` from current nodes. `--stage` runs `git add` on the regenerated files (used by the lint-staged pre-commit hook so INDEX/GRAPH land in the same commit as any `nodes/` change; no-ops outside a git repo). |
 | `ai-knowledge-base doctor` | Verify hook installation, secret scanner availability, schema validity, INDEX freshness, dangling `derived_from` (with `--verbose`). |
 
 In-session UX (Claude Code skills installed by `init` under `.claude/skills/<name>/SKILL.md`):
 
 | Skill | Purpose |
 |---|---|
-| `kb-curate` | Trigger the curator from inside a session. |
+| `kb-curate` | Trigger the curator from inside a session, then resolve any reported contradictions interactively with the user. |
 | `kb-show <topic-or-slug>` | Read a specific node into context. |
-| `kb-add` | Manually capture a node from inside a session; lands in `_proposed/additions/`. |
-| `kb-bootstrap [path]` | Agent-driven first-time bootstrap from existing markdown docs. Writes proposals to `_proposed/additions/` and updates `bootstrap-state.json`. |
+| `kb-add` | Manually capture a node from inside a session; writes directly to `nodes/<kind>/<id>.md`. |
+| `kb-bootstrap [path]` | Agent-driven first-time bootstrap from existing markdown docs. Writes nodes directly to `nodes/<kind>/` and updates `bootstrap-state.json`. |
 | `kb-propose-from-session` | Force a stage-2 extraction immediately, without waiting for `Stop`. |
 
 ## 3. Directory layout
@@ -96,10 +96,6 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   │   ├── _sessions/              # raw + structured session logs (gitignored by default)
 │   │   │   ├── .queue.json         # stage-2 work queue
 │   │   │   └── .dedup-cache.json   # SHA-256 dedup window
-│   │   ├── _proposed/              # curator output awaiting review
-│   │   │   ├── additions/
-│   │   │   ├── modifications/
-│   │   │   └── contradictions/
 │   │   ├── _logs/                  # stream-json traces of LLM runs (gitignored)
 │   │   │   ├── stage-2/
 │   │   │   │   └── <session-id>__<timestamp>.jsonl
@@ -107,15 +103,17 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   │   │   │   └── <run-id>__<timestamp>.jsonl
 │   │   │   └── bootstrap-incremental/
 │   │   │       └── <run-id>__<timestamp>.jsonl
-│   │   └── .state/                 # tool state (replaces legacy .ai/.kb-builder/)
+│   │   └── .state/                 # tool state (locks, version stamp, bootstrap state)
 │   │       ├── installed-version   # template version recording (committed)
 │   │       ├── state.json          # last_nudged_at, lock info (gitignored)
 │   │       ├── bootstrap-state.json # source-doc content hashes (gitignored)
+│   │       ├── pending-conflicts.json # curator-detected conflicts awaiting in-session resolution
 │   │       └── prompts/            # local prompt overrides (committed)
 ├── .gitignore                       # contains _sessions/, _logs/, state.json
 ├── .secretlintrc.json               # secretlint config (recommended preset)
 ├── .husky/pre-commit                # runs `npx lint-staged`
-└── package.json                     # adds husky/lint-staged/secretlint devDeps, prepare script, lint-staged block
+├── .lintstagedrc.cjs                # secretlint on every staged file + `index rebuild --stage` on nodes/
+└── package.json                     # adds husky/lint-staged/secretlint devDeps and `prepare: husky` script
 ```
 
 All AI-related state grouped under `.ai/`. Three things gitignored by default: `_sessions/`, `_logs/`, and `state.json`.
@@ -183,22 +181,31 @@ proposals:                       # populated by stage 2
 (populated by stage-2 worker)
 ```
 
-### 4.3 Proposal (`.ai/knowledge-base/_proposed/<kind>/<slug>.md`)
+### 4.3 Pending conflicts (`.ai/knowledge-base/.state/pending-conflicts.json`)
 
-Same shape as a node, plus a `proposal` block:
+The curator never writes conflicting nodes to disk. When it emits a `contradict` action, it records the conflict here for the kb-curate skill to resolve in-session with the user. Validated by `PendingConflictsFileSchema`.
 
-```yaml
----
-# ... node fields ...
-proposal:
-  kind: addition                 # addition | modification | contradiction
-  source_sessions: [...]
-  target_node: null              # for modification/contradiction
-  rationale: "..."
-  suggested_resolution: null     # for contradiction: supersede | keep_both | reject
-  curator_log: ".ai/knowledge-base/_logs/curator/<run-id>__<timestamp>.jsonl"
----
+```json
+{
+  "schema_version": 1,
+  "conflicts": [
+    {
+      "id": "<run-id>-<n>",
+      "detected_at": "<ISO>",
+      "run_id": "<curator run-id>",
+      "candidate_origin": "<session_id>:<practice|map>:<index>",
+      "target_node_id": "practice-foo",
+      "rationale": "<why the curator flagged this>",
+      "proposed_node": { /* CuratorProposedNode shape */ }
+    }
+  ]
+}
 ```
+
+Lifecycle:
+- The curate command rewrites this file at the end of every run (empty `conflicts` array on success). Past entries from prior runs are not preserved across runs.
+- The kb-curate skill reads it after `ai-knowledge-base curate` exits, walks each entry with the user, applies the chosen resolution by editing/creating the relevant `nodes/<kind>/<slug>.md`, and removes the entry from the file.
+- `ai-knowledge-base status` reads the count and displays it under "Pending work."
 
 ## 5. Capture pipeline (queue-based)
 
@@ -404,7 +411,7 @@ Per batch, the curator receives:
     ...
 ```
 
-It produces one of three actions per stage-2 candidate:
+It produces one of four actions per stage-2 candidate:
 
 ```json
 {
@@ -413,39 +420,39 @@ It produces one of three actions per stage-2 candidate:
   "target_node_id": "<id-or-null>",
   "proposed_node": { /* full node frontmatter + body */ },
   "rationale": "why this action",
-  "suggested_resolution": "supersede | keep_both | reject"   // contradict only
+  "suggested_resolution": null
 }
 ```
 
 Decision rules baked into the prompt:
 
-- **Add:** candidate is genuinely new; no existing node covers it.
-- **Modify:** candidate extends or refines an existing node without negating it.
-- **Contradict:** candidate directly negates an existing valid node. Always emits all three resolutions; never auto-resolves.
-- **Drop:** candidate is too low-confidence, too vague, or near-rephrasing of existing content. Document the drop reason but produce no proposal.
+- **Add:** candidate is genuinely new; no existing node covers it. The wrapper writes the new file at `nodes/<kind>/<id>.md`. If the file already exists, the wrapper records an `add_collision` failure and writes nothing.
+- **Modify:** candidate extends or refines an existing node without negating it. The wrapper overwrites `nodes/<kind>/<target_node_id>.md`. If the target doesn't exist on disk, the wrapper records a `modify_missing_target` failure and writes nothing.
+- **Contradict:** candidate directly negates an existing valid node. The wrapper records the conflict in `pending-conflicts.json` and writes nothing. Resolution happens in-session via the kb-curate skill.
+- **Drop:** candidate is too low-confidence, too vague, or near-rephrasing of existing content. Document the drop reason but produce no change.
 
 Anti-patterns the prompt avoids:
 
 - Modifications that just rephrase existing content. (Drop instead.)
 - Additions when a near-duplicate exists. (Convert to modification.)
-- Auto-resolving contradictions.
+- Suggesting a `suggested_resolution` value (the wrapper ignores it; resolution is the user's call).
 - Crossing the practice/map boundary.
 
 The full curator prompt lives in `templates/prompts/curator.md` and is the most important quality lever in curation (parallel to stage-2 in capture).
 
 ### 6.6 Contradiction handling
 
-Each contradiction proposal lists three resolutions:
+The curator never writes conflicting nodes. Each `contradict` action becomes an entry in `.ai/knowledge-base/.state/pending-conflicts.json` (target node id, proposed new content, rationale, run id; see §4.3). The kb-curate skill reads the file after the curator subprocess exits and resolves each conflict with the user in-session by offering one of three actions:
 
-- **`supersede`**: old node gets `valid_until: <now>` and `superseded_by: <new-id>`; new node gets `supersedes: <old-id>`.
-- **`keep_both`**: both remain valid, with `relates_to` linking them.
-- **`reject`**: new finding discarded; session log marked accordingly.
+- **Supersede**: overwrite the existing node with the proposed content. Set the new node's `supersedes` to the old id; refresh `valid_from`/`updated`.
+- **Keep both**: write the proposed content as a sibling node (different `id`) with `relates_to: [<old-id>]` so they stay linked.
+- **Reject**: do nothing on disk; dismiss the entry.
 
-The reviewer chooses by editing one line in the proposal frontmatter and moving the file. `ai-knowledge-base proposals apply` performs the resulting node mutations safely.
+After applying (or skipping) the action, the skill removes the entry from `pending-conflicts.json`. Unresolved conflicts persist across sessions and are surfaced by `ai-knowledge-base status`.
 
 ### 6.7 Inline INDEX/GRAPH regeneration
 
-After all proposals are written to `_proposed/`, the curator regenerates `INDEX.md` and `GRAPH.md` from the current state of `nodes/` (deterministic, no LLM). The reviewer's commit then includes both proposals and regenerated index files atomically. Review itself happens out-of-tree — proposals are plain markdown files that the reviewer walks with `git diff`, an editor, or a dedicated tool such as [self-review](https://github.com/e0ipso/self-review), and accepts by moving each file into `nodes/<kind>/` (stripping the `proposal:` block) before committing.
+After all `add`/`modify` actions have been applied to `nodes/`, the curator regenerates `INDEX.md` and `GRAPH.md` from the current state of `nodes/` (deterministic, no LLM). The reviewer inspects everything with `git diff nodes/`, accepts with `git commit`, and rejects unwanted changes with `git restore <path>`. The pre-commit lint-staged step (`ai-knowledge-base index rebuild --stage`) regenerates and stages a fresh `INDEX.md`/`GRAPH.md` whenever the staged content under `nodes/` differs from what the index records, so the index never drifts from the committed nodes.
 
 ### 6.8 Superseded nodes stay in place
 
@@ -453,13 +460,13 @@ Superseded nodes remain in `nodes/<kind>/<slug>.md` (not moved to `_archive/`). 
 
 ### 6.9 Manual-add path
 
-Two entry points produce a node without going through capture:
+Two entry points produce a node without going through capture. Both write directly to `nodes/<kind>/<id>.md`:
 
-- **`ai-knowledge-base node add`** — Interactive CLI that uses `@inquirer/prompts` to collect the node's `kind`, `title`, `summary`, `body`, `tags`, and optional `relates_to`. Validates against the node Zod schema. Writes to `_proposed/additions/<kind>-<slug>.md` with `proposal.kind: addition`, `source_sessions: []`, `rationale: "manual"`, `derived_from: []`, `confidence: high`. Reviewer flow is unchanged.
+- **`ai-knowledge-base node add`** — Interactive CLI that uses `@inquirer/prompts` to collect the node's `kind`, `title`, `summary`, `body`, `tags`, and optional `relates_to`. Validates against `NodeFrontmatterSchema`. Writes to `nodes/<kind>/<kind>-<slug>.md` with `derived_from: []`, `confidence: high`. Fails loud (exits 1) when the target file already exists — the user must pick a more specific title or edit the existing node directly.
 
-- **`/kb-add`** — Skill whose body instructs the agent to ask the user for the same fields (kind, title, summary, body, tags), assemble the proposal frontmatter, and write it to `_proposed/additions/`. The skill runs in the user's existing session; no `claude -p` subprocess needed. The skill's `allowed-tools` frontmatter restricts the agent to `Write` only.
+- **`/kb-add`** — Skill whose body instructs the agent to ask the user for the same fields (kind, title, summary, body, tags), assemble the node frontmatter, and write it directly to `nodes/<kind>/`. The skill runs in the user's existing session; no `claude -p` subprocess needed. The skill's `allowed-tools` frontmatter restricts the agent to `Write` only.
 
-Both paths land in `_proposed/additions/`, never directly in `nodes/`. The reviewer accepts or rejects via the same flow as session-derived proposals. This preserves the human-in-the-loop guarantee uniformly.
+The reviewer accepts via `git commit` and rejects via `git restore`. The pre-commit hook keeps INDEX/GRAPH in lockstep. This preserves the human-in-the-loop guarantee uniformly: no node enters the KB without a human commit.
 
 The manual-add path is also the v1 answer to "false-negative detection" — when a contributor notices something the extractor missed, they have a low-friction way to capture it without waiting for the next session.
 
@@ -475,13 +482,12 @@ Skill body lives in `templates/claude/skills/kb-bootstrap/SKILL.md`. When invoke
 2. Read top-level entry points first; sample representative content from subdirectories.
 3. Follow cross-references between docs to understand context.
 4. Identify candidate practice and map nodes per the §6 PRD definitions, using doc-appropriate triggers (imperative statements, "must/should/always/never," noun-phrase definitions, section headers naming components).
-5. For each candidate: write a proposal to `_proposed/additions/<kind>-<slug>.md` with:
-   - `proposal.kind: addition`
-   - `proposal.rationale: "bootstrap: <source-doc-path>"`
+5. For each candidate: write a node directly to `nodes/<kind>/<kind>-<slug>.md` with:
    - `derived_from: [<source-doc-path>]` (paths relative to repo root, committed to repo, so provenance always resolves)
    - `confidence: medium` (existing docs may be stale, contradictory, or aspirational; force reviewer judgment)
+   - **Never overwrite an existing node.** If the target file already exists, skip the candidate and surface the collision in the final report.
 6. Update `.ai/knowledge-base/.state/bootstrap-state.json` with content hashes of every doc read.
-7. Report a summary: how many proposals produced, which docs were read, which were skipped and why.
+7. Report a summary: how many nodes produced, which docs were read, which were skipped and why, plus any collisions skipped.
 
 The agent runs in the user's existing session — no `claude -p` subprocess. The user supervises and can intervene mid-run. The skill's `allowed-tools` frontmatter restricts the agent to `Read`, `Glob`, `Grep`, `Write` (for proposals and state file only), and a narrow `Bash` allow-list for `shasum`/`sha256sum`/`mkdir`.
 
@@ -505,13 +511,13 @@ Behavior:
 3. Read `.ai/knowledge-base/.state/bootstrap-state.json`. Skip files whose hash matches the recorded hash. Process files that are new or whose hash changed.
 4. Chunk the to-process set into batches sized by token budget (~10K tokens per batch; same chunking pattern as the curator).
 5. For each batch: spawn a `claude -p` subprocess with the bootstrap-incremental prompt and stream-json verbose output to `.ai/knowledge-base/_logs/bootstrap-incremental/<run-id>__<timestamp>.jsonl`. Include `KB_BUILDER_INTERNAL=1` for recursion safety.
-6. Parse output, validate against the same proposal schema as the curator, write to `_proposed/additions/`.
+6. Parse output, validate against `NodeFrontmatterSchema`, write each candidate directly to `nodes/<kind>/<kind>-<slug>.md`. Skip (and count) any candidate whose target file already exists; bootstrap never overwrites.
 7. Update `bootstrap-state.json` with new hashes and timestamps.
-8. `--dry-run` reports what would be processed without invoking the LLM or writing proposals.
+8. `--dry-run` reports what would be processed without invoking the LLM or writing nodes.
 
 The bootstrap-incremental prompt is in `templates/prompts/bootstrap-incremental.md`. It's a tighter variant of the agent-driven body: same output schema, same trigger patterns, but no exploration or cross-referencing — just per-chunk extraction. Cheap, predictable.
 
-**Overlap with existing nodes:** v1 always emits `addition` proposals. The reviewer is the merge mechanism — if a proposal duplicates an existing node, the reviewer rejects it. v2 may add curator-style modify/contradict logic for incremental re-bootstrap; deferred per §12.
+**Overlap with existing nodes:** v1 always treats candidates as additions. Conflicts with existing nodes are not merged — they're skipped and reported. The reviewer can hand-merge content into the existing node if desired. v2 may add curator-style modify/contradict logic for incremental re-bootstrap; deferred per §12.
 
 #### 6.10.3 Bootstrap state file schema
 
@@ -526,21 +532,21 @@ The bootstrap-incremental prompt is in `templates/prompts/bootstrap-incremental.
     "docs/architecture/auth.md": {
       "content_sha256": "abc123...",
       "last_processed_at": "2026-05-10T14:32:00Z",
-      "produced_proposals": [
-        "_proposed/additions/practice-auth-flow.md",
-        "_proposed/additions/map-auth-module.md"
+      "produced_nodes": [
+        "practice/practice-auth-flow.md",
+        "map/map-auth-module.md"
       ]
     },
     "README.md": {
       "content_sha256": "def456...",
       "last_processed_at": "2026-05-10T14:30:30Z",
-      "produced_proposals": []
+      "produced_nodes": []
     }
   }
 }
 ```
 
-`produced_proposals` is informational (useful for `ai-knowledge-base status` and future v2 features); incremental bootstrap doesn't currently use it for anything beyond reporting.
+`produced_nodes` is informational (useful for `ai-knowledge-base status` and future v2 features); incremental bootstrap doesn't currently use it for anything beyond reporting. Entries are bare `<kind>/<filename>.md` paths relative to `nodes/`.
 
 ## 7. Consume pipeline (`SessionStart`)
 
@@ -776,11 +782,11 @@ export interface Adapter {
 
 **Why.** If the LLM fails, raw redacted transcripts still exist. Stage 2 can be re-run and improved without losing data.
 
-### 11.10 Human-in-the-loop curation always
+### 11.10 Human-in-the-loop curation via git
 
-**Decision.** No code path writes to `nodes/` automatically. All proposals go through `_proposed/`.
+**Decision.** Skills, the curator, manual-add, and bootstrap all write directly to `nodes/`. The review gate is git: `git diff` to inspect, `git restore` to reject, `git commit` to accept. The pre-commit hook regenerates and stages `INDEX.md`/`GRAPH.md` so the index can never land out of sync with the committed nodes.
 
-**Why.** PRD requires it. Even straightforward additions can be wrong, redundant, or duplicate.
+**Why.** A single review surface (git) and a single frontmatter shape (`NodeFrontmatterSchema`) keep the contributor's mental model small: the workflow is the same as for code, the diff tooling is the same, and the index can't drift from what's committed. The human-in-the-loop guarantee — no node enters the KB without a human `git commit` — is enforced by the absence of any code path that commits on the user's behalf. Contradictions, which can't translate to a direct write because two competing claims would mean two competing files, are surfaced to the user in-session via `.state/pending-conflicts.json` and resolved by the kb-curate skill.
 
 ### 11.11 Secret scanning belt-and-suspenders, from M0
 
@@ -844,9 +850,9 @@ The policy is documented in the project's CONTRIBUTING.md so future schema autho
 
 ### 11.20 Manual-add path uniformity
 
-**Decision.** Both `ai-knowledge-base node add` (CLI) and `/kb-add` (slash command) write to `_proposed/additions/`, never directly to `nodes/`. They produce proposals with `rationale: "manual"` so they're distinguishable in review.
+**Decision.** Both `ai-knowledge-base node add` (CLI) and `/kb-add` (slash command) write directly to `nodes/<kind>/<id>.md`. Acceptance is `git commit`; rejection is `git restore <path>`.
 
-**Why.** Two reasons. First, the human-in-the-loop guarantee is uniform: every change to `nodes/` goes through review, regardless of source. Second, this gives v1 a low-friction answer to "false-negative detection" — contributors who notice missing knowledge can capture it directly without waiting for a session that happens to teach the same thing. The acceptance metric (≥80% of proposals accepted) only catches false positives; manual-add is the workaround for false negatives.
+**Why.** Two reasons. First, the human-in-the-loop guarantee is uniform: every node enters the KB through a `git commit`, regardless of source (manual, curator, bootstrap). Second, this gives v1 a low-friction answer to "false-negative detection" — contributors who notice missing knowledge can capture it directly without waiting for a session that happens to teach the same thing. The acceptance metric (≥80% of curator outputs accepted) only catches false positives; manual-add is the workaround for false negatives.
 
 ### 11.21 Two-tool bootstrap design
 
@@ -868,9 +874,9 @@ Each phase shippable on its own.
 
 **M2 — Stage 2 drain.** `kb-stage2-drain.mjs` async SessionStart hook. Adapter's `runHeadless` implementation invoking `claude -p --output-format stream-json --verbose`. Stream-json log writing under `_logs/stage-2/`. Two-pass extraction prompt with role-aware rules. Tests with a mocked subprocess against fixture transcripts.
 
-**M3 — Curate pipeline + manual-add.** `/kb-curate` slash command, curator prompt with batching and contradiction handling, proposal generation, `_proposed/` layout. Validity windows and supersedes/superseded_by wired in. Lock file with PID + TTL. `_logs/curator/` writing. Inline INDEX regen happens here. Review is out-of-tree — proposals are markdown files the reviewer walks with `git diff` or a tool like [self-review](https://github.com/e0ipso/self-review). Manual-add path (`ai-knowledge-base node add` and `/kb-add`) ships in this phase since it shares the proposal-write infrastructure.
+**M3 — Curate pipeline + manual-add.** `/kb-curate` slash command, curator prompt with batching and contradiction handling, direct writes to `nodes/`, conflict side-channel at `.state/pending-conflicts.json`. Validity windows and supersedes/superseded_by wired in. Lock file with PID + TTL. `_logs/curator/` writing. Inline INDEX regen happens here, plus the `index rebuild --stage` flag and the `.lintstagedrc.cjs` entry that runs it on every commit so INDEX/GRAPH stay in lockstep with `nodes/`. Review is git: `git diff nodes/` to inspect, `git commit` to accept, `git restore` to reject. Manual-add path (`ai-knowledge-base node add` and `/kb-add`) ships in this phase since it shares the node-write infrastructure.
 
-**M3.5 — Bootstrap from existing docs.** `/kb-bootstrap` skill (agent-driven, in-session) for first-time bootstrap. `ai-knowledge-base bootstrap-incremental` CLI for re-runs. `bootstrap-state.json` schema and Zod validator. `_logs/bootstrap-incremental/` writing. Bootstrap-specific prompts under `templates/prompts/bootstrap-incremental.md` and `templates/claude/skills/kb-bootstrap/SKILL.md`. Ships after M3 because it depends on the proposal-write infrastructure (manual-add) and the chunking pattern (curator). Optional path for users — empty-KB start still works without invoking either bootstrap tool.
+**M3.5 — Bootstrap from existing docs.** `/kb-bootstrap` skill (agent-driven, in-session) for first-time bootstrap. `ai-knowledge-base bootstrap-incremental` CLI for re-runs. `bootstrap-state.json` schema and Zod validator. `_logs/bootstrap-incremental/` writing. Bootstrap-specific prompts under `templates/prompts/bootstrap-incremental.md` and `templates/claude/skills/kb-bootstrap/SKILL.md`. Both write directly to `nodes/` and never overwrite existing files (collisions are skipped and reported). Ships after M3 because it depends on the node-write infrastructure and the chunking pattern (curator). Optional path for users — empty-KB start still works without invoking either bootstrap tool.
 
 **M4 — SessionStart consumption.** `INDEX.md` generator (called inline by curate), `kb-session-start.mjs` hook, threshold nudge with hourly throttle, stale-INDEX detection, dangling-`derived_from` doctor warnings.
 
@@ -879,7 +885,7 @@ Each phase shippable on its own.
 ## 13. Testing strategy
 
 - **Unit tests** (`vitest`): frontmatter parsers, schema validators, INDEX generator (golden files), `nodes_hash` computation, dedup cache, secretlint redaction & finding-to-range conversion, queue file atomic write, lock TTL, stale-INDEX detection, role-tagged transcript splitting, stream-json line parser.
-- **Integration smoke tests with mocked subprocess:** stage-2 extractor against fixture transcripts (covering teaching moments, project-map introductions, role-aware filtering, ownership boundary cases); curator against fixture session-log + node sets (covering additions, modifications, contradictions, batching, dedup).
+- **Integration smoke tests with mocked subprocess:** stage-2 extractor against fixture transcripts (covering teaching moments, project-map introductions, role-aware filtering, ownership boundary cases); curator against fixture session-log + node sets (covering add/modify/contradict/drop, add-collision and missing-target failures, conflict side-channel population, batching, dedup).
 - **Real-`claude` end-to-end suite:** a separate test suite (run on demand, not in CI by default) exercising one full capture → drain → curate → consume cycle against the actual `claude -p` CLI with a controlled fixture transcript. Catches drift in CLI behavior or prompt regressions that mocks miss.
 - **Manual testing checklist** in `docs/manual-test-plan.md`: PreCompact timing, hook installation on Windows, secretlint redaction on each platform, real session capture quality, log file rotation behavior.
 
@@ -974,8 +980,8 @@ Documentation grows with the code, not all at the end. Per-phase doc work:
 | M0 | Top-level README; CONTRIBUTING.md; in-KB README template; docs site skeleton (Home + empty Getting Started shell); GitHub Pages deployment configured |
 | M1 | Reference > Hook events; Reference > CLI command coverage for `init`, `doctor`, `status`; Getting Started > Installation page completed |
 | M2 | Customization > Editing the stage-2 prompt; Reference > Settings (token budget, drain bound, threshold); Troubleshooting > Reading `_logs/stage-2/` |
-| M3 | Reference > Skills; Reference > CLI for `curate`, `node add`; Reviewing proposals (out-of-tree, with `git diff` or self-review); Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/`; Getting Started > First capture → curate (end-to-end walkthrough) |
-| M3.5 | Bootstrap > First-time bootstrap (`/kb-bootstrap` agent-driven walkthrough); Bootstrap > Incremental bootstrap (CLI usage, glob filters, dry-run); Customization > Editing the bootstrap-incremental prompt; Reference > `bootstrap-state.json` schema; Reference > CLI for `bootstrap-incremental` |
+| M3 | Reference > Skills; Reference > CLI for `curate`, `node add`, `index rebuild --stage`; Review-via-git workflow page; Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/` and resolving `pending-conflicts.json`; Getting Started > First capture → curate (end-to-end walkthrough) |
+| M3.5 | Bootstrap > First-time bootstrap (`/kb-bootstrap` agent-driven walkthrough); Bootstrap > Incremental bootstrap (CLI usage, glob filters, dry-run, collision reporting); Customization > Editing the bootstrap-incremental prompt; Reference > `bootstrap-state.json` schema; Reference > CLI for `bootstrap-incremental` |
 | M4 | Core Concepts > How it works; Core Concepts > Knowledge model; Reference > Frontmatter schemas; INDEX/GRAPH explanation |
 | M5 | Troubleshooting > Common issues (seeded with whatever the team has hit during M1–M4 testing); Architecture page; final pass on every page for accuracy |
 

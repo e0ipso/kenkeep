@@ -15,7 +15,7 @@ npx @e0ipso/ai-knowledge-base init --assistants claude
 ai-knowledge-base doctor
 ```
 
-Then code normally. When you want to turn captured material into reviewable proposals, run `/kb-curate` inside a Claude Code session (or `ai-knowledge-base curate` in a shell).
+Then code normally. When you want to turn captured material into knowledge nodes, run `/kb-curate` inside a Claude Code session (or `ai-knowledge-base curate` in a shell). New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
 
 ## Read next
 

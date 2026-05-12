@@ -53,7 +53,6 @@ export interface RepoPaths {
   installedVersionFile: string;
   projectConfigFile: string;
   sessionsDir: string;
-  proposedDir: string;
   logsDir: string;
   nodesDir: string;
   claudeDir: string;
@@ -66,6 +65,7 @@ export interface RepoPaths {
   huskyDir: string;
   huskyPreCommitFile: string;
   packageJsonFile: string;
+  lintstagedrcFile: string;
 }
 
 export function repoPaths(root: string): RepoPaths {
@@ -85,7 +85,6 @@ export function repoPaths(root: string): RepoPaths {
     installedVersionFile: join(stateDir, 'installed-version'),
     projectConfigFile: join(kbDir, '.config.json'),
     sessionsDir: join(kbDir, '_sessions'),
-    proposedDir: join(kbDir, '_proposed'),
     logsDir: join(kbDir, '_logs'),
     nodesDir: join(kbDir, 'nodes'),
     claudeDir,
@@ -98,6 +97,7 @@ export function repoPaths(root: string): RepoPaths {
     huskyDir: join(root, '.husky'),
     huskyPreCommitFile: join(root, '.husky', 'pre-commit'),
     packageJsonFile: join(root, 'package.json'),
+    lintstagedrcFile: join(root, '.lintstagedrc.cjs'),
   };
 }
 

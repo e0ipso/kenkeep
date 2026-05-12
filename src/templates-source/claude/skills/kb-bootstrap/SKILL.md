@@ -1,6 +1,6 @@
 ---
 name: kb-bootstrap
-description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes proposal files under `.ai/knowledge-base/_proposed/additions/` for human review. Supervised by the user — never writes to `nodes/` directly. Use when the user wants to seed an empty knowledge base from the project's existing docs.
+description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/knowledge-base/nodes/`. Supervised by the user, who reviews each node with `git diff` before committing. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 allowed-tools: Read, Glob, Grep, Write, Bash(shasum:*), Bash(sha256sum:*), Bash(mkdir:*)
 ---
 
@@ -10,7 +10,7 @@ You are doing a one-time bootstrap of this project's knowledge base from its exi
 
 ## Your task
 
-Survey the project's existing markdown documentation, extract candidate knowledge nodes, and write them as proposal files for the user to review. You will work judgmentally — exploring, sampling, following cross-references — not exhaustively. This is a one-pass operation, supervised.
+Survey the project's existing markdown documentation, extract candidate knowledge nodes, and write them as new node files directly under `nodes/`. The user reviews everything with `git diff` and accepts or rejects each node with `git commit` or `git restore <path>`. You will work judgmentally — exploring, sampling, following cross-references — not exhaustively. This is a one-pass operation, supervised.
 
 ## Inputs
 
@@ -64,9 +64,11 @@ Skip:
 - Licenses, changelogs, contributor lists.
 - Boilerplate.
 
-### 5. Write proposals
+### 5. Write nodes
 
-For each candidate, write a proposal file under `.ai/knowledge-base/_proposed/additions/<kind>-<slug>.md`. Use the standard proposal frontmatter:
+For each candidate, write a node file at `.ai/knowledge-base/nodes/<kind>/<kind>-<slug>.md`. **Before writing, check whether the file already exists** — bootstrap is conservative and never overwrites an existing node. If you hit a collision, refine the title or skip the candidate and call it out in your final report.
+
+Use the standard node frontmatter:
 
 ```yaml
 ---
@@ -86,13 +88,6 @@ relates_to: []
 depends_on: []
 confidence: medium
 summary: "≤140 char summary"
-proposal:
-  kind: addition
-  source_sessions: []
-  target_node: null
-  rationale: "bootstrap: <source-doc-path>"
-  suggested_resolution: null
-  curator_log: null
 ---
 
 # <Title>
@@ -100,13 +95,13 @@ proposal:
 <Body in markdown — 1-4 short paragraphs.>
 ```
 
-Default `confidence: medium` for bootstrap content. Existing docs may be stale or aspirational; the reviewer needs to assess each one. Use `confidence: high` only when the doc explicitly states the rule with rationale and the doc looks actively maintained.
+Default `confidence: medium` for bootstrap content. Existing docs may be stale or aspirational; the reviewer needs to assess each one with `git diff`. Use `confidence: high` only when the doc explicitly states the rule with rationale and the doc looks actively maintained.
 
-If a candidate is sourced from multiple docs (you found the same convention discussed in two places), list all of them in `derived_from` and produce a single proposal, not duplicates.
+If a candidate is sourced from multiple docs (you found the same convention discussed in two places), list all of them in `derived_from` and produce a single node, not duplicates.
 
 ### 6. Track state
 
-After writing proposals, update `.ai/knowledge-base/.state/bootstrap-state.json`. For every doc you read (even ones that produced zero candidates), record its content SHA-256 and the timestamp. This lets future `bootstrap-incremental` runs skip unchanged files.
+After writing nodes, update `.ai/knowledge-base/.state/bootstrap-state.json`. For every doc you read (even ones that produced zero candidates), record its content SHA-256 and the timestamp. This lets future `bootstrap-incremental` runs skip unchanged files.
 
 Schema:
 
@@ -119,7 +114,7 @@ Schema:
     "<relative-path>": {
       "content_sha256": "<sha256-hex>",
       "last_processed_at": "<ISO>",
-      "produced_proposals": ["<proposal-file-path>", ...]
+      "produced_nodes": ["<kind>/<filename>.md", ...]
     }
   }
 }
@@ -132,27 +127,28 @@ Use the `Bash` tool to compute SHA-256: `shasum -a 256 <file>` on macOS/Linux, o
 When you're done, summarize for the user:
 
 - How many docs you read; which ones you skipped and why.
-- How many practice proposals you wrote.
-- How many map proposals you wrote.
+- How many practice nodes you wrote.
+- How many map nodes you wrote.
+- Any collisions you skipped (file already existed) — the user may want to merge content manually.
 - Any cross-references you noticed but didn't follow (the user might want to direct you to those).
 - Any docs that looked stale or contradictory that the user should double-check.
 
-Then suggest the user review the proposals under `.ai/knowledge-base/_proposed/` before committing them.
+Then tell the user to review with `git diff nodes/`, accept individual files with `git add nodes/<kind>/<file>.md && git commit`, and reject the rest with `git restore nodes/<kind>/<file>.md`.
 
 ## Constraints
 
-- **Never write to `.ai/knowledge-base/nodes/` directly.** All output goes to `_proposed/additions/`. The reviewer is the only path to `nodes/`.
-- **Never auto-resolve perceived contradictions during bootstrap.** If you notice two docs that disagree, write both as separate proposals and mention the conflict in your final report. The reviewer decides.
-- **Don't hallucinate rationale.** Only include "because…" content that's actually present in the source. If the doc just says "use X," your proposal says "use X" — not "use X because of [made-up reason]."
+- **Never overwrite an existing node in `nodes/`.** Bootstrap only writes files that don't already exist. If you'd collide, skip and report.
+- **Never auto-resolve perceived contradictions during bootstrap.** If you notice two docs that disagree, write only one as a node and surface the conflict in your final report so the user can decide. Do not write a second contradictory node.
+- **Don't hallucinate rationale.** Only include "because…" content that's actually present in the source. If the doc just says "use X," your node says "use X" — not "use X because of [made-up reason]."
 - **Don't try to read code files.** Stick to markdown documentation. The point of bootstrap is to extract what's already been written down.
-- **Tools allowed:** `Read`, `Glob`, `Grep`, `Write` (for proposals and the state file only), `Bash` (for `shasum`/`sha256sum`/`mkdir -p` only). Do not run other Bash commands.
+- **Tools allowed:** `Read`, `Glob`, `Grep`, `Write` (for nodes and the state file only), `Bash` (for `shasum`/`sha256sum`/`mkdir -p` only). Do not run other Bash commands.
 
 ## When to stop
 
 Stop and ask the user if:
 - The docs directory contains more than ~100 markdown files (likely needs scoping).
 - You encounter a doc that's clearly contentious or version-specific and you can't tell which version is current.
-- You realize you've been over-extracting (proposals piling up faster than the user can plausibly review).
+- You realize you've been over-extracting (nodes piling up faster than the user can plausibly review).
 - The user has not corrected you in a while but your confidence is dropping.
 
 Bootstrap is supervised. Defer to the human when uncertain.

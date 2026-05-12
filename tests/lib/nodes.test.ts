@@ -6,12 +6,12 @@ import {
   computeNodesHash,
   deriveNodeId,
   ensureUniqueId,
-  proposalFilename,
+  nodeFileExists,
   readAllNodes,
   slugify,
-  writeProposalFile,
+  writeNodeFile,
 } from '../../src/lib/nodes.js';
-import type { ProposalFrontmatter } from '../../src/lib/schemas.js';
+import type { NodeFrontmatter } from '../../src/lib/schemas.js';
 
 function seedNode(dir: string, kind: 'practice' | 'map', id: string, body = '# body\n'): void {
   const file = join(dir, kind, `${id}.md`);
@@ -92,44 +92,35 @@ describe('nodes helpers', () => {
     expect(ensureUniqueId(set, 'practice-foo')).toBe('practice-foo-3');
   });
 
-  it('writeProposalFile serializes valid frontmatter and round-trips', () => {
-    const proposedDir = join(root, '_proposed');
-    const fm: ProposalFrontmatter = {
+  it('writeNodeFile validates frontmatter and atomically writes nodes/<kind>/<id>.md', () => {
+    const fm: NodeFrontmatter = {
       schema_version: 1,
       id: 'practice-write-test',
       title: 'Write test',
       kind: 'practice',
       tags: ['x'],
-      valid_from: '2026-05-11T10:00:00Z',
+      valid_from: '2026-05-12T10:00:00Z',
       valid_until: null,
-      updated: '2026-05-11T10:00:00Z',
+      updated: '2026-05-12T10:00:00Z',
       supersedes: null,
       superseded_by: null,
       derived_from: ['session-1.md'],
       relates_to: [],
       depends_on: [],
       confidence: 'high',
-      summary: 'For testing the proposal writer.',
-      proposal: {
-        kind: 'addition',
-        source_sessions: ['session-1'],
-        target_node: null,
-        rationale: 'unit test',
-        suggested_resolution: null,
-        curator_log: null,
-      },
+      summary: 'For testing the node writer.',
     };
-    const written = writeProposalFile({
-      proposedDir,
-      proposalKind: 'additions',
-      filename: proposalFilename('practice', 'practice-write-test'),
+    const written = writeNodeFile({
+      nodesDir: root,
       frontmatter: fm,
       body: '# Write test\n\nBody.',
     });
+    expect(written).toBe(join(root, 'practice', 'practice-write-test.md'));
     const raw = readFileSync(written, 'utf8');
     expect(raw).toContain('id: practice-write-test');
-    expect(raw).toContain('proposal:');
-    expect(raw).toContain('rationale: unit test');
+    expect(raw).not.toContain('proposal:');
     expect(raw).toContain('# Write test');
+    expect(nodeFileExists(root, 'practice', 'practice-write-test')).toBe(true);
+    expect(nodeFileExists(root, 'practice', 'practice-other')).toBe(false);
   });
 });

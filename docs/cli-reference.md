@@ -13,7 +13,7 @@ The `ai-knowledge-base` binary is available after install (or run via `npx`).
 ai-knowledge-base init --assistants claude [--force] [--upgrade [--dry-run]]
 ```
 
-First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, the commit-time secret-scan scaffold (`.secretlintrc.json`, `.husky/pre-commit`, and a `lint-staged` block plus devDeps in `package.json`), and a managed `.gitignore` block. Requires a `package.json` at the repo root.
+First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, the commit-time secret-scan scaffold (`.secretlintrc.json`, `.husky/pre-commit`, `.lintstagedrc.cjs`, plus devDeps and a `prepare: husky` script in `package.json`), and a managed `.gitignore` block. The `.lintstagedrc.cjs` runs secretlint on every staged file and `ai-knowledge-base index rebuild --stage` whenever a file under `.ai/knowledge-base/nodes/` is staged. Requires a `package.json` at the repo root.
 
 - `--force` — overwrite existing files (never touches your project config).
 - `--upgrade` — refresh templates while preserving customizations. Pair with `--dry-run` to preview.
@@ -24,7 +24,7 @@ First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, t
 ai-knowledge-base doctor [--verbose]
 ```
 
-Checks Node version, that `claude` is on PATH, that secretlint resolves in `node_modules`, that the commit-time scan is wired (husky + lint-staged + `.secretlintrc.json`), settings validity, INDEX freshness, and dangling references. Exits 0 when there are no errors.
+Checks Node version, that `claude` is on PATH, that secretlint resolves in `node_modules`, that the commit-time scan is wired (`.husky/pre-commit`, `.lintstagedrc.cjs`, `.secretlintrc.json`), settings validity, INDEX freshness, and dangling references. Exits 0 when there are no errors.
 
 ## `status`
 
@@ -32,7 +32,7 @@ Checks Node version, that `claude` is on PATH, that secretlint resolves in `node
 ai-knowledge-base status
 ```
 
-Prints pending work: queued captures, pending session logs, pending proposals, current node counts.
+Prints pending work: queued captures, pending session logs, pending curator conflicts, current node counts.
 
 ## `curate`
 
@@ -40,7 +40,7 @@ Prints pending work: queued captures, pending session logs, pending proposals, c
 ai-knowledge-base curate [--batch-size <n>] [--token-budget <n>] [--timeout <ms>]
 ```
 
-Run the curator over all session logs that have been processed but not yet curated. Writes proposals to `_proposed/`.
+Run the curator over all session logs that have been processed but not yet curated. The curator writes new node files directly to `nodes/<kind>/<id>.md` for `add` actions and overwrites the target file for `modify` actions. `contradict` actions are recorded in `.ai/knowledge-base/.state/pending-conflicts.json` for the `/kb-curate` skill to resolve in-session with the user. Review the resulting changes with `git diff nodes/`.
 
 ## `node add`
 
@@ -48,7 +48,7 @@ Run the curator over all session logs that have been processed but not yet curat
 ai-knowledge-base node add
 ```
 
-Interactive prompt to create a node manually. Writes to `_proposed/additions/`.
+Interactive prompt to create a node manually. Writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`. Fails loud if a node with that id already exists. Review with `git diff` and commit to accept.
 
 ## `bootstrap-incremental`
 
@@ -63,10 +63,12 @@ Deterministic, hash-aware bootstrap from existing markdown docs. Skips files who
 ## `index rebuild`
 
 ```sh
-ai-knowledge-base index rebuild [--budget-tokens <n>]
+ai-knowledge-base index rebuild [--budget-tokens <n>] [--stage]
 ```
 
 Regenerate `INDEX.md` and `GRAPH.md` from `nodes/`. No LLM. Run after hand-edits or rebases.
+
+`--stage` runs `git add` on the regenerated `INDEX.md`/`GRAPH.md` after writing. Used by the `lint-staged` pre-commit hook (configured by `init` in `.lintstagedrc.cjs`) so the freshly regenerated index files land in the same commit as any `nodes/` change. Skips the regen entirely (and stages nothing) when the recorded `nodes_hash` already matches the live tree. No-ops gracefully outside a git repo.
 
 ## `logs prune`
 

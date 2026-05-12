@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import matter from 'gray-matter';
@@ -20,7 +12,7 @@ import {
   runCurate,
   type CuratorRunner,
 } from '../../src/lib/curate.js';
-import type { CuratorAction, Stage2Candidate } from '../../src/lib/schemas.js';
+import type { CuratorAction, NodeFrontmatter, Stage2Candidate } from '../../src/lib/schemas.js';
 import { acquireLock, readState } from '../../src/lib/state.js';
 
 interface Harness {
@@ -28,7 +20,6 @@ interface Harness {
   kbDir: string;
   sessionsDir: string;
   nodesDir: string;
-  proposedDir: string;
   logsDir: string;
   stateFile: string;
 }
@@ -38,15 +29,13 @@ function makeHarness(): Harness {
   const kbDir = join(root, '.ai/knowledge-base');
   const sessionsDir = join(kbDir, '_sessions');
   const nodesDir = join(kbDir, 'nodes');
-  const proposedDir = join(kbDir, '_proposed');
   const logsDir = join(kbDir, '_logs');
   const stateFile = join(root, '.ai/knowledge-base/.state/state.json');
   mkdirSync(sessionsDir, { recursive: true });
   mkdirSync(nodesDir, { recursive: true });
-  mkdirSync(proposedDir, { recursive: true });
   mkdirSync(logsDir, { recursive: true });
   mkdirSync(dirname(stateFile), { recursive: true });
-  return { root, kbDir, sessionsDir, nodesDir, proposedDir, logsDir, stateFile };
+  return { root, kbDir, sessionsDir, nodesDir, logsDir, stateFile };
 }
 
 function seedSession(
@@ -54,7 +43,7 @@ function seedSession(
   sessionId: string,
   practice: Stage2Candidate[],
   map: Stage2Candidate[],
-  capturedAt = '2026-05-11T10:00:00Z'
+  capturedAt = '2026-05-12T10:00:00Z'
 ): string {
   const filename = `session-${sessionId}.md`;
   const fm = {
@@ -74,6 +63,34 @@ function seedSession(
   const body = matter.stringify('## Stage 2: structured summary\n', fm);
   writeFileSync(join(harness.sessionsDir, filename), body);
   return filename;
+}
+
+function seedExistingNode(
+  harness: Harness,
+  kind: 'practice' | 'map',
+  id: string,
+  body = '# existing\nold body\n'
+): void {
+  const dir = join(harness.nodesDir, kind);
+  mkdirSync(dir, { recursive: true });
+  const fm = {
+    schema_version: 1,
+    id,
+    title: `${id} title`,
+    kind,
+    tags: [],
+    valid_from: '2026-01-01T00:00:00Z',
+    valid_until: null,
+    updated: '2026-01-01T00:00:00Z',
+    supersedes: null,
+    superseded_by: null,
+    derived_from: [],
+    relates_to: [],
+    depends_on: [],
+    confidence: 'high',
+    summary: 'existing summary',
+  };
+  writeFileSync(join(dir, `${id}.md`), matter.stringify(body, fm));
 }
 
 function makeCandidate(kind: 'practice' | 'map', title: string): Stage2Candidate {
@@ -111,7 +128,7 @@ function makeAction(
             derived_from: ['session-1.md'],
             relates_to: [],
             supersedes: null,
-            valid_from: '2026-05-11T10:00:00Z',
+            valid_from: '2026-05-12T10:00:00Z',
             valid_until: null,
             superseded_by: null,
           },
@@ -135,7 +152,7 @@ describe('listPendingSessions', () => {
       schema_version: 1,
       session_id: 'pending',
       captured_by: 'stop',
-      captured_at: '2026-05-11T10:00:00Z',
+      captured_at: '2026-05-12T10:00:00Z',
       transcript_hash: 'sha256:pending',
       stage_2_status: 'pending',
       stage_2_completed_at: null,
@@ -157,7 +174,7 @@ describe('batchSessions', () => {
       filename: `s-${i}.md`,
       filePath: `s-${i}.md`,
       sessionId: `s-${i}`,
-      capturedAt: '2026-05-11T10:00:00Z',
+      capturedAt: '2026-05-12T10:00:00Z',
       topics: [],
       practiceCandidates: [makeCandidate('practice', `c-${i}`)],
       mapCandidates: [],
@@ -181,7 +198,7 @@ describe('dedupActions', () => {
         derived_from: [],
         relates_to: [],
         supersedes: null,
-        valid_from: '2026-05-11T10:00:00Z',
+        valid_from: '2026-05-12T10:00:00Z',
         valid_until: null,
         superseded_by: null,
       },
@@ -198,7 +215,7 @@ describe('dedupActions', () => {
         derived_from: [],
         relates_to: [],
         supersedes: null,
-        valid_from: '2026-05-11T10:00:00Z',
+        valid_from: '2026-05-12T10:00:00Z',
         valid_until: null,
         superseded_by: null,
       },
@@ -214,7 +231,19 @@ describe('runCurate', () => {
   beforeEach(() => (harness = makeHarness()));
   afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
 
-  it('writes a proposal per non-drop action and marks the session as processed', async () => {
+  function ctx(runner: CuratorRunner) {
+    return {
+      kbDir: harness.kbDir,
+      sessionsDir: harness.sessionsDir,
+      nodesDir: harness.nodesDir,
+      logsDir: harness.logsDir,
+      stateFile: harness.stateFile,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner,
+    };
+  }
+
+  it('writes a node per add action and marks the session as processed', async () => {
     seedSession(harness, 's1', [makeCandidate('practice', 'Use X')], []);
     const runner: CuratorRunner = async () => [
       makeAction('add', {
@@ -229,27 +258,26 @@ describe('runCurate', () => {
           derived_from: ['session-s1.md'],
           relates_to: [],
           supersedes: null,
-          valid_from: '2026-05-11T10:00:00Z',
+          valid_from: '2026-05-12T10:00:00Z',
           valid_until: null,
           superseded_by: null,
         },
       }),
     ];
 
-    const result = await runCurate({
-      kbDir: harness.kbDir,
-      sessionsDir: harness.sessionsDir,
-      nodesDir: harness.nodesDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner,
-    });
+    const result = await runCurate(ctx(runner));
 
     expect(result.status).toBe('completed');
-    expect(result.proposalsWritten).toBe(1);
-    expect(existsSync(join(harness.proposedDir, 'additions', 'practice-use-x.md'))).toBe(true);
+    expect(result.nodesWritten).toBe(1);
+    expect(result.failures).toEqual([]);
+    expect(result.conflicts).toEqual([]);
+    const nodeFile = join(harness.nodesDir, 'practice', 'practice-use-x.md');
+    expect(existsSync(nodeFile)).toBe(true);
+    // Frontmatter is the pure node shape — no `proposal:` block.
+    const fm = matter(readFileSync(nodeFile, 'utf8')).data as Record<string, unknown>;
+    expect(fm).not.toHaveProperty('proposal');
+    expect(fm['id']).toBe('practice-use-x');
+    expect((fm as NodeFrontmatter).title).toBe('Use X');
     // INDEX/GRAPH regenerated.
     expect(existsSync(join(harness.kbDir, 'INDEX.md'))).toBe(true);
     expect(existsSync(join(harness.kbDir, 'GRAPH.md'))).toBe(true);
@@ -259,45 +287,116 @@ describe('runCurate', () => {
     expect(typeof (after.data as Record<string, unknown>)['curator_run_id']).toBe('string');
   });
 
-  it('routes modifications, contradictions, and additions to the right folders', async () => {
-    seedSession(
-      harness,
-      's',
-      [
-        makeCandidate('practice', 'Add'),
-        makeCandidate('practice', 'Mod'),
-        makeCandidate('practice', 'Contradict'),
-      ],
-      []
-    );
+  it('modify overwrites the targeted node; contradict records a conflict without writing', async () => {
+    seedExistingNode(harness, 'practice', 'practice-mod-target', '# orig\n');
+    seedExistingNode(harness, 'practice', 'practice-contra-target', '# orig contra\n');
+    seedSession(harness, 's', [makeCandidate('practice', 'M'), makeCandidate('practice', 'C')], []);
     const runner: CuratorRunner = async () => [
-      makeAction('add'),
-      makeAction('modify', { target_node_id: 'practice-mod-target' }),
+      makeAction('modify', {
+        target_node_id: 'practice-mod-target',
+        proposed_node: {
+          id: 'practice-mod-target',
+          title: 'Modified Title',
+          kind: 'practice',
+          tags: ['m'],
+          summary: 'merged summary',
+          body: '# Merged\nUpdated body.\n',
+          confidence: 'high',
+          derived_from: [],
+          relates_to: [],
+          supersedes: null,
+          valid_from: '2026-05-12T10:00:00Z',
+          valid_until: null,
+          superseded_by: null,
+        },
+      }),
       makeAction('contradict', { target_node_id: 'practice-contra-target' }),
     ];
-    await runCurate({
-      kbDir: harness.kbDir,
-      sessionsDir: harness.sessionsDir,
-      nodesDir: harness.nodesDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner,
-    });
-    expect(readdirSync(join(harness.proposedDir, 'additions'))).toHaveLength(1);
-    expect(readdirSync(join(harness.proposedDir, 'modifications'))).toHaveLength(1);
-    expect(readdirSync(join(harness.proposedDir, 'contradictions'))).toHaveLength(1);
-    // Contradiction proposal must NOT auto-pick a resolution.
-    const contradictFile = join(
-      harness.proposedDir,
-      'contradictions',
-      readdirSync(join(harness.proposedDir, 'contradictions'))[0]!
+
+    const result = await runCurate(ctx(runner));
+
+    expect(result.nodesWritten).toBe(1);
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.failures).toEqual([]);
+    // modify overwrote the original.
+    const mod = matter(
+      readFileSync(join(harness.nodesDir, 'practice', 'practice-mod-target.md'), 'utf8')
     );
-    const fm = matter(readFileSync(contradictFile, 'utf8')).data as {
-      proposal: { suggested_resolution: string | null };
-    };
-    expect(fm.proposal.suggested_resolution).toBeNull();
+    expect((mod.data as NodeFrontmatter).title).toBe('Modified Title');
+    expect(mod.content).toContain('Updated body');
+    // contradict left the original alone.
+    const contra = readFileSync(
+      join(harness.nodesDir, 'practice', 'practice-contra-target.md'),
+      'utf8'
+    );
+    expect(contra).toContain('orig contra');
+    // Conflict report is shaped correctly.
+    const c = result.conflicts[0]!;
+    expect(c.target_node_id).toBe('practice-contra-target');
+    expect(c.rationale).toBe('because');
+    expect(c.proposed_node?.id).toBe('practice-contradict-node');
+  });
+
+  it('add against an existing node is a fail-loud failure (no overwrite)', async () => {
+    seedExistingNode(harness, 'practice', 'practice-collide', '# pre-existing\n');
+    seedSession(harness, 's', [makeCandidate('practice', 'C')], []);
+    const runner: CuratorRunner = async () => [
+      makeAction('add', {
+        proposed_node: {
+          id: 'practice-collide',
+          title: 'Collide',
+          kind: 'practice',
+          tags: [],
+          summary: 'new',
+          body: '# overwrite-attempt\n',
+          confidence: 'high',
+          derived_from: [],
+          relates_to: [],
+          supersedes: null,
+          valid_from: '2026-05-12T10:00:00Z',
+          valid_until: null,
+          superseded_by: null,
+        },
+      }),
+    ];
+    const result = await runCurate(ctx(runner));
+    expect(result.nodesWritten).toBe(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.reason).toBe('add_collision');
+    // Original untouched.
+    const after = readFileSync(join(harness.nodesDir, 'practice', 'practice-collide.md'), 'utf8');
+    expect(after).toContain('pre-existing');
+  });
+
+  it('modify against a missing target_node is a fail-loud failure (no write)', async () => {
+    seedSession(harness, 's', [makeCandidate('practice', 'X')], []);
+    const runner: CuratorRunner = async () => [
+      makeAction('modify', {
+        target_node_id: 'practice-does-not-exist',
+        proposed_node: {
+          id: 'practice-does-not-exist',
+          title: 'Phantom',
+          kind: 'practice',
+          tags: [],
+          summary: 's',
+          body: 'body',
+          confidence: 'high',
+          derived_from: [],
+          relates_to: [],
+          supersedes: null,
+          valid_from: '2026-05-12T10:00:00Z',
+          valid_until: null,
+          superseded_by: null,
+        },
+      }),
+    ];
+    const result = await runCurate(ctx(runner));
+    expect(result.nodesWritten).toBe(0);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]?.reason).toBe('modify_missing_target');
+    expect(existsSync(join(harness.nodesDir, 'practice', 'practice-does-not-exist.md'))).toBe(
+      false
+    );
   });
 
   it('returns status=locked when another process holds the curator lock', async () => {
@@ -308,14 +407,7 @@ describe('runCurate', () => {
       now: new Date(),
     });
     const result = await runCurate({
-      kbDir: harness.kbDir,
-      sessionsDir: harness.sessionsDir,
-      nodesDir: harness.nodesDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner: async () => [],
+      ...ctx(async () => []),
       pid: 12345,
     });
     expect(result.status).toBe('locked');
@@ -323,57 +415,22 @@ describe('runCurate', () => {
 
   it('releases the lock after completion', async () => {
     seedSession(harness, 's', [makeCandidate('practice', 'Hi')], []);
-    await runCurate({
-      kbDir: harness.kbDir,
-      sessionsDir: harness.sessionsDir,
-      nodesDir: harness.nodesDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner: async () => [],
-    });
+    await runCurate(ctx(async () => []));
     expect(readState(harness.stateFile).lock ?? null).toBeNull();
   });
 
   it('reports no-pending and still regenerates INDEX/GRAPH when nothing is queued', async () => {
-    const result = await runCurate({
-      kbDir: harness.kbDir,
-      sessionsDir: harness.sessionsDir,
-      nodesDir: harness.nodesDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner: async () => [],
-    });
+    const result = await runCurate(ctx(async () => []));
     expect(result.status).toBe('no-pending');
+    expect(result.failures).toEqual([]);
+    expect(result.conflicts).toEqual([]);
     expect(existsSync(join(harness.kbDir, 'INDEX.md'))).toBe(true);
   });
 
   it('buildBatchPayload includes referenced existing nodes only', () => {
     // Two existing nodes; only one is referenced by the batch.
-    mkdirSync(join(harness.nodesDir, 'practice'), { recursive: true });
-    for (const id of ['practice-x', 'practice-y']) {
-      const fm = matter.stringify(`# ${id}\nBody.\n`, {
-        schema_version: 1,
-        id,
-        title: id,
-        kind: 'practice',
-        tags: [],
-        valid_from: '2026-01-01T00:00:00Z',
-        valid_until: null,
-        updated: '2026-01-01T00:00:00Z',
-        supersedes: null,
-        superseded_by: null,
-        derived_from: [],
-        relates_to: [],
-        depends_on: [],
-        confidence: 'high',
-        summary: 's',
-      });
-      writeFileSync(join(harness.nodesDir, 'practice', `${id}.md`), fm);
-    }
+    seedExistingNode(harness, 'practice', 'practice-x');
+    seedExistingNode(harness, 'practice', 'practice-y');
     seedSession(
       harness,
       's',

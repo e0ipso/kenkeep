@@ -120,28 +120,9 @@ export const NodeFrontmatterSchema = z.object({
 });
 export type NodeFrontmatter = z.infer<typeof NodeFrontmatterSchema>;
 
-export const ProposalKindSchema = z.enum(['addition', 'modification', 'contradiction']);
-export type ProposalKind = z.infer<typeof ProposalKindSchema>;
-
-export const ProposalBlockSchema = z.object({
-  kind: ProposalKindSchema,
-  source_sessions: z.array(z.string()),
-  target_node: z.string().nullable(),
-  rationale: z.string(),
-  suggested_resolution: z.enum(['supersede', 'keep_both', 'reject']).nullable(),
-  curator_log: z.string().nullable(),
-});
-export type ProposalBlock = z.infer<typeof ProposalBlockSchema>;
-
-export const ProposalFrontmatterSchema = NodeFrontmatterSchema.extend({
-  proposal: ProposalBlockSchema,
-});
-export type ProposalFrontmatter = z.infer<typeof ProposalFrontmatterSchema>;
-
 /**
- * Curator output schema: one entry per stage-2 candidate. Drops omit
- * `proposed_node`; add/modify/contradict include it (without `proposal`
- * block — the curator wrapper builds that).
+ * Curator output schema: one entry per stage-2 candidate. Drops and
+ * contradicts may omit `proposed_node`; add/modify include it.
  */
 export const CuratorProposedNodeSchema = z.object({
   id: z.string(),
@@ -219,9 +200,45 @@ export type BootstrapOutput = z.infer<typeof BootstrapOutputSchema>;
 export const BootstrapDocEntrySchema = z.object({
   content_sha256: z.string(),
   last_processed_at: z.string(),
-  produced_proposals: z.array(z.string()),
+  produced_nodes: z.array(z.string()),
 });
 export type BootstrapDocEntry = z.infer<typeof BootstrapDocEntrySchema>;
+
+/**
+ * Conflict surfaced by the curator when a `contradict` action is emitted.
+ * The curator does not write conflicting nodes to disk; instead, runs
+ * append entries here and the kb-curate skill resolves them in-session
+ * with the user. Persisted to `.ai/knowledge-base/.state/pending-conflicts.json`.
+ */
+export const ConflictReportSchema = z.object({
+  id: z.string(),
+  detected_at: z.string(),
+  run_id: z.string(),
+  candidate_origin: z.string(),
+  target_node_id: z.string().nullable(),
+  rationale: z.string(),
+  proposed_node: CuratorProposedNodeSchema.nullable(),
+});
+export type ConflictReport = z.infer<typeof ConflictReportSchema>;
+
+export const PendingConflictsFileSchema = z.object({
+  schema_version: z.literal(1),
+  conflicts: z.array(ConflictReportSchema),
+});
+export type PendingConflictsFile = z.infer<typeof PendingConflictsFileSchema>;
+
+/**
+ * Persistence failure surfaced by the curator: an `add` whose target file
+ * already exists, or a `modify` whose `target_node_id` is missing on disk.
+ * Reported in run output; not persisted across runs.
+ */
+export const FailureReportSchema = z.object({
+  reason: z.enum(['add_collision', 'modify_missing_target']),
+  candidate_origin: z.string(),
+  node_id: z.string(),
+  detail: z.string(),
+});
+export type FailureReport = z.infer<typeof FailureReportSchema>;
 
 /**
  * Settings shipped in `.ai/knowledge-base/.config.json` (project-level, committed)

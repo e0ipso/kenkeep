@@ -63,11 +63,11 @@ Quality judgment.
 2. [ ] 10-15 messages of substantive conversation about an invented project. End the session.
 3. [ ] `_sessions/` shows one `stage_2_status: pending` log.
 4. [ ] Open a new session. Wait 30-90s. `_logs/stage-2/` has a new `.jsonl`. Log flips to `stage_2_status: done`.
-5. [ ] `curate` writes 1-4 proposals and regenerates `INDEX.md`. Are these the **right** facts to remember? (Target: ≥80% acceptance.)
-6. [ ] Promote each proposal under `_proposed/` into `nodes/` (strip the `proposal:` block, move the file). Run `ai-knowledge-base index rebuild`. Files land in `nodes/`.
-7. [ ] One more session. Ask Claude "what do you know about this project?" The response references something curated.
+5. [ ] `curate` writes 1-4 nodes under `nodes/` and regenerates `INDEX.md`. Are these the **right** facts to remember? (Target: ≥80% acceptance.)
+6. [ ] `git diff nodes/` shows the new files. `git add` the ones you want, `git commit`. The pre-commit hook regenerates and stages a fresh `INDEX.md`/`GRAPH.md` into the same commit. `git restore nodes/<unwanted>.md` to drop the rest.
+7. [ ] One more session. Ask Claude "what do you know about this project?" The response references something committed.
 
-If proposals are clearly noise, bump the stage-2 prompt's `Version:` and tighten "what to skip".
+If curator output is clearly noise, bump the stage-2 prompt's `Version:` and tighten "what to skip".
 
 ## 5. `init --upgrade` against an older install
 
@@ -94,9 +94,9 @@ If proposals are clearly noise, bump the stage-2 prompt's `Version:` and tighten
 ## 7. `/kb-bootstrap`
 
 - [ ] In a sandbox with a small public repo (README + architecture.md), `init` and open Claude Code.
-- [ ] Run `/kb-bootstrap`. Agent reads source docs, writes proposals under `_proposed/additions/`, stops to ask for review.
-- [ ] Walk `_proposed/` with `git diff` (or a tool like [self-review](https://github.com/e0ipso/self-review)). Promote acceptances into `nodes/`.
-- [ ] No proposal carries a literal secret or stale TODO from the source docs.
+- [ ] Run `/kb-bootstrap`. Agent reads source docs, writes nodes directly under `nodes/<kind>/`, reports a summary including any collisions skipped.
+- [ ] Walk `git diff nodes/` (or use a tool like [self-review](https://github.com/e0ipso/self-review)). `git commit` the ones you want; `git restore <path>` the rest.
+- [ ] No node carries a literal secret or stale TODO from the source docs.
 
 ## 8. `bootstrap-incremental` chunking
 

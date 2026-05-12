@@ -28,7 +28,7 @@ import {
 import type {
   BootstrapCandidate,
   BootstrapOutput,
-  ProposalFrontmatter,
+  NodeFrontmatter,
 } from '../../src/lib/schemas.js';
 import { acquireLock, readState } from '../../src/lib/state.js';
 
@@ -36,7 +36,7 @@ interface Harness {
   root: string;
   sourceDir: string;
   kbDir: string;
-  proposedDir: string;
+  nodesDir: string;
   logsDir: string;
   stateFile: string;
   bootstrapStateFile: string;
@@ -46,19 +46,19 @@ function makeHarness(): Harness {
   const root = mkdtempSync(join(tmpdir(), 'kb-bootstrap-'));
   const sourceDir = join(root, 'docs');
   const kbDir = join(root, '.ai/knowledge-base');
-  const proposedDir = join(kbDir, '_proposed');
+  const nodesDir = join(kbDir, 'nodes');
   const logsDir = join(kbDir, '_logs');
   const stateFile = join(root, '.ai/knowledge-base/.state/state.json');
   const bootstrapStateFile = join(root, '.ai/knowledge-base/.state/bootstrap-state.json');
   mkdirSync(sourceDir, { recursive: true });
-  mkdirSync(proposedDir, { recursive: true });
+  mkdirSync(nodesDir, { recursive: true });
   mkdirSync(logsDir, { recursive: true });
   mkdirSync(dirname(stateFile), { recursive: true });
   return {
     root,
     sourceDir,
     kbDir,
-    proposedDir,
+    nodesDir,
     logsDir,
     stateFile,
     bootstrapStateFile,
@@ -91,6 +91,20 @@ function runnerOf(output: BootstrapOutput | BootstrapOutput[]): BootstrapRunner 
     const next = queue.length > 1 ? queue.shift() : queue[0];
     return next!;
   }) as BootstrapRunner;
+}
+
+function ctxFor(harness: Harness, runner: BootstrapRunner) {
+  return {
+    sourceDir: harness.sourceDir,
+    repoRoot: harness.root,
+    kbDir: harness.kbDir,
+    nodesDir: harness.nodesDir,
+    logsDir: harness.logsDir,
+    stateFile: harness.stateFile,
+    bootstrapStateFile: harness.bootstrapStateFile,
+    promptTemplate: PROMPT_TEMPLATE,
+    runner,
+  };
 }
 
 describe('sha256Hex', () => {
@@ -220,17 +234,18 @@ describe('readBootstrapState / writeBootstrapState', () => {
     writeBootstrapState(harness.bootstrapStateFile, {
       schema_version: 1,
       last_full_bootstrap_at: null,
-      last_incremental_at: '2026-05-11T10:00:00Z',
+      last_incremental_at: '2026-05-12T10:00:00Z',
       docs: {
         'docs/a.md': {
           content_sha256: 'abc',
-          last_processed_at: '2026-05-11T10:00:00Z',
-          produced_proposals: ['additions/practice-a.md'],
+          last_processed_at: '2026-05-12T10:00:00Z',
+          produced_nodes: ['practice/practice-a.md'],
         },
       },
     });
     const got = readBootstrapState(harness.bootstrapStateFile);
     expect(got.docs['docs/a.md']?.content_sha256).toBe('abc');
+    expect(got.docs['docs/a.md']?.produced_nodes).toEqual(['practice/practice-a.md']);
   });
 });
 
@@ -239,7 +254,7 @@ describe('runBootstrapIncremental', () => {
   beforeEach(() => (harness = makeHarness()));
   afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
 
-  it('writes addition proposals for each candidate and updates state', async () => {
+  it('writes new nodes for each candidate and updates state', async () => {
     writeFileSync(join(harness.sourceDir, 'a.md'), '# A\nUse X always.');
     writeFileSync(join(harness.sourceDir, 'b.md'), '# B\nBravo is a service.');
     const runner = runnerOf({
@@ -247,33 +262,63 @@ describe('runBootstrapIncremental', () => {
       map: [makeCandidate('map', 'Bravo Service', ['docs/b.md'])],
     });
     const result = await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner,
+      ...ctxFor(harness, runner),
       tokenBudget: 1_000_000,
     });
     expect(result.status).toBe('completed');
-    expect(result.proposalsWritten).toBe(2);
-    const additions = readdirSync(join(harness.proposedDir, 'additions')).sort();
-    expect(additions).toEqual(['map-bravo-service.md', 'practice-use-x.md']);
+    expect(result.nodesWritten).toBe(2);
+    expect(result.skippedCollisions).toBe(0);
+    expect(readdirSync(join(harness.nodesDir, 'practice'))).toEqual(['practice-use-x.md']);
+    expect(readdirSync(join(harness.nodesDir, 'map'))).toEqual(['map-bravo-service.md']);
 
-    const propPath = join(harness.proposedDir, 'additions', 'practice-use-x.md');
-    const parsed = matter(readFileSync(propPath, 'utf8'));
-    const fm = parsed.data as ProposalFrontmatter;
+    const nodeFile = join(harness.nodesDir, 'practice', 'practice-use-x.md');
+    const parsed = matter(readFileSync(nodeFile, 'utf8'));
+    const fm = parsed.data as NodeFrontmatter;
     expect(fm.derived_from).toEqual(['docs/a.md']);
-    expect(fm.proposal.kind).toBe('addition');
-    expect(fm.proposal.rationale).toBe('bootstrap: docs/a.md');
     expect(fm.confidence).toBe('medium');
+    // No proposal: block in the new architecture.
+    expect(parsed.data).not.toHaveProperty('proposal');
 
     const state = readBootstrapState(harness.bootstrapStateFile);
     expect(state.docs['docs/a.md']?.content_sha256).toBeDefined();
-    expect(state.docs['docs/b.md']?.produced_proposals).toContain('additions/map-bravo-service.md');
+    expect(state.docs['docs/b.md']?.produced_nodes).toContain('map/map-bravo-service.md');
+  });
+
+  it('skips a candidate whose target node already exists on disk', async () => {
+    // Pre-create the node bootstrap would otherwise write.
+    mkdirSync(join(harness.nodesDir, 'practice'), { recursive: true });
+    writeFileSync(
+      join(harness.nodesDir, 'practice', 'practice-use-x.md'),
+      matter.stringify('# old\n', {
+        schema_version: 1,
+        id: 'practice-use-x',
+        title: 'Use X',
+        kind: 'practice',
+        tags: [],
+        valid_from: '2026-01-01T00:00:00Z',
+        valid_until: null,
+        updated: '2026-01-01T00:00:00Z',
+        supersedes: null,
+        superseded_by: null,
+        derived_from: [],
+        relates_to: [],
+        depends_on: [],
+        confidence: 'high',
+        summary: 's',
+      })
+    );
+    writeFileSync(join(harness.sourceDir, 'a.md'), '# A');
+    const runner = runnerOf({
+      practice: [makeCandidate('practice', 'Use X', ['docs/a.md'])],
+      map: [],
+    });
+    const result = await runBootstrapIncremental(ctxFor(harness, runner));
+    expect(result.nodesWritten).toBe(0);
+    expect(result.skippedCollisions).toBe(1);
+    // Existing node not overwritten.
+    expect(readFileSync(join(harness.nodesDir, 'practice', 'practice-use-x.md'), 'utf8')).toContain(
+      'old'
+    );
   });
 
   it('skips docs whose hash matches the recorded state', async () => {
@@ -284,8 +329,8 @@ describe('runBootstrapIncremental', () => {
       docs: {
         'docs/a.md': {
           content_sha256: sha,
-          last_processed_at: '2026-05-11T09:00:00Z',
-          produced_proposals: [],
+          last_processed_at: '2026-05-12T09:00:00Z',
+          produced_nodes: [],
         },
       },
     });
@@ -294,24 +339,14 @@ describe('runBootstrapIncremental', () => {
       runnerCalled += 1;
       return { practice: [], map: [] };
     }) as BootstrapRunner;
-    const result = await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner,
-    });
+    const result = await runBootstrapIncremental(ctxFor(harness, runner));
     expect(result.status).toBe('completed');
     expect(result.unchanged).toBe(1);
-    expect(result.proposalsWritten).toBe(0);
+    expect(result.nodesWritten).toBe(0);
     expect(runnerCalled).toBe(0);
   });
 
-  it('dry-run reports what would be processed without invoking the runner or writing proposals', async () => {
+  it('dry-run reports what would be processed without invoking the runner or writing nodes', async () => {
     writeFileSync(join(harness.sourceDir, 'a.md'), 'a');
     writeFileSync(join(harness.sourceDir, 'b.md'), 'b');
     let runnerCalled = 0;
@@ -320,25 +355,17 @@ describe('runBootstrapIncremental', () => {
       return { practice: [], map: [] };
     }) as BootstrapRunner;
     const result = await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner,
+      ...ctxFor(harness, runner),
       dryRun: true,
     });
     expect(result.status).toBe('completed');
     expect(runnerCalled).toBe(0);
-    expect(result.proposalsWritten).toBe(0);
+    expect(result.nodesWritten).toBe(0);
     expect(result.processed.filter(p => p.status === 'skipped-dry-run')).toHaveLength(2);
-    // Did not create proposals on disk.
-    const additionsDir = join(harness.proposedDir, 'additions');
-    const hasProposals = existsSync(additionsDir) && readdirSync(additionsDir).length > 0;
-    expect(hasProposals).toBe(false);
+    // Did not create nodes on disk.
+    const practiceDir = join(harness.nodesDir, 'practice');
+    const hasNodes = existsSync(practiceDir) && readdirSync(practiceDir).length > 0;
+    expect(hasNodes).toBe(false);
     // Did not mutate the bootstrap state.
     expect(existsSync(harness.bootstrapStateFile)).toBe(false);
   });
@@ -351,15 +378,7 @@ describe('runBootstrapIncremental', () => {
       now: new Date('2030-01-01T00:00:00Z'),
     });
     const result = await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner: runnerOf({ practice: [], map: [] }),
+      ...ctxFor(harness, runnerOf({ practice: [], map: [] })),
       pid: 12345,
       now: () => new Date('2030-01-01T00:00:01Z'),
     });
@@ -368,17 +387,7 @@ describe('runBootstrapIncremental', () => {
 
   it('releases the lock after completion', async () => {
     writeFileSync(join(harness.sourceDir, 'a.md'), 'a');
-    await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner: runnerOf({ practice: [], map: [] }),
-    });
+    await runBootstrapIncremental(ctxFor(harness, runnerOf({ practice: [], map: [] })));
     expect(readState(harness.stateFile).lock ?? null).toBeNull();
   });
 
@@ -387,18 +396,8 @@ describe('runBootstrapIncremental', () => {
     const failing: BootstrapRunner = (async () => {
       throw new Error('boom');
     }) as BootstrapRunner;
-    const result = await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner: failing,
-    });
-    expect(result.proposalsWritten).toBe(0);
+    const result = await runBootstrapIncremental(ctxFor(harness, failing));
+    expect(result.nodesWritten).toBe(0);
     expect(result.processed[0]?.status).toBe('failed');
     expect(result.processed[0]?.error).toContain('boom');
     const state = readBootstrapState(harness.bootstrapStateFile);
@@ -411,20 +410,9 @@ describe('runBootstrapIncremental', () => {
       practice: [makeCandidate('practice', 'Use X', [])], // empty derived_from
       map: [],
     });
-    await runBootstrapIncremental({
-      sourceDir: harness.sourceDir,
-      repoRoot: harness.root,
-      kbDir: harness.kbDir,
-      proposedDir: harness.proposedDir,
-      logsDir: harness.logsDir,
-      stateFile: harness.stateFile,
-      bootstrapStateFile: harness.bootstrapStateFile,
-      promptTemplate: PROMPT_TEMPLATE,
-      runner,
-    });
-    const propPath = join(harness.proposedDir, 'additions', 'practice-use-x.md');
-    const fm = matter(readFileSync(propPath, 'utf8')).data as ProposalFrontmatter;
+    await runBootstrapIncremental(ctxFor(harness, runner));
+    const nodeFile = join(harness.nodesDir, 'practice', 'practice-use-x.md');
+    const fm = matter(readFileSync(nodeFile, 'utf8')).data as NodeFrontmatter;
     expect(fm.derived_from).toEqual(['docs/a.md']);
-    expect(fm.proposal.rationale).toBe('bootstrap: docs/a.md');
   });
 });

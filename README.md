@@ -14,7 +14,7 @@ npx @e0ipso/ai-knowledge-base init --assistants claude
 ai-knowledge-base doctor
 ```
 
-That's the consumer path. After running `init`, AI sessions in this repo will automatically capture candidate knowledge; `ai-knowledge-base curate` (or `/kb-curate` from inside a session) turns captures into proposals you review with `git`.
+That's the consumer path. After running `init`, AI sessions in this repo automatically capture candidate knowledge; `ai-knowledge-base curate` (or `/kb-curate` from inside a session) writes new knowledge nodes directly under `nodes/`. You review with `git diff`, accept with `git commit`, reject with `git restore`.
 
 If your repo already has READMEs, ADRs, and module docs, seed the KB from them:
 
@@ -28,7 +28,7 @@ npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
 
 ## How it works (one paragraph)
 
-Two cooperating pieces. The **builder tool** (this npm package) installs hooks under `.claude/` and a knowledge directory under `.ai/knowledge-base/`. Hooks capture redacted session slices, an async stage-2 extractor turns them into proposals, and a human curator (you) accepts or rejects each proposal as a git commit. A `SessionStart` hook injects a token-budgeted index of the current KB into every new AI session. The KB itself is plain markdown — readable, diffable, reviewable like code.
+Two cooperating pieces. The **builder tool** (this npm package) installs hooks under `.claude/` and a knowledge directory under `.ai/knowledge-base/`. Hooks capture redacted session slices, an async stage-2 extractor turns them into structured candidates, and the curator writes new knowledge nodes directly under `nodes/`. You review the diff and commit (or restore) like any other code change; a pre-commit hook keeps `INDEX.md`/`GRAPH.md` in lockstep. A `SessionStart` hook injects the current `INDEX.md` into every new AI session. The KB itself is plain markdown — readable, diffable, reviewable like code.
 
 ## Documentation
 

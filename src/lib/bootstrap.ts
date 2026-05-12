@@ -15,10 +15,10 @@ import {
   type BootstrapCandidate,
   type BootstrapOutput,
   type BootstrapState,
-  type ProposalFrontmatter,
+  type NodeFrontmatter,
 } from './schemas.js';
 import { acquireLock, releaseLock } from './state.js';
-import { deriveNodeId, ensureUniqueId, proposalFilename, writeProposalFile } from './nodes.js';
+import { deriveNodeId, ensureUniqueId, nodeFileExists, writeNodeFile } from './nodes.js';
 import { ulid } from './ulid.js';
 
 export const BOOTSTRAP_LOCK_NAME = 'bootstrap-incremental';
@@ -39,10 +39,10 @@ export interface BootstrapContext {
   sourceDir: string;
   /** Repo root (used to resolve `.gitignore` and shape `derived_from` paths). */
   repoRoot: string;
-  /** `.ai/knowledge-base` directory (parent of `_proposed`, `_logs`). */
+  /** `.ai/knowledge-base` directory (parent of `nodes/`, `_logs/`). */
   kbDir: string;
-  /** `_proposed/` directory. */
-  proposedDir: string;
+  /** `nodes/` directory; bootstrap writes new nodes here directly. */
+  nodesDir: string;
   /** `_logs/` directory. */
   logsDir: string;
   /** Path to `.ai/knowledge-base/.state/state.json`. */
@@ -80,7 +80,7 @@ export interface BootstrapDocResult {
   relPath: string;
   status: 'processed' | 'unchanged' | 'skipped-dry-run' | 'failed';
   sha256: string;
-  producedProposals: string[];
+  producedNodes: string[];
   error?: string;
 }
 
@@ -93,8 +93,10 @@ export interface BootstrapResult {
   unchanged: number;
   /** Files that were processed this run (or would be in --dry-run). */
   processed: BootstrapDocResult[];
-  /** Total proposals written. */
-  proposalsWritten: number;
+  /** Total nodes written. */
+  nodesWritten: number;
+  /** Total nodes skipped because the target file already exists. */
+  skippedCollisions: number;
   /** Batches sent to the runner (0 in dry-run). */
   batches: number;
   reason?: string;
@@ -359,7 +361,8 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
       discovered: 0,
       unchanged: 0,
       processed: [],
-      proposalsWritten: 0,
+      nodesWritten: 0,
+      skippedCollisions: 0,
       batches: 0,
     };
   }
@@ -382,7 +385,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
         relPath: rel,
         status: 'unchanged',
         sha256: sha,
-        producedProposals: prev.produced_proposals,
+        producedNodes: prev.produced_nodes,
       });
       continue;
     }
@@ -395,7 +398,8 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
       discovered: relPaths.length,
       unchanged: unchanged.length,
       processed: unchanged,
-      proposalsWritten: 0,
+      nodesWritten: 0,
+      skippedCollisions: 0,
       batches: 0,
     };
   }
@@ -405,14 +409,15 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
       relPath: c.relPath,
       status: 'skipped-dry-run',
       sha256: c.sha256,
-      producedProposals: [],
+      producedNodes: [],
     }));
     return {
       status: 'completed',
       discovered: relPaths.length,
       unchanged: unchanged.length,
       processed: [...dryResults, ...unchanged],
-      proposalsWritten: 0,
+      nodesWritten: 0,
+      skippedCollisions: 0,
       batches: chunkDocs(candidates, tokenBudget).length,
     };
   }
@@ -433,7 +438,8 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
       discovered: relPaths.length,
       unchanged: unchanged.length,
       processed: unchanged,
-      proposalsWritten: 0,
+      nodesWritten: 0,
+      skippedCollisions: 0,
       batches: 0,
       reason: 'another bootstrap-incremental run holds the lock',
     };
@@ -447,7 +453,8 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   const processed: BootstrapDocResult[] = [];
   const existingIds = new Set<string>();
   const seenSlugs = new Set<string>();
-  let proposalsWritten = 0;
+  let nodesWritten = 0;
+  let skippedCollisions = 0;
   const batches = chunkDocs(candidates, tokenBudget);
 
   try {
@@ -468,7 +475,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
             relPath: doc.relPath,
             status: 'failed',
             sha256: doc.sha256,
-            producedProposals: [],
+            producedNodes: [],
             error: message,
           });
         }
@@ -476,8 +483,8 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
         continue;
       }
 
-      const perDocProposals = new Map<string, string[]>();
-      for (const doc of batch) perDocProposals.set(doc.relPath, []);
+      const perDocNodes = new Map<string, string[]>();
+      for (const doc of batch) perDocNodes.set(doc.relPath, []);
 
       const allCandidates: BootstrapCandidate[] = [...output.practice, ...output.map];
       for (const cand of allCandidates) {
@@ -487,20 +494,22 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
             : batch.length === 1
               ? [batch[0]!.relPath]
               : [];
-        const written = writeBootstrapProposal({
+        const written = writeBootstrapNode({
           candidate: cand,
           derivedFrom,
-          proposedDir: ctx.proposedDir,
+          nodesDir: ctx.nodesDir,
           existingIds,
           seenSlugs,
           now: now(),
         });
-        if (written) {
-          proposalsWritten += 1;
-          for (const src of derivedFrom) {
-            const list = perDocProposals.get(src);
-            if (list) list.push(written);
-          }
+        if (written === 'collision') {
+          skippedCollisions += 1;
+          continue;
+        }
+        nodesWritten += 1;
+        for (const src of derivedFrom) {
+          const list = perDocNodes.get(src);
+          if (list) list.push(written);
         }
       }
 
@@ -509,7 +518,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
           relPath: doc.relPath,
           status: 'processed',
           sha256: doc.sha256,
-          producedProposals: perDocProposals.get(doc.relPath) ?? [],
+          producedNodes: perDocNodes.get(doc.relPath) ?? [],
         });
       }
     }
@@ -521,7 +530,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
       nextDocs[r.relPath] = {
         content_sha256: r.sha256,
         last_processed_at: now().toISOString(),
-        produced_proposals: r.producedProposals,
+        produced_nodes: r.producedNodes,
       };
     }
     const nextState: BootstrapState = {
@@ -541,30 +550,35 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
     discovered: relPaths.length,
     unchanged: unchanged.length,
     processed: [...processed, ...unchanged],
-    proposalsWritten,
+    nodesWritten,
+    skippedCollisions,
     batches: batches.length,
   };
 }
 
-interface WriteBootstrapProposalArgs {
+interface WriteBootstrapNodeArgs {
   candidate: BootstrapCandidate;
   derivedFrom: string[];
-  proposedDir: string;
+  nodesDir: string;
   existingIds: Set<string>;
   seenSlugs: Set<string>;
   now: Date;
 }
 
-function writeBootstrapProposal(args: WriteBootstrapProposalArgs): string | null {
-  const { candidate, derivedFrom, proposedDir, existingIds, seenSlugs, now } = args;
-  const id = ensureUniqueId(
-    new Set([...existingIds, ...seenSlugs]),
-    deriveNodeId(candidate.kind, candidate.title)
-  );
+/**
+ * Returns the relative `<kind>/<filename>.md` path on success, or the
+ * literal `'collision'` if the target file already exists on disk.
+ * Bootstrap is conservative: never overwrite existing nodes.
+ */
+function writeBootstrapNode(args: WriteBootstrapNodeArgs): string | 'collision' {
+  const { candidate, derivedFrom, nodesDir, existingIds, seenSlugs, now } = args;
+  const baseId = deriveNodeId(candidate.kind, candidate.title);
+  if (existingIds.has(baseId) || nodeFileExists(nodesDir, candidate.kind, baseId)) {
+    return 'collision';
+  }
+  const id = ensureUniqueId(new Set([...existingIds, ...seenSlugs]), baseId);
   seenSlugs.add(id);
-  const filename = proposalFilename(candidate.kind, id);
-  const sourceLabel = derivedFrom[0] ?? '<unknown>';
-  const frontmatter: ProposalFrontmatter = {
+  const frontmatter: NodeFrontmatter = {
     schema_version: 1,
     id,
     title: candidate.title,
@@ -580,23 +594,9 @@ function writeBootstrapProposal(args: WriteBootstrapProposalArgs): string | null
     depends_on: [],
     confidence: candidate.confidence,
     summary: candidate.summary,
-    proposal: {
-      kind: 'addition',
-      source_sessions: [],
-      target_node: null,
-      rationale: `bootstrap: ${sourceLabel}`,
-      suggested_resolution: null,
-      curator_log: null,
-    },
   };
-  writeProposalFile({
-    proposedDir,
-    proposalKind: 'additions',
-    filename,
-    frontmatter,
-    body: candidate.body,
-  });
-  return join('additions', filename);
+  writeNodeFile({ nodesDir, frontmatter, body: candidate.body });
+  return join(candidate.kind, `${id}.md`);
 }
 
 function compactStamp(d: Date): string {

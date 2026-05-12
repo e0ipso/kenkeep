@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ClaudeAdapter } from '../adapters/claude.js';
 import { runCurate, type CuratorRunner } from '../lib/curate.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { type ConflictReport, type PendingConflictsFile } from '../lib/schemas.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface CurateCommandOptions {
@@ -40,7 +41,6 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     kbDir: paths.kbDir,
     sessionsDir: paths.sessionsDir,
     nodesDir: paths.nodesDir,
-    proposedDir: paths.proposedDir,
     logsDir: paths.logsDir,
     stateFile: join(paths.stateDir, 'state.json'),
     promptTemplate,
@@ -55,6 +55,10 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
   });
 
+  // Always (re)write the side-channel so a completed run with zero conflicts
+  // clears any stale entries from a previous run.
+  writePendingConflicts(join(paths.stateDir, 'pending-conflicts.json'), result.conflicts);
+
   switch (result.status) {
     case 'locked':
       log.warn(`Curator is locked: ${result.reason ?? 'another run holds the lock'}.`);
@@ -64,12 +68,28 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
       return 0;
     case 'completed':
       log.success(
-        `Curator finished: ${result.proposalsWritten} proposal(s), ${result.drops} drop(s) over ${result.batches} batch(es).`
+        `Curator finished: ${result.nodesWritten} node(s) written, ${result.drops} drop(s) over ${result.batches} batch(es).`
       );
       log.plain(`Run id: ${result.runId ?? '(unknown)'}`);
-      log.plain('Review the proposals under `.ai/knowledge-base/_proposed/` before committing.');
+      if (result.failures.length > 0) {
+        log.warn(`${result.failures.length} action(s) failed:`);
+        for (const f of result.failures) log.plain(`  ! [${f.reason}] ${f.detail}`);
+      }
+      if (result.conflicts.length > 0) {
+        log.warn(
+          `${result.conflicts.length} contradiction(s) require resolution; see ` +
+            '`.ai/knowledge-base/.state/pending-conflicts.json` (the kb-curate skill resolves these in-session).'
+        );
+      }
+      log.plain('Review changed files with `git diff nodes/` before committing.');
       return 0;
   }
+}
+
+function writePendingConflicts(file: string, conflicts: ConflictReport[]): void {
+  mkdirSync(join(file, '..'), { recursive: true });
+  const payload: PendingConflictsFile = { schema_version: 1, conflicts };
+  writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
 function loadCuratorPrompt(promptsDir: string): string | null {

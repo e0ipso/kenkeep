@@ -49,26 +49,37 @@ The stage-2 prompt splits combined statements: "use `bravo_analytics.dispatcher`
 - `relates_to` (loose) and `depends_on` (strict) feed `GRAPH.md`. Not enforced.
 - `confidence` is `low` / `medium` / `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale.
 
-## Proposal — `_proposed/{additions,modifications,contradictions}/<slug>.md`
+## Pending conflicts — `.state/pending-conflicts.json`
 
-Same as a node, plus a `proposal` block:
+The curator records `contradict` actions here instead of writing conflicting nodes to disk. Validated by `PendingConflictsFileSchema`.
 
-```yaml
-proposal:
-  kind: addition | modification | contradiction
-  source_sessions: [session-id, ...]
-  target_node: practice-foo | null
-  rationale: "..."
-  suggested_resolution: supersede | keep_both | reject | null
-  curator_log: _logs/curator/<run-id>__<ts>.jsonl | null
+```json
+{
+  "schema_version": 1,
+  "conflicts": [
+    {
+      "id": "<run-id>-<n>",
+      "detected_at": "<ISO>",
+      "run_id": "<curator run-id>",
+      "candidate_origin": "<session_id>:<practice|map>:<index>",
+      "target_node_id": "practice-foo",
+      "rationale": "...",
+      "proposed_node": { "id": "...", "title": "...", "kind": "...", ... }
+    }
+  ]
+}
 ```
 
-Invariants enforced at write time:
+The `/kb-curate` skill reads this file after the curator subprocess exits, walks each entry with the user, applies the chosen resolution by editing the relevant `nodes/<kind>/<id>.md`, and removes the resolved entry from the array. `ai-knowledge-base status` reports the count.
 
-- Contradictions always carry `suggested_resolution: null`.
-- `proposal.kind` matches the containing directory.
+## Curator failure reports
 
-Validated by `ProposalFrontmatterSchema`.
+`runCurate` returns a `failures: FailureReport[]` array alongside `conflicts`. Failures cover two cases the curator must not paper over:
+
+- `reason: "add_collision"` — an `add` action targets a node that already exists on disk.
+- `reason: "modify_missing_target"` — a `modify` action's `target_node_id` doesn't resolve to an existing file.
+
+Failures are reported in CLI output and not persisted; rerun the curator after fixing the underlying issue.
 
 ## Session log — `_sessions/<YYYYMMDD-HHmm-id>.md`
 
@@ -177,9 +188,9 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
     "docs/architecture/auth.md": {
       "content_sha256": "abc123...",
       "last_processed_at": "2026-05-10T14:32:00Z",
-      "produced_proposals": [
-        "additions/practice-auth-flow.md",
-        "additions/map-auth-module.md"
+      "produced_nodes": [
+        "practice/practice-auth-flow.md",
+        "map/map-auth-module.md"
       ]
     }
   }
@@ -192,7 +203,7 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
 | `last_incremental_at` | Last `bootstrap-incremental` non-dry-run that processed ≥1 doc. |
 | `docs[].content_sha256` | SHA-256 of file contents at processing time. |
 | `docs[].last_processed_at` | Timestamp of last processing. Not updated on hash hits. |
-| `docs[].produced_proposals` | Proposal paths emitted. Informational. |
+| `docs[].produced_nodes` | `<kind>/<filename>.md` paths (relative to `nodes/`) written from this doc. Informational. |
 
 Lifecycle:
 

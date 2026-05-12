@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/e0ipso/ai-knowledge-base/compare/v2.0.0...v2.0.1) (2026-05-12)
+
+### Bug Fixes
+
+* **kb:** downgrade node schema_version from 2 to 1 ([2ba2b68](https://github.com/e0ipso/ai-knowledge-base/commit/2ba2b68eb63f5e57ff0eb8f9fe124eb6c6d46341))
+* **kb:** rename stage2* config keys to proposal* ([3e65390](https://github.com/e0ipso/ai-knowledge-base/commit/3e6539044761ef2917becdc53e33ebb652ec9225))
+
 ## [2.0.0](https://github.com/e0ipso/ai-knowledge-base/compare/v1.2.0...v2.0.0) (2026-05-12)
 
 ### ⚠ BREAKING CHANGES

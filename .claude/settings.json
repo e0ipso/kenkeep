@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "KB_BUILDER_HOOK=Stop node .claude/hooks/kb-capture.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "KB_BUILDER_HOOK=SessionEnd node .claude/hooks/kb-capture.mjs"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "KB_BUILDER_HOOK=PreCompact node .claude/hooks/kb-capture.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "KB_BUILDER_HOOK=SessionStart node .claude/hooks/kb-stage2-drain.mjs",
+            "async": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "KB_BUILDER_HOOK=SessionStart node .claude/hooks/kb-session-start.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -11,3 +11,10 @@ docs/.jekyll-cache/
 docs/Gemfile.lock
 .claude/plans/
 settings.local.json
+# >>> @e0ipso/ai-knowledge-base >>>
+.ai/knowledge-base/_sessions/
+.ai/knowledge-base/_logs/
+.ai/knowledge-base/.state/state.json
+.ai/knowledge-base/.state/bootstrap-state.json
+# <<< @e0ipso/ai-knowledge-base <<<
+

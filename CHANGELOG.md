@@ -1,3 +1,18 @@
+## [1.2.0](https://github.com/e0ipso/ai-knowledge-base/compare/v1.1.0...v1.2.0) (2026-05-12)
+
+### Features
+
+* **curate:** add verbose mode and batch hooks ([8369f7f](https://github.com/e0ipso/ai-knowledge-base/commit/8369f7fb9689eeb80e94eaaacc2fcc63caa13a7d))
+* **schema:** per-context model and effort knobs ([5611527](https://github.com/e0ipso/ai-knowledge-base/commit/5611527047f3d1782b987874acb6d9ed2ddc22db))
+* wire per-context model/effort to callers ([7468750](https://github.com/e0ipso/ai-knowledge-base/commit/7468750a1b5cd7ff3373f31f064b9644bba543eb))
+
+### Bug Fixes
+
+* **curate:** explain malformed JSON failures ([536f161](https://github.com/e0ipso/ai-knowledge-base/commit/536f1611bd671368d79b2d6306c02a7aa23ccb80))
+* fail loud on invalid KB node frontmatter ([621afe0](https://github.com/e0ipso/ai-knowledge-base/commit/621afe0de3c536083f96f66d0cb8ef391c252522))
+* on file per session ([e262292](https://github.com/e0ipso/ai-knowledge-base/commit/e2622927ca8c0666e90be4211c1da6d386a7fede))
+* quote ISO timestamps in kb skill examples ([58f547b](https://github.com/e0ipso/ai-knowledge-base/commit/58f547be6ea28398f2c803384137e4f48d5f9a35))
+
 ## [1.1.0](https://github.com/e0ipso/ai-knowledge-base/compare/v1.0.0...v1.1.0) (2026-05-12)
 
 ### Features

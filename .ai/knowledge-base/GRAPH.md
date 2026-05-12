@@ -1,10 +1,9 @@
 ---
 schema_version: 1
-generated_at: 1970-01-01T00:00:00Z
-nodes_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+generated_at: '2026-05-12T10:05:12.473Z'
+nodes_hash: 'sha256:4ae0ade3eb0eff2269b33b1130522814ce072fc1f2c6179e7b339f87451fac2d'
 node_count: 0
 ---
+# KB Graph
 
-# Knowledge base graph
-
-No nodes yet. This file is regenerated automatically by `ai-knowledge-base curate` / `ai-knowledge-base index rebuild`.
+_No nodes yet._

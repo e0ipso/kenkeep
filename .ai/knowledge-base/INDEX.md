@@ -1,13 +1,17 @@
 ---
 schema_version: 1
-generated_at: 1970-01-01T00:00:00Z
-nodes_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+generated_at: '2026-05-12T10:05:12.473Z'
+nodes_hash: 'sha256:4ae0ade3eb0eff2269b33b1130522814ce072fc1f2c6179e7b339f87451fac2d'
 node_count: 0
 budget_tokens: 2000
 ---
+# KB Index
 
-# Knowledge base index
+_0 nodes • 0 currently valid • 0 superseded • last updated 2026-05-12T10:05:12.473Z_
 
-_0 nodes • 0 currently valid • 0 superseded_
 
-The knowledge base is empty. Run sessions and `/kb-curate` (or `ai-knowledge-base curate`) to populate it, or seed it from existing docs with `/kb-bootstrap`.
+## Practice (how we build)
+_None yet._
+
+## Map (what exists)
+_None yet._

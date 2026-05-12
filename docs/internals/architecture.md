@@ -28,6 +28,8 @@ src/
 - **Deterministic**: `init`, `doctor`, `status`, `node add`, `index rebuild`. No LLM.
 - **LLM-invoking**: `curate`, `bootstrap-incremental`. Spawn `claude -p` via `runHeadlessClaude`, parse stream-JSON, validate with Zod. All subprocesses set `KB_BUILDER_INTERNAL=1`.
 
+Each of the three `claude -p` subprocess sites reads its own `{ name, effort }` config object before spawning: `stage2Model` (the Stage-2 drain hook), `curatorModel` (the `curate` CLI), and `bootstrapModel` (the `bootstrap-incremental` CLI). When the object is set, `runHeadlessClaude` appends `--model <name>` and `--effort <effort>`; when it is absent, neither flag is passed and the user's `claude` CLI default applies. The `/kb-bootstrap` skill is agent-driven (its sub-agent runs via the `Task` tool, not `claude -p`); it honors `bootstrapModel.name` on a best-effort basis but ignores `bootstrapModel.effort` because the `Task` tool exposes no `effort` parameter.
+
 ## Pipelines
 
 ```mermaid

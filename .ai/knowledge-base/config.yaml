@@ -7,3 +7,14 @@ indexBudgetTokens: 2000
 curationThreshold: 5
 bootstrapTokenBudget: 10000
 logsRetentionDays: 30
+# Optional per-subprocess model/effort. Omit any block to inherit the
+# user's `claude` CLI default for that context.
+# stage2Model:
+#   name: haiku
+#   effort: low
+# curatorModel:
+#   name: opus
+#   effort: max
+# bootstrapModel:
+#   name: sonnet
+#   effort: high

@@ -103,6 +103,33 @@ logsRetentionDays: 30
 
 CLI flags override settings per run.
 
+### Model and effort selection
+
+Three optional config keys pick the `claude` model family and effort level for each `claude -p` subprocess. Each takes a `{ name, effort }` object; both sub-keys are required when the object is present. When a key is unset, the spawn omits both flags and the user's `claude` CLI default is used.
+
+```yaml
+stage2Model:
+  name: haiku
+  effort: low
+curatorModel:
+  name: opus
+  effort: max
+bootstrapModel:
+  name: sonnet
+  effort: high
+```
+
+| Key | Sub-key | Accepted values | Effect |
+|---|---|---|---|
+| `stage2Model` | `name` | `haiku`, `sonnet`, `opus` | Passed as `--model` on Stage-2 drain spawns. |
+| `stage2Model` | `effort` | `low`, `medium`, `high`, `xhigh`, `max` | Passed as `--effort` on Stage-2 drain spawns. |
+| `curatorModel` | `name` | `haiku`, `sonnet`, `opus` | Passed as `--model` on `curate` spawns. |
+| `curatorModel` | `effort` | `low`, `medium`, `high`, `xhigh`, `max` | Passed as `--effort` on `curate` spawns. |
+| `bootstrapModel` | `name` | `haiku`, `sonnet`, `opus` | Passed as `--model` on `bootstrap-incremental` spawns. |
+| `bootstrapModel` | `effort` | `low`, `medium`, `high`, `xhigh`, `max` | Passed as `--effort` on `bootstrap-incremental` spawns. |
+
+If a key is absent, neither flag is passed and the user's `claude` CLI default applies. The `/kb-bootstrap` skill is agent-driven (it spawns a sub-agent via the `Task` tool, not `claude -p`); it honors `bootstrapModel.name` on a best-effort basis but ignores `bootstrapModel.effort` because the `Task` tool has no `effort` parameter.
+
 ## Slash commands (Claude Code)
 
 After `init --assistants claude`, three skills are available inside a session:

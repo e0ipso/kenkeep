@@ -16,6 +16,10 @@ Survey the project's existing markdown documentation, extract candidate knowledg
 
 - An optional path argument from the user. If provided, treat that as the root of the docs scope. If absent, default to scanning: `docs/`, top-level `README.md`, top-level `CONTRIBUTING.md`, top-level `ARCHITECTURE.md`, and any `*.md` files at the repo root.
 
+## Configuration
+
+Before you start, read `.ai/knowledge-base/config.yaml` (falling back to `~/.config/ai-knowledge-base/config.yaml`) and look for a `bootstrapModel:` block. If `bootstrapModel.name` is set (one of `haiku`, `sonnet`, `opus`) and you decide to delegate any portion of this work to a sub-agent via the `Task` tool, pass that value as the sub-agent's `model` parameter. Ignore `bootstrapModel.effort`: the `Task` tool exposes no `effort` parameter, so the effort half of the config only applies to `claude -p` subprocesses (the `bootstrap-incremental` CLI honors both halves). If the config or the key is absent, omit `model` so the sub-agent inherits its default.
+
 ## Steps
 
 ### 1. Survey the structure

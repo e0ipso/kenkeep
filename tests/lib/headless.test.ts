@@ -107,6 +107,35 @@ describe('runHeadlessClaude', () => {
     expect(captured.ctx?.stdin).toBe('stdin');
   });
 
+  it('appends --model and --effort only when set', async () => {
+    const resultLine = JSON.stringify({
+      type: 'result',
+      is_error: false,
+      result: JSON.stringify({ ok: true, n: 1 }),
+    });
+    const both = makeSpawn([resultLine]);
+    await runHeadlessClaude('p', '', Schema, {
+      spawn: both.spawn,
+      model: 'haiku',
+      effort: 'low',
+    });
+    expect(both.captured.ctx?.args).toContain('--model');
+    expect(both.captured.ctx?.args).toContain('haiku');
+    expect(both.captured.ctx?.args).toContain('--effort');
+    expect(both.captured.ctx?.args).toContain('low');
+
+    const onlyModel = makeSpawn([resultLine]);
+    await runHeadlessClaude('p', '', Schema, { spawn: onlyModel.spawn, model: 'opus' });
+    expect(onlyModel.captured.ctx?.args).toContain('--model');
+    expect(onlyModel.captured.ctx?.args).toContain('opus');
+    expect(onlyModel.captured.ctx?.args).not.toContain('--effort');
+
+    const neither = makeSpawn([resultLine]);
+    await runHeadlessClaude('p', '', Schema, { spawn: neither.spawn });
+    expect(neither.captured.ctx?.args).not.toContain('--model');
+    expect(neither.captured.ctx?.args).not.toContain('--effort');
+  });
+
   it('throws when the subprocess returns a non-zero exit code', async () => {
     const { spawn } = makeSpawn([], { exitCode: 1 });
     await expect(runHeadlessClaude('p', '', Schema, { spawn })).rejects.toThrow(/exit code/);

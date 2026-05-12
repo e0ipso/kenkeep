@@ -9,6 +9,7 @@ import {
   projectConfigPath,
   resolveSettings,
 } from '../../src/lib/settings.js';
+import { SettingsSchema } from '../../src/lib/schemas.js';
 
 describe('settings', () => {
   let sandbox: string;
@@ -110,5 +111,44 @@ describe('settings', () => {
     expect(projectConfigPath('/repo/.ai/knowledge-base')).toBe(
       '/repo/.ai/knowledge-base/config.yaml'
     );
+  });
+
+  it('accepts a complete model choice and treats all three keys as optional', () => {
+    expect(
+      SettingsSchema.safeParse({
+        schema_version: 1,
+        stage2Model: { name: 'haiku', effort: 'low' },
+      }).success
+    ).toBe(true);
+    expect(SettingsSchema.safeParse({ schema_version: 1 }).success).toBe(true);
+  });
+
+  it('rejects invalid or half-set model choices', () => {
+    const invalid = [
+      { stage2Model: { name: 'turbo', effort: 'low' } },
+      { stage2Model: { name: 'haiku', effort: 'turbo' } },
+      { stage2Model: { name: 'haiku' } },
+      { stage2Model: { effort: 'low' } },
+      { stage2Model: { name: 'haiku', effort: 'low', extra: true } },
+    ];
+    for (const payload of invalid) {
+      const result = SettingsSchema.safeParse({ schema_version: 1, ...payload });
+      expect(result.success).toBe(false);
+    }
+  });
+
+  it('rejects the same shapes on curatorModel and bootstrapModel', () => {
+    expect(
+      SettingsSchema.safeParse({
+        schema_version: 1,
+        curatorModel: { name: 'haiku' },
+      }).success
+    ).toBe(false);
+    expect(
+      SettingsSchema.safeParse({
+        schema_version: 1,
+        bootstrapModel: { name: 'sonnet', effort: 'turbo' },
+      }).success
+    ).toBe(false);
   });
 });

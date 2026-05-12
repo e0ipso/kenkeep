@@ -288,4 +288,35 @@ describe('drainStage2Queue', () => {
     expect(summary.remaining).toBe(0);
     expect(existsSync(harness.logsDir)).toBe(true);
   });
+
+  it('forwards model and effort to the runner when set, omits them otherwise', async () => {
+    seedSession(harness, 's-model', '[USER]: hi');
+    let captured: { model?: string; effort?: string } = {};
+    const runner: Stage2Runner = async (_p, _s, _schema, opts) => {
+      captured = { model: opts.model, effort: opts.effort };
+      return { practice: [], map: [] };
+    };
+    await drainStage2Queue({
+      sessionsDir: harness.sessionsDir,
+      logsDir: harness.logsDir,
+      stateFile: harness.stateFile,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner,
+      model: 'haiku',
+      effort: 'low',
+    });
+    expect(captured).toEqual({ model: 'haiku', effort: 'low' });
+
+    seedSession(harness, 's-no-model', '[USER]: hi');
+    captured = {};
+    await drainStage2Queue({
+      sessionsDir: harness.sessionsDir,
+      logsDir: harness.logsDir,
+      stateFile: harness.stateFile,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner,
+    });
+    expect(captured.model).toBeUndefined();
+    expect(captured.effort).toBeUndefined();
+  });
 });

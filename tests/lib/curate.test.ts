@@ -449,6 +449,23 @@ describe('runCurate', () => {
     expect(sink).toEqual([{ type: 'assistant' }, { type: 'assistant' }]);
   });
 
+  it('forwards model and effort to the runner when set, omits them otherwise', async () => {
+    seedSession(harness, 's-mod', [makeCandidate('practice', 'A')], []);
+    let captured: { model?: string; effort?: string } = {};
+    const runner: CuratorRunner = async (_p, _s, _schema, opts) => {
+      captured = { model: opts.model, effort: opts.effort };
+      return [];
+    };
+    await runCurate({ ...ctx(runner), model: 'opus', effort: 'max' });
+    expect(captured).toEqual({ model: 'opus', effort: 'max' });
+
+    seedSession(harness, 's-nomod', [makeCandidate('practice', 'B')], [], '2026-05-12T10:02:00Z');
+    captured = {};
+    await runCurate(ctx(runner));
+    expect(captured.model).toBeUndefined();
+    expect(captured.effort).toBeUndefined();
+  });
+
   it('reports no-pending and still regenerates INDEX/GRAPH when nothing is queued', async () => {
     const result = await runCurate(ctx(async () => []));
     expect(result.status).toBe('no-pending');

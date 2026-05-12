@@ -415,4 +415,25 @@ describe('runBootstrapIncremental', () => {
     const fm = matter(readFileSync(nodeFile, 'utf8')).data as NodeFrontmatter;
     expect(fm.derived_from).toEqual(['docs/a.md']);
   });
+
+  it('forwards model and effort to the runner when set, omits them otherwise', async () => {
+    writeFileSync(join(harness.sourceDir, 'a.md'), '# A');
+    let captured: { model?: string; effort?: string } = {};
+    const runner: BootstrapRunner = (async (_p, _s, _schema, opts) => {
+      captured = { model: opts.model, effort: opts.effort };
+      return { practice: [], map: [] };
+    }) as BootstrapRunner;
+    await runBootstrapIncremental({
+      ...ctxFor(harness, runner),
+      model: 'sonnet',
+      effort: 'high',
+    });
+    expect(captured).toEqual({ model: 'sonnet', effort: 'high' });
+
+    writeFileSync(join(harness.sourceDir, 'b.md'), '# B');
+    captured = {};
+    await runBootstrapIncremental(ctxFor(harness, runner));
+    expect(captured.model).toBeUndefined();
+    expect(captured.effort).toBeUndefined();
+  });
 });

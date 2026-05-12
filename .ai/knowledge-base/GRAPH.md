@@ -1,12 +1,12 @@
 ---
 schema_version: 1
-generated_at: '2026-05-12T11:16:56.631Z'
-nodes_hash: 'sha256:0d68c018bb3dbf7ae272157d9d4c0d5f6aa9568a2dec64233e70cc1b07c5dd60'
-node_count: 23
+generated_at: '2026-05-12T11:48:24.258Z'
+nodes_hash: 'sha256:ddcdfa366b97c0de528654822a49de0de01595d0d27cf94c4c1cb3380e868b80'
+node_count: 28
 ---
 # KB Graph
 
-Total nodes: 23
+Total nodes: 28
 
 ## map-adapter-interface
 
@@ -32,8 +32,8 @@ Total nodes: 23
 - **status:** valid
 - **title:** .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap
 - **tags:** state, bootstrap, hashing, gitignore
-- **relates_to:** map-ai-knowledge-base-cli
-- **derived_from:** docs/internals/schemas.md
+- **relates_to:** practice-bootstrap-skip-changelog-and-implementation
+- **derived_from:** 20260512-0959-f963bf78b135.md
 
 ## map-claude-hooks
 
@@ -103,9 +103,18 @@ Total nodes: 23
 - **kind:** map
 - **status:** valid
 - **title:** .ai/knowledge-base/config.yaml: project-level tunables
-- **tags:** settings, config, tunables
-- **relates_to:** map-ai-knowledge-base-cli
-- **derived_from:** docs/cli-reference.md
+- **tags:** settings, config, tunables, yaml
+- **relates_to:** practice-config-yaml-not-json
+- **derived_from:** 20260512-1009-937d05692312.md
+
+## map-project-documentation-layout
+
+- **kind:** map
+- **status:** valid
+- **title:** Project documentation layout
+- **tags:** docs, directory-layout, bootstrap
+- **relates_to:** practice-bootstrap-skip-changelog-and-implementation
+- **derived_from:** 20260512-0959-f963bf78b135.md
 
 ## map-sessions-directory
 
@@ -132,6 +141,24 @@ Total nodes: 23
 - **title:** One logical change per PR, with the docs update for that change
 - **tags:** git, pr, review, docs
 - **derived_from:** CONTRIBUTING.md
+
+## practice-bootstrap-skip-changelog-and-implementation
+
+- **kind:** practice
+- **status:** valid
+- **title:** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap
+- **tags:** bootstrap, kb, docs, scope
+- **relates_to:** map-project-documentation-layout, practice-no-schema-migrators
+- **derived_from:** 20260512-0959-f963bf78b135.md
+
+## practice-config-yaml-not-json
+
+- **kind:** practice
+- **status:** valid
+- **title:** ai-knowledge-base config is YAML, never JSON
+- **tags:** config, yaml, ai-knowledge-base
+- **relates_to:** map-project-config-json
+- **derived_from:** 20260512-1009-937d05692312.md
 
 ## practice-conventional-commits
 
@@ -166,6 +193,22 @@ Total nodes: 23
 - **tags:** hooks, performance, claude-code, contract
 - **relates_to:** map-claude-hooks
 - **derived_from:** docs/internals/hooks.md, docs/internals/manual-test-plan.md
+
+## practice-index-graph-regen-on-curate-and-precommit
+
+- **kind:** practice
+- **status:** valid
+- **title:** INDEX.md and GRAPH.md regenerate only on curate and pre-commit
+- **tags:** kb, index, graph, commit-workflow, lint-staged
+- **relates_to:** map-index-and-graph-files, practice-determinism-contract, practice-no-llm-pipelines-in-ci
+- **derived_from:** 20260512-0959-f963bf78b135.md
+
+## practice-no-em-dashes-or-hyphen-as-dash-in-prose
+
+- **kind:** practice
+- **status:** valid
+- **title:** No em-dashes or hyphen-as-dash in prose
+- **tags:** prose, style, docs, commits
 
 ## practice-no-llm-pipelines-in-ci
 

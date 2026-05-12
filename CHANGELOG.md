@@ -1,3 +1,40 @@
+## [1.0.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.2.0...v1.0.0) (2026-05-12)
+
+### ⚠ BREAKING CHANGES
+
+* The `_proposed/` directory and the `proposal:`
+frontmatter block are removed. Skills, the curator, manual
+`node add`, and bootstrap all write directly to
+`nodes/<kind>/<id>.md`. Acceptance is `git commit`; rejection is
+`git restore <path>`.
+
+The lint-staged pre-commit hook runs `ai-knowledge-base index
+rebuild --stage` on any staged `nodes/**/*.md`, regenerating
+INDEX.md and GRAPH.md and staging them into the same commit, so
+the index never drifts from the committed nodes. `init` writes
+`.lintstagedrc.cjs` (with `--concurrent false` in
+`.husky/pre-commit` for serial execution) instead of patching
+`package.json` with a `lint-staged` block.
+
+Curator action handling: `add` writes a new node (fail-loud as
+`add_collision` if the file already exists); `modify` overwrites
+the target (fail-loud as `modify_missing_target` if the target
+is absent); `contradict` records the conflict in
+`.ai/knowledge-base/.state/pending-conflicts.json` instead of
+writing. The kb-curate skill resolves conflicts in-session with
+the user.
+
+Schema changes: `BootstrapDocEntrySchema.produced_proposals` is
+renamed to `produced_nodes`; `CurateResult.proposalsWritten` is
+renamed to `nodesWritten` and gains `failures: FailureReport[]`
+and `conflicts: ConflictReport[]` arrays. `ProposalKindSchema`,
+`ProposalBlockSchema`, and `ProposalFrontmatterSchema` are
+removed.
+
+### Features
+
+* drop _proposed/, write nodes/ directly ([2692fe6](https://github.com/e0ipso/ai-knowledge-base/commit/2692fe69b37f75468b947713d19c8b1ae7ba4590))
+
 ## Unreleased
 
 ### BREAKING CHANGES

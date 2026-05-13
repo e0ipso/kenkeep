@@ -228,6 +228,60 @@ describe('buildSessionStartContext', () => {
   });
 });
 
+describe('buildSessionStartContext lint nudge', () => {
+  let harness: Harness;
+  beforeEach(() => (harness = makeHarness()));
+  afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
+
+  it('omits the lint nudge when lint-state reports zero errors and zero findings', () => {
+    const lintStateFile = join(harness.root, '.ai/knowledge-base/.state/lint-state.json');
+    mkdirSync(dirname(lintStateFile), { recursive: true });
+    writeFileSync(
+      lintStateFile,
+      JSON.stringify({
+        schema_version: 1,
+        sessions_since_last_lint: 0,
+        last_lint_at: '2026-05-13T10:00:00Z',
+        last_errors: 0,
+        last_findings: 0,
+      })
+    );
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      lintStateFile,
+    });
+    expect(result.lintNudged).toBe(false);
+    expect(result.additionalContext).not.toMatch(/Last KB lint/);
+  });
+
+  it('appends a lint summary line and sets lintNudged when counts are non-zero', () => {
+    const lintStateFile = join(harness.root, '.ai/knowledge-base/.state/lint-state.json');
+    mkdirSync(dirname(lintStateFile), { recursive: true });
+    writeFileSync(
+      lintStateFile,
+      JSON.stringify({
+        schema_version: 1,
+        sessions_since_last_lint: 0,
+        last_lint_at: '2026-05-13T10:00:00Z',
+        last_errors: 2,
+        last_findings: 1,
+      })
+    );
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      lintStateFile,
+    });
+    expect(result.lintNudged).toBe(true);
+    expect(result.additionalContext).toMatch(/Last KB lint .* 2 error\(s\), 1 finding\(s\)/);
+  });
+});
+
 describe('buildSessionStartContext additionalContext shape', () => {
   let harness: Harness;
   beforeEach(() => (harness = makeHarness()));

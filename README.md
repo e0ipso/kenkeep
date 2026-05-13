@@ -30,6 +30,23 @@ npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
 
 Two cooperating pieces. The **builder tool** (this npm package) installs hooks under `.claude/` and a knowledge directory under `.ai/knowledge-base/`. Hooks capture redacted session slices, an async proposal extractor turns them into structured candidates, and the curator writes new knowledge nodes directly under `nodes/`. You review the diff and commit (or restore) like any other code change; a pre-commit hook keeps `INDEX.md`/`GRAPH.md` in lockstep. A `SessionStart` hook injects the current `INDEX.md` into every new AI session. The KB itself is plain markdown - readable, diffable, reviewable like code.
 
+## CLI reference
+
+### `ai-knowledge-base lint`
+
+Runs four mechanical, no-LLM checks against `nodes/`:
+
+1. **Dangling structured edges**: any `relates_to` or `depends_on` reference that does not resolve to a node id is reported as an error.
+2. **Slug / id naming**: every node's `id` must equal `<kind>-<slug>`, and the filename must be `<id>.md` under `nodes/<kind>/`. Mismatches are errors.
+3. **Tag near-duplicates**: tags that normalize to the same form (case-folded, separator-stripped, single trailing-`s` stripped) are clustered and reported as findings when two or more variants exist.
+4. **Orphans**: nodes that neither reference nor are referenced by another node are reported as findings.
+
+Errors cause exit code 1; findings do not. Pass `--verbose` for a per-entry breakdown.
+
+The lint also runs automatically every `lintEveryNSessions` sessions (default 50, configurable in `config.yaml`) via a SessionEnd async hook. The summary surfaces at the next SessionStart as a single nudge line; running the CLI clears it.
+
+`doctor` checks install health (Node version, `claude` on PATH, hook wiring, INDEX freshness); `lint` checks content health (graph integrity, naming, tag hygiene, orphans).
+
 ## Documentation
 
 Full documentation lives at the docs site: [How it works](docs/how-it-works.md), [Installation](docs/installation.md), [Daily use](docs/daily-use.md), [CLI reference](docs/cli-reference.md), [Troubleshooting](docs/troubleshooting.md).

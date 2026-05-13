@@ -78,7 +78,8 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   ├── hooks/
 │   │   ├── kb-capture.mjs          # Stop, SessionEnd, PreCompact (transcript only)
 │   │   ├── kb-proposal-drain.mjs   # SessionStart (async): drain proposal queue
-│   │   └── kb-session-start.mjs    # SessionStart (sync): inject INDEX, threshold nudge
+│   │   ├── kb-session-start.mjs    # SessionStart (sync): inject INDEX, threshold nudge
+│   │   └── kb-lint-tick.mjs        # SessionEnd (async): increment counter, fire lint on threshold
 │   ├── skills/
 │   │   ├── kb-add/SKILL.md
 │   │   ├── kb-bootstrap/SKILL.md
@@ -107,6 +108,7 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   │       ├── state.json          # last_nudged_at, lock info (gitignored)
 │   │       ├── bootstrap-state.json # source-doc content hashes (gitignored)
 │   │       ├── pending-conflicts.json # curator-detected conflicts awaiting in-session resolution
+│   │       ├── lint-state.json     # lint cadence counter and last-run summary (gitignored)
 │   │       └── prompts/            # local prompt overrides (committed)
 ├── .gitignore                       # contains _sessions/, _logs/, state.json
 ├── .secretlintrc.json               # secretlint config (recommended preset)
@@ -207,6 +209,30 @@ Lifecycle:
 - The curate command rewrites this file at the end of every run (empty `conflicts` array on success). Past entries from prior runs are not preserved across runs.
 - The kb-curate skill reads it after `ai-knowledge-base curate` exits, walks each entry with the user, applies the chosen resolution by editing/creating the relevant `nodes/<kind>/<slug>.md`, and removes the entry from the file.
 - `ai-knowledge-base status` reads the count and displays it under "Pending work."
+
+### 4.4 Lint state (`.ai/knowledge-base/.state/lint-state.json`)
+
+Tracks the SessionEnd lint cadence and the most recent run's summary. Validated with Zod.
+
+```json
+{
+  "schema_version": 1,
+  "sessions_since_last_lint": 0,
+  "last_lint_at": null,
+  "last_errors": 0,
+  "last_findings": 0
+}
+```
+
+Fields:
+
+- `schema_version: 1`.
+- `sessions_since_last_lint`: non-negative integer, increments on every SessionEnd, resets to 0 on each lint run.
+- `last_lint_at`: ISO 8601 timestamp of the most recent run, or `null` if the lint has never fired.
+- `last_errors`: count of error-class lint entries from the most recent run.
+- `last_findings`: count of finding-class entries from the most recent run.
+
+Writes are atomic (write to a temp sibling, then rename). Reads are tolerant: a missing or malformed file falls back to defaults (counter at 0, timestamps `null`, counts 0).
 
 ## 5. Capture pipeline (queue-based)
 
@@ -564,6 +590,10 @@ If `INDEX.md`'s `nodes_hash` doesn't match the current hash of `nodes/`, the inj
 ### 7.2 Missing `derived_from` references
 
 Silent ignore in consume path. `ai-knowledge-base doctor --verbose` lists dangling references. Curator treats unresolved `derived_from` as "evidence not available" and proceeds.
+
+### 7.3 `kb-lint-tick.mjs` (SessionEnd, async)
+
+Maintenance hook registered under SessionEnd with `async: true`. On every SessionEnd, it increments `sessions_since_last_lint` in `.ai/knowledge-base/.state/lint-state.json`. When the counter reaches `lintEveryNSessions` (default 50, configurable in `config.yaml`), the hook invokes `runLint` against `nodes/`, writes the result summary (`last_lint_at`, `last_errors`, `last_findings`) back to the state file, and resets the counter to 0. Recursion-guarded by `KB_BUILDER_INTERNAL=1`: if the env var is set, the hook exits immediately, preventing the spawned `claude -p` subprocess from re-triggering the lint on its own SessionEnd events. The summary surfaces on the next `kb-session-start.mjs` invocation as a one-line nudge; running `ai-knowledge-base lint` clears it.
 
 ## 8. INDEX.md design
 

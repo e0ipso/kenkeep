@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -69,6 +69,16 @@ describe('doctor', () => {
     expect(combined).toContain('practice-broken.md');
     expect(combined).toContain('summary');
     expect(combined).toContain('skipped');
+  });
+
+  it('reports a missing kb-lint-tick.mjs as an error in the Claude hooks check', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    rmSync(join(sandbox, '.claude/hooks/kb-lint-tick.mjs'));
+    const result = await runCli(sandbox, ['doctor']);
+    expect(result.exitCode).toBe(1);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('Claude hooks registered');
+    expect(combined).toContain('kb-lint-tick.mjs');
   });
 
   it('flags an invalid config.yaml as an error', async () => {

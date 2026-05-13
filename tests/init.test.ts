@@ -207,6 +207,38 @@ describe('init', () => {
     expect(body['logsRetentionDays']).toBe(30);
   });
 
+  it('registers both SessionEnd capture and lint-tick hooks and ships kb-lint-tick.mjs', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    expect(existsSync(join(sandbox, '.claude/hooks/kb-lint-tick.mjs'))).toBe(true);
+
+    const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
+      hooks?: Record<string, Array<{ hooks: Array<{ type: string; command: string }> }>>;
+    };
+    const sessionEnd = settings.hooks?.['SessionEnd'] ?? [];
+    const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
+    expect(commands).toEqual(
+      expect.arrayContaining([
+        'node .claude/hooks/kb-capture.mjs',
+        'node .claude/hooks/kb-lint-tick.mjs',
+      ])
+    );
+  });
+
+  it('re-running init --force preserves a single set of SessionEnd entries (no duplicates)', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+    await runCli(sandbox, ['init', '--assistants', 'claude', '--force']);
+
+    const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
+      hooks?: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+    };
+    const sessionEnd = settings.hooks?.['SessionEnd'] ?? [];
+    const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
+    const captureCount = commands.filter(c => c === 'node .claude/hooks/kb-capture.mjs').length;
+    const lintCount = commands.filter(c => c === 'node .claude/hooks/kb-lint-tick.mjs').length;
+    expect(captureCount).toBe(1);
+    expect(lintCount).toBe(1);
+  });
+
   it('does not overwrite an existing config.yaml even with --force', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
     const configFile = join(sandbox, '.ai/knowledge-base/config.yaml');

@@ -249,12 +249,12 @@ The feature integrates through three existing seams. (1) The CLI command registe
 - ✔️ Task 005: SessionEnd lint-tick hook + bundle + init/doctor wiring (depends on: 1, 2, 3)
 - ✔️ Task 006: Extend SessionStart nudge with lint summary (depends on: 3)
 
-### Phase 3: Validation and documentation
+### ✅ Phase 3: Validation and documentation
 
 **Parallel Tasks:**
 
-- Task 007: Tests for the lint pipeline (depends on: 1, 2, 3, 4, 5, 6)
-- Task 008: Document the `lint` surface in README and IMPLEMENTATION (depends on: 1, 2, 4, 5, 6)
+- ✔️ Task 007: Tests for the lint pipeline (depends on: 1, 2, 3, 4, 5, 6)
+- ✔️ Task 008: Document the `lint` surface in README and IMPLEMENTATION (depends on: 1, 2, 4, 5, 6)
 
 ### Dependency Diagram
 

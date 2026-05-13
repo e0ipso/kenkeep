@@ -305,3 +305,31 @@ graph TD
 ### Execution Summary
 - Total Phases: 5
 - Total Tasks: 7
+
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-13
+
+### Results
+
+All five phases landed across five commits on `feature/10--remove-defensive-code-branches`:
+
+- `compactStamp` lives once in `src/lib/time.ts`. The two duplicate copies (in `state.ts` and `bootstrap.ts`) and the unused `isoToCompactStamp` companion are gone.
+- `atomicWriteJson` and `readJsonValidated` are extracted into `src/lib/fs-atomic.ts`. `state.ts`, `lint-state.ts`, and `bootstrap.ts` consume the shared helpers; the only remaining `renameSync` calls live in `src/lib/fs-atomic.ts` and `src/lib/nodes.ts`.
+- Run-id minting is now `crypto.randomUUID()` in `src/lib/bootstrap.ts` and `src/lib/curate.ts`. `src/lib/ulid.ts` is deleted, the `runId?` test seam on `BootstrapContext` / `CurateContext` is gone, and `BootstrapResult.runId` / `CurateResult.runId` are required. Log filenames and `curator_run_id` frontmatter embed a UUID v4 matching `/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/`.
+- `src/lib/log.ts` is reimplemented on top of `picocolors`. Spec-compliant `NO_COLOR` (any non-empty value disables colour) verified manually with `FORCE_COLOR=1` + `NO_COLOR=1` / `NO_COLOR=true`.
+- `globMatch`, `globToRegex`, and `parseGitignore` are removed from `src/lib/bootstrap.ts`. `--include` / `--exclude` use `picomatch`; `.gitignore` uses the `ignore` library. Negation patterns (`!keep.md`) are now honoured: manual smoke confirmed `discoverMarkdownFiles` returns `["keep.md"]` for a `*.md\n!keep.md` rule.
+- Session-log frontmatter is emitted via `js-yaml`'s `dump`, with the manual `---` fence retained.
+- `CHANGELOG.md` documents the four user-visible changes under `### Changed` / `### Removed` headers.
+- `npm run lint && npm run typecheck && npm run build && npm test` exits 0 (222/222 tests).
+
+### Noteworthy Events
+
+- The plan's task 7 acceptance check expected both `compactStamp` and `isoToCompactStamp` in `src/lib/time.ts`. Task 1 had already dropped `isoToCompactStamp` (zero callers across `src/` and `tests/`), so the consolidated module exports only `compactStamp`. The spirit of the check (single shared owner for the timestamp helper) is satisfied.
+- The `feature/10--remove-defensive-code-branches` branch was retained; the prior plan-11 archival left an uncommitted directory move (`.ai/task-manager/archive/11--shrink-config-surface/`) which is unrelated to plan 12 and was left untouched.
+
+### Necessary follow-ups
+
+- None. Plan 13 (test-seam cleanup) is already in flight on the same branch; the `runId?` seam removal from plan 12 trims part of its scope.

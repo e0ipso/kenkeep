@@ -16,7 +16,6 @@ tags: [drupal, di, controller]
 derived_from:
   - 2026-02-14-1000-controller-di.md
 relates_to: []
-depends_on: []
 confidence: high
 summary: "Drupal controllers must inject services via constructor + create(); no service-locator pattern."
 ---
@@ -43,7 +42,6 @@ derived_from:
   - 2026-01-08-1500-cards-intro.md
   - 2026-03-22-1145-cards-content-type-x.md
 relates_to: []
-depends_on: []
 confidence: high
 summary: "Custom Drupal module that renders card feeds; supports article, event, and content-type-x entities."
 ---
@@ -71,7 +69,6 @@ tags: [analytics, ga, frontend]
 derived_from:
   - 2025-08-01-0900-analytics-rollout.md
 relates_to: []
-depends_on: []
 confidence: medium
 summary: "Fire Google Analytics events directly from JS for click and pageview tracking."
 ---
@@ -99,7 +96,6 @@ tags: [caching, drupal, cache-tags]
 derived_from:
   - 2025-11-05-1330-caching-intro.md
 relates_to: []
-depends_on: []
 confidence: high
 summary: "For entity-rendering routes, use Drupal's automatic cache tags (node_list, entity tags)."
 ---

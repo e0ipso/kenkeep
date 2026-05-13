@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ClaudeAdapter } from '../adapters/claude.js';
 import {
   curatorLogFile,
   runCurate,
   type CuratorRunner,
   type PendingSession,
 } from '../lib/curate.js';
+import { runHeadlessClaude, type RunHeadlessOptions } from '../lib/headless.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { type ConflictReport, type PendingConflictsFile } from '../lib/schemas.js';
@@ -39,9 +39,8 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     return 1;
   }
 
-  const adapter = new ClaudeAdapter();
   const runner: CuratorRunner = (prompt, stdin, schema, runnerOpts) =>
-    adapter.runHeadless(prompt, stdin, schema, runnerOpts);
+    runHeadlessClaude(prompt, stdin, schema, runnerOpts as RunHeadlessOptions);
 
   log.info('Curating pending session logs…');
   const { settings, warnings } = resolveSettings({ projectFile: paths.projectConfigFile });

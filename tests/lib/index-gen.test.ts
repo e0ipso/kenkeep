@@ -12,7 +12,6 @@ interface NodeSeed {
   summary: string;
   tags?: string[];
   relates_to?: string[];
-  depends_on?: string[];
 }
 
 function seedNodes(root: string, seeds: NodeSeed[]): void {
@@ -28,7 +27,6 @@ function seedNodes(root: string, seeds: NodeSeed[]): void {
       tags: s.tags ?? [],
       derived_from: [],
       relates_to: s.relates_to ?? [],
-      depends_on: s.depends_on ?? [],
       confidence: 'high',
       summary: s.summary,
     });
@@ -100,7 +98,7 @@ describe('generateIndex', () => {
         id: 'practice-ref-b',
         title: 'Ref B',
         summary: 's',
-        depends_on: ['practice-hub'],
+        relates_to: ['practice-hub'],
       },
       { kind: 'practice', id: 'practice-alone', title: 'Alone', summary: 's' },
     ]);

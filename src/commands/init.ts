@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { ClaudeAdapter } from '../adapters/claude.js';
+import { writeClaudeHookConfig } from '../lib/hooks-config.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
@@ -435,12 +435,11 @@ async function installClaude(
   root: string
 ): Promise<void> {
   if (!assistants.includes('claude')) return;
-  const adapter = new ClaudeAdapter();
   const claudeTemplateDir = join(templatesDir, 'claude');
   if (existsSync(claudeTemplateDir)) {
     copyTree(claudeTemplateDir, claudeDir);
   }
-  await adapter.writeHookConfig(root, [
+  await writeClaudeHookConfig(root, [
     { event: 'Stop', scriptPath: '.claude/hooks/kb-capture.mjs' },
     { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-capture.mjs' },
     { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-lint-tick.mjs', async: true },

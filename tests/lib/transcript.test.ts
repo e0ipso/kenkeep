@@ -13,8 +13,7 @@ describe('parseTranscriptJsonl', () => {
     ].join('\n');
 
     const parsed = parseTranscriptJsonl(jsonl);
-    expect(parsed.user).toEqual(['Hello', 'Use bravo_pii cache.']);
-    expect(parsed.agent).toEqual(['Hi there']);
+    expect(parsed.interleaved.map(s => s.text)).toEqual(['Hello', 'Hi there', 'Use bravo_pii cache.']);
     expect(parsed.interleaved.map(s => s.role)).toEqual(['user', 'agent', 'user']);
   });
 
@@ -34,8 +33,7 @@ describe('parseTranscriptJsonl', () => {
     ].join('\n');
 
     const parsed = parseTranscriptJsonl(jsonl);
-    expect(parsed.agent).toEqual(['Reading file...']);
-    expect(parsed.user).toEqual([]);
+    expect(parsed.interleaved).toEqual([{ role: 'agent', text: 'Reading file...' }]);
   });
 
   it('skips malformed JSON lines silently', () => {
@@ -45,13 +43,11 @@ describe('parseTranscriptJsonl', () => {
       '',
     ].join('\n');
     const parsed = parseTranscriptJsonl(jsonl);
-    expect(parsed.user).toEqual(['ok']);
+    expect(parsed.interleaved).toEqual([{ role: 'user', text: 'ok' }]);
   });
 
   it('renders role-tagged transcript with USER / AGENT prefixes', () => {
     const t = {
-      user: ['hi'],
-      agent: ['hello'],
       interleaved: [
         { role: 'user' as const, text: 'hi' },
         { role: 'agent' as const, text: 'hello' },

@@ -596,7 +596,6 @@ function writeBootstrapNode(args: WriteBootstrapNodeArgs): string | 'collision' 
     tags: candidate.tags,
     derived_from: derivedFrom,
     relates_to: [],
-    depends_on: [],
     confidence: candidate.confidence,
     summary: candidate.summary,
   };

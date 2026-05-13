@@ -19,7 +19,3 @@ function readPackageJson(): PackageJson {
 export function packageVersion(): string {
   return readPackageJson().version;
 }
-
-export function packageName(): string {
-  return readPackageJson().name;
-}

@@ -277,13 +277,13 @@ No public API docs exist for the deleted types; nothing else needs updating.
 **Validation Gates:**
 - Reference: `/config/hooks/POST_PHASE.md`
 
-### Phase 1: Independent Removals
+### ✅ Phase 1: Independent Removals
 **Parallel Tasks:**
-- Task 001: Dissolve the Adapter abstraction (delete `src/adapters/`, relocate `writeHookConfig` as free function, update three callers, rewrite adapter tests)
-- Task 002: Collapse `RoleTaggedTranscript` to `interleaved`-only
-- Task 003: Remove the `depends_on` node frontmatter field across schema, writers, lint, index/graph render, templates, fixtures, and tests
-- Task 004: Remove the `topics` session-log field across schema, renderer, drain, curate, and tests
-- Task 005: Delete the unused `packageName()` export from `src/lib/version.ts`
+- ✔️ Task 001: Dissolve the Adapter abstraction (delete `src/adapters/`, relocate `writeHookConfig` as free function, update three callers, rewrite adapter tests)
+- ✔️ Task 002: Collapse `RoleTaggedTranscript` to `interleaved`-only
+- ✔️ Task 003: Remove the `depends_on` node frontmatter field across schema, writers, lint, index/graph render, templates, fixtures, and tests
+- ✔️ Task 004: Remove the `topics` session-log field across schema, renderer, drain, curate, and tests
+- ✔️ Task 005: Delete the unused `packageName()` export from `src/lib/version.ts`
 
 ### Phase 2: Documentation Alignment
 **Parallel Tasks:**

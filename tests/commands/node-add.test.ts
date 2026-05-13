@@ -77,7 +77,6 @@ describe('node add', () => {
         tags: [],
         derived_from: [],
         relates_to: [],
-        depends_on: [],
         confidence: 'high',
         summary: 'orig',
       })

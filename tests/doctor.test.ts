@@ -53,7 +53,6 @@ describe('doctor', () => {
         'tags: []',
         'derived_from: []',
         'relates_to: []',
-        'depends_on: []',
         'confidence: high',
         '---',
         '',

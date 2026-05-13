@@ -25,14 +25,13 @@ function relPathFromKb(node: NodeFile): string {
 }
 
 /**
- * Count incoming `relates_to` + `depends_on` edges per node id.
+ * Count incoming `relates_to` edges per node id.
  */
 export function computeInDegree(nodes: NodeFile[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const n of nodes) m.set(n.frontmatter.id, 0);
   for (const n of nodes) {
-    const edges = [...n.frontmatter.relates_to, ...n.frontmatter.depends_on];
-    for (const targetId of edges) {
+    for (const targetId of n.frontmatter.relates_to) {
       m.set(targetId, (m.get(targetId) ?? 0) + 1);
     }
   }
@@ -184,7 +183,6 @@ export function generateGraph(nodesDir: string): GeneratedGraph {
       lines.push(`- **title:** ${fm.title}`);
       if (fm.tags.length > 0) lines.push(`- **tags:** ${fm.tags.join(', ')}`);
       if (fm.relates_to.length > 0) lines.push(`- **relates_to:** ${fm.relates_to.join(', ')}`);
-      if (fm.depends_on.length > 0) lines.push(`- **depends_on:** ${fm.depends_on.join(', ')}`);
       if (fm.derived_from.length > 0)
         lines.push(`- **derived_from:** ${fm.derived_from.join(', ')}`);
       lines.push('');

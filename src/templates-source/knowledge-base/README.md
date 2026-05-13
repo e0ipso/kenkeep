@@ -20,7 +20,7 @@ Each `.md` file in `nodes/` has a frontmatter header and a markdown body. Key fi
 - `kind`: `practice` (how we build things: conventions, prohibitions, gotchas) or `map` (what exists in the project: features, vocabulary, locations).
 - `tags`: free-form labels grouped under `## By topic` in `INDEX.md`.
 - `derived_from`: list of session log filenames or doc paths that produced or refined this node. (Note: `_sessions/` is gitignored by default, so provenance only resolves for the original contributor unless your team commits it.)
-- `relates_to` / `depends_on`: loose and strict cross-references rendered in `GRAPH.md`.
+- `relates_to`: cross-references rendered in `GRAPH.md`.
 - `summary`: ≤140-character one-liner injected via `INDEX.md`. Git history is the timeline of record for when a node was written or rewritten.
 
 ## Manually adding a node

@@ -26,7 +26,6 @@ function seedNode(dir: string, kind: 'practice' | 'map', id: string, body = '# b
     'tags: [a, b]',
     'derived_from: []',
     'relates_to: []',
-    'depends_on: []',
     'confidence: high',
     `summary: "summary for ${id}"`,
     '---',
@@ -83,7 +82,6 @@ describe('nodes helpers', () => {
         'tags: []',
         'derived_from: []',
         'relates_to: []',
-        'depends_on: []',
         'confidence: high',
         '---',
         '',
@@ -148,7 +146,6 @@ describe('nodes helpers', () => {
       tags: ['x'],
       derived_from: ['session-1.md'],
       relates_to: [],
-      depends_on: [],
       confidence: 'high',
       summary: 'For testing the node writer.',
     };

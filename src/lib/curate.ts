@@ -93,7 +93,6 @@ export interface PendingSession {
   filePath: string;
   sessionId: string;
   capturedAt: string;
-  topics: string[];
   practiceCandidates: ProposalCandidate[];
   mapCandidates: ProposalCandidate[];
 }
@@ -128,7 +127,6 @@ export function listPendingSessions(sessionsDir: string): PendingSession[] {
       filePath,
       sessionId: fm.session_id,
       capturedAt: fm.captured_at,
-      topics: fm.topics,
       practiceCandidates: practice,
       mapCandidates: map,
     });
@@ -484,7 +482,6 @@ function buildNodeFrontmatter(
     tags: proposedNode.tags,
     derived_from: proposedNode.derived_from,
     relates_to: proposedNode.relates_to,
-    depends_on: [],
     confidence: proposedNode.confidence,
     summary: proposedNode.summary,
   };

@@ -27,7 +27,7 @@ export function runLint(opts: LintOptions): LintResult {
 
   const incomingRefs = new Map<string, Set<string>>();
   for (const node of nodes) {
-    const refs = [...node.frontmatter.relates_to, ...node.frontmatter.depends_on];
+    const refs = node.frontmatter.relates_to;
     for (const ref of refs) {
       let set = incomingRefs.get(ref);
       if (!set) {
@@ -39,7 +39,7 @@ export function runLint(opts: LintOptions): LintResult {
   }
 
   for (const node of nodes) {
-    const refs = [...node.frontmatter.relates_to, ...node.frontmatter.depends_on];
+    const refs = node.frontmatter.relates_to;
     for (const ref of refs) {
       if (!idSet.has(ref)) {
         errors.push({
@@ -92,7 +92,7 @@ export function runLint(opts: LintOptions): LintResult {
   }
 
   for (const node of nodes) {
-    const outgoing = node.frontmatter.relates_to.length + node.frontmatter.depends_on.length;
+    const outgoing = node.frontmatter.relates_to.length;
     const incoming = incomingRefs.get(node.frontmatter.id);
     const incomingFromOthers = incoming
       ? [...incoming].filter((src) => src !== node.frontmatter.id).length

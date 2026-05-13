@@ -297,7 +297,6 @@ describe('runBootstrapIncremental', () => {
         tags: [],
         derived_from: [],
         relates_to: [],
-        depends_on: [],
         confidence: 'high',
         summary: 's',
       })

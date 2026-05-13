@@ -44,7 +44,6 @@ function seedSession(harness: Harness, sessionId: string, processed: boolean): v
     proposal_error: null,
     proposal_log: null,
     secret_scan_status: 'clean',
-    topics: [],
     proposals: { practice: [], map: [] },
   };
   if (processed) fm['curator_processed_at'] = '2026-05-11T11:00:00Z';
@@ -63,7 +62,6 @@ function seedNode(harness: Harness, kind: 'practice' | 'map', id: string): void 
     tags: [],
     derived_from: [],
     relates_to: [],
-    depends_on: [],
     confidence: 'high',
     summary: 's',
   };

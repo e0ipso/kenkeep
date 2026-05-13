@@ -5,8 +5,6 @@
  */
 
 export interface RoleTaggedTranscript {
-  user: string[];
-  agent: string[];
   interleaved: Array<{ role: 'user' | 'agent'; text: string }>;
 }
 
@@ -40,7 +38,7 @@ function extractText(content: unknown): string {
 }
 
 export function parseTranscriptJsonl(text: string): RoleTaggedTranscript {
-  const out: RoleTaggedTranscript = { user: [], agent: [], interleaved: [] };
+  const out: RoleTaggedTranscript = { interleaved: [] };
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -55,13 +53,11 @@ export function parseTranscriptJsonl(text: string): RoleTaggedTranscript {
     if (role === 'user') {
       const text = extractText(content);
       if (text) {
-        out.user.push(text);
         out.interleaved.push({ role: 'user', text });
       }
     } else if (role === 'assistant' || role === 'agent') {
       const text = extractText(content);
       if (text) {
-        out.agent.push(text);
         out.interleaved.push({ role: 'agent', text });
       }
     }

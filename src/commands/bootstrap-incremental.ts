@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ClaudeAdapter } from '../adapters/claude.js';
 import {
   runBootstrapIncremental,
   type BootstrapContext,
   type BootstrapRunner,
 } from '../lib/bootstrap.js';
+import { runHeadlessClaude, type RunHeadlessOptions } from '../lib/headless.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
@@ -44,9 +44,8 @@ export async function runBootstrapIncrementalCommand(
     return 1;
   }
 
-  const adapter = new ClaudeAdapter();
   const runner: BootstrapRunner = (prompt, stdin, schema, runnerOpts) =>
-    adapter.runHeadless(prompt, stdin, schema, runnerOpts);
+    runHeadlessClaude(prompt, stdin, schema, runnerOpts as RunHeadlessOptions);
 
   const { settings, warnings } = resolveSettings({ projectFile: paths.projectConfigFile });
   for (const w of warnings) log.warn(w);

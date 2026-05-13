@@ -57,7 +57,6 @@ function seedSession(
     proposal_error: null,
     proposal_log: `_logs/proposal/${sessionId}.jsonl`,
     secret_scan_status: 'clean',
-    topics: [],
     proposals: { practice, map },
   };
   const body = matter.stringify('## Proposal\n', fm);
@@ -81,7 +80,6 @@ function seedExistingNode(
     tags: [],
     derived_from: [],
     relates_to: [],
-    depends_on: [],
     confidence: 'high',
     summary: 'existing summary',
   };
@@ -149,7 +147,6 @@ describe('listPendingSessions', () => {
       proposal_error: null,
       proposal_log: null,
       secret_scan_status: 'clean',
-      topics: [],
       proposals: { practice: [], map: [] },
     };
     writeFileSync(join(harness.sessionsDir, 'session-pending.md'), matter.stringify('# x', fm));
@@ -165,7 +162,6 @@ describe('batchSessions', () => {
       filePath: `s-${i}.md`,
       sessionId: `s-${i}`,
       capturedAt: '2026-05-12T10:00:00Z',
-      topics: [],
       practiceCandidates: [makeCandidate('practice', `c-${i}`)],
       mapCandidates: [],
     }));

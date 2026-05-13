@@ -29,7 +29,6 @@ function writeNode(harness: Harness, id: string, derivedFrom: string[]): void {
     tags: [],
     derived_from: derivedFrom,
     relates_to: [],
-    depends_on: [],
     confidence: 'high',
     summary: 's',
   };

@@ -6,7 +6,6 @@ import {
   ProposalOutputSchema,
   type EffortLevel,
   type ModelFamily,
-  type ProposalOutput,
   type QueueEntry,
 } from './schemas.js';
 import { appendToQueue, readQueue } from './queue.js';
@@ -184,7 +183,6 @@ async function processEntry(args: ProcessEntryArgs): Promise<DrainEntryResult> {
       proposal_completed_at: now().toISOString(),
       proposal_error: null,
       proposal_log: relativeLogPath(sessionsDir, logFile),
-      topics: collectTopics(out),
       proposals: { practice: out.practice, map: out.map },
     });
     return {
@@ -253,19 +251,11 @@ function relativeLogPath(sessionsDir: string, logFile: string): string {
   return rel;
 }
 
-function collectTopics(out: ProposalOutput): string[] {
-  const all = new Set<string>();
-  for (const c of out.practice) for (const t of c.tags) all.add(t);
-  for (const c of out.map) for (const t of c.tags) all.add(t);
-  return [...all];
-}
-
 interface FrontmatterPatch {
   proposal_status: 'done' | 'failed' | 'skipped';
   proposal_completed_at: string | null;
   proposal_error: string | null;
   proposal_log: string | null;
-  topics?: string[];
   proposals?: { practice: unknown[]; map: unknown[] };
 }
 
@@ -279,7 +269,6 @@ function writeSessionLogFrontmatter(
   data['proposal_completed_at'] = patch.proposal_completed_at;
   data['proposal_error'] = patch.proposal_error;
   data['proposal_log'] = patch.proposal_log;
-  if (patch.topics) data['topics'] = patch.topics;
   if (patch.proposals) data['proposals'] = patch.proposals;
   const body = updateProposalBody(parsed.content, patch);
   const serialized = matter.stringify(body, data);

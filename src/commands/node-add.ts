@@ -73,7 +73,6 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
     tags,
     derived_from: [],
     relates_to: relatesTo,
-    depends_on: [],
     confidence,
     summary,
   };

@@ -84,7 +84,6 @@ tags: [tag1, tag2, ...]
 derived_from:
   - <source-doc-path-relative-to-repo>
 relates_to: []
-depends_on: []
 confidence: medium
 summary: "≤140 char summary"
 ---

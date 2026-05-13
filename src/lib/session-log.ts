@@ -30,7 +30,6 @@ export function renderSessionLog(input: SessionLogInput): string {
     'proposal_error: null',
     'proposal_log: null',
     `secret_scan_status: ${input.secretScanStatus}`,
-    'topics: []',
     'proposals:',
     '  practice: []',
     '  map: []',

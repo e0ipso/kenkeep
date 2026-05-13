@@ -20,7 +20,6 @@ export const SessionLogFrontmatterSchema = z.object({
   proposal_error: z.string().nullable(),
   proposal_log: z.string().nullable(),
   secret_scan_status: SecretScanStatusSchema,
-  topics: z.array(z.string()),
   proposals: z.object({
     practice: z.array(z.unknown()),
     map: z.array(z.unknown()),
@@ -129,7 +128,6 @@ export const NodeFrontmatterSchema = z.object({
   tags: z.array(z.string()),
   derived_from: z.array(z.string()),
   relates_to: z.array(z.string()),
-  depends_on: z.array(z.string()),
   confidence: ConfidenceSchema,
   summary: z.string(),
 });

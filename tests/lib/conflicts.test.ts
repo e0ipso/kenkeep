@@ -51,7 +51,6 @@ function seedSession(harness: Harness, sessionId: string, candidates: ProposalCa
     proposal_error: null,
     proposal_log: null,
     secret_scan_status: 'clean',
-    topics: [],
     proposals: { practice: candidates, map: [] },
   };
   writeFileSync(
@@ -157,7 +156,6 @@ describe('curate command writes pending-conflicts.json + status surfaces it', ()
         tags: [],
         derived_from: [],
         relates_to: [],
-        depends_on: [],
         confidence: 'high',
         summary: 's',
       })
@@ -175,15 +173,13 @@ describe('curate command writes pending-conflicts.json + status surfaces it', ()
         proposal_error: null,
         proposal_log: null,
         secret_scan_status: 'clean',
-        topics: [],
         proposals: { practice: [makeCandidate('X')], map: [] },
       })
     );
-    // Mock the curator runner via the ClaudeAdapter constructor seam isn't easy;
-    // instead, run the command and stub it to never invoke the runner by setting
-    // an empty pending — actually that won't produce conflicts. We exercise the
-    // pending-conflicts file shape via the `no-pending` branch (always writes
-    // an empty conflicts array) and then via runCurateCommand's success path.
+    // Mocking the curator runner from outside isn't easy; instead, exercise
+    // the pending-conflicts file shape via the `no-pending` branch (always
+    // writes an empty conflicts array) and then via runCurateCommand's
+    // success path.
     //
     // For the empty path, point CWD into the sandbox so findRepoRoot resolves.
     const original = process.cwd();

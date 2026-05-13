@@ -19,7 +19,6 @@ function writeNode(sandbox: string, kind: 'practice' | 'map', id: string): void 
     tags: [],
     derived_from: [],
     relates_to: [],
-    depends_on: [],
     confidence: 'high',
     summary: 's',
   };
@@ -117,7 +116,6 @@ describe('index rebuild', () => {
         'tags: []',
         'derived_from: []',
         'relates_to: []',
-        'depends_on: []',
         'confidence: high',
         '---',
         '',

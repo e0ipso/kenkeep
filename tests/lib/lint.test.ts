@@ -35,7 +35,6 @@ function writeNode(
     tags: overrides.tags ?? [],
     derived_from: overrides.derived_from ?? [],
     relates_to: overrides.relates_to ?? [],
-    depends_on: overrides.depends_on ?? [],
     confidence: overrides.confidence ?? 'high',
     summary: overrides.summary ?? 's',
   };

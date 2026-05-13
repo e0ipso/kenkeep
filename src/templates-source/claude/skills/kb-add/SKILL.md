@@ -37,7 +37,6 @@ kind: <practice|map>
 tags: [<tag1>, <tag2>, ...]
 derived_from: []
 relates_to: [<id1>, <id2>, ...]   # or [] if none
-depends_on: []
 confidence: <high|medium|low>
 summary: "<summary>"
 ---

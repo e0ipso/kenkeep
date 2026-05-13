@@ -118,7 +118,6 @@ describe('drainProposalQueue', () => {
     const proposals = after.data['proposals'] as { practice: unknown[]; map: unknown[] };
     expect(proposals.practice).toHaveLength(1);
     expect(proposals.map).toHaveLength(1);
-    expect(after.data['topics']).toEqual(expect.arrayContaining(['di', 'module']));
     expect(readQueue(harness.queueFile).entries).toHaveLength(0);
   });
 

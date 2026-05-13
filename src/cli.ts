@@ -89,29 +89,11 @@ async function main(): Promise<void> {
   program
     .command('curate')
     .description('Run the curator non-interactively over pending session logs.')
-    .option('--batch-size <n>', 'sessions per curator batch (default 10)', v => parseInt(v, 10))
-    .option('--token-budget <n>', 'approx token budget per batch (default 50000)', v =>
-      parseInt(v, 10)
-    )
     .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', v => parseInt(v, 10))
     .option('-v, --verbose', 'stream curator assistant text and tool-use events as they arrive')
     .action(
-      async (opts: {
-        batchSize?: number;
-        tokenBudget?: number;
-        timeout?: number;
-        verbose?: boolean;
-      }) => {
-        const curateOpts: {
-          batchSize?: number;
-          tokenBudget?: number;
-          timeoutMs?: number;
-          verbose?: boolean;
-        } = {};
-        if (typeof opts.batchSize === 'number' && !Number.isNaN(opts.batchSize))
-          curateOpts.batchSize = opts.batchSize;
-        if (typeof opts.tokenBudget === 'number' && !Number.isNaN(opts.tokenBudget))
-          curateOpts.tokenBudget = opts.tokenBudget;
+      async (opts: { timeout?: number; verbose?: boolean }) => {
+        const curateOpts: { timeoutMs?: number; verbose?: boolean } = {};
         if (typeof opts.timeout === 'number' && !Number.isNaN(opts.timeout))
           curateOpts.timeoutMs = opts.timeout;
         if (opts.verbose === true) curateOpts.verbose = true;
@@ -139,9 +121,6 @@ async function main(): Promise<void> {
       [] as string[]
     )
     .option('--dry-run', 'report what would be processed without invoking the LLM', false)
-    .option('--token-budget <n>', 'approx token budget per batch (default 10000)', v =>
-      parseInt(v, 10)
-    )
     .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', v => parseInt(v, 10))
     .action(
       async (opts: {
@@ -149,7 +128,6 @@ async function main(): Promise<void> {
         include: string[];
         exclude: string[];
         dryRun?: boolean;
-        tokenBudget?: number;
         timeout?: number;
       }) => {
         const cmdOpts: {
@@ -157,14 +135,11 @@ async function main(): Promise<void> {
           include?: string[];
           exclude?: string[];
           dryRun?: boolean;
-          tokenBudget?: number;
           timeoutMs?: number;
         } = { from: opts.from };
         if (opts.include.length > 0) cmdOpts.include = opts.include;
         if (opts.exclude.length > 0) cmdOpts.exclude = opts.exclude;
         if (opts.dryRun) cmdOpts.dryRun = true;
-        if (typeof opts.tokenBudget === 'number' && !Number.isNaN(opts.tokenBudget))
-          cmdOpts.tokenBudget = opts.tokenBudget;
         if (typeof opts.timeout === 'number' && !Number.isNaN(opts.timeout))
           cmdOpts.timeoutMs = opts.timeout;
         const code = await runBootstrapIncrementalCommand(cmdOpts);
@@ -202,18 +177,10 @@ async function main(): Promise<void> {
   logsGroup
     .command('prune')
     .description(
-      'Delete JSONL log files under .ai/knowledge-base/_logs/ older than a duration (default: 30d or settings.logsRetentionDays).'
+      'Delete JSONL log files under .ai/knowledge-base/_logs/ older than settings.logsRetentionDays (default 30 days).'
     )
-    .option(
-      '--older-than <duration>',
-      "ms-style duration (e.g. '30d', '2w', '12h'); files older than this are deleted"
-    )
-    .option('--dry-run', 'list what would be deleted without touching files', false)
-    .action(async (opts: { olderThan?: string; dryRun?: boolean }) => {
-      const pruneOpts: { olderThan?: string; dryRun?: boolean } = {};
-      if (typeof opts.olderThan === 'string') pruneOpts.olderThan = opts.olderThan;
-      if (opts.dryRun) pruneOpts.dryRun = true;
-      const code = await runLogsPrune(pruneOpts);
+    .action(async () => {
+      const code = await runLogsPrune();
       process.exit(code);
     });
 

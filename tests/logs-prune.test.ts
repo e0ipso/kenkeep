@@ -29,42 +29,14 @@ describe('logs prune', () => {
     return full;
   }
 
-  it('deletes log files older than --older-than and reports per-bucket counts', async () => {
+  it('deletes .jsonl files older than the configured retention and prints the count', async () => {
     const old = plantLog('proposal', 'old.jsonl', 60 * DAY_MS);
     const fresh = plantLog('proposal', 'fresh.jsonl', 1 * DAY_MS);
-
-    const result = await runCli(sandbox, ['logs', 'prune', '--older-than', '30d']);
-    expect(result.exitCode).toBe(0);
-    expect(existsSync(old)).toBe(false);
-    expect(existsSync(fresh)).toBe(true);
-    expect(result.stdout).toMatch(/Deleted 1 log file/);
-    expect(result.stdout).toMatch(/proposal: 1\/2 eligible/);
-  });
-
-  it('honors --dry-run', async () => {
-    const old = plantLog('curator', 'old.jsonl', 60 * DAY_MS, 'hello');
-
-    const result = await runCli(sandbox, ['logs', 'prune', '--older-than', '30d', '--dry-run']);
-    expect(result.exitCode).toBe(0);
-    expect(existsSync(old)).toBe(true);
-    expect(result.stdout).toMatch(/Would delete 1 log file/);
-    expect(result.stdout).toMatch(/Dry-run:/);
-  });
-
-  it('defaults to the settings logsRetentionDays when --older-than is omitted', async () => {
-    // The default-init writes logsRetentionDays = 30.
-    const old = plantLog('bootstrap-incremental', 'old.jsonl', 60 * DAY_MS);
-    const fresh = plantLog('bootstrap-incremental', 'fresh.jsonl', 5 * DAY_MS);
 
     const result = await runCli(sandbox, ['logs', 'prune']);
     expect(result.exitCode).toBe(0);
     expect(existsSync(old)).toBe(false);
     expect(existsSync(fresh)).toBe(true);
-  });
-
-  it('fails with a clear message on an invalid duration', async () => {
-    const result = await runCli(sandbox, ['logs', 'prune', '--older-than', 'foobar']);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr + result.stdout).toMatch(/unrecognized duration/);
+    expect(result.stdout).toMatch(/pruned 1 files/);
   });
 });

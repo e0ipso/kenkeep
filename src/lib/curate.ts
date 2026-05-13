@@ -24,14 +24,13 @@ import {
   ProposalCandidateSchema,
   type ProposalCandidate,
 } from './schemas.js';
+import { chunk } from './chunk-batch.js';
 import { acquireLock, releaseLock } from './state.js';
 import { ulid } from './ulid.js';
 
 export const CURATOR_LOCK_NAME = 'curator';
-export const DEFAULT_BATCH_SIZE = 10;
-export const DEFAULT_TOKEN_BUDGET = 50_000;
+export const CURATE_BATCH_SIZE = 10;
 export const DEFAULT_TIMEOUT_MS = 120_000;
-const CHARS_PER_TOKEN = 4;
 
 export type CuratorRunner = <T>(
   promptBody: string,
@@ -55,8 +54,6 @@ export interface CurateContext {
   stateFile: string;
   promptTemplate: string;
   runner: CuratorRunner;
-  batchSize?: number;
-  tokenBudget?: number;
   timeoutMs?: number;
   lockTtlMs?: number;
   now?: () => Date;
@@ -148,40 +145,6 @@ function parseCandidateArray(value: unknown): ProposalCandidate[] {
 export const BATCH_PLACEHOLDER = '[BATCH PLACEHOLDER — substituted at runtime]';
 
 /**
- * Splits pending sessions into batches sized by both count (`batchSize`,
- * default 10) and an estimated token budget (`tokenBudget`, default 50K).
- */
-export function batchSessions(
-  sessions: PendingSession[],
-  batchSize: number,
-  tokenBudget: number
-): PendingSession[][] {
-  const batches: PendingSession[][] = [];
-  let current: PendingSession[] = [];
-  let currentTokens = 0;
-  for (const s of sessions) {
-    const cost = estimateSessionTokens(s);
-    const wouldExceed = current.length >= batchSize || currentTokens + cost > tokenBudget;
-    if (wouldExceed && current.length > 0) {
-      batches.push(current);
-      current = [];
-      currentTokens = 0;
-    }
-    current.push(s);
-    currentTokens += cost;
-  }
-  if (current.length > 0) batches.push(current);
-  return batches;
-}
-
-function estimateSessionTokens(s: PendingSession): number {
-  let chars = 0;
-  for (const c of s.practiceCandidates) chars += c.body.length + c.summary.length;
-  for (const c of s.mapCandidates) chars += c.body.length + c.summary.length;
-  return Math.max(1, Math.ceil(chars / CHARS_PER_TOKEN));
-}
-
-/**
  * Builds the JSON payload that the curator subprocess receives on stdin.
  * Includes the existing nodes the batch references plus the candidates.
  */
@@ -267,8 +230,6 @@ export function buildBatchPrompt(template: string, payload: CuratorBatchPayload)
 export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
   const now = ctx.now ?? (() => new Date());
   const pid = ctx.pid ?? process.pid;
-  const batchSize = ctx.batchSize ?? DEFAULT_BATCH_SIZE;
-  const tokenBudget = ctx.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
   const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   const pending = listPendingSessions(ctx.sessionsDir);
@@ -313,7 +274,7 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
   const logFile = ctx.logFile ?? join(ctx.logsDir, 'curator', `${runId}__${startStamp}.jsonl`);
   mkdirSync(join(ctx.logsDir, 'curator'), { recursive: true });
 
-  const batches = batchSessions(pending, batchSize, tokenBudget);
+  const batches = chunk(pending, CURATE_BATCH_SIZE);
   const allActions: CuratorAction[] = [];
 
   try {

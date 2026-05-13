@@ -16,8 +16,6 @@ import { ulid } from '../lib/ulid.js';
 const HEARTBEAT_MS = 15_000;
 
 export interface CurateCommandOptions {
-  batchSize?: number;
-  tokenBudget?: number;
   timeoutMs?: number;
   verbose?: boolean;
 }
@@ -102,8 +100,6 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
   try {
     result = await runCurate({
       ...baseOpts,
-      ...(opts.batchSize !== undefined ? { batchSize: opts.batchSize } : {}),
-      ...(opts.tokenBudget !== undefined ? { tokenBudget: opts.tokenBudget } : {}),
       ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
     });
   } finally {

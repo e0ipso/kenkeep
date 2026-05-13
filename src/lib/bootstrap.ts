@@ -19,14 +19,14 @@ import {
   type ModelFamily,
   type NodeFrontmatter,
 } from './schemas.js';
+import { chunk } from './chunk-batch.js';
 import { acquireLock, releaseLock } from './state.js';
 import { deriveNodeId, ensureUniqueId, nodeFileExists, writeNodeFile } from './nodes.js';
 import { ulid } from './ulid.js';
 
 export const BOOTSTRAP_LOCK_NAME = 'bootstrap-incremental';
-export const DEFAULT_TOKEN_BUDGET = 10_000;
+export const BOOTSTRAP_BATCH_SIZE = 20;
 export const DEFAULT_TIMEOUT_MS = 120_000;
-const CHARS_PER_TOKEN = 4;
 export const CHUNK_PLACEHOLDER = '[CHUNK PLACEHOLDER — substituted at runtime]';
 
 export type BootstrapRunner = <T>(
@@ -64,7 +64,6 @@ export interface BootstrapContext {
   include?: string[];
   exclude?: string[];
   dryRun?: boolean;
-  tokenBudget?: number;
   timeoutMs?: number;
   lockTtlMs?: number;
   now?: () => Date;
@@ -286,29 +285,6 @@ function relativePosix(from: string, to: string): string {
 }
 
 /**
- * Splits the to-process doc set into batches sized by an approximate token
- * budget (chars/4). Each doc is treated as atomic — a single oversized doc
- * lands in its own batch.
- */
-export function chunkDocs(docs: DocCandidateFile[], tokenBudget: number): DocCandidateFile[][] {
-  const batches: DocCandidateFile[][] = [];
-  let current: DocCandidateFile[] = [];
-  let currentTokens = 0;
-  for (const d of docs) {
-    const cost = Math.max(1, Math.ceil(d.content.length / CHARS_PER_TOKEN));
-    if (current.length > 0 && currentTokens + cost > tokenBudget) {
-      batches.push(current);
-      current = [];
-      currentTokens = 0;
-    }
-    current.push(d);
-    currentTokens += cost;
-  }
-  if (current.length > 0) batches.push(current);
-  return batches;
-}
-
-/**
  * Builds the per-batch chunk string fed into the bootstrap prompt:
  *
  *   === FILE: <path> ===
@@ -350,7 +326,6 @@ export function buildPrompt(template: string, chunk: string): string {
 export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<BootstrapResult> {
   const now = ctx.now ?? (() => new Date());
   const pid = ctx.pid ?? process.pid;
-  const tokenBudget = ctx.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
   const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   const gitignorePath = join(ctx.repoRoot, '.gitignore');
@@ -430,7 +405,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
       processed: [...dryResults, ...unchanged],
       nodesWritten: 0,
       skippedCollisions: 0,
-      batches: chunkDocs(candidates, tokenBudget).length,
+      batches: chunk(candidates, BOOTSTRAP_BATCH_SIZE).length,
     };
   }
 
@@ -467,7 +442,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   const seenSlugs = new Set<string>();
   let nodesWritten = 0;
   let skippedCollisions = 0;
-  const batches = chunkDocs(candidates, tokenBudget);
+  const batches = chunk(candidates, BOOTSTRAP_BATCH_SIZE);
 
   try {
     for (const batch of batches) {

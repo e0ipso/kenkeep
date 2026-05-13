@@ -2,7 +2,7 @@
 id: 3
 group: "batching"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-05-13
 skills:
   - typescript

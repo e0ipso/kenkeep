@@ -285,11 +285,11 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 2: Drop `warnings` loops and internal-setting reads across consumers (depends on: 1).
 
-### Phase 3: Lib rewrites
+### ✅ Phase 3: Lib rewrites
 
 **Parallel Tasks:**
-- Task 3: Add shared `chunk` helper, swap bootstrap and curate, delete `--token-budget` (depends on: 1, 2).
-- Task 4: Collapse `logs prune` to a 30-day blanket cleanup (depends on: 1, 2).
+- ✔️ Task 3: Add shared `chunk` helper, swap bootstrap and curate, delete `--token-budget` (depends on: 1, 2).
+- ✔️ Task 4: Collapse `logs prune` to a 30-day blanket cleanup (depends on: 1, 2).
 
 ### Phase 4: Tests and documentation
 

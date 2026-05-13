@@ -16,7 +16,6 @@ import {
   buildChunkString,
   buildPrompt,
   CHUNK_PLACEHOLDER,
-  chunkDocs,
   discoverMarkdownFiles,
   globMatch,
   parseGitignore,
@@ -25,7 +24,6 @@ import {
   sha256Hex,
   writeBootstrapState,
   type BootstrapRunner,
-  type DocCandidateFile,
 } from '../../src/lib/bootstrap.js';
 import type {
   BootstrapCandidate,
@@ -185,30 +183,6 @@ describe('discoverMarkdownFiles', () => {
   });
 });
 
-describe('chunkDocs', () => {
-  it('packs docs into batches sized by approximate token budget', () => {
-    const docs: DocCandidateFile[] = Array.from({ length: 4 }, (_, i) => ({
-      relPath: `docs/${i}.md`,
-      absPath: `/tmp/${i}.md`,
-      sha256: 'x',
-      content: 'a'.repeat(4000), // ~1000 tokens each
-    }));
-    const batches = chunkDocs(docs, 2500);
-    // First batch can fit 2 docs (≈2000), 3rd would overflow.
-    expect(batches.map(b => b.length)).toEqual([2, 2]);
-  });
-
-  it('lets an oversized single doc live in its own batch', () => {
-    const docs: DocCandidateFile[] = [
-      { relPath: 'big.md', absPath: '/x', sha256: 'x', content: 'a'.repeat(100_000) },
-      { relPath: 'small.md', absPath: '/y', sha256: 'y', content: 'a' },
-    ];
-    const batches = chunkDocs(docs, 1000);
-    expect(batches).toHaveLength(2);
-    expect(batches[0]!.map(d => d.relPath)).toEqual(['big.md']);
-  });
-});
-
 describe('buildChunkString', () => {
   it('emits FILE/END FILE delimited blocks', () => {
     const out = buildChunkString([
@@ -263,10 +237,7 @@ describe('runBootstrapIncremental', () => {
       practice: [makeCandidate('practice', 'Use X', ['docs/a.md'])],
       map: [makeCandidate('map', 'Bravo Service', ['docs/b.md'])],
     });
-    const result = await runBootstrapIncremental({
-      ...ctxFor(harness, runner),
-      tokenBudget: 1_000_000,
-    });
+    const result = await runBootstrapIncremental(ctxFor(harness, runner));
     expect(result.status).toBe('completed');
     expect(result.nodesWritten).toBe(2);
     expect(result.skippedCollisions).toBe(0);

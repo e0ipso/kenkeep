@@ -15,7 +15,6 @@ export interface BootstrapIncrementalOptions {
   include?: string[];
   exclude?: string[];
   dryRun?: boolean;
-  tokenBudget?: number;
   timeoutMs?: number;
 }
 

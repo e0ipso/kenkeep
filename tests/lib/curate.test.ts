@@ -8,7 +8,6 @@ import {
   CURATOR_LOCK_NAME,
   buildBatchPayload,
   buildBatchPrompt,
-  batchSessions,
   dedupActions,
   listPendingSessions,
   runCurate,
@@ -155,21 +154,6 @@ describe('listPendingSessions', () => {
     writeFileSync(join(harness.sessionsDir, 'session-pending.md'), matter.stringify('# x', fm));
     const sessions = listPendingSessions(harness.sessionsDir);
     expect(sessions.map(s => s.sessionId)).toEqual(['a']);
-  });
-});
-
-describe('batchSessions', () => {
-  it('respects the per-batch session count limit', () => {
-    const sessions = Array.from({ length: 25 }, (_, i) => ({
-      filename: `s-${i}.md`,
-      filePath: `s-${i}.md`,
-      sessionId: `s-${i}`,
-      capturedAt: '2026-05-12T10:00:00Z',
-      practiceCandidates: [makeCandidate('practice', `c-${i}`)],
-      mapCandidates: [],
-    }));
-    const batches = batchSessions(sessions, 10, 1_000_000);
-    expect(batches.map(b => b.length)).toEqual([10, 10, 5]);
   });
 });
 
@@ -400,18 +384,15 @@ describe('runCurate', () => {
     const sink: unknown[] = [];
     await runCurate({
       ...ctx(runner),
-      batchSize: 1,
       onBatchStart: ({ index, total, batch }) => starts.push({ index, total, size: batch.length }),
       onBatchEnd: ({ index, total }) => ends.push({ index, total }),
       onCuratorMessage: msg => sink.push(msg),
     });
-    expect(starts).toEqual([
-      { index: 0, total: 2, size: 1 },
-      { index: 1, total: 2, size: 1 },
-    ]);
-    expect(ends.map(e => e.index)).toEqual([0, 1]);
+    // Two sessions fit in a single batch (CURATE_BATCH_SIZE = 10).
+    expect(starts).toEqual([{ index: 0, total: 1, size: 2 }]);
+    expect(ends.map(e => e.index)).toEqual([0]);
     expect(runnerSawOnMessage).toBe(true);
-    expect(sink).toEqual([{ type: 'assistant' }, { type: 'assistant' }]);
+    expect(sink).toEqual([{ type: 'assistant' }]);
   });
 
   it('forwards model and effort to the runner when set, omits them otherwise', async () => {

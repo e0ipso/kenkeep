@@ -4,10 +4,10 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { HOOK_SPECS } from '../lib/hook-spec.js';
 import { writeClaudeHookConfig } from '../lib/hooks-config.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
@@ -18,7 +18,6 @@ export interface InitOptions {
   assistants: string[];
   force?: boolean;
   upgrade?: boolean;
-  dryRun?: boolean;
 }
 
 interface InstalledVersion {
@@ -125,23 +124,6 @@ function validateAssistants(assistants: string[]): void {
   }
 }
 
-interface UpgradeChange {
-  kind:
-    | 'hook-script'
-    | 'skill'
-    | 'prompt-new'
-    | 'prompt-preserved'
-    | 'hook-registration'
-    | 'gitignore'
-    | 'config-yaml'
-    | 'secretlintrc'
-    | 'husky-pre-commit'
-    | 'lintstagedrc'
-    | 'package-json-scan'
-    | 'installed-version';
-  detail: string;
-}
-
 async function runUpgrade(
   opts: InitOptions,
   root: string,
@@ -153,265 +135,29 @@ async function runUpgrade(
       'Not initialized. Run `ai-knowledge-base init --assistants claude` for a first-time install.'
     );
   }
-  const installed = JSON.parse(
-    readFileSync(paths.installedVersionFile, 'utf8')
-  ) as InstalledVersion;
   const current = packageVersion();
+  log.info(`Upgrading in ${root} to ${current}`);
 
-  log.info(`Upgrade preflight in ${root}`);
-  log.plain(`  installed: ${installed.version}`);
-  log.plain(`  package:   ${current}`);
-
-  const changes = collectUpgradeChanges({
-    installed,
-    current,
-    root,
-    paths,
-    templatesDir,
-    assistants: opts.assistants,
-  });
-
-  if (changes.length === 0 && installed.version === current) {
-    log.success(`Already at ${current}. Nothing to do.`);
-    return;
-  }
-
-  log.plain('');
-  log.plain('Planned changes:');
-  for (const c of changes) {
-    log.plain(`  • [${c.kind}] ${c.detail}`);
-  }
-
-  if (opts.dryRun) {
-    log.plain('');
-    log.success(`--dry-run: ${changes.length} change(s) listed; nothing written.`);
-    return;
-  }
-
-  // Apply phase. Each function is idempotent so re-running is safe.
-  log.plain('');
-  log.info('Applying…');
-
-  // Hook scripts + skills: overwrite from templates.
   copyTree(join(templatesDir, 'claude', 'hooks'), paths.claudeHooksDir);
   copyTree(join(templatesDir, 'claude', 'skills'), paths.claudeSkillsDir);
 
-  // Refresh hook registrations in .claude/settings.json (preserves user-defined hooks).
   await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
 
-  // Prompts: copy only those missing locally, preserve customized ones.
   copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
-  // Gitignore: idempotent block update covers new lines.
   updateGitignore(paths.gitignoreFile);
 
-  // Commit-time secret-scan scaffold (idempotent).
   installCommitScan(paths, templatesDir);
 
-  // Settings: only create if missing; never overwrite existing.
   if (!existsSync(paths.projectConfigFile)) {
     mkdirSync(paths.kbDir, { recursive: true });
     writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
   }
 
-  // Stamp the new installed-version.
   writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.assistants);
 
   log.success(`Upgraded to ${current}.`);
   log.plain('Run `ai-knowledge-base doctor` to verify.');
-}
-
-interface UpgradeContext {
-  installed: InstalledVersion;
-  current: string;
-  root: string;
-  paths: ReturnType<typeof repoPaths>;
-  templatesDir: string;
-  assistants: string[];
-}
-
-function collectUpgradeChanges(ctx: UpgradeContext): UpgradeChange[] {
-  const out: UpgradeChange[] = [];
-
-  // Hook scripts.
-  const hookSrc = join(ctx.templatesDir, 'claude', 'hooks');
-  if (existsSync(hookSrc)) {
-    for (const name of readdirSync(hookSrc)) {
-      const src = join(hookSrc, name);
-      const dst = join(ctx.paths.claudeHooksDir, name);
-      if (!existsSync(dst) || !filesEqual(src, dst)) {
-        out.push({ kind: 'hook-script', detail: `refresh .claude/hooks/${name}` });
-      }
-    }
-  }
-
-  // Skills (one directory per skill containing SKILL.md + supporting files).
-  const skillSrc = join(ctx.templatesDir, 'claude', 'skills');
-  if (existsSync(skillSrc)) {
-    for (const skillName of readdirSync(skillSrc)) {
-      const srcDir = join(skillSrc, skillName);
-      if (!statSync(srcDir).isDirectory()) continue;
-      const dstDir = join(ctx.paths.claudeSkillsDir, skillName);
-      if (!existsSync(dstDir) || !skillDirsEqual(srcDir, dstDir)) {
-        out.push({ kind: 'skill', detail: `refresh .claude/skills/${skillName}/` });
-      }
-    }
-  }
-
-  // Prompts (preserve existing local overrides).
-  const promptSrc = join(ctx.templatesDir, 'prompts');
-  if (existsSync(promptSrc)) {
-    for (const name of readdirSync(promptSrc)) {
-      const dst = join(ctx.paths.promptsDir, name);
-      if (!existsSync(dst)) {
-        out.push({
-          kind: 'prompt-new',
-          detail: `copy new prompt .ai/knowledge-base/.config/prompts/${name}`,
-        });
-      } else if (!filesEqual(join(promptSrc, name), dst)) {
-        out.push({
-          kind: 'prompt-preserved',
-          detail: `local override preserved: .ai/knowledge-base/.config/prompts/${name}`,
-        });
-      }
-    }
-  }
-
-  // Hook registrations: only report if any expected entry is missing.
-  if (hookRegistrationsNeedRefresh(ctx.paths.claudeSettingsFile)) {
-    out.push({
-      kind: 'hook-registration',
-      detail: 'refresh ai-knowledge-base hook entries in .claude/settings.json',
-    });
-  }
-
-  // Gitignore: report only if the block is missing lines.
-  const gitignoreState = inspectGitignore(ctx.paths.gitignoreFile);
-  if (!gitignoreState.blockPresent) {
-    out.push({ kind: 'gitignore', detail: `add ai-knowledge-base block to .gitignore` });
-  } else if (gitignoreState.missingLines.length > 0) {
-    out.push({
-      kind: 'gitignore',
-      detail: `add missing .gitignore lines: ${gitignoreState.missingLines.join(', ')}`,
-    });
-  }
-
-  // config.yaml: create only if absent.
-  if (!existsSync(ctx.paths.projectConfigFile)) {
-    out.push({
-      kind: 'config-yaml',
-      detail: 'create default .ai/knowledge-base/config.yaml',
-    });
-  }
-
-  // Commit-time secret-scan scaffold (husky + lint-staged + secretlint).
-  if (!existsSync(ctx.paths.secretlintrcFile)) {
-    out.push({ kind: 'secretlintrc', detail: 'create .secretlintrc.json' });
-  }
-  if (!existsSync(ctx.paths.huskyPreCommitFile)) {
-    out.push({ kind: 'husky-pre-commit', detail: 'create .husky/pre-commit' });
-  }
-  if (!existsSync(ctx.paths.lintstagedrcFile)) {
-    out.push({ kind: 'lintstagedrc', detail: 'create .lintstagedrc.cjs' });
-  }
-  if (packageJsonNeedsScanScaffold(ctx.paths.packageJsonFile)) {
-    out.push({
-      kind: 'package-json-scan',
-      detail: 'patch package.json (husky/secretlint devDeps + prepare script)',
-    });
-  }
-
-  // installed-version stamp (version bump).
-  if (ctx.installed.version !== ctx.current) {
-    out.push({
-      kind: 'installed-version',
-      detail: `stamp installed-version: version ${ctx.installed.version} → ${ctx.current}`,
-    });
-  }
-
-  return out;
-}
-
-interface GitignoreState {
-  blockPresent: boolean;
-  missingLines: string[];
-}
-
-const EXPECTED_HOOK_COMMANDS: Array<{ event: string; command: string; async?: boolean }> = [
-  { event: 'Stop', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"' },
-  { event: 'SessionEnd', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"' },
-  { event: 'PreCompact', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"' },
-  {
-    event: 'SessionStart',
-    command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-proposal-drain.mjs"',
-    async: true,
-  },
-  {
-    event: 'SessionStart',
-    command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-session-start.mjs"',
-  },
-];
-
-function hookRegistrationsNeedRefresh(settingsFile: string): boolean {
-  if (!existsSync(settingsFile)) return true;
-  let parsed: {
-    hooks?: Record<string, Array<{ hooks?: Array<{ command?: string; async?: boolean }> }>>;
-  };
-  try {
-    parsed = JSON.parse(readFileSync(settingsFile, 'utf8')) as typeof parsed;
-  } catch {
-    return true;
-  }
-  const hooks = parsed.hooks ?? {};
-  for (const expected of EXPECTED_HOOK_COMMANDS) {
-    const entries = hooks[expected.event] ?? [];
-    const flat = entries.flatMap(e => e.hooks ?? []);
-    const match = flat.find(h => h.command === expected.command);
-    if (!match) return true;
-    if (expected.async === true && match.async !== true) return true;
-  }
-  return false;
-}
-
-function inspectGitignore(file: string): GitignoreState {
-  if (!existsSync(file)) {
-    return { blockPresent: false, missingLines: GITIGNORE_LINES.slice() };
-  }
-  const body = readFileSync(file, 'utf8');
-  const blockPresent = body.includes(GITIGNORE_BLOCK_START);
-  const missing = GITIGNORE_LINES.filter(line => !body.includes(line));
-  return { blockPresent, missingLines: missing };
-}
-
-function skillDirsEqual(src: string, dst: string): boolean {
-  const srcEntries = readdirSync(src).sort();
-  const dstEntries = readdirSync(dst).sort();
-  if (srcEntries.length !== dstEntries.length) return false;
-  for (let i = 0; i < srcEntries.length; i++) {
-    if (srcEntries[i] !== dstEntries[i]) return false;
-    const srcPath = join(src, srcEntries[i]!);
-    const dstPath = join(dst, dstEntries[i]!);
-    const srcStat = statSync(srcPath);
-    const dstStat = statSync(dstPath);
-    if (srcStat.isDirectory() !== dstStat.isDirectory()) return false;
-    if (srcStat.isDirectory()) {
-      if (!skillDirsEqual(srcPath, dstPath)) return false;
-    } else if (!filesEqual(srcPath, dstPath)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function filesEqual(a: string, b: string): boolean {
-  try {
-    const sa = statSync(a);
-    const sb = statSync(b);
-    if (sa.size !== sb.size) return false;
-    return readFileSync(a).equals(readFileSync(b));
-  } catch {
-    return false;
-  }
 }
 
 function copyPromptsPreservingLocal(src: string, dst: string): void {
@@ -439,18 +185,14 @@ async function installClaude(
   if (existsSync(claudeTemplateDir)) {
     copyTree(claudeTemplateDir, claudeDir);
   }
-  await writeClaudeHookConfig(root, [
-    { event: 'Stop', scriptPath: '.claude/hooks/kb-capture.mjs' },
-    { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-capture.mjs' },
-    { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-lint-tick.mjs', async: true },
-    { event: 'PreCompact', scriptPath: '.claude/hooks/kb-capture.mjs' },
-    {
-      event: 'SessionStart',
-      scriptPath: '.claude/hooks/kb-proposal-drain.mjs',
-      async: true,
-    },
-    { event: 'SessionStart', scriptPath: '.claude/hooks/kb-session-start.mjs' },
-  ]);
+  await writeClaudeHookConfig(
+    root,
+    HOOK_SPECS.map(spec => ({
+      event: spec.event,
+      scriptPath: `.claude/hooks/${spec.scriptPath}`,
+      ...(spec.async ? { async: true } : {}),
+    }))
+  );
 }
 
 function writeInstalledVersion(file: string, stateDir: string, assistants: string[]): void {
@@ -571,23 +313,6 @@ function patchPackageJsonForScan(file: string): void {
   if (changed) {
     writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
   }
-}
-
-function packageJsonNeedsScanScaffold(file: string): boolean {
-  if (!existsSync(file)) return true;
-  let pkg: Record<string, unknown>;
-  try {
-    pkg = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
-  } catch {
-    return true;
-  }
-  const devDeps = (pkg['devDependencies'] as Record<string, string> | undefined) ?? {};
-  for (const name of Object.keys(SECRET_SCAN_DEV_DEPS)) {
-    if (devDeps[name] === undefined) return true;
-  }
-  const scripts = (pkg['scripts'] as Record<string, string> | undefined) ?? {};
-  if (scripts['prepare'] === undefined) return true;
-  return false;
 }
 
 function updateGitignore(file: string): void {

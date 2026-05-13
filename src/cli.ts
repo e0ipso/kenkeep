@@ -37,13 +37,11 @@ async function main(): Promise<void> {
       'refresh hooks/slash commands/prompts to the current package version while preserving local overrides and config.yaml',
       false
     )
-    .option('--dry-run', 'with --upgrade: list planned changes without writing', false)
     .action(
       async (opts: {
         assistants: string[];
         force: boolean;
         upgrade: boolean;
-        dryRun: boolean;
       }) => {
         await runInit(opts);
       }

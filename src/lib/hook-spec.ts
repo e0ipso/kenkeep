@@ -1,10 +1,4 @@
-export type HookEvent =
-  | 'Stop'
-  | 'SessionEnd'
-  | 'PreCompact'
-  | 'SessionStart'
-  | 'UserPromptSubmit'
-  | 'PostToolUse';
+export type HookEvent = 'Stop' | 'SessionEnd' | 'PreCompact' | 'SessionStart' | 'UserPromptSubmit';
 
 export interface HookSpec {
   event: HookEvent;

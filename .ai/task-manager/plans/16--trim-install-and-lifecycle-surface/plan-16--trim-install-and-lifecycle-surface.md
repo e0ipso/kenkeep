@@ -302,9 +302,9 @@ graph TD
 - ✔️ Task 001: Create centralized `src/lib/hook-spec.ts` module
 - ✔️ Task 004: Replace `pending-conflicts.json` with markdown conflict files
 
-### Phase 2: Init preflight removal
+### ✅ Phase 2: Init preflight removal
 **Parallel Tasks:**
-- Task 002: Strip upgrade preflight and `--dry-run` (depends on: 001)
+- ✔️ Task 002: Strip upgrade preflight and `--dry-run` (depends on: 001)
 
 ### Phase 3: Init scaffolding removal
 **Parallel Tasks:**

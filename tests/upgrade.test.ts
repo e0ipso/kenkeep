@@ -24,39 +24,11 @@ describe('init --upgrade', () => {
     expect(result.stderr + result.stdout).toMatch(/Not initialized/i);
   });
 
-  it('reports nothing to do when already current', async () => {
+  it('runs idempotently when already current', async () => {
     await runCli(sandbox, ['init', '--assistants', 'claude']);
     const result = await runCli(sandbox, ['init', '--assistants', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout + result.stderr).toMatch(/Already at|Nothing to do/);
-  });
-
-  it('--upgrade --dry-run lists planned changes without writing when installed-version is older', async () => {
-    await runCli(sandbox, ['init', '--assistants', 'claude']);
-
-    // Simulate an older installed version.
-    const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
-    const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
-    const beforeInstalled = installed.installed_at;
-    installed.version = '0.0.0-test-old';
-    writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
-
-    const result = await runCli(sandbox, [
-      'init',
-      '--assistants',
-      'claude',
-      '--upgrade',
-      '--dry-run',
-    ]);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/Planned changes:/);
-    expect(result.stdout).toMatch(/stamp installed-version/);
-    expect(result.stdout).toMatch(/--dry-run/);
-
-    // installed-version untouched.
-    const after = JSON.parse(readFileSync(versionFile, 'utf8'));
-    expect(after.version).toBe('0.0.0-test-old');
-    expect(after.installed_at).toBe(beforeInstalled);
+    expect(result.stdout + result.stderr).toMatch(/Upgraded to/);
   });
 
   it('refreshes hooks but preserves a customized config.yaml', async () => {
@@ -127,7 +99,6 @@ describe('init --upgrade', () => {
     const result = await runCli(sandbox, ['init', '--assistants', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
     expect(readFileSync(promptFile, 'utf8')).toBe('# my local override\n');
-    expect(result.stdout).toMatch(/local override preserved/);
   });
 
   it('re-copies a missing prompt during upgrade', async () => {
@@ -144,7 +115,29 @@ describe('init --upgrade', () => {
     const result = await runCli(sandbox, ['init', '--assistants', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
     expect(existsSync(promptFile)).toBe(true);
-    expect(result.stdout).toMatch(/copy new prompt/);
+  });
+
+  it('preserves byte-for-byte edits to config.yaml and a prompt across repeated upgrades', async () => {
+    await runCli(sandbox, ['init', '--assistants', 'claude']);
+
+    const configFile = join(sandbox, '.ai/knowledge-base/config.yaml');
+    const promptFile = join(sandbox, '.ai/knowledge-base/.config/prompts/proposal-extract.md');
+
+    const editedConfig = readFileSync(configFile, 'utf8') + '# local edit\n';
+    writeFileSync(configFile, editedConfig);
+
+    const editedPrompt = readFileSync(promptFile, 'utf8') + '\n<!-- local marker -->\n';
+    writeFileSync(promptFile, editedPrompt);
+
+    const first = await runCli(sandbox, ['init', '--assistants', 'claude', '--upgrade']);
+    expect(first.exitCode).toBe(0);
+    expect(readFileSync(configFile, 'utf8')).toBe(editedConfig);
+    expect(readFileSync(promptFile, 'utf8')).toBe(editedPrompt);
+
+    const second = await runCli(sandbox, ['init', '--assistants', 'claude', '--upgrade']);
+    expect(second.exitCode).toBe(0);
+    expect(readFileSync(configFile, 'utf8')).toBe(editedConfig);
+    expect(readFileSync(promptFile, 'utf8')).toBe(editedPrompt);
   });
 
   it('creates config.yaml on upgrade when missing', async () => {

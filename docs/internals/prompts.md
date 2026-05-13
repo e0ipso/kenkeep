@@ -62,7 +62,6 @@ Decides what happens to every proposal candidate: add, modify, contradict, or dr
 
 ```json
 {
-  "index_summary": "<current INDEX.md>",
   "existing_nodes": [
     { "id": "...", "title": "...", "kind": "practice", "tags": ["..."], "summary": "...", "body": "..." }
   ],
@@ -78,7 +77,7 @@ Decides what happens to every proposal candidate: add, modify, contradict, or dr
 }
 ```
 
-`existing_nodes` carries only nodes referenced by `supports_existing_node` / `contradicts_existing_node` in the batch; the full INDEX is provided so the curator can spot duplicates the extractor missed.
+`existing_nodes` carries only nodes referenced by `supports_existing_node` / `contradicts_existing_node` in the batch. The curator is told to `drop` any candidate that appears to overlap an existing node not provided in `existing_nodes`, with a rationale naming the suspected overlap.
 
 ### Output
 

@@ -3,14 +3,21 @@
 ### Changed
 
 * Numeric CLI options now throw `commander.InvalidArgumentError` on non-integer input. Passing `--timeout abc` to `curate` or `bootstrap-incremental` exits non-zero with `error: option '--timeout <ms>' argument 'abc' is invalid. --timeout must be an integer (got "abc")` instead of silently coercing to `NaN`.
+* `state.json` is locked by `proper-lockfile` instead of an in-band, hand-rolled named lock with PID/TTL bookkeeping. The lock applies to whatever process holds it; cross-command mutual exclusion is unchanged. Stale locks (e.g. from a crashed process) are cleared by `proper-lockfile`'s standard PID/mtime checks. Existing `state.json` files carrying the obsolete `lock` field still load: `StateFileSchema` silently drops the unknown key on the next write.
+* The curator prompt is now Version 5. The curator no longer receives the `index_summary` (`INDEX.md` body) on every batch. It is told to emit a `drop` action with a rationale when a candidate appears to overlap an existing node that was not passed in via `existing_nodes`.
 
 ### Removed
 
 * `node add --preset` flag (undocumented test seam). Tests exercise the write path through a new exported `writeNewNode(answers, { paths })` function.
+* `FailureReportSchema` (Zod object that was never used as a validator). `FailureReport` is now a plain TypeScript interface in `src/lib/schemas.ts`.
+* `--verbose` (`-v`) flag on `ai-knowledge-base curate`. The 15-second per-batch heartbeat lines (`still running (Xs)…`) are also gone. The run now prints a `follow live: tail -f <log path>` hint immediately under `curator log: ...`; users tail the canonical log for live progress.
+* `lockTtlMs` setting (already absent from `SettingsSchema`; now also gone from the `CurateContext` / `BootstrapContext` / `DrainContext` interfaces).
+* `DEFAULT_LOCK_TTL_MS`, `LockOptions`, `acquireLock`, `releaseLock`, `StateLockSchema`, the `lock` field on `StateFileSchema`, the `CURATOR_LOCK_NAME` / `BOOTSTRAP_LOCK_NAME` / `PROPOSAL_LOCK_NAME` constants, and the orphan `currentPid` helper in `src/lib/process.ts`.
+* `index_summary` field on `CuratorBatchPayload`. `buildBatchPayload` no longer reads `INDEX.md` and no longer requires the `kbDir` parameter.
 
 ### Internal
 
-* Shrunk the production context interfaces by removing test seams. `RunHeadlessOptions.spawn?`, `BootstrapContext.now?`/`pid?`, `CurateContext.now?`/`pid?`, and `DrainContext.now?`/`pid?` are gone. The six-or-seven per-context path fields collapse into a single `paths: RepoPaths` reference. `process.pid` is read through a one-line indirection at `src/lib/process.ts`. Tests substitute these at the import boundary (`vi.mock('execa')`, `vi.useFakeTimers({ toFake: ['Date'] })`, `vi.spyOn(processModule, 'currentPid')`).
+* Shrunk the production context interfaces by removing test seams. `RunHeadlessOptions.spawn?`, `BootstrapContext.now?`/`pid?`, `CurateContext.now?`/`pid?`, and `DrainContext.now?`/`pid?` are gone. The six-or-seven per-context path fields collapse into a single `paths: RepoPaths` reference. Tests substitute behaviour at the import boundary (`vi.mock('execa')`, `vi.useFakeTimers({ toFake: ['Date'] })`).
 
 ### Changed
 

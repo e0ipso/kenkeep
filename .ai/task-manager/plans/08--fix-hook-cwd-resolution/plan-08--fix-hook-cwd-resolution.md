@@ -240,3 +240,34 @@ No backwards-compatibility shim is provided. Existing user installs auto-correct
 Plan Summary:
 - Plan ID: 8
 - Plan File: /workspace/.ai/task-manager/plans/08--fix-hook-cwd-resolution/plan-08--fix-hook-cwd-resolution.md
+
+## Execution Blueprint
+
+**Validation Gates:**
+- Reference: `/config/hooks/POST_PHASE.md`
+
+### Dependency Diagram
+
+```mermaid
+graph TD
+    001[Task 001: Emit $CLAUDE_PROJECT_DIR-prefixed hook commands and refresh dogfood settings] --> 002[Task 002: Update hook-command assertions and add subdirectory-CWD regression test]
+```
+
+### Phase 1: Adapter and detector parity
+
+**Parallel Tasks:**
+- Task 001: Emit `$CLAUDE_PROJECT_DIR`-prefixed hook commands in the adapter, mirror `EXPECTED_HOOK_COMMANDS`, rewrite committed `.claude/settings.json`.
+
+### Phase 2: Test parity and regression coverage
+
+**Parallel Tasks:**
+- Task 002: Update existing assertions and add the subdirectory-CWD regression test (depends on: 001).
+
+### Post-phase Actions
+
+After Phase 2, run `npm run build && npm test` from `/workspace` and the manual repro from the plan's Self Validation section to confirm the original bug no longer surfaces.
+
+### Execution Summary
+
+- Total Phases: 2
+- Total Tasks: 2

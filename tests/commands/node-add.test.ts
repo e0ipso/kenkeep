@@ -11,7 +11,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runNodeAdd } from '../../src/commands/node-add.js';
+import { writeNewNode } from '../../src/commands/node-add.js';
+import { repoPaths } from '../../src/lib/paths.js';
 
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), 'kb-nodeadd-'));
@@ -46,17 +47,20 @@ describe('node add', () => {
   });
 
   it('writes a node file directly under nodes/<kind>/ with no proposal block', async () => {
-    const code = await runNodeAdd({
-      preset: {
+    const paths = repoPaths(cwd);
+    const result = await writeNewNode(
+      {
         kind: 'practice',
         title: 'Use commit signing for releases',
         summary: 'All releases must be GPG-signed',
         tags: 'releases, gpg',
         body: '# Use commit signing\n\nDetails.',
+        relatesTo: '',
+        confidence: 'high',
       },
-      now: new Date('2026-05-12T10:00:00Z'),
-    });
-    expect(code).toBe(0);
+      { paths }
+    );
+    expect(result.filePath).toBeTruthy();
     const dir = join(cwd, '.ai/knowledge-base/nodes/practice');
     const files = readdirSync(dir);
     expect(files).toHaveLength(1);
@@ -81,17 +85,21 @@ describe('node add', () => {
         summary: 'orig',
       })
     );
-    const code = await runNodeAdd({
-      preset: {
-        kind: 'practice',
-        title: 'Use Foo',
-        summary: 'Different content',
-        tags: '',
-        body: 'New body',
-      },
-      now: new Date('2026-05-12T10:00:00Z'),
-    });
-    expect(code).toBe(1);
+    const paths = repoPaths(cwd);
+    await expect(
+      writeNewNode(
+        {
+          kind: 'practice',
+          title: 'Use Foo',
+          summary: 'Different content',
+          tags: '',
+          body: 'New body',
+          relatesTo: '',
+          confidence: 'high',
+        },
+        { paths }
+      )
+    ).rejects.toThrow(/already exists/);
     // Original untouched.
     const after = readFileSync(
       join(cwd, '.ai/knowledge-base/nodes/practice/practice-use-foo.md'),

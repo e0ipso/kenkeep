@@ -16,8 +16,8 @@ import { resolveSettings } from '../lib/settings.js';
 const HEARTBEAT_MS = 15_000;
 
 export interface CurateCommandOptions {
-  timeoutMs?: number;
-  verbose?: boolean;
+  timeoutMs?: number | undefined;
+  verbose?: boolean | undefined;
 }
 
 export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise<number> {

@@ -323,3 +323,41 @@ After every task is complete, run these specific verifications:
 - Per the project's no-legacy/no-BC policy: no deprecation comments, no aliases, no `@deprecated` JSDoc. Delete and replace.
 - The `process.pid` indirection is the one place where this plan adds production code to enable testability. The chosen pattern (single-line module export instead of per-call seam) keeps the indirection minimal and undocumented as "for tests" — it is just a single-source-of-truth function that happens to be mockable like every other import.
 - Findings 19, 25, 30 are scoped to the four named interfaces and the five named option-rebuild blocks. Adjacent `now?:` seams in `capture.ts`, `session-start.ts`, and `logs-prune.ts` are out of scope.
+
+## Execution Blueprint
+
+**Validation Gates:**
+- Reference: `/config/hooks/POST_PHASE.md`
+
+### ✅ Phase 1: Independent seam removals
+**Parallel Tasks:**
+- ✔️ Task 001: Remove `spawn?` seam from `RunHeadlessOptions`; migrate `tests/lib/headless.test.ts` to `vi.mock('execa')`. (status: completed)
+- ✔️ Task 002: Split `node-add` into prompt + `writeNewNode`; drop `preset?`; rewrite preset tests against `writeNewNode`. (status: completed)
+- ✔️ Task 003: Add `intArg` helper; make CLI numeric parsers throw `InvalidArgumentError`; collapse the five conditional-spread `.action()` rebuild blocks. (status: completed)
+
+### Phase 2: Context shape consolidation
+**Parallel Tasks:**
+- Task 004: Replace per-context path fields with `paths: RepoPaths`; remove `now?` / `pid?` from `BootstrapContext`, `CurateContext`, `DrainContext`; add one-line `src/lib/process.ts` indirection for `process.pid`; migrate the three lib test files to fake timers + module mock (depends on: 003).
+
+### Phase 3: Verification and documentation
+**Parallel Tasks:**
+- Task 005: Static sweeps, `lint`/`typecheck`/`build`/`test`, CLI smoke commands, CHANGELOG entry (depends on: 001, 002, 003, 004).
+
+### Dependency Diagram
+
+```mermaid
+graph TD
+    001[Task 001: Remove spawn? seam] --> 005[Task 005: Verification + CHANGELOG]
+    002[Task 002: Split node-add, drop preset?] --> 005
+    003[Task 003: CLI parsers throw, collapse rebuilds] --> 004[Task 004: paths: RepoPaths + drop now/pid]
+    003 --> 005
+    004 --> 005
+```
+
+### Post-phase Actions
+- After Phase 1: `npm run typecheck && npm test` must be green before Phase 2 starts (catches cross-task interference in shared files).
+- After Phase 2: same checks plus a quick `rg -n 'Test seam' src/` to confirm no comments survived.
+
+### Execution Summary
+- Total Phases: 3
+- Total Tasks: 5

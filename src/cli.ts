@@ -8,6 +8,7 @@ import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
 import { runNodeAdd } from './commands/node-add.js';
 import { runStatus } from './commands/status.js';
+import { intArg } from './lib/cli-args.js';
 import { log } from './lib/log.js';
 import { packageVersion } from './lib/version.js';
 
@@ -40,20 +41,11 @@ async function main(): Promise<void> {
     .action(
       async (opts: {
         assistants: string[];
-        force?: boolean;
-        upgrade?: boolean;
-        dryRun?: boolean;
+        force: boolean;
+        upgrade: boolean;
+        dryRun: boolean;
       }) => {
-        const initOpts: {
-          assistants: string[];
-          force?: boolean;
-          upgrade?: boolean;
-          dryRun?: boolean;
-        } = { assistants: opts.assistants };
-        if (opts.force) initOpts.force = true;
-        if (opts.upgrade) initOpts.upgrade = true;
-        if (opts.dryRun) initOpts.dryRun = true;
-        await runInit(initOpts);
+        await runInit(opts);
       }
     );
 
@@ -68,10 +60,8 @@ async function main(): Promise<void> {
     .command('doctor')
     .description('Verify hook installation, secret-scan availability, and schema validity.')
     .option('-v, --verbose', 'show extra diagnostics', false)
-    .action(async (opts: { verbose?: boolean }) => {
-      const doctorOpts: { verbose?: boolean } = {};
-      if (opts.verbose) doctorOpts.verbose = true;
-      const code = await runDoctor(doctorOpts);
+    .action(async (opts: { verbose: boolean }) => {
+      const code = await runDoctor(opts);
       process.exit(code);
     });
 
@@ -81,26 +71,20 @@ async function main(): Promise<void> {
       'Run mechanical KB content health checks (dangling edges, slug/id mismatch, tag duplicates, orphans).'
     )
     .option('-v, --verbose', 'list every error and finding individually', false)
-    .action(async (opts: { verbose?: boolean }) => {
-      const code = await runLintCommand({ verbose: opts.verbose === true });
+    .action(async (opts: { verbose: boolean }) => {
+      const code = await runLintCommand({ verbose: opts.verbose });
       process.exit(code);
     });
 
   program
     .command('curate')
     .description('Run the curator non-interactively over pending session logs.')
-    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', v => parseInt(v, 10))
+    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', intArg('--timeout'))
     .option('-v, --verbose', 'stream curator assistant text and tool-use events as they arrive')
-    .action(
-      async (opts: { timeout?: number; verbose?: boolean }) => {
-        const curateOpts: { timeoutMs?: number; verbose?: boolean } = {};
-        if (typeof opts.timeout === 'number' && !Number.isNaN(opts.timeout))
-          curateOpts.timeoutMs = opts.timeout;
-        if (opts.verbose === true) curateOpts.verbose = true;
-        const code = await runCurateCommand(curateOpts);
-        process.exit(code);
-      }
-    );
+    .action(async (opts: { timeout?: number; verbose?: boolean }) => {
+      const code = await runCurateCommand({ timeoutMs: opts.timeout, verbose: opts.verbose });
+      process.exit(code);
+    });
 
   program
     .command('bootstrap-incremental')
@@ -121,28 +105,22 @@ async function main(): Promise<void> {
       [] as string[]
     )
     .option('--dry-run', 'report what would be processed without invoking the LLM', false)
-    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', v => parseInt(v, 10))
+    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', intArg('--timeout'))
     .action(
       async (opts: {
         from: string;
         include: string[];
         exclude: string[];
-        dryRun?: boolean;
+        dryRun: boolean;
         timeout?: number;
       }) => {
-        const cmdOpts: {
-          from: string;
-          include?: string[];
-          exclude?: string[];
-          dryRun?: boolean;
-          timeoutMs?: number;
-        } = { from: opts.from };
-        if (opts.include.length > 0) cmdOpts.include = opts.include;
-        if (opts.exclude.length > 0) cmdOpts.exclude = opts.exclude;
-        if (opts.dryRun) cmdOpts.dryRun = true;
-        if (typeof opts.timeout === 'number' && !Number.isNaN(opts.timeout))
-          cmdOpts.timeoutMs = opts.timeout;
-        const code = await runBootstrapIncrementalCommand(cmdOpts);
+        const code = await runBootstrapIncrementalCommand({
+          from: opts.from,
+          include: opts.include,
+          exclude: opts.exclude,
+          dryRun: opts.dryRun,
+          timeoutMs: opts.timeout,
+        });
         process.exit(code);
       }
     );
@@ -166,10 +144,8 @@ async function main(): Promise<void> {
       false
     )
     .allowExcessArguments(true)
-    .action(async (opts: { stage?: boolean }) => {
-      const rebuildOpts: { stage?: boolean } = {};
-      if (opts.stage) rebuildOpts.stage = true;
-      const code = await runIndexRebuild(rebuildOpts);
+    .action(async (opts: { stage: boolean }) => {
+      const code = await runIndexRebuild(opts);
       process.exit(code);
     });
 

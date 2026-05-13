@@ -2,29 +2,58 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { runHeadlessClaude, type SpawnContext, type SpawnFn } from '../../src/lib/headless.js';
+import { execa } from 'execa';
+import { runHeadlessClaude } from '../../src/lib/headless.js';
 
-function makeSpawn(
+vi.mock('execa', () => ({ execa: vi.fn() }));
+
+interface FakeExecaResult {
+  exitCode: number;
+  failed: boolean;
+  timedOut: boolean;
+}
+
+interface CapturedCall {
+  command?: string;
+  args?: readonly string[];
+  options?: Record<string, unknown>;
+}
+
+function fakeExeca(
   lines: string[],
   opts: { exitCode?: number; timedOut?: boolean } = {}
-): {
-  spawn: SpawnFn;
-  captured: { ctx?: SpawnContext };
-} {
-  const captured: { ctx?: SpawnContext } = {};
-  const spawn: SpawnFn = (_command, ctx) => {
-    captured.ctx = ctx;
-    const stdout = Readable.from(lines.map(l => `${l}\n`));
-    const result = Promise.resolve({
-      exitCode: opts.exitCode ?? 0,
-      failed: opts.exitCode !== undefined && opts.exitCode !== 0,
-      timedOut: opts.timedOut === true,
-    });
-    return { stdout, result };
+): { result: FakeExecaResult & { stdout: Readable } } {
+  const stdout = Readable.from(lines.map(l => `${l}\n`));
+  const result: FakeExecaResult = {
+    exitCode: opts.exitCode ?? 0,
+    failed: opts.exitCode !== undefined && opts.exitCode !== 0,
+    timedOut: opts.timedOut === true,
   };
-  return { spawn, captured };
+  // The production code uses both `proc.stdout` and `proc.then(...)`. We model
+  // it as a thenable whose resolved value has the exit-code metadata, and
+  // which exposes `stdout` as a direct property.
+  const thenable = Object.assign(Promise.resolve(result), { stdout });
+  return { result: thenable as unknown as FakeExecaResult & { stdout: Readable } };
+}
+
+function mockExecaOnce(
+  lines: string[],
+  opts: { exitCode?: number; timedOut?: boolean } = {}
+): { captured: CapturedCall } {
+  const captured: CapturedCall = {};
+  vi.mocked(execa).mockImplementationOnce(((
+    command: string,
+    args: readonly string[],
+    options: Record<string, unknown>
+  ) => {
+    captured.command = command;
+    captured.args = args;
+    captured.options = options;
+    return fakeExeca(lines, opts).result;
+  }) as unknown as typeof execa);
+  return { captured };
 }
 
 const Schema = z.object({ ok: z.boolean(), n: z.number() });
@@ -34,10 +63,13 @@ describe('runHeadlessClaude', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'kb-headless-'));
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    vi.clearAllMocks();
+  });
 
   it('parses the final result message and validates against the schema', async () => {
-    const { spawn } = makeSpawn([
+    mockExecaOnce([
       JSON.stringify({ type: 'system', subtype: 'init' }),
       JSON.stringify({ type: 'assistant', message: { content: 'thinking' } }),
       JSON.stringify({
@@ -47,25 +79,25 @@ describe('runHeadlessClaude', () => {
         result: JSON.stringify({ ok: true, n: 42 }),
       }),
     ]);
-    const out = await runHeadlessClaude('prompt body', 'stdin payload', Schema, { spawn });
+    const out = await runHeadlessClaude('prompt body', 'stdin payload', Schema);
     expect(out).toEqual({ ok: true, n: 42 });
   });
 
   it('throws when the result is wrapped in a fenced code block (fences no longer stripped)', async () => {
-    const { spawn } = makeSpawn([
+    mockExecaOnce([
       JSON.stringify({
         type: 'result',
         is_error: false,
         result: '```json\n{"ok": true, "n": 7}\n```',
       }),
     ]);
-    await expect(runHeadlessClaude('prompt', '', Schema, { spawn })).rejects.toThrow(
+    await expect(runHeadlessClaude('prompt', '', Schema)).rejects.toThrow(
       /^curator output was not valid JSON:/
     );
   });
 
   it('writes the raw stream to logFile when provided', async () => {
-    const { spawn } = makeSpawn([
+    mockExecaOnce([
       JSON.stringify({ type: 'system', subtype: 'init' }),
       JSON.stringify({
         type: 'result',
@@ -74,7 +106,7 @@ describe('runHeadlessClaude', () => {
       }),
     ]);
     const logFile = join(dir, 'logs', 'proposal', 'a.jsonl');
-    await runHeadlessClaude('prompt', '', Schema, { spawn, logFile });
+    await runHeadlessClaude('prompt', '', Schema, { logFile });
     const lines = readFileSync(logFile, 'utf8').trim().split('\n');
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0]!).type).toBe('system');
@@ -82,7 +114,7 @@ describe('runHeadlessClaude', () => {
   });
 
   it('forces KB_BUILDER_INTERNAL=1 in the child env and passes -p arguments', async () => {
-    const { spawn, captured } = makeSpawn([
+    const { captured } = mockExecaOnce([
       JSON.stringify({
         type: 'result',
         is_error: false,
@@ -90,13 +122,13 @@ describe('runHeadlessClaude', () => {
       }),
     ]);
     await runHeadlessClaude('hello prompt', 'stdin', Schema, {
-      spawn,
       allowedTools: ['Read'],
       env: { FOO: 'bar' },
     });
-    expect(captured.ctx?.env['KB_BUILDER_INTERNAL']).toBe('1');
-    expect(captured.ctx?.env['FOO']).toBe('bar');
-    expect(captured.ctx?.args).toEqual([
+    const env = captured.options?.['env'] as NodeJS.ProcessEnv;
+    expect(env['KB_BUILDER_INTERNAL']).toBe('1');
+    expect(env['FOO']).toBe('bar');
+    expect(captured.args).toEqual([
       '-p',
       'hello prompt',
       '--allowedTools',
@@ -105,7 +137,8 @@ describe('runHeadlessClaude', () => {
       'stream-json',
       '--verbose',
     ]);
-    expect(captured.ctx?.stdin).toBe('stdin');
+    expect(captured.options?.['input']).toBe('stdin');
+    expect(captured.command).toBe('claude');
   });
 
   it('appends --model and --effort only when set', async () => {
@@ -114,57 +147,52 @@ describe('runHeadlessClaude', () => {
       is_error: false,
       result: JSON.stringify({ ok: true, n: 1 }),
     });
-    const both = makeSpawn([resultLine]);
+    const both = mockExecaOnce([resultLine]);
     await runHeadlessClaude('p', '', Schema, {
-      spawn: both.spawn,
       model: 'haiku',
       effort: 'low',
     });
-    expect(both.captured.ctx?.args).toContain('--model');
-    expect(both.captured.ctx?.args).toContain('haiku');
-    expect(both.captured.ctx?.args).toContain('--effort');
-    expect(both.captured.ctx?.args).toContain('low');
+    expect(both.captured.args).toContain('--model');
+    expect(both.captured.args).toContain('haiku');
+    expect(both.captured.args).toContain('--effort');
+    expect(both.captured.args).toContain('low');
 
-    const onlyModel = makeSpawn([resultLine]);
-    await runHeadlessClaude('p', '', Schema, { spawn: onlyModel.spawn, model: 'opus' });
-    expect(onlyModel.captured.ctx?.args).toContain('--model');
-    expect(onlyModel.captured.ctx?.args).toContain('opus');
-    expect(onlyModel.captured.ctx?.args).not.toContain('--effort');
+    const onlyModel = mockExecaOnce([resultLine]);
+    await runHeadlessClaude('p', '', Schema, { model: 'opus' });
+    expect(onlyModel.captured.args).toContain('--model');
+    expect(onlyModel.captured.args).toContain('opus');
+    expect(onlyModel.captured.args).not.toContain('--effort');
 
-    const neither = makeSpawn([resultLine]);
-    await runHeadlessClaude('p', '', Schema, { spawn: neither.spawn });
-    expect(neither.captured.ctx?.args).not.toContain('--model');
-    expect(neither.captured.ctx?.args).not.toContain('--effort');
+    const neither = mockExecaOnce([resultLine]);
+    await runHeadlessClaude('p', '', Schema);
+    expect(neither.captured.args).not.toContain('--model');
+    expect(neither.captured.args).not.toContain('--effort');
   });
 
   it('throws when the subprocess returns a non-zero exit code', async () => {
-    const { spawn } = makeSpawn([], { exitCode: 1 });
-    await expect(runHeadlessClaude('p', '', Schema, { spawn })).rejects.toThrow(/exit code/);
+    mockExecaOnce([], { exitCode: 1 });
+    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(/exit code/);
   });
 
   it('throws when the subprocess times out', async () => {
-    const { spawn } = makeSpawn([], { timedOut: true });
-    await expect(runHeadlessClaude('p', '', Schema, { spawn })).rejects.toThrow(/timed out/);
+    mockExecaOnce([], { timedOut: true });
+    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(/timed out/);
   });
 
   it('throws when no final result message is present', async () => {
-    const { spawn } = makeSpawn([
-      JSON.stringify({ type: 'assistant', message: { content: 'hi' } }),
-    ]);
-    await expect(runHeadlessClaude('p', '', Schema, { spawn })).rejects.toThrow(
+    mockExecaOnce([JSON.stringify({ type: 'assistant', message: { content: 'hi' } })]);
+    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(
       /no final result message/
     );
   });
 
   it('throws when the result message is flagged as an error', async () => {
-    const { spawn } = makeSpawn([
-      JSON.stringify({ type: 'result', is_error: true, result: 'oops' }),
-    ]);
-    await expect(runHeadlessClaude('p', '', Schema, { spawn })).rejects.toThrow();
+    mockExecaOnce([JSON.stringify({ type: 'result', is_error: true, result: 'oops' })]);
+    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow();
   });
 
   it('invokes onMessage for every parsed stream-json line', async () => {
-    const { spawn } = makeSpawn([
+    mockExecaOnce([
       JSON.stringify({ type: 'system', subtype: 'init' }),
       JSON.stringify({ type: 'assistant', message: { content: 'hi' } }),
       JSON.stringify({
@@ -175,7 +203,6 @@ describe('runHeadlessClaude', () => {
     ]);
     const seen: Array<string | undefined> = [];
     await runHeadlessClaude('p', '', Schema, {
-      spawn,
       onMessage: msg => seen.push(msg.type),
     });
     expect(seen).toEqual(['system', 'assistant', 'result']);
@@ -183,13 +210,11 @@ describe('runHeadlessClaude', () => {
 
   it('throws a single-line error referencing the log path when the result JSON is malformed', async () => {
     const broken = '{"action":"add","body":"This is broken\n   no closing quote';
-    const { spawn } = makeSpawn([
-      JSON.stringify({ type: 'result', is_error: false, result: broken }),
-    ]);
+    mockExecaOnce([JSON.stringify({ type: 'result', is_error: false, result: broken })]);
     const logFile = join(dir, 'logs', 'curator', 'bad.jsonl');
     let caught: Error | null = null;
     try {
-      await runHeadlessClaude('p', '', Schema, { spawn, logFile });
+      await runHeadlessClaude('p', '', Schema, { logFile });
     } catch (err) {
       caught = err as Error;
     }
@@ -202,12 +227,10 @@ describe('runHeadlessClaude', () => {
   });
 
   it('falls back to "log" in the parse-failure message when logFile is unset', async () => {
-    const { spawn } = makeSpawn([
-      JSON.stringify({ type: 'result', is_error: false, result: '{"oops":' }),
-    ]);
+    mockExecaOnce([JSON.stringify({ type: 'result', is_error: false, result: '{"oops":' })]);
     let caught: Error | null = null;
     try {
-      await runHeadlessClaude('p', '', Schema, { spawn });
+      await runHeadlessClaude('p', '', Schema);
     } catch (err) {
       caught = err as Error;
     }
@@ -216,13 +239,13 @@ describe('runHeadlessClaude', () => {
   });
 
   it('throws when result JSON does not match the schema', async () => {
-    const { spawn } = makeSpawn([
+    mockExecaOnce([
       JSON.stringify({
         type: 'result',
         is_error: false,
         result: JSON.stringify({ ok: 'yes please' }),
       }),
     ]);
-    await expect(runHeadlessClaude('p', '', Schema, { spawn })).rejects.toThrow(/schema/);
+    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(/schema/);
   });
 });

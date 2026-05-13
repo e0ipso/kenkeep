@@ -9,24 +9,24 @@ import {
   readAllNodes,
   writeNodeFile,
 } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
 import type { Confidence, NodeFrontmatter, NodeKind } from '../lib/schemas.js';
 
-export interface NodeAddOptions {
-  yes?: boolean;
-  // Test seam: supply answers programmatically instead of prompting.
-  preset?: {
-    kind: NodeKind;
-    title: string;
-    summary: string;
-    tags: string;
-    body: string;
-    relatesTo?: string;
-    confidence?: Confidence;
-  };
+export interface NodeAnswers {
+  kind: NodeKind;
+  title: string;
+  summary: string;
+  tags: string;
+  body: string;
+  relatesTo: string;
+  confidence: Confidence;
 }
 
-export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
+export interface NodeWriteResult {
+  filePath: string;
+}
+
+export async function runNodeAdd(): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
   if (!existsSync(paths.installedVersionFile)) {
@@ -36,32 +36,42 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
     return 1;
   }
 
-  const answers = opts.preset ? opts.preset : await promptForNode();
+  const answers = await promptForNode();
+  try {
+    await writeNewNode(answers, { paths });
+    return 0;
+  } catch (err) {
+    log.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+}
 
+export async function writeNewNode(
+  answers: NodeAnswers,
+  deps: { paths: RepoPaths }
+): Promise<NodeWriteResult> {
+  const { paths } = deps;
   const kind = answers.kind;
   const title = answers.title.trim();
   if (!title) {
-    log.error('Title is required.');
-    return 1;
+    throw new Error('Title is required.');
   }
   const summary = answers.summary.trim();
   if (!summary) {
-    log.error('Summary is required.');
-    return 1;
+    throw new Error('Summary is required.');
   }
   const body = answers.body.trim() || `# ${title}\n\n${summary}\n`;
   const tags = parseList(answers.tags);
-  const relatesTo = parseList(answers.relatesTo ?? '');
-  const confidence: Confidence = answers.confidence ?? 'high';
+  const relatesTo = parseList(answers.relatesTo);
+  const confidence: Confidence = answers.confidence;
 
   const existingIds = new Set(readAllNodes(paths.nodesDir).map(n => n.frontmatter.id));
   const baseId = deriveNodeId(kind, title);
   if (existingIds.has(baseId) || nodeFileExists(paths.nodesDir, kind, baseId)) {
-    log.error(
+    throw new Error(
       `A node with id ${baseId} already exists at nodes/${kind}/${baseId}.md. ` +
         'Pick a different title, or edit the existing node directly.'
     );
-    return 1;
   }
   const id = ensureUniqueId(existingIds, baseId);
 
@@ -89,18 +99,10 @@ export async function runNodeAdd(opts: NodeAddOptions = {}): Promise<number> {
 
   log.success(`Wrote node: ${filePath}`);
   log.plain('Review with `git diff` and `git commit` to accept, or `git restore` to reject.');
-  return 0;
+  return { filePath };
 }
 
-async function promptForNode(): Promise<{
-  kind: NodeKind;
-  title: string;
-  summary: string;
-  tags: string;
-  body: string;
-  relatesTo: string;
-  confidence: Confidence;
-}> {
+async function promptForNode(): Promise<NodeAnswers> {
   const kind = (await select({
     message: 'Node kind',
     choices: [

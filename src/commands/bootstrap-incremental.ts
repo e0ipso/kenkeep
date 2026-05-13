@@ -12,10 +12,10 @@ import { resolveSettings } from '../lib/settings.js';
 
 export interface BootstrapIncrementalOptions {
   from: string;
-  include?: string[];
-  exclude?: string[];
-  dryRun?: boolean;
-  timeoutMs?: number;
+  include?: string[] | undefined;
+  exclude?: string[] | undefined;
+  dryRun?: boolean | undefined;
+  timeoutMs?: number | undefined;
 }
 
 export async function runBootstrapIncrementalCommand(

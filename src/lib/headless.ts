@@ -1,7 +1,7 @@
 import { execa } from 'execa';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import split2 from 'split2';
 import type { ZodSchema } from 'zod';
 import type { EffortLevel, ModelFamily } from './schemas.js';
@@ -19,27 +19,7 @@ export interface RunHeadlessOptions {
   effort?: EffortLevel;
   /** Invoked once per successfully parsed stream-json line. */
   onMessage?: (msg: StreamJsonMessage) => void;
-  /** Test seam: substitute the underlying spawn. */
-  spawn?: SpawnFn;
 }
-
-export interface SpawnResult {
-  stdout: Readable;
-  result: Promise<{
-    exitCode: number | undefined;
-    failed: boolean;
-    timedOut: boolean;
-  }>;
-}
-
-export interface SpawnContext {
-  args: string[];
-  stdin: string;
-  env: NodeJS.ProcessEnv;
-  timeoutMs: number;
-}
-
-export type SpawnFn = (command: string, ctx: SpawnContext) => SpawnResult;
 
 export interface StreamJsonMessage {
   type?: string;
@@ -48,24 +28,6 @@ export interface StreamJsonMessage {
   is_error?: boolean;
   [key: string]: unknown;
 }
-
-const defaultSpawn: SpawnFn = (command, ctx) => {
-  const proc = execa(command, ctx.args, {
-    input: ctx.stdin,
-    env: ctx.env,
-    timeout: ctx.timeoutMs,
-    stdin: 'pipe',
-    stdout: 'pipe',
-    reject: false,
-  });
-  const stdout = proc.stdout as Readable;
-  const result = proc.then(r => ({
-    exitCode: typeof r.exitCode === 'number' ? r.exitCode : undefined,
-    failed: r.failed === true,
-    timedOut: r.timedOut === true,
-  }));
-  return { stdout, result };
-};
 
 /**
  * Invokes `claude -p` with stream-json verbose output. Each line of stdout is
@@ -100,7 +62,6 @@ export async function runHeadlessClaude<T>(
     ...(opts.env ?? process.env),
     KB_BUILDER_INTERNAL: '1',
   };
-  const spawn = opts.spawn ?? defaultSpawn;
 
   let logStream: ReturnType<typeof createWriteStream> | null = null;
   if (opts.logFile) {
@@ -109,12 +70,20 @@ export async function runHeadlessClaude<T>(
   }
 
   const messages: StreamJsonMessage[] = [];
-  const { stdout, result: resultPromise } = spawn('claude', {
-    args,
-    stdin,
+  const proc = execa('claude', args, {
+    input: stdin,
     env,
-    timeoutMs,
+    timeout: timeoutMs,
+    stdin: 'pipe',
+    stdout: 'pipe',
+    reject: false,
   });
+  const stdout = proc.stdout as Readable;
+  const resultPromise = proc.then(r => ({
+    exitCode: typeof r.exitCode === 'number' ? r.exitCode : undefined,
+    failed: r.failed === true,
+    timedOut: r.timedOut === true,
+  }));
 
   const splitter = stdout.pipe(split2());
   splitter.on('data', (line: string) => {

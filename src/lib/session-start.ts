@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { computeNodesHash } from './nodes.js';
+import { readLintState } from './lint-state.js';
 import { IndexFrontmatterSchema, SessionLogFrontmatterSchema } from './schemas.js';
 import { readState, writeState } from './state.js';
 
@@ -13,6 +14,7 @@ export interface SessionStartContext {
   nodesDir: string;
   sessionsDir: string;
   stateFile: string;
+  lintStateFile?: string;
   threshold?: number;
   throttleMs?: number;
   now?: () => Date;
@@ -23,6 +25,8 @@ export interface SessionStartResult {
   additionalContext: string;
   /** True if a nudge line was appended this run (and state mutated). */
   nudged: boolean;
+  /** True if a lint summary block was appended this run. */
+  lintNudged: boolean;
   /** True if the index was missing and a stub was generated. */
   indexMissing: boolean;
   /** True if INDEX.md exists but its nodes_hash does not match nodes/. */
@@ -74,6 +78,18 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     );
   }
 
+  let lintNudged = false;
+  if (ctx.lintStateFile !== undefined) {
+    const lintState = readLintState(ctx.lintStateFile);
+    if (lintState.last_errors > 0 || lintState.last_findings > 0) {
+      lines.push('');
+      lines.push(
+        `> Last KB lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`ai-knowledge-base lint --verbose\` for details.`
+      );
+      lintNudged = true;
+    }
+  }
+
   if (shouldNudge) {
     writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
   }
@@ -81,6 +97,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   return {
     additionalContext: lines.join('\n') + '\n',
     nudged: shouldNudge,
+    lintNudged,
     indexMissing: missing,
     indexStale,
     pendingSessions: pending,

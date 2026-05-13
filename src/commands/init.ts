@@ -443,6 +443,7 @@ async function installClaude(
   await adapter.writeHookConfig(root, [
     { event: 'Stop', scriptPath: '.claude/hooks/kb-capture.mjs' },
     { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-capture.mjs' },
+    { event: 'SessionEnd', scriptPath: '.claude/hooks/kb-lint-tick.mjs', async: true },
     { event: 'PreCompact', scriptPath: '.claude/hooks/kb-capture.mjs' },
     {
       event: 'SessionStart',

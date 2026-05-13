@@ -21,6 +21,7 @@ export default defineConfig([
       'kb-capture': 'src/hooks/kb-capture.ts',
       'kb-proposal-drain': 'src/hooks/kb-proposal-drain.ts',
       'kb-session-start': 'src/hooks/kb-session-start.ts',
+      'kb-lint-tick': 'src/hooks/kb-lint-tick.ts',
     },
     outDir: 'dist/hooks',
     format: ['esm'],

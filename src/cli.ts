@@ -4,6 +4,7 @@ import { runCurateCommand } from './commands/curate.js';
 import { runDoctor } from './commands/doctor.js';
 import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
+import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
 import { runNodeAdd } from './commands/node-add.js';
 import { runStatus } from './commands/status.js';
@@ -71,6 +72,17 @@ async function main(): Promise<void> {
       const doctorOpts: { verbose?: boolean } = {};
       if (opts.verbose) doctorOpts.verbose = true;
       const code = await runDoctor(doctorOpts);
+      process.exit(code);
+    });
+
+  program
+    .command('lint')
+    .description(
+      'Run mechanical KB content health checks (dangling edges, slug/id mismatch, tag duplicates, orphans).'
+    )
+    .option('-v, --verbose', 'list every error and finding individually', false)
+    .action(async (opts: { verbose?: boolean }) => {
+      const code = await runLintCommand({ verbose: opts.verbose === true });
       process.exit(code);
     });
 

@@ -241,13 +241,13 @@ The feature integrates through three existing seams. (1) The CLI command registe
 - ✔️ Task 002: Implement the four-check lint library
 - ✔️ Task 003: Lint state schema and read/write helpers
 
-### Phase 2: Surfaces (depend on foundations)
+### ✅ Phase 2: Surfaces (depend on foundations)
 
 **Parallel Tasks:**
 
-- Task 004: `ai-knowledge-base lint` CLI command (depends on: 2)
-- Task 005: SessionEnd lint-tick hook + bundle + init/doctor wiring (depends on: 1, 2, 3)
-- Task 006: Extend SessionStart nudge with lint summary (depends on: 3)
+- ✔️ Task 004: `ai-knowledge-base lint` CLI command (depends on: 2)
+- ✔️ Task 005: SessionEnd lint-tick hook + bundle + init/doctor wiring (depends on: 1, 2, 3)
+- ✔️ Task 006: Extend SessionStart nudge with lint summary (depends on: 3)
 
 ### Phase 3: Validation and documentation
 

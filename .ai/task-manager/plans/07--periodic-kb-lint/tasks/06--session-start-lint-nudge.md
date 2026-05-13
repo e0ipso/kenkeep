@@ -2,7 +2,7 @@
 id: 6
 group: "nudge"
 dependencies: [3]
-status: "pending"
+status: "completed"
 created: 2026-05-13
 skills:
   - typescript

@@ -13,6 +13,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSessionStartContext } from '../lib/session-start.js';
+import { lintStateFile } from '../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
       nodesDir: paths.nodesDir,
       sessionsDir: paths.sessionsDir,
       stateFile: join(paths.stateDir, 'state.json'),
+      lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold,
     });
     process.stdout.write(

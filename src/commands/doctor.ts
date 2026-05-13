@@ -325,7 +325,7 @@ function checkCommitTimeSecretScan(paths: CommitScanPaths): CheckResult {
 
 const EXPECTED_HOOK_SCRIPTS: Record<string, string[]> = {
   Stop: ['.claude/hooks/kb-capture.mjs'],
-  SessionEnd: ['.claude/hooks/kb-capture.mjs'],
+  SessionEnd: ['.claude/hooks/kb-capture.mjs', '.claude/hooks/kb-lint-tick.mjs'],
   PreCompact: ['.claude/hooks/kb-capture.mjs'],
   SessionStart: ['.claude/hooks/kb-proposal-drain.mjs', '.claude/hooks/kb-session-start.mjs'],
 };

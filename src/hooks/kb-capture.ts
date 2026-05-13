@@ -1,7 +1,7 @@
 /**
  * Stop / SessionEnd / PreCompact hook.
  *
- * Runs the deterministic transcript capture pipeline: dedup, secret-scan redact,
+ * Runs the deterministic transcript capture pipeline: secret-scan redact,
  * write session log, append to queue. Must complete within 1 second on any
  * trigger; if the wall-clock deadline elapses, exits silently to avoid
  * blocking session shutdown.

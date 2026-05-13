@@ -2,7 +2,7 @@
 id: 3
 group: "capture"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-05-13
 skills:
   - typescript
@@ -16,13 +16,13 @@ Remove `src/lib/dedup-cache.ts` and `DedupCacheFileSchema`. The capture path rel
 - typescript: edit `src/lib/capture.ts`, `src/lib/schemas.ts`, delete `src/lib/dedup-cache.ts`, update tests
 
 ## Acceptance Criteria
-- [ ] `src/lib/dedup-cache.ts` is deleted.
-- [ ] `DedupCacheFileSchema` and its inferred type are removed from `src/lib/schemas.ts`.
-- [ ] `isDuplicate`, `recordHash`, the `dedupCacheFile` variable, and the `hash` variable used to feed them are removed from `captureSession` in `src/lib/capture.ts`. The corresponding import is removed.
-- [ ] The `'duplicate'` literal is removed from the `CaptureStatus` union; any `switch` arm or comparison against `'duplicate'` is deleted from callers (search `src/`, `bin/`, `.claude/skills/`, `scripts/`).
-- [ ] Test fixtures and tests referencing `.dedup-cache.json` or asserting "second fire returns duplicate" are deleted; remaining tests for `captureSession` still pass.
-- [ ] No source file imports from `./dedup-cache` or references `DedupCacheFileSchema`.
-- [ ] `npm run lint`, `npm run typecheck`, and `npm test` pass.
+- [x] `src/lib/dedup-cache.ts` is deleted.
+- [x] `DedupCacheFileSchema` and its inferred type are removed from `src/lib/schemas.ts`.
+- [x] `isDuplicate`, `recordHash`, the `dedupCacheFile` variable, and the `hash` variable used to feed them are removed from `captureSession` in `src/lib/capture.ts`. The corresponding import is removed.
+- [x] The `'duplicate'` literal is removed from the `CaptureStatus` union; any `switch` arm or comparison against `'duplicate'` is deleted from callers (search `src/`, `bin/`, `.claude/skills/`, `scripts/`).
+- [x] Test fixtures and tests referencing `.dedup-cache.json` or asserting "second fire returns duplicate" are deleted; remaining tests for `captureSession` still pass.
+- [x] No source file imports from `./dedup-cache` or references `DedupCacheFileSchema`.
+- [x] `npm run lint`, `npm run typecheck`, and `npm test` pass.
 
 Use your internal Todo tool to track these and keep on track.
 

@@ -17,8 +17,8 @@ export function readQueue(file: string): QueueFile {
  * Appends an entry to the queue file atomically: read, append, write to a
  * temp file, rename. Two interleaved appends from concurrent hooks may
  * still race; in practice Stop/SessionEnd/PreCompact are unlikely to fire
- * simultaneously on the same session, and the 5-min dedup window catches
- * any duplicate content even if both writes survive.
+ * simultaneously on the same session, and `hasQueueEntry` prevents a second
+ * append for the same session_id.
  */
 export function appendToQueue(file: string, entry: QueueEntry): void {
   const queue = readQueue(file);

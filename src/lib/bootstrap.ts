@@ -27,7 +27,7 @@ export const BOOTSTRAP_LOCK_NAME = 'bootstrap-incremental';
 export const DEFAULT_TOKEN_BUDGET = 10_000;
 export const DEFAULT_TIMEOUT_MS = 120_000;
 const CHARS_PER_TOKEN = 4;
-const CHUNK_PLACEHOLDER = '[CHUNK PLACEHOLDER — substituted at runtime]';
+export const CHUNK_PLACEHOLDER = '[CHUNK PLACEHOLDER — substituted at runtime]';
 
 export type BootstrapRunner = <T>(
   promptBody: string,
@@ -329,11 +329,13 @@ export function buildChunkString(batch: DocCandidateFile[]): string {
   return parts.join('\n').trimEnd();
 }
 
-function buildPrompt(template: string, chunk: string): string {
-  if (template.includes(CHUNK_PLACEHOLDER)) {
-    return template.replace(CHUNK_PLACEHOLDER, chunk);
+export function buildPrompt(template: string, chunk: string): string {
+  if (!template.includes(CHUNK_PLACEHOLDER)) {
+    throw new Error(
+      `bootstrap prompt is missing the ${CHUNK_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`,
+    );
   }
-  return `${template.trimEnd()}\n\n${chunk}\n`;
+  return template.replace(CHUNK_PLACEHOLDER, chunk);
 }
 
 /**

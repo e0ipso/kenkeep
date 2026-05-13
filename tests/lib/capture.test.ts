@@ -46,7 +46,7 @@ describe('captureSession', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('writes a session log, dedup-cache entry, and queue entry on a fresh capture', async () => {
+  it('writes a session log and queue entry on a fresh capture', async () => {
     const result = await captureSession(
       {
         session_id: 'sess-1',
@@ -77,21 +77,16 @@ describe('captureSession', () => {
     expect(fm.secret_scan_status).toBe('clean');
     expect(fm.transcript_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
 
-    // queue + dedup cache populated
+    // queue populated
     const queue = JSON.parse(readFileSync(join(sessionsDir, '.queue.json'), 'utf8')) as {
       entries: Array<{ session_id: string; session_log: string }>;
     };
     expect(queue.entries).toHaveLength(1);
     expect(queue.entries[0]?.session_id).toBe('sess-1');
     expect(queue.entries[0]?.session_log).toBe(logName);
-
-    const cache = JSON.parse(readFileSync(join(sessionsDir, '.dedup-cache.json'), 'utf8')) as {
-      entries: Array<{ hash: string; expires_at: string }>;
-    };
-    expect(cache.entries).toHaveLength(1);
   });
 
-  it('returns duplicate status on a repeat within the dedup window', async () => {
+  it('overwrites the same session log when a repeat fires for the same session_id', async () => {
     const ctx = { sessionsDir, scan: fakeScanner('clean') };
     const first = await captureSession(
       { session_id: 'x', transcript_path: transcriptPath, hook_event_name: 'Stop' },
@@ -102,8 +97,7 @@ describe('captureSession', () => {
       { session_id: 'x', transcript_path: transcriptPath, hook_event_name: 'SessionEnd' },
       ctx
     );
-    expect(second.status).toBe('duplicate');
-    // No second log written.
+    expect(second.status).toBe('written');
     expect(readdirSync(sessionsDir).filter(f => f.endsWith('.md'))).toHaveLength(1);
   });
 

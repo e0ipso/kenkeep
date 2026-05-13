@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { appendToQueue, readQueue } from '../../src/lib/queue.js';
 import { renderSessionLog } from '../../src/lib/session-log.js';
 import {
+  buildProposalPrompt,
   drainProposalQueue,
   PROPOSAL_LOCK_NAME,
+  TRANSCRIPT_PLACEHOLDER,
   type ProposalRunner,
 } from '../../src/lib/proposal-drain.js';
 import { acquireLock, readState } from '../../src/lib/state.js';
@@ -317,5 +319,20 @@ describe('drainProposalQueue', () => {
     });
     expect(captured.model).toBeUndefined();
     expect(captured.effort).toBeUndefined();
+  });
+});
+
+describe('buildProposalPrompt', () => {
+  it('substitutes the transcript placeholder when present', () => {
+    const out = buildProposalPrompt(`prefix ${TRANSCRIPT_PLACEHOLDER} suffix`, 'TRANS');
+    expect(out).toBe('prefix TRANS suffix');
+  });
+
+  it('throws when the placeholder is missing, naming the placeholder and the proposal-extract prompt', () => {
+    expect(() => buildProposalPrompt('no placeholder here', 'TRANS')).toThrowError(
+      new RegExp(
+        `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      ),
+    );
   });
 });

@@ -2,7 +2,7 @@
 id: 2
 group: "headless"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-05-13
 skills:
   - typescript
@@ -16,12 +16,12 @@ Reduce `buildParseFailureMessage` to a single inline `throw` and delete `extract
 - typescript: edit `src/lib/headless.ts` and its test file
 
 ## Acceptance Criteria
-- [ ] `extractJsonBlock` is deleted from `src/lib/headless.ts` and not imported anywhere in `src/`.
-- [ ] `buildParseFailureMessage`, `SNIPPET_RADIUS`, the `position N` regex, the snippet-build code, and the multi-line "Next steps" array are all deleted.
-- [ ] The single call site in `runHeadlessClaude` throws inline: `throw new Error(\`curator output was not valid JSON: ${parseMessage}. See ${logFile ?? 'log'} for the full transcript.\`);`.
-- [ ] JSON parsing uses `JSON.parse(finalResult.trim())` directly.
-- [ ] Existing tests for fence stripping and multi-line parse-failure messages are deleted or rewritten to assert the new single-line throw.
-- [ ] `npm run lint`, `npm run typecheck`, and `npm test` pass.
+- [x] `extractJsonBlock` is deleted from `src/lib/headless.ts` and not imported anywhere in `src/`.
+- [x] `buildParseFailureMessage`, `SNIPPET_RADIUS`, the `position N` regex, the snippet-build code, and the multi-line "Next steps" array are all deleted.
+- [x] The single call site in `runHeadlessClaude` throws inline: `throw new Error(\`curator output was not valid JSON: ${parseMessage}. See ${logFile ?? 'log'} for the full transcript.\`);`.
+- [x] JSON parsing uses `JSON.parse(finalResult.trim())` directly.
+- [x] Existing tests for fence stripping and multi-line parse-failure messages are deleted or rewritten to assert the new single-line throw.
+- [x] `npm run lint`, `npm run typecheck`, and `npm test` pass.
 
 Use your internal Todo tool to track these and keep on track.
 

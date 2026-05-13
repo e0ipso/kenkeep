@@ -62,7 +62,7 @@ export interface DrainSummary {
   reason?: string;
 }
 
-const TRANSCRIPT_PLACEHOLDER = '[TRANSCRIPT PLACEHOLDER - substituted at runtime]';
+export const TRANSCRIPT_PLACEHOLDER = '[TRANSCRIPT PLACEHOLDER - substituted at runtime]';
 
 /**
  * Drains the proposal queue. Acquires a lock on `state.json`, iterates up to
@@ -220,11 +220,13 @@ function extractTranscript(body: string): string {
   return rest.slice(0, endMatch.index).trim();
 }
 
-function buildProposalPrompt(template: string, transcript: string): string {
-  if (template.includes(TRANSCRIPT_PLACEHOLDER)) {
-    return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
+export function buildProposalPrompt(template: string, transcript: string): string {
+  if (!template.includes(TRANSCRIPT_PLACEHOLDER)) {
+    throw new Error(
+      `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`,
+    );
   }
-  return `${template.trimEnd()}\n\n${transcript}\n`;
+  return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
 }
 
 export function proposalLogPath(logsDir: string, sessionId: string, when: Date): string {

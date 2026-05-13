@@ -51,7 +51,7 @@ describe('runHeadlessClaude', () => {
     expect(out).toEqual({ ok: true, n: 42 });
   });
 
-  it('extracts JSON when the result is wrapped in a fenced code block', async () => {
+  it('throws when the result is wrapped in a fenced code block (fences no longer stripped)', async () => {
     const { spawn } = makeSpawn([
       JSON.stringify({
         type: 'result',
@@ -59,8 +59,9 @@ describe('runHeadlessClaude', () => {
         result: '```json\n{"ok": true, "n": 7}\n```',
       }),
     ]);
-    const out = await runHeadlessClaude('prompt', '', Schema, { spawn });
-    expect(out).toEqual({ ok: true, n: 7 });
+    await expect(runHeadlessClaude('prompt', '', Schema, { spawn })).rejects.toThrow(
+      /^curator output was not valid JSON:/
+    );
   });
 
   it('writes the raw stream to logFile when provided', async () => {
@@ -180,7 +181,7 @@ describe('runHeadlessClaude', () => {
     expect(seen).toEqual(['system', 'assistant', 'result']);
   });
 
-  it('reports an actionable error when the result JSON is malformed', async () => {
+  it('throws a single-line error referencing the log path when the result JSON is malformed', async () => {
     const broken = '{"action":"add","body":"This is broken\n   no closing quote';
     const { spawn } = makeSpawn([
       JSON.stringify({ type: 'result', is_error: false, result: broken }),
@@ -194,14 +195,13 @@ describe('runHeadlessClaude', () => {
     }
     expect(caught).not.toBeNull();
     const msg = caught!.message;
-    expect(msg).toContain('curator JSON output is malformed');
-    expect(msg).toContain('Parse error:');
-    expect(msg).toContain('Snippet near offset');
+    expect(msg).toMatch(/^curator output was not valid JSON:/);
     expect(msg).toContain(logFile);
-    expect(msg).toContain('Re-run `ai-knowledge-base curate`');
+    expect(msg).toContain('for the full transcript.');
+    expect(msg).not.toContain('\n');
   });
 
-  it('falls back to "(no log file)" in the parse-failure message when logFile is unset', async () => {
+  it('falls back to "log" in the parse-failure message when logFile is unset', async () => {
     const { spawn } = makeSpawn([
       JSON.stringify({ type: 'result', is_error: false, result: '{"oops":' }),
     ]);
@@ -211,7 +211,8 @@ describe('runHeadlessClaude', () => {
     } catch (err) {
       caught = err as Error;
     }
-    expect(caught?.message).toContain('(no log file)');
+    expect(caught?.message).toMatch(/^curator output was not valid JSON:/);
+    expect(caught?.message).toContain('See log for the full transcript.');
   });
 
   it('throws when result JSON does not match the schema', async () => {

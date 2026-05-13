@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isDuplicate, recordHash } from './dedup-cache.js';
 import type { SecretScanResult, SecretScanner } from './secret-scan.js';
 import { scanAndRedact } from './secret-scan.js';
 import { appendToQueue, hasQueueEntry } from './queue.js';
@@ -23,7 +22,6 @@ export interface HookInput {
 
 export type CaptureStatus =
   | 'written'
-  | 'duplicate'
   | 'no-content'
   | 'no-transcript'
   | 'secret-scan-blocked';
@@ -76,11 +74,6 @@ export async function captureSession(
   }
 
   const hash = `sha256:${createHash('sha256').update(slice).digest('hex')}`;
-  const dedupCacheFile = join(ctx.sessionsDir, '.dedup-cache.json');
-  const nowMs = (ctx.now?.() ?? new Date()).getTime();
-  if (isDuplicate(dedupCacheFile, hash, nowMs)) {
-    return { status: 'duplicate' };
-  }
 
   const scan = ctx.scan ?? ((text: string) => scanAndRedact(text, ctx.scanTimeoutMs ?? 1000));
   const scanResult = await scan(slice);
@@ -113,7 +106,6 @@ export async function captureSession(
   });
 
   const sessionLogPath = writeSessionLog(ctx.sessionsDir, filename, body);
-  recordHash(dedupCacheFile, hash, nowMs);
 
   const queueFile = join(ctx.sessionsDir, '.queue.json');
   if (!hasQueueEntry(queueFile, sessionId)) {

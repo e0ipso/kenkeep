@@ -4,12 +4,15 @@ import { dirname, join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  BATCH_PLACEHOLDER,
   CURATOR_LOCK_NAME,
   buildBatchPayload,
+  buildBatchPrompt,
   batchSessions,
   dedupActions,
   listPendingSessions,
   runCurate,
+  type CuratorBatchPayload,
   type CuratorRunner,
 } from '../../src/lib/curate.js';
 import type { CuratorAction, NodeFrontmatter, ProposalCandidate } from '../../src/lib/schemas.js';
@@ -449,5 +452,29 @@ describe('runCurate', () => {
     const sessions = listPendingSessions(harness.sessionsDir);
     const payload = buildBatchPayload(sessions, harness.kbDir, harness.nodesDir);
     expect(payload.existing_nodes.map(n => n.id)).toEqual(['practice-x']);
+  });
+});
+
+describe('buildBatchPrompt', () => {
+  const emptyPayload: CuratorBatchPayload = {
+    index_summary: '',
+    existing_nodes: [],
+    batch: [],
+  };
+
+  it('substitutes the batch placeholder when present', () => {
+    const out = buildBatchPrompt(`prefix ${BATCH_PLACEHOLDER} suffix`, emptyPayload);
+    expect(out).toContain('prefix');
+    expect(out).toContain('suffix');
+    expect(out).not.toContain(BATCH_PLACEHOLDER);
+    expect(out).toContain('"existing_nodes": []');
+  });
+
+  it('throws when the placeholder is missing, naming the placeholder and the curator prompt', () => {
+    expect(() => buildBatchPrompt('no placeholder here', emptyPayload)).toThrowError(
+      new RegExp(
+        `curator prompt is missing the ${BATCH_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      ),
+    );
   });
 });

@@ -175,13 +175,11 @@ export function nodeFileExists(nodesDir: string, kind: NodeKind, idOrSlug: strin
 
 export function ensureUniqueId(existingIds: Set<string>, candidate: string): string {
   if (!existingIds.has(candidate)) return candidate;
-  for (let i = 2; i < 100; i += 1) {
+  for (let i = 2; i <= 4; i += 1) {
     const next = `${candidate}-${i}`;
     if (!existingIds.has(next)) return next;
   }
-  // Fall back to a short hash discriminator.
-  const disc = createHash('sha256').update(`${candidate}-${Date.now()}`).digest('hex').slice(0, 6);
-  return `${candidate}-${disc}`;
+  throw new Error(`id "${candidate}" collides with 4 existing ids; choose a more distinct title`);
 }
 
 export interface WriteNodeArgs {

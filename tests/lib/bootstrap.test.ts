@@ -14,6 +14,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   BOOTSTRAP_LOCK_NAME,
   buildChunkString,
+  buildPrompt,
+  CHUNK_PLACEHOLDER,
   chunkDocs,
   discoverMarkdownFiles,
   globMatch,
@@ -429,5 +431,20 @@ describe('runBootstrapIncremental', () => {
     await runBootstrapIncremental(ctxFor(harness, runner));
     expect(captured.model).toBeUndefined();
     expect(captured.effort).toBeUndefined();
+  });
+});
+
+describe('buildPrompt', () => {
+  it('substitutes the chunk placeholder when present', () => {
+    const out = buildPrompt(`prefix ${CHUNK_PLACEHOLDER} suffix`, 'CHUNK');
+    expect(out).toBe('prefix CHUNK suffix');
+  });
+
+  it('throws when the placeholder is missing, naming the placeholder and the bootstrap prompt', () => {
+    expect(() => buildPrompt('no placeholder here', 'CHUNK')).toThrowError(
+      new RegExp(
+        `bootstrap prompt is missing the ${CHUNK_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      ),
+    );
   });
 });

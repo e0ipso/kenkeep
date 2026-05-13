@@ -2,7 +2,7 @@
 id: 5
 group: "nodes"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-05-13
 skills:
   - typescript
@@ -16,11 +16,11 @@ Replace the 98-suffix + SHA-256 discriminator fallback in `ensureUniqueId` with 
 - typescript: edit `src/lib/nodes.ts` and its test
 
 ## Acceptance Criteria
-- [ ] `ensureUniqueId` in `src/lib/nodes.ts` returns `candidate` if unique, then tries `${candidate}-2`, `${candidate}-3`, `${candidate}-4`; if all four are taken, throws `Error("id \"${candidate}\" collides with 4 existing ids; choose a more distinct title")`.
-- [ ] The SHA-256 hash discriminator branch (`${candidate}-${sha256.slice(0,6)}`) and the 98-suffix loop are deleted.
-- [ ] `createHash` import is removed from `src/lib/nodes.ts` if no other call site in the file needs it; left alone otherwise.
-- [ ] A test covers: returns base id when unique; returns `-2`/`-3`/`-4` on collisions; throws after 4 collisions with the documented message.
-- [ ] `npm run lint`, `npm run typecheck`, and `npm test` pass.
+- [x] `ensureUniqueId` in `src/lib/nodes.ts` returns `candidate` if unique, then tries `${candidate}-2`, `${candidate}-3`, `${candidate}-4`; if all four are taken, throws `Error("id \"${candidate}\" collides with 4 existing ids; choose a more distinct title")`.
+- [x] The SHA-256 hash discriminator branch (`${candidate}-${sha256.slice(0,6)}`) and the 98-suffix loop are deleted.
+- [x] `createHash` import is removed from `src/lib/nodes.ts` if no other call site in the file needs it; left alone otherwise.
+- [x] A test covers: returns base id when unique; returns `-2`/`-3`/`-4` on collisions; throws after 4 collisions with the documented message.
+- [x] `npm run lint`, `npm run typecheck`, and `npm test` pass.
 
 Use your internal Todo tool to track these and keep on track.
 

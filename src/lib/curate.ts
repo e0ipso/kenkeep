@@ -145,7 +145,7 @@ function parseCandidateArray(value: unknown): ProposalCandidate[] {
   return out;
 }
 
-const BATCH_PLACEHOLDER = '[BATCH PLACEHOLDER — substituted at runtime]';
+export const BATCH_PLACEHOLDER = '[BATCH PLACEHOLDER — substituted at runtime]';
 
 /**
  * Splits pending sessions into batches sized by both count (`batchSize`,
@@ -248,12 +248,14 @@ export function buildBatchPayload(
   };
 }
 
-function buildBatchPrompt(template: string, payload: CuratorBatchPayload): string {
+export function buildBatchPrompt(template: string, payload: CuratorBatchPayload): string {
   const json = JSON.stringify(payload, null, 2);
-  if (template.includes(BATCH_PLACEHOLDER)) {
-    return template.replace(BATCH_PLACEHOLDER, json);
+  if (!template.includes(BATCH_PLACEHOLDER)) {
+    throw new Error(
+      `curator prompt is missing the ${BATCH_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`,
+    );
   }
-  return `${template.trimEnd()}\n\n${json}\n`;
+  return template.replace(BATCH_PLACEHOLDER, json);
 }
 
 /**

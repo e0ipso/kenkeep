@@ -160,11 +160,12 @@ export async function runHeadlessClaude<T>(
   }
 
   let parsedJson: unknown;
-  const jsonText = extractJsonBlock(finalResult);
   try {
-    parsedJson = JSON.parse(jsonText);
-  } catch (err) {
-    throw new Error(buildParseFailureMessage(err, jsonText, opts.logFile));
+    parsedJson = JSON.parse(finalResult.trim());
+  } catch (parseError) {
+    throw new Error(
+      `curator output was not valid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. See ${opts.logFile ?? 'log'} for the full transcript.`
+    );
   }
 
   const validated = schema.safeParse(parsedJson);
@@ -183,42 +184,4 @@ function findFinalResult(messages: StreamJsonMessage[]): string | null {
     }
   }
   return null;
-}
-
-const SNIPPET_RADIUS = 60;
-
-function buildParseFailureMessage(err: unknown, jsonText: string, logFile?: string): string {
-  const parseMessage = err instanceof Error ? err.message : String(err);
-  const offsetMatch = /position (\d+)/.exec(parseMessage);
-  const lines = [
-    'curator JSON output is malformed.',
-    `  Parse error: ${parseMessage}`,
-  ];
-  if (offsetMatch && offsetMatch[1]) {
-    const offset = Number(offsetMatch[1]);
-    const start = Math.max(0, offset - SNIPPET_RADIUS);
-    const end = Math.min(jsonText.length, offset + SNIPPET_RADIUS);
-    const snippet = jsonText.slice(start, end).replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-    lines.push(`  Snippet near offset ${offset}: …${snippet}…`);
-  }
-  lines.push(`  Full curator transcript: ${logFile ?? '(no log file)'}`);
-  lines.push('  Next steps:');
-  lines.push(
-    '    1. Re-run `ai-knowledge-base curate` (the model may emit valid JSON on retry).'
-  );
-  lines.push(
-    '    2. Inspect the last `type:"result"` event in the transcript to see the full raw output.'
-  );
-  lines.push('    3. If this keeps happening, file an issue and attach the transcript.');
-  return lines.join('\n');
-}
-
-/**
- * Tolerates models that wrap their JSON in ```json fences or include
- * preamble/trailing whitespace. Falls back to the raw string.
- */
-function extractJsonBlock(text: string): string {
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence && fence[1]) return fence[1].trim();
-  return text.trim();
 }

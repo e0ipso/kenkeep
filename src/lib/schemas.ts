@@ -45,18 +45,6 @@ export const QueueFileSchema = z.object({
 
 export type QueueFile = z.infer<typeof QueueFileSchema>;
 
-export const DedupCacheEntrySchema = z.object({
-  hash: z.string(),
-  expires_at: z.string(),
-});
-
-export const DedupCacheFileSchema = z.object({
-  schema_version: z.literal(1),
-  entries: z.array(DedupCacheEntrySchema),
-});
-
-export type DedupCacheFile = z.infer<typeof DedupCacheFileSchema>;
-
 export const ConfidenceSchema = z.enum(['low', 'medium', 'high']);
 export type Confidence = z.infer<typeof ConfidenceSchema>;
 

@@ -2,6 +2,13 @@
 
 ### Removed
 
+* Shrunk the settings surface and dropped the user-level configuration layer.
+    * `SettingsSchema` keys: `drainBound`, `maxAttempts`, `proposalTimeout`, `lockTtlMs`, `bootstrapTokenBudget`. On-disk `config.yaml` files holding any of these must be hand-edited; the strict schema rejects unknown keys.
+    * User-level `config.yaml` at `~/.config/ai-knowledge-base/config.yaml` (`XDG_CONFIG_HOME` lookup). The project-level `.ai/knowledge-base/config.yaml` is now the only configuration file.
+    * `warnings` array returned by `resolveSettings`. Malformed YAML or schema violations now throw an `Error` naming the offending file.
+    * `logs prune --older-than` and `logs prune --dry-run` flags. The command now always uses `settings.logsRetentionDays` (default 30) and prints `pruned N files`.
+    * Token-budget batching in bootstrap and curate: `CHARS_PER_TOKEN`, `DEFAULT_TOKEN_BUDGET`, `chunkDocs`, `batchSessions`, `estimateSessionTokens`, and the `--token-budget` CLI flag.
+
 * Deleted seven defensive code paths that masked the failure modes they claimed to handle.
     * Prompt builders (`buildPrompt`, `buildBatchPrompt`, `buildProposalPrompt`) now throw a named error when their placeholder is missing instead of shipping a malformed template-plus-chunk concatenation.
     * `runHeadlessClaude` parses the trimmed final result with `JSON.parse` directly; the `extractJsonBlock` fence-stripping helper is gone. The previous `buildParseFailureMessage` (V8-specific `position N` regex plus a multi-line "next steps" block) collapses to a single inline error that names the log path.
@@ -14,7 +21,7 @@
 
 * Renamed the two-step capture pipeline to Transcript / Proposal across code, configuration, frontmatter, prompts, file paths, and docs.
     * Session-log frontmatter keys: `stage_2_status` becomes `proposal_status`, `stage_2_completed_at` becomes `proposal_completed_at`, `stage_2_error` becomes `proposal_error`, `stage_2_log` becomes `proposal_log`.
-    * Settings keys: `stage2Timeout` becomes `proposalTimeout`, `stage2Model` becomes `proposalModel`.
+    * Settings model key: `stage2Model` becomes `proposalModel`.
     * Bundled hook: `.claude/hooks/kb-stage2-drain.mjs` becomes `.claude/hooks/kb-proposal-drain.mjs`.
     * Prompt template: `prompts/stage-2-extract.md` becomes `prompts/proposal-extract.md`.
     * Log subdirectory: `_logs/stage-2/` becomes `_logs/proposal/`.
@@ -26,6 +33,12 @@
 * `BootstrapDocEntrySchema.produced_proposals` renamed to `produced_nodes`. Entries are bare `<kind>/<filename>.md` paths relative to `nodes/`.
 * `CurateResult.proposalsWritten` renamed to `nodesWritten`. New fields `failures: FailureReport[]` and `conflicts: ConflictReport[]` carry per-action outcomes.
 * `init` writes `.lintstagedrc.cjs` and no longer adds a `lint-staged` block to `package.json`.
+
+### Changed
+
+* Project `config.yaml` is strict against unknown keys; a malformed or non-conformant file fails loudly naming the offending path instead of warning and falling back to defaults.
+* Bootstrap batches docs in groups of 20, curate batches sessions in groups of 10, via the `chunk(items, size)` helper in `src/lib/chunk-batch.ts`.
+* `logs prune` walks the whole `_logs/` tree recursively and deletes `*.jsonl` files older than `settings.logsRetentionDays`.
 
 * Removed several speculative abstractions and dead fields. No user action is required; existing on-disk artifacts with stray fields parse cleanly under the new schemas (Zod ignores unknown keys).
     * `src/adapters/` is gone. The hook-installation helper is now the free function `writeClaudeHookConfig` in `src/lib/hooks-config.ts`; subprocess spawning goes through `runHeadlessClaude` from `src/lib/headless.ts` directly.

@@ -15,8 +15,8 @@ npx @e0ipso/ai-knowledge-base init --assistants claude [--force] [--upgrade [--d
 
 First-time setup. Writes the knowledge-base scaffold, Claude hooks and skills, the commit-time secret-scan scaffold (`.secretlintrc.json`, `.husky/pre-commit`, `.lintstagedrc.cjs`, plus devDeps and a `prepare: husky` script in `package.json`), and a managed `.gitignore` block. The `.lintstagedrc.cjs` runs secretlint on every staged file and `ai-knowledge-base index rebuild --stage` whenever a file under `.ai/knowledge-base/nodes/` is staged. Requires a `package.json` at the repo root.
 
-- `--force` - overwrite existing files (never touches your project config).
-- `--upgrade` - refresh templates while preserving customizations. Pair with `--dry-run` to preview.
+- `--force`: overwrite existing files (never touches your project config).
+- `--upgrade`: refresh templates while preserving customizations. Pair with `--dry-run` to preview.
 
 ## `doctor`
 
@@ -37,7 +37,7 @@ Prints pending work: queued captures, pending session logs, pending curator conf
 ## `curate`
 
 ```sh
-npx @e0ipso/ai-knowledge-base curate [--batch-size <n>] [--token-budget <n>] [--timeout <ms>]
+npx @e0ipso/ai-knowledge-base curate [--batch-size <n>] [--timeout <ms>]
 ```
 
 Run the curator over all session logs that have been processed but not yet curated. The curator writes new node files directly to `nodes/<kind>/<id>.md` for `add` actions and overwrites the target file for `modify` actions. `contradict` actions are recorded in `.ai/knowledge-base/.state/pending-conflicts.json` for the `/kb-curate` skill to resolve in-session with the user. Review the resulting changes with `git diff nodes/`.
@@ -55,7 +55,7 @@ Interactive prompt to create a node manually. Writes directly to `.ai/knowledge-
 ```sh
 npx @e0ipso/ai-knowledge-base bootstrap-incremental --from <path> \
   [--include <glob>] [--exclude <glob>] \
-  [--dry-run] [--token-budget <n>] [--timeout <ms>]
+  [--dry-run] [--timeout <ms>]
 ```
 
 Deterministic, hash-aware bootstrap from existing markdown docs. Skips files whose content hasn't changed since the last run.
@@ -73,33 +73,27 @@ Regenerate `INDEX.md` and `GRAPH.md` from `nodes/`. No LLM. Run after hand-edits
 ## `logs prune`
 
 ```sh
-npx @e0ipso/ai-knowledge-base logs prune [--older-than <duration>] [--dry-run]
+npx @e0ipso/ai-knowledge-base logs prune
 ```
 
-Delete old run logs under `_logs/`. `--older-than` accepts forms like `30d`, `2w`, `12h`, `45m`. Defaults to 30 days (configurable via `logsRetentionDays`).
+Walks `_logs/` recursively and deletes `*.jsonl` files older than `settings.logsRetentionDays` (default 30). Prints `pruned N files`.
 
 ## Project settings
 
-Project-level settings live in `.ai/knowledge-base/config.yaml` (committed). A user-level file at `~/.config/ai-knowledge-base/config.yaml` can set personal defaults; the project file wins.
+Project-level settings live in `.ai/knowledge-base/config.yaml` (committed). The file is strict: unknown keys cause a hard error naming the offending file.
 
 ```yaml
 schema_version: 2
-drainBound: 5
-proposalTimeout: 60000
 curationThreshold: 5
-bootstrapTokenBudget: 10000
 logsRetentionDays: 30
+lintEveryNSessions: 50
 ```
 
 | Key | Default | What it does |
 |---|---|---|
-| `drainBound` | `5` | Max background extractions processed per session start. |
-| `proposalTimeout` | `60000` | Per-entry extraction timeout (ms). |
 | `curationThreshold` | `5` | Pending logs that trigger the curate nudge. |
-| `bootstrapTokenBudget` | `10000` | Per-batch budget for `bootstrap-incremental`. |
-| `logsRetentionDays` | `30` | Default window for `logs prune`. |
-
-CLI flags override settings per run.
+| `logsRetentionDays` | `30` | Retention window applied by `logs prune`. |
+| `lintEveryNSessions` | `50` | Run cadence for the background lint, in SessionEnd ticks. |
 
 ### Model and effort selection
 
@@ -136,4 +130,4 @@ After `init --assistants claude`, three skills are available inside a session:
 |---|---|
 | `/kb-curate` | `ai-knowledge-base curate` |
 | `/kb-add` | `ai-knowledge-base node add` |
-| `/kb-bootstrap [path]` | (no CLI equivalent - agent-driven) |
+| `/kb-bootstrap [path]` | (no CLI equivalent, agent-driven) |

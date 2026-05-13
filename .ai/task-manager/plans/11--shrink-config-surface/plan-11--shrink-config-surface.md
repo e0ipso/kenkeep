@@ -291,11 +291,11 @@ graph TD
 - ✔️ Task 3: Add shared `chunk` helper, swap bootstrap and curate, delete `--token-budget` (depends on: 1, 2).
 - ✔️ Task 4: Collapse `logs prune` to a 30-day blanket cleanup (depends on: 1, 2).
 
-### Phase 4: Tests and documentation
+### ✅ Phase 4: Tests and documentation
 
 **Parallel Tasks:**
-- Task 5: Update tests (depends on: 2, 3, 4).
-- Task 6: Update documentation (depends on: 2, 3, 4).
+- ✔️ Task 5: Update tests (depends on: 2, 3, 4).
+- ✔️ Task 6: Update documentation (depends on: 2, 3, 4).
 
 ### Post-phase Actions
 

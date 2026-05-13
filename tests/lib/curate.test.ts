@@ -395,6 +395,28 @@ describe('runCurate', () => {
     expect(sink).toEqual([{ type: 'assistant' }]);
   });
 
+  it('splits 21 pending sessions into 3 batches via chunk(sessions, 10)', async () => {
+    for (let i = 0; i < 21; i += 1) {
+      const id = `s${String(i).padStart(2, '0')}`;
+      seedSession(
+        harness,
+        id,
+        [makeCandidate('practice', `Title ${id}`)],
+        [],
+        `2026-05-12T10:${String(i).padStart(2, '0')}:00Z`
+      );
+    }
+    const starts: Array<{ index: number; total: number; size: number }> = [];
+    const runner: CuratorRunner = async () => [];
+    const result = await runCurate({
+      ...ctx(runner),
+      onBatchStart: ({ index, total, batch }) => starts.push({ index, total, size: batch.length }),
+    });
+    expect(result.status).toBe('completed');
+    expect(starts.map(s => s.size)).toEqual([10, 10, 1]);
+    expect(starts.every(s => s.total === 3)).toBe(true);
+  });
+
   it('forwards model and effort to the runner when set, omits them otherwise', async () => {
     seedSession(harness, 's-mod', [makeCandidate('practice', 'A')], []);
     let captured: { model?: string; effort?: string } = {};

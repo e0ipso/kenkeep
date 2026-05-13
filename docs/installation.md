@@ -25,11 +25,11 @@ npx @e0ipso/ai-knowledge-base doctor
 
 This creates / updates:
 
-- `.ai/knowledge-base/` - your knowledge base.
-- `.claude/` - hooks and skills used by Claude Code.
-- `.secretlintrc.json` - config for [secretlint](https://github.com/secretlint/secretlint), which scans staged files at commit time.
-- `.husky/pre-commit` - runs `lint-staged` (which runs secretlint) before each commit.
-- `package.json` - adds `husky`, `lint-staged`, `secretlint`, and the `@secretlint/secretlint-rule-preset-recommend` preset as devDeps; adds the `prepare: husky` script; adds a `lint-staged` block.
+- `.ai/knowledge-base/`: your knowledge base.
+- `.claude/`: hooks and skills used by Claude Code.
+- `.secretlintrc.json`: config for [secretlint](https://github.com/secretlint/secretlint), which scans staged files at commit time.
+- `.husky/pre-commit`: runs `lint-staged` (which runs secretlint) before each commit.
+- `package.json`: adds `husky`, `lint-staged`, `secretlint`, and the `@secretlint/secretlint-rule-preset-recommend` preset as devDeps; adds the `prepare: husky` script; adds a `lint-staged` block.
 - A managed block in `.gitignore`.
 
 `npm install` activates husky (via the `prepare` script) so the pre-commit hook is live in your local clone. Commit everything.
@@ -59,13 +59,12 @@ Use this for the first pass. You stay in the loop and can correct it in flight.
 npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
 ```
 
-This spawns `claude -p` under the hood, chunks the candidate docs by a token budget, and writes nodes deterministically. It records each doc's SHA-256 in `.ai/knowledge-base/.state/bootstrap-state.json`, so re-runs only reprocess docs that changed. Same conservative collision behavior as the skill.
+This spawns `claude -p` under the hood, chunks the candidate docs in batches of 20, and writes nodes deterministically. It records each doc's SHA-256 in `.ai/knowledge-base/.state/bootstrap-state.json`, so re-runs only reprocess docs that changed. Same conservative collision behavior as the skill.
 
 Useful options:
 
 - `--include <glob>` / `--exclude <glob>`: scope which markdown to consider.
 - `--dry-run`: list what would be processed without calling the model.
-- `--token-budget <n>`: override the per-batch token budget (default `10000`, also configurable as `bootstrapTokenBudget` in `.ai/knowledge-base/.config.json`). The budget exists because each batch is one `claude -p` call bound by a 120s timeout: smaller batches keep failures local and avoid context-window degradation. Crank it up if your docs are small; leave it alone otherwise.
 
 Do not run `bootstrap-incremental` in CI. It spawns the model and produces changes that still need human review.
 

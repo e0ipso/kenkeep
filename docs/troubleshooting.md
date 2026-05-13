@@ -58,8 +58,10 @@ The prompt has drifted from your project's needs. Edit `.ai/knowledge-base/.conf
 `_logs/` is gitignored but unbounded. Prune periodically:
 
 ```sh
-npx @e0ipso/ai-knowledge-base logs prune --older-than 2w
+npx @e0ipso/ai-knowledge-base logs prune
 ```
+
+This deletes `*.jsonl` files older than `logsRetentionDays` (default 30) across the whole `_logs/` tree.
 
 ## Reviewing changes to `nodes/`
 

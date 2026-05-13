@@ -53,7 +53,7 @@ Per `SessionStart`:
 1. Recursion guard.
 2. Acquire the `proposal-drain` lock (PID + 30-min TTL). Stale locks reclaimed.
 3. Load the prompt (local override first, bundled fallback).
-4. Sweep `_sessions/*.md` for frontmatter with `proposal_status: pending`. Process up to `drainBound` entries (default 5). Rest deferred to the next SessionStart.
+4. Sweep `_sessions/*.md` for frontmatter with `proposal_status: pending` and process each entry.
 5. Per pending log: spawn `claude -p --output-format stream-json --verbose`, stream to `_logs/proposal/<session-id>__<ts>.jsonl`, parse the final `result`, validate against `ProposalOutputSchema`.
 6. On success: update frontmatter with `proposal_status: done`, populated `proposals.{practice,map}`, deduped `topics`.
 7. On failure: write `proposal_status: failed` with `proposal_error`. The failure modes here (timeout, schema mismatch, bad JSON) do not heal on retry, so the drain does not rotate them.

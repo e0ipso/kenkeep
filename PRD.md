@@ -199,9 +199,9 @@ Incremental bootstrap is deterministic, fast, and safe to re-run. It does not at
 
 ### 8.9 Tunables and log retention
 
-Operational defaults - curation threshold, lock TTL, index token budget, drain batch size, proposal timeout, bootstrap token budget, log retention window - can be overridden per-project via a committed `.ai/knowledge-base/config.yaml` or per-user via `~/.config/ai-knowledge-base/config.yaml`. Project overrides win over user overrides; both win over built-in defaults. An unparseable file warns and falls back to defaults rather than bricking the CLI.
+Operational defaults (curation threshold, log retention window, lint cadence, plus optional `proposalModel` / `curatorModel` / `bootstrapModel` overrides) can be overridden per project via a committed `.ai/knowledge-base/config.yaml`. The schema is strict: unknown keys or malformed YAML cause a hard error naming the offending file.
 
-`_logs/` grows unbounded by design (full stream-json traces are the audit trail). `npx @e0ipso/ai-knowledge-base logs prune --older-than <duration>` deletes traces older than the threshold; default retention is `logsRetentionDays` from the settings stack.
+`_logs/` grows unbounded by design (full stream-json traces are the audit trail). `npx @e0ipso/ai-knowledge-base logs prune` walks `_logs/` recursively and deletes `*.jsonl` files older than `settings.logsRetentionDays` (default 30).
 
 ## 9. Failure modes the user sees
 

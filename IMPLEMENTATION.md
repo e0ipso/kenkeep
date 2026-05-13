@@ -302,7 +302,7 @@ Behavior:
 - On failure (parse error, schema mismatch, non-zero exit): `proposal_status: failed` is written to the session log along with `proposal_error`. Failures here (timeout, schema mismatch, bad JSON) do not heal on retry, so the drain does not rotate them.
 - The `KB_BUILDER_INTERNAL=1` env var is checked by all of our own hooks (`kb-capture`, `kb-proposal-drain`, `kb-session-start`); if set, they exit immediately. This prevents the spawned `claude -p` process from triggering recursive proposal/capture work on its own startup.
 - Concurrency on drain: the drain acquires a lock under `.ai/knowledge-base/.state/state.json` (PID + 30-min TTL). If two SessionStart events fire concurrently (two terminals, same repo), the second waits or skips.
-- Drain bound: by default the drain processes at most 5 pending logs per invocation; the rest are deferred to subsequent sessions. Configurable in settings.
+- Drain scope: the drain processes every pending session log on each invocation.
 
 Authentication: the spawned `claude -p` inherits the user's Claude Code authentication (OAuth or API key). No separate setup. We deliberately do **not** use `--bare`, because `--bare` requires `ANTHROPIC_API_KEY` and would not work for users on Claude.ai subscriptions. The `KB_BUILDER_INTERNAL` env-var guard substitutes for `--bare`'s hook-suppression behavior.
 
@@ -410,7 +410,7 @@ Output written to `.ai/knowledge-base/_logs/curator/<run-id>__<wallclock-timesta
 
 ### 6.4 Batching
 
-If pending log count exceeds a token budget (default ~50K tokens of inputs per call, conservatively measured), the curator chunks pending logs into batches of ~10 logs each. Per batch:
+The curator chunks pending session logs into fixed batches of 10 via `chunk(sessions, 10)` from `src/lib/chunk-batch.ts`. Per batch:
 
 1. Load only existing nodes referenced in that batch's proposal outputs.
 2. Spawn a `claude -p` subprocess on the batch.
@@ -530,7 +530,7 @@ Behavior:
 1. Walk `--from` recursively, respecting `.gitignore` and `--include`/`--exclude` globs.
 2. For each markdown file, compute SHA-256 of file contents.
 3. Read `.ai/knowledge-base/.state/bootstrap-state.json`. Skip files whose hash matches the recorded hash. Process files that are new or whose hash changed.
-4. Chunk the to-process set into batches sized by token budget (~10K tokens per batch; same chunking pattern as the curator).
+4. Chunk the to-process set into fixed batches of 20 via `chunk(docs, 20)` from `src/lib/chunk-batch.ts`.
 5. For each batch: spawn a `claude -p` subprocess with the bootstrap-incremental prompt and stream-json verbose output to `.ai/knowledge-base/_logs/bootstrap-incremental/<run-id>__<timestamp>.jsonl`. Include `KB_BUILDER_INTERNAL=1` for recursion safety.
 6. Parse output, validate against `NodeFrontmatterSchema`, write each candidate directly to `nodes/<kind>/<kind>-<slug>.md`. Skip (and count) any candidate whose target file already exists; bootstrap never overwrites.
 7. Update `bootstrap-state.json` with new hashes and timestamps.
@@ -650,7 +650,7 @@ Excludes any file outside `nodes/`. `GRAPH.md` is the unfiltered, full edge list
 - **Build:** `tsup` (zero-config dual-bundle). `src/` → `dist/` for the CLI/library; `src/templates-source/` → `templates/` for shipping.
 - **Validation:** [`zod`](https://zod.dev) for all schemas (frontmatter, prompt outputs, settings, queue file, stream-json messages).
 - **Frontmatter:** [`gray-matter`](https://github.com/jonschlinkert/gray-matter).
-- **Token counting:** `@anthropic-ai/tokenizer` if available at implementation time, else a documented 4-chars-per-token heuristic. Used by curate/bootstrap chunking; INDEX.md is not token-gated.
+- **Token counting:** 4-chars-per-token heuristic, applied only to the INDEX node-count estimate. Curate and bootstrap chunk by count (10 and 20 respectively) and do not estimate tokens.
 - **AI calls:** `claude -p` subprocess via `execa`. No SDK package dependency. The user's existing Claude Code installation is the runtime.
 - **Process spawning:** [`execa`](https://github.com/sindresorhus/execa) for cross-platform subprocess work (`claude -p` invocations).
 - **Secret scanning:** [`secretlint`](https://github.com/secretlint/secretlint) with `@secretlint/secretlint-rule-preset-recommend`. Called programmatically from the capture hook via `@secretlint/core`'s `lintSource()`. Plain npm packages, no per-platform binaries.
@@ -772,7 +772,7 @@ export interface Adapter {
 
 **Why.** When the model does something unexpected, the user needs to see exactly what it saw and produced. Stream-json captures every step (assistant text, tool calls, results). Per-run files with id+timestamp prevent collisions on re-runs.
 
-**Trade-off.** Logs grow without bound. v1.5 ships `ai-knowledge-base logs prune --older-than <duration>`.
+**Trade-off.** Logs grow without bound. `ai-knowledge-base logs prune` walks `_logs/` and deletes `*.jsonl` files older than `settings.logsRetentionDays` (default 30).
 
 ### 11.5 Replacement deletes the old node
 
@@ -856,7 +856,7 @@ export interface Adapter {
 
 ### 11.18 Curator batches
 
-**Decision.** Curator processes pending logs in batches sized by token budget (~10 logs each). Final dedup pass merges proposals across batches.
+**Decision.** Curator processes pending logs in fixed batches of 10. Final dedup pass merges proposals across batches.
 
 **Why.** Without batching, a stale-curation backlog blows the input budget on a single call.
 
@@ -915,15 +915,11 @@ Each phase shippable on its own.
 
 ## 14. Open implementation questions
 
-1. **Settings file.** `.ai/knowledge-base/config.yaml` (committed) for token budget, threshold, drain bound, bootstrap-incremental token budget. (Secretlint config lives in the repo-root `.secretlintrc.json`, not here.) User-level overrides at `~/.config/ai-knowledge-base/config.yaml`. Project settings win.
+1. **Settings file.** `.ai/knowledge-base/config.yaml` (committed) holds `curationThreshold`, `logsRetentionDays`, `lintEveryNSessions`, plus optional `proposalModel` / `curatorModel` / `bootstrapModel` blocks. (Secretlint config lives in the repo-root `.secretlintrc.json`, not here.) The schema is strict: unknown keys or malformed YAML cause a hard error naming the file.
 
-2. **Proposal timeout.** Per-entry subprocess timeout (default 60s). On timeout, mark `failed` and continue.
+2. **Log retention.** `_logs/` grows unbounded across all subdirectories (`proposal/`, `curator/`, `bootstrap-incremental/`). `ai-knowledge-base logs prune` deletes `*.jsonl` files older than `settings.logsRetentionDays`.
 
-3. **Tokenizer fallback.** If `@anthropic-ai/tokenizer` is unavailable, fall back to 4-chars-per-token heuristic. Documented in `ai-knowledge-base doctor`.
-
-4. **Log retention.** `_logs/` grows unbounded across all subdirectories (`proposal/`, `curator/`, `bootstrap-incremental/`). v1.5: `ai-knowledge-base logs prune --older-than <duration>`.
-
-5. **Bootstrap-incremental overlap detection.** v1 always emits `addition` proposals; reviewer rejects duplicates. v2 may add curator-style modify/contradict logic. Decision deferred until real usage shows whether this matters.
+3. **Bootstrap-incremental overlap detection.** v1 always emits `addition` proposals; reviewer rejects duplicates. v2 may add curator-style modify/contradict logic. Decision deferred until real usage shows whether this matters.
 
 ## 15. Documentation deliverables
 
@@ -972,7 +968,7 @@ Bootstrap
   └── Incremental bootstrap       ai-knowledge-base bootstrap-incremental CLI usage
 Customization
   ├── Editing the prompts         proposal, curator, and bootstrap prompt customization
-  └── Settings reference          config.yaml and user-level overrides
+  └── Settings reference          config.yaml keys
 Reference
   ├── CLI commands                Every ai-knowledge-base subcommand
   ├── Skills                      /kb-curate, /kb-show, /kb-add, /kb-bootstrap, /kb-propose-from-session
@@ -1003,7 +999,7 @@ Documentation grows with the code, not all at the end. Per-phase doc work:
 |---|---|
 | M0 | Top-level README; CONTRIBUTING.md; in-KB README template; docs site skeleton (Home + empty Getting Started shell); GitHub Pages deployment configured |
 | M1 | Reference > Hook events; Reference > CLI command coverage for `init`, `doctor`, `status`; Getting Started > Installation page completed |
-| M2 | Customization > Editing the proposal prompt; Reference > Settings (token budget, drain bound, threshold); Troubleshooting > Reading `_logs/proposal/` |
+| M2 | Customization > Editing the proposal prompt; Reference > Settings (curationThreshold, logsRetentionDays, lintEveryNSessions); Troubleshooting > Reading `_logs/proposal/` |
 | M3 | Reference > Skills; Reference > CLI for `curate`, `node add`, `index rebuild --stage`; Review-via-git workflow page; Customization > Editing the curator prompt; Troubleshooting > Reading `_logs/curator/` and resolving `pending-conflicts.json`; Getting Started > First capture → curate (end-to-end walkthrough) |
 | M3.5 | Bootstrap > First-time bootstrap (`/kb-bootstrap` agent-driven walkthrough); Bootstrap > Incremental bootstrap (CLI usage, glob filters, dry-run, collision reporting); Customization > Editing the bootstrap-incremental prompt; Reference > `bootstrap-state.json` schema; Reference > CLI for `bootstrap-incremental` |
 | M4 | Core Concepts > How it works; Core Concepts > Knowledge model; Reference > Frontmatter schemas; INDEX/GRAPH explanation |

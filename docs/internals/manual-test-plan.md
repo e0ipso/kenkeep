@@ -48,7 +48,7 @@ Diagnostic: `time node .claude/hooks/kb-capture.mjs < /dev/null` should be under
 After `npm install`:
 
 - [ ] macOS / Linux / WSL2: `node_modules/@secretlint/core` exists. `doctor` reports secretlint resolvable.
-- [ ] Native Windows: same - secretlint is a pure-JS Node package, no platform-specific binaries.
+- [ ] Native Windows: same, since secretlint is a pure-JS Node package with no platform-specific binaries.
 
 Redaction:
 
@@ -86,10 +86,9 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 
 - [ ] After §4, both `_logs/proposal/` and `_logs/curator/` have 1-3 JSONL files.
 - [ ] Backdate one: `touch -d "60 days ago" <file>`.
-- [ ] `logs prune --dry-run` lists the backdated file. Recent files aren't listed.
-- [ ] `logs prune` deletes only the backdated file.
-- [ ] `logs prune --older-than 0s` deletes everything.
-- [ ] `logs prune --older-than 1y` reports 0 files, no error.
+- [ ] `logs prune` deletes the backdated file and reports `pruned 1 files`. Recent files survive.
+- [ ] Set `logsRetentionDays: 0` in `config.yaml`, rerun: every `*.jsonl` under `_logs/` is deleted.
+- [ ] Set `logsRetentionDays: 365`, rerun on an already-pruned tree: reports `pruned 0 files`, no error.
 
 ## 7. `/kb-bootstrap`
 
@@ -100,7 +99,7 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 
 ## 8. `bootstrap-incremental` chunking
 
-- [ ] In a repo with 50+ markdown files (>200k chars), run `--dry-run`. Reported batch count should be reasonable (10k tokens ≈ 40k chars per batch).
+- [ ] In a repo with 50+ markdown files (>200k chars), run `--dry-run`. Reported batch count matches `ceil(files / 20)`.
 - [ ] Run without `--dry-run`. Inspect `bootstrap-state.json`.
 - [ ] Re-run. Output: 0 files to process.
 - [ ] Edit one file. Re-run. Only that file is reprocessed.
@@ -112,11 +111,11 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 - [ ] Cross-pipeline: `curate` and `bootstrap-incremental` do **not** block each other (distinct lock names).
 - [ ] Stale-lock recovery: edit `state.json` to set `acquired_at` 31 minutes ago. Next `curate` reclaims and proceeds.
 
-## 10. Settings layering
+## 10. Settings file
 
-- [ ] Edit `~/.config/ai-knowledge-base/config.yaml` to set `drainBound: 9`. Without a project file, `curate` honors 9.
-- [ ] Add project `config.yaml` with `drainBound: 3`. Re-run honors 3 (project wins).
-- [ ] Remove both files. `curate` falls back to the documented default.
+- [ ] With no `config.yaml`, `curate` uses built-in defaults (`curationThreshold: 5`, `logsRetentionDays: 30`, `lintEveryNSessions: 50`).
+- [ ] Add project `.ai/knowledge-base/config.yaml` with `curationThreshold: 3`. Re-run honors 3.
+- [ ] Add an unknown key (e.g. `foo: bar`). `curate` exits with an error naming the file.
 
 ## 11. Doctor exit codes
 

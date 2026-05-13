@@ -383,6 +383,21 @@ describe('runBootstrapIncremental', () => {
     expect(fm.derived_from).toEqual(['docs/a.md']);
   });
 
+  it('splits 41 candidate docs into 3 batches via chunk(docs, 20)', async () => {
+    for (let i = 0; i < 41; i += 1) {
+      writeFileSync(join(harness.sourceDir, `doc-${String(i).padStart(2, '0')}.md`), `# ${i}\n`);
+    }
+    const batchSizes: number[] = [];
+    const runner: BootstrapRunner = (async (prompt: string) => {
+      const matches = prompt.match(/=== FILE: /g) ?? [];
+      batchSizes.push(matches.length);
+      return { practice: [], map: [] };
+    }) as BootstrapRunner;
+    const result = await runBootstrapIncremental(ctxFor(harness, runner));
+    expect(result.batches).toBe(3);
+    expect(batchSizes).toEqual([20, 20, 1]);
+  });
+
   it('forwards model and effort to the runner when set, omits them otherwise', async () => {
     writeFileSync(join(harness.sourceDir, 'a.md'), '# A');
     let captured: { model?: string; effort?: string } = {};

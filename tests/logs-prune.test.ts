@@ -1,42 +1,39 @@
-import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
+import { pruneLogs } from '../src/lib/logs-prune.js';
 
-const exec = promisify(execFile);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-describe('logs prune', () => {
+describe('pruneLogs', () => {
   let sandbox: string;
+  let logsDir: string;
 
-  beforeEach(async () => {
-    sandbox = makeSandbox();
-    await exec('git', ['init', '-q'], { cwd: sandbox });
-    await runCli(sandbox, ['init', '--assistants', 'claude']);
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'kb-logs-prune-'));
+    logsDir = join(sandbox, '_logs');
+    mkdirSync(join(logsDir, 'proposal'), { recursive: true });
   });
 
-  afterEach(() => cleanSandbox(sandbox));
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
 
-  function plantLog(bucket: string, name: string, ageMs: number, body = 'x'): string {
-    const dir = join(sandbox, '.ai/knowledge-base/_logs', bucket);
-    mkdirSync(dir, { recursive: true });
-    const full = join(dir, name);
-    writeFileSync(full, body);
-    const past = new Date(Date.now() - ageMs);
-    utimesSync(full, past, past);
-    return full;
-  }
+  it('deletes jsonl files older than the cutoff and leaves fresh and non-jsonl files alone', () => {
+    const now = Date.now();
+    const oldFile = join(logsDir, 'proposal', 'old.jsonl');
+    const newFile = join(logsDir, 'proposal', 'new.jsonl');
+    const nonJsonl = join(logsDir, 'proposal', 'notes.txt');
+    writeFileSync(oldFile, 'old');
+    writeFileSync(newFile, 'new');
+    writeFileSync(nonJsonl, 'keep me');
+    const past = new Date(now - 31 * DAY_MS);
+    utimesSync(oldFile, past, past);
 
-  it('deletes .jsonl files older than the configured retention and prints the count', async () => {
-    const old = plantLog('proposal', 'old.jsonl', 60 * DAY_MS);
-    const fresh = plantLog('proposal', 'fresh.jsonl', 1 * DAY_MS);
+    const result = pruneLogs({ logsDir, cutoffMs: now - 30 * DAY_MS });
 
-    const result = await runCli(sandbox, ['logs', 'prune']);
-    expect(result.exitCode).toBe(0);
-    expect(existsSync(old)).toBe(false);
-    expect(existsSync(fresh)).toBe(true);
-    expect(result.stdout).toMatch(/pruned 1 files/);
+    expect(result).toEqual({ filesDeleted: 1 });
+    expect(existsSync(oldFile)).toBe(false);
+    expect(existsSync(newFile)).toBe(true);
+    expect(existsSync(nonJsonl)).toBe(true);
   });
 });

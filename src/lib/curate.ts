@@ -142,7 +142,6 @@ export const BATCH_PLACEHOLDER = '[BATCH PLACEHOLDER — substituted at runtime]
  * Includes the existing nodes the batch references plus the candidates.
  */
 export interface CuratorBatchPayload {
-  index_summary: string;
   existing_nodes: Array<{
     id: string;
     title: string;
@@ -162,7 +161,6 @@ export interface CuratorBatchPayload {
 
 export function buildBatchPayload(
   batch: PendingSession[],
-  kbDir: string,
   nodesDir: string
 ): CuratorBatchPayload {
   const referenced = new Set<string>();
@@ -188,11 +186,7 @@ export function buildBatchPayload(
     }
   }
 
-  const indexFile = join(kbDir, 'INDEX.md');
-  const indexSummary = existsSync(indexFile) ? readFileSync(indexFile, 'utf8') : '';
-
   return {
-    index_summary: indexSummary,
     existing_nodes: existingNodes,
     batch: batch.map(s => ({
       session_id: s.sessionId,
@@ -275,7 +269,7 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
   try {
     for (let i = 0; i < batches.length; i += 1) {
       const batch = batches[i]!;
-      const payload = buildBatchPayload(batch, ctx.paths.kbDir, ctx.paths.nodesDir);
+      const payload = buildBatchPayload(batch, ctx.paths.nodesDir);
       const prompt = buildBatchPrompt(ctx.promptTemplate, payload);
       if (ctx.onBatchStart) ctx.onBatchStart({ index: i, total: batches.length, batch });
       const batchStartMs = Date.now();

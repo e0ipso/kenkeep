@@ -456,14 +456,13 @@ describe('runCurate', () => {
       []
     );
     const sessions = listPendingSessions(harness.sessionsDir);
-    const payload = buildBatchPayload(sessions, harness.kbDir, harness.nodesDir);
+    const payload = buildBatchPayload(sessions, harness.nodesDir);
     expect(payload.existing_nodes.map(n => n.id)).toEqual(['practice-x']);
   });
 });
 
 describe('buildBatchPrompt', () => {
   const emptyPayload: CuratorBatchPayload = {
-    index_summary: '',
     existing_nodes: [],
     batch: [],
   };

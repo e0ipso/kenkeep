@@ -1,26 +1,14 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { atomicWriteJson, readJsonValidated } from './fs-atomic.js';
 import { StateFileSchema, type StateFile, type StateLock } from './schemas.js';
 
 export const DEFAULT_LOCK_TTL_MS = 30 * 60 * 1000;
 
 export function readState(file: string): StateFile {
-  if (!existsSync(file)) return { schema_version: 1 };
-  try {
-    const raw = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-    const parsed = StateFileSchema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    return { schema_version: 1 };
-  } catch {
-    return { schema_version: 1 };
-  }
+  return readJsonValidated(file, StateFileSchema, { schema_version: 1 });
 }
 
 export function writeState(file: string, state: StateFile): void {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(state, null, 2)}\n`);
-  renameSync(tmp, file);
+  atomicWriteJson(file, state);
 }
 
 export interface LockOptions {

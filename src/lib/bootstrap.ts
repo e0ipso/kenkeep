@@ -1,12 +1,5 @@
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix, relative, sep } from 'node:path';
 import type { ZodSchema } from 'zod';
 import {
@@ -21,6 +14,7 @@ import {
 } from './schemas.js';
 import { chunk } from './chunk-batch.js';
 import { acquireLock, releaseLock } from './state.js';
+import { atomicWriteJson, readJsonValidated } from './fs-atomic.js';
 import { deriveNodeId, ensureUniqueId, nodeFileExists, writeNodeFile } from './nodes.js';
 import { ulid } from './ulid.js';
 import { compactStamp } from './time.js';
@@ -124,15 +118,7 @@ export function sha256Hex(content: string): string {
  * or unparseable (so a first run starts fresh).
  */
 export function readBootstrapState(file: string): BootstrapState {
-  if (!existsSync(file)) return { schema_version: 1, docs: {} };
-  try {
-    const raw = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-    const parsed = BootstrapStateSchema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-  } catch {
-    // fall through
-  }
-  return { schema_version: 1, docs: {} };
+  return readJsonValidated(file, BootstrapStateSchema, { schema_version: 1, docs: {} });
 }
 
 /**
@@ -140,10 +126,7 @@ export function readBootstrapState(file: string): BootstrapState {
  */
 export function writeBootstrapState(file: string, state: BootstrapState): void {
   const validated = BootstrapStateSchema.parse(state);
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(validated, null, 2)}\n`);
-  renameSync(tmp, file);
+  atomicWriteJson(file, validated);
 }
 
 /**

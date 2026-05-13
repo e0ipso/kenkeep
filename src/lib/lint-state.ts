@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { atomicWriteJson, readJsonValidated } from './fs-atomic.js';
 import { LintStateFileSchema, type LintStateFile } from './schemas.js';
 
 export const DEFAULT_LINT_STATE: LintStateFile = {
@@ -15,20 +15,9 @@ export function lintStateFile(stateDir: string): string {
 }
 
 export function readLintState(file: string): LintStateFile {
-  if (!existsSync(file)) return { ...DEFAULT_LINT_STATE };
-  try {
-    const raw = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-    const parsed = LintStateFileSchema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    return { ...DEFAULT_LINT_STATE };
-  } catch {
-    return { ...DEFAULT_LINT_STATE };
-  }
+  return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
 }
 
 export function writeLintState(file: string, state: LintStateFile): void {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(state, null, 2)}\n`);
-  renameSync(tmp, file);
+  atomicWriteJson(file, state);
 }

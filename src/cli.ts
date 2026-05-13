@@ -80,9 +80,8 @@ async function main(): Promise<void> {
     .command('curate')
     .description('Run the curator non-interactively over pending session logs.')
     .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', intArg('--timeout'))
-    .option('-v, --verbose', 'stream curator assistant text and tool-use events as they arrive')
-    .action(async (opts: { timeout?: number; verbose?: boolean }) => {
-      const code = await runCurateCommand({ timeoutMs: opts.timeout, verbose: opts.verbose });
+    .action(async (opts: { timeout?: number }) => {
+      const code = await runCurateCommand({ timeoutMs: opts.timeout });
       process.exit(code);
     });
 

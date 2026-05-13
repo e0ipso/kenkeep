@@ -13,11 +13,8 @@ import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { type ConflictReport, type PendingConflictsFile } from '../lib/schemas.js';
 import { resolveSettings } from '../lib/settings.js';
 
-const HEARTBEAT_MS = 15_000;
-
 export interface CurateCommandOptions {
   timeoutMs?: number | undefined;
-  verbose?: boolean | undefined;
 }
 
 export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise<number> {
@@ -46,8 +43,8 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
   const now = new Date();
   const logFile = curatorLogFile(paths.logsDir, randomUUID(), now);
   log.plain(`  curator log: ${logFile}`);
+  log.plain(`  follow live: tail -f ${logFile}`);
 
-  const heartbeats = new Map<number, { timer: NodeJS.Timeout; started: number }>();
   const baseOpts = {
     paths,
     promptTemplate,
@@ -72,34 +69,15 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
       log.info(
         `Batch ${index + 1}/${total}: ${batch.length} session(s), ${candidates} candidate(s)`
       );
-      const started = Date.now();
-      const timer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - started) / 1000);
-        log.plain(`  still running (${elapsed}s)…`);
-      }, HEARTBEAT_MS);
-      timer.unref();
-      heartbeats.set(index, { timer, started });
     },
     onBatchEnd: ({ index, durationMs }: { index: number; total: number; durationMs: number }) => {
-      const entry = heartbeats.get(index);
-      if (entry) {
-        clearInterval(entry.timer);
-        heartbeats.delete(index);
-      }
       log.success(`Batch ${index + 1} finished in ${Math.round(durationMs / 1000)}s`);
     },
-    ...(opts.verbose ? { onCuratorMessage: makeVerbosePrinter() } : {}),
   };
-  let result;
-  try {
-    result = await runCurate({
-      ...baseOpts,
-      ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
-    });
-  } finally {
-    for (const { timer } of heartbeats.values()) clearInterval(timer);
-    heartbeats.clear();
-  }
+  const result = await runCurate({
+    ...baseOpts,
+    ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+  });
 
   // Always (re)write the side-channel so a completed run with zero conflicts
   // clears any stale entries from a previous run.
@@ -130,39 +108,6 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
       log.plain('Review changed files with `git diff nodes/` before committing.');
       return 0;
   }
-}
-
-interface AssistantContentBlock {
-  type?: string;
-  text?: string;
-  name?: string;
-}
-
-interface AssistantMessage {
-  message?: { content?: AssistantContentBlock[] };
-}
-
-function makeVerbosePrinter(): (msg: unknown) => void {
-  return (raw: unknown) => {
-    if (!isObject(raw)) return;
-    if (raw['type'] !== 'assistant') return;
-    const content = (raw as AssistantMessage).message?.content;
-    if (!Array.isArray(content)) return;
-    for (const block of content) {
-      if (!isObject(block)) continue;
-      if (block.type === 'text' && typeof block.text === 'string') {
-        const text = block.text.trim();
-        if (text.length === 0) continue;
-        for (const line of text.split('\n')) log.plain(`  ${line}`);
-      } else if (block.type === 'tool_use' && typeof block.name === 'string') {
-        log.plain(`  → ${block.name}`);
-      }
-    }
-  };
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function writePendingConflicts(file: string, conflicts: ConflictReport[]): void {

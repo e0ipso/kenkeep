@@ -1,9 +1,5 @@
 schema_version: 1
-drainBound: 5
-proposalTimeout: 60000
-lockTtlMs: 1800000
 curationThreshold: 5
-bootstrapTokenBudget: 10000
 logsRetentionDays: 30
 # Optional per-subprocess model/effort. Omit any block to inherit the
 # user's `claude` CLI default for that context.

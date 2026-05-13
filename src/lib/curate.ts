@@ -24,9 +24,9 @@ import {
   ProposalCandidateSchema,
   type ProposalCandidate,
 } from './schemas.js';
+import { randomUUID } from 'node:crypto';
 import { chunk } from './chunk-batch.js';
 import { acquireLock, releaseLock } from './state.js';
-import { ulid } from './ulid.js';
 import { compactStamp } from './time.js';
 
 export const CURATOR_LOCK_NAME = 'curator';
@@ -59,8 +59,6 @@ export interface CurateContext {
   lockTtlMs?: number;
   now?: () => Date;
   pid?: number;
-  /** Test seam: override ULID. */
-  runId?: string;
   /** Called once before each batch is sent to the runner. */
   onBatchStart?: (info: { index: number; total: number; batch: PendingSession[] }) => void;
   /** Called once after each batch completes. */
@@ -75,7 +73,7 @@ export interface CurateContext {
 
 export interface CurateResult {
   status: 'completed' | 'locked' | 'no-pending';
-  runId?: string;
+  runId: string;
   batches: number;
   candidates: number;
   nodesWritten: number;
@@ -232,6 +230,7 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
   const now = ctx.now ?? (() => new Date());
   const pid = ctx.pid ?? process.pid;
   const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const runId = randomUUID();
 
   const pending = listPendingSessions(ctx.sessionsDir);
   if (pending.length === 0) {
@@ -240,6 +239,7 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
     regenerateIndexAndGraph(ctx);
     return {
       status: 'no-pending',
+      runId,
       batches: 0,
       candidates: 0,
       nodesWritten: 0,
@@ -259,6 +259,7 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
   if (!acquired) {
     return {
       status: 'locked',
+      runId,
       batches: 0,
       candidates: 0,
       nodesWritten: 0,
@@ -270,7 +271,6 @@ export async function runCurate(ctx: CurateContext): Promise<CurateResult> {
     };
   }
 
-  const runId = ctx.runId ?? ulid(now());
   const startStamp = compactStamp(now());
   const logFile = ctx.logFile ?? join(ctx.logsDir, 'curator', `${runId}__${startStamp}.jsonl`);
   mkdirSync(join(ctx.logsDir, 'curator'), { recursive: true });

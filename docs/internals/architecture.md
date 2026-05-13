@@ -96,7 +96,7 @@ Consume doesn't lock.
 - `computeNodesHash` is content-addressed and mtime-independent.
 - `generateIndex` / `generateGraph` are pure functions of `nodes/` plus an injected `now`.
 - `slugify`, `deriveNodeId`, `ensureUniqueId` are pure.
-- ULID is the only randomness, scoped to `run_id` minting.
+- `crypto.randomUUID()` is the only randomness, scoped to `run_id` minting.
 
 Tests rely on this. See `tests/lib/index-gen.test.ts` for golden-file comparisons.
 

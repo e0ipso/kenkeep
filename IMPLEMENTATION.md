@@ -406,7 +406,7 @@ execa('claude', [
 })
 ```
 
-Output written to `.ai/knowledge-base/_logs/curator/<run-id>__<wallclock-timestamp>.jsonl`. The curator run-id is a short ULID generated at the start of `/kb-curate`.
+Output written to `.ai/knowledge-base/_logs/curator/<run-id>__<wallclock-timestamp>.jsonl`. The curator run-id is a UUID v4 generated at the start of `/kb-curate`.
 
 ### 6.4 Batching
 

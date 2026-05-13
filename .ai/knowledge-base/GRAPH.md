@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:b627ee6f44f381cd9b5f4f21796bc3819abf099d201ec17b232544b3fa06984f'
+nodes_hash: 'sha256:f5a5219bef8761c50c3155d63aefee8f76a6fd78e471f3f796405b3d81dc8adb'
 node_count: 38
 ---
 # KB Graph

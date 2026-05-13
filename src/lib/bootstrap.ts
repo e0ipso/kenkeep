@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix, relative, sep } from 'node:path';
 import type { ZodSchema } from 'zod';
@@ -16,7 +16,6 @@ import { chunk } from './chunk-batch.js';
 import { acquireLock, releaseLock } from './state.js';
 import { atomicWriteJson, readJsonValidated } from './fs-atomic.js';
 import { deriveNodeId, ensureUniqueId, nodeFileExists, writeNodeFile } from './nodes.js';
-import { ulid } from './ulid.js';
 import { compactStamp } from './time.js';
 
 export const BOOTSTRAP_LOCK_NAME = 'bootstrap-incremental';
@@ -63,8 +62,6 @@ export interface BootstrapContext {
   lockTtlMs?: number;
   now?: () => Date;
   pid?: number;
-  /** Test seam: override the run id. */
-  runId?: string;
   model?: ModelFamily;
   effort?: EffortLevel;
 }
@@ -90,7 +87,7 @@ export interface BootstrapDocResult {
 
 export interface BootstrapResult {
   status: 'completed' | 'locked' | 'no-docs';
-  runId?: string;
+  runId: string;
   /** Total markdown files discovered after applying glob/.gitignore filters. */
   discovered: number;
   /** Files whose hash matched the state file and were skipped. */
@@ -311,6 +308,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   const now = ctx.now ?? (() => new Date());
   const pid = ctx.pid ?? process.pid;
   const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const runId = randomUUID();
 
   const gitignorePath = join(ctx.repoRoot, '.gitignore');
   const gitignorePatterns = existsSync(gitignorePath)
@@ -329,6 +327,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   if (relPaths.length === 0) {
     return {
       status: 'no-docs',
+      runId,
       discovered: 0,
       unchanged: 0,
       processed: [],
@@ -366,6 +365,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   if (candidates.length === 0) {
     return {
       status: 'completed',
+      runId,
       discovered: relPaths.length,
       unchanged: unchanged.length,
       processed: unchanged,
@@ -384,6 +384,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
     }));
     return {
       status: 'completed',
+      runId,
       discovered: relPaths.length,
       unchanged: unchanged.length,
       processed: [...dryResults, ...unchanged],
@@ -406,6 +407,7 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   if (!acquired) {
     return {
       status: 'locked',
+      runId,
       discovered: relPaths.length,
       unchanged: unchanged.length,
       processed: unchanged,
@@ -416,7 +418,6 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
     };
   }
 
-  const runId = ctx.runId ?? ulid(now());
   const startStamp = compactStamp(now());
   const logFile = join(ctx.logsDir, 'bootstrap-incremental', `${runId}__${startStamp}.jsonl`);
   mkdirSync(dirname(logFile), { recursive: true });

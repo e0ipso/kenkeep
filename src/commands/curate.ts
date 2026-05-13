@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -11,7 +12,6 @@ import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { type ConflictReport, type PendingConflictsFile } from '../lib/schemas.js';
 import { resolveSettings } from '../lib/settings.js';
-import { ulid } from '../lib/ulid.js';
 
 const HEARTBEAT_MS = 15_000;
 
@@ -44,8 +44,7 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
   const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
 
   const now = new Date();
-  const runId = ulid(now);
-  const logFile = curatorLogFile(paths.logsDir, runId, now);
+  const logFile = curatorLogFile(paths.logsDir, randomUUID(), now);
   log.plain(`  curator log: ${logFile}`);
 
   const heartbeats = new Map<number, { timer: NodeJS.Timeout; started: number }>();
@@ -57,7 +56,6 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     stateFile: join(paths.stateDir, 'state.json'),
     promptTemplate,
     runner,
-    runId,
     logFile,
     ...(settings.curatorModel
       ? { model: settings.curatorModel.name, effort: settings.curatorModel.effort }
@@ -122,7 +120,7 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
       log.success(
         `Curator finished: ${result.nodesWritten} node(s) written, ${result.drops} drop(s) over ${result.batches} batch(es).`
       );
-      log.plain(`Run id: ${result.runId ?? '(unknown)'}`);
+      log.plain(`Run id: ${result.runId}`);
       if (result.failures.length > 0) {
         log.warn(`${result.failures.length} action(s) failed:`);
         for (const f of result.failures) log.plain(`  ! [${f.reason}] ${f.detail}`);

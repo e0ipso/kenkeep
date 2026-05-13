@@ -102,7 +102,7 @@ export async function runBootstrapIncrementalCommand(
             : '') +
           '.'
       );
-      if (result.runId) log.plain(`Run id: ${result.runId}`);
+      log.plain(`Run id: ${result.runId}`);
       const failures = result.processed.filter(p => p.status === 'failed');
       if (failures.length > 0) {
         log.warn(`${failures.length} file(s) failed to process; see logs for details.`);

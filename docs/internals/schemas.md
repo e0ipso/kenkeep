@@ -109,7 +109,7 @@ proposals:
   practice: [<ProposalCandidate>, ...]
   map: [<ProposalCandidate>, ...]
 curator_processed_at: 2026-05-11T11:00:00Z   # set after curate
-curator_run_id: <ULID>
+curator_run_id: <UUID>
 ```
 
 Validated by `SessionLogFrontmatterSchema`.

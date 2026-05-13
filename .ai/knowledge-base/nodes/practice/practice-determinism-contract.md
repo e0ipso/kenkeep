@@ -10,7 +10,7 @@ derived_from:
 relates_to: [map-index-and-graph-files, map-nodes-directory]
 depends_on: []
 confidence: high
-summary: "computeNodesHash, generateIndex, generateGraph, slugify, deriveNodeId, and ensureUniqueId are pure. ULID is the only randomness, scoped to run_id minting."
+summary: "computeNodesHash, generateIndex, generateGraph, slugify, deriveNodeId, and ensureUniqueId are pure. crypto.randomUUID() is the only randomness, scoped to run_id minting."
 ---
 
 # INDEX/GRAPH and nodes_hash are deterministic and content-addressed
@@ -18,7 +18,7 @@ summary: "computeNodesHash, generateIndex, generateGraph, slugify, deriveNodeId,
 - `computeNodesHash` is content-addressed and mtime-independent.
 - `generateIndex` / `generateGraph` are pure functions of `nodes/` plus an injected `now`.
 - `slugify`, `deriveNodeId`, and `ensureUniqueId` are pure.
-- ULID is the only source of randomness, scoped to `run_id` minting.
+- `crypto.randomUUID()` is the only source of randomness, scoped to `run_id` minting.
 
 Tests rely on this. See `tests/lib/index-gen.test.ts` for golden-file comparisons. If you change anything that touches index/graph rendering or node-id derivation, treat the test failures as the spec: either the change is wrong or you must update the golden files in the same commit.
 

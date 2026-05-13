@@ -262,27 +262,27 @@ All six refactors are independent at the file-system level (different source fil
 **Validation Gates:**
 - Reference: `/config/hooks/POST_PHASE.md`
 
-### Phase 1: Independent foundations
+### ✅ Phase 1: Independent foundations
 **Parallel Tasks:**
-- Task 1: Consolidate `compactStamp` into `src/lib/time.ts`
-- Task 4: Replace `src/lib/log.ts` with `picocolors`
-- Task 6: Render session-log frontmatter via `js-yaml` `dump`
+- ✔️ Task 1: Consolidate `compactStamp` into `src/lib/time.ts`
+- ✔️ Task 4: Replace `src/lib/log.ts` with `picocolors`
+- ✔️ Task 6: Render session-log frontmatter via `js-yaml` `dump`
 
-### Phase 2: Shared persistence helpers
+### ✅ Phase 2: Shared persistence helpers
 **Parallel Tasks:**
-- Task 2: Extract `atomicWriteJson` + `readJsonValidated` into `src/lib/fs-atomic.ts` (depends on: 1)
+- ✔️ Task 2: Extract `atomicWriteJson` + `readJsonValidated` into `src/lib/fs-atomic.ts` (depends on: 1)
 
-### Phase 3: Run-id swap
+### ✅ Phase 3: Run-id swap
 **Parallel Tasks:**
-- Task 3: Replace ULID with `crypto.randomUUID()` and drop the `runId?` test seam (depends on: 1, 2)
+- ✔️ Task 3: Replace ULID with `crypto.randomUUID()` and drop the `runId?` test seam (depends on: 1, 2)
 
-### Phase 4: Glob / gitignore swap
+### ✅ Phase 4: Glob / gitignore swap
 **Parallel Tasks:**
-- Task 5: Replace `globMatch` / `parseGitignore` with `picomatch` + `ignore` (depends on: 3)
+- ✔️ Task 5: Replace `globMatch` / `parseGitignore` with `picomatch` + `ignore` (depends on: 3)
 
-### Phase 5: Verification and changelog
+### ✅ Phase 5: Verification and changelog
 **Parallel Tasks:**
-- Task 7: Run all self-validation checks and update `CHANGELOG.md` (depends on: 1, 2, 3, 4, 5, 6)
+- ✔️ Task 7: Run all self-validation checks and update `CHANGELOG.md` (depends on: 1, 2, 3, 4, 5, 6)
 
 ### Post-phase Actions
 - After each phase, run `npm run lint && npm run typecheck && npm test`. If anything goes red, fix before advancing.

@@ -1,5 +1,17 @@
 ## Unreleased
 
+### Changed
+
+* Swapped six hand-rolled helpers for battle-tested libraries (or a single shared module).
+    * Run-id minting moved from a Crockford ULID generator to `crypto.randomUUID()`. Log filenames under `_logs/bootstrap-incremental/` and `_logs/curator/`, and the `curator_run_id` frontmatter field on session logs, now embed a UUID v4. The `runId?: string` test seam on `BootstrapContext` and `CurateContext` is gone; `BootstrapResult.runId` and `CurateResult.runId` are required.
+    * `--include`/`--exclude` matching and `.gitignore` parsing in `bootstrap-incremental` now use `picomatch` and `ignore` respectively. `.gitignore` negation (`!keep.md`) is honoured; previously every `!`-prefixed pattern was silently dropped. `DiscoverOptions.gitignorePatterns: string[]` is replaced by `DiscoverOptions.gitignore?: Ignore`.
+    * `src/lib/log.ts` is reimplemented on top of `picocolors`. The `NO_COLOR` env var now follows the spec (any non-empty value disables colour) instead of the previous `NO_COLOR === '1'` check.
+    * Session-log frontmatter is emitted via `js-yaml` `dump` rather than a hand-rolled line builder, while retaining the manual `---` fence.
+
+### Removed
+
+* `src/lib/ulid.ts` and the in-tree `globMatch` / `globToRegex` / `parseGitignore` exports from `src/lib/bootstrap.ts`. Consolidated three byte-identical `compactStamp` / `isoToCompactStamp` copies into `src/lib/time.ts`, and extracted the duplicated atomic-write and read-validate JSON patterns into `src/lib/fs-atomic.ts` (`atomicWriteJson`, `readJsonValidated`). `state.ts`, `lint-state.ts`, and `bootstrap.ts` import from the new helpers.
+
 ### Removed
 
 * Shrunk the settings surface and dropped the user-level configuration layer.

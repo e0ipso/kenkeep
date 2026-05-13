@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:0ba77978f6a241c29ddb773ac6634d112f629fa36121c75057873ab6fbc9c8e4'
-node_count: 41
+nodes_hash: 'sha256:cf49e02b152339459167ac04c4cc778cd86d802985efe236313e9bcaa8ec8d74'
+node_count: 40
 ---
 # KB Index
 
-_41 nodes • ~9342 estimated tokens_
+_40 nodes • ~9036 estimated tokens_
 
 
 ## Conventions (how we build)
@@ -19,24 +19,23 @@ _41 nodes • ~9342 estimated tokens_
 - **Strict schema-version policy: clean break, no migrators** [`nodes/practice/practice-no-schema-migrators.md`] #schema #versioning #policy #no-legacy
 - **Sync hooks must finish in under 1 second** [`nodes/practice/practice-hooks-meet-1s-deadline.md`] #hooks #performance #claude-code #contract
 - **The curator's only allowed tool is Read** [`nodes/practice/practice-curator-read-only-tool.md`] #curator #prompts #tools #claude-code
-- **v1 ships Claude Code only; the adapter interface is preparation, not plurality** [`nodes/practice/practice-v1-claude-code-only.md`] #adapters #scope #claude-code #v1
 - **Bump the Version: N comment on every prompt behavior change** [`nodes/practice/practice-prompt-versioning.md`] #prompts #versioning #changelog
 - **Conventional Commits are required: they drive the release** [`nodes/practice/practice-conventional-commits.md`] #git #releases #commits #semantic-release
 - **INDEX.md and GRAPH.md regenerate only on curate and pre-commit** [`nodes/practice/practice-index-graph-regen-on-curate-and-precommit.md`] #kb #index #graph #commit-workflow #lint-staged
 - **No em-dashes or hyphen-as-dash in prose** [`nodes/practice/practice-no-em-dashes-or-hyphen-as-dash-in-prose.md`] #prose #style #docs #commits
 - **One logical change per PR, with the docs update for that change** [`nodes/practice/practice-atomic-prs-with-paired-docs.md`] #git #pr #review #docs
 - **Session logs and extraction logs are intermediate artifacts, safe to wipe** [`nodes/practice/practice-sessions-and-proposal-logs-are-intermediate-artifacts.md`] #cleanup #kb-pipeline #intermediate-artifacts
+- **v1 supports Claude Code only** [`nodes/practice/practice-v1-claude-code-only.md`] #scope #claude-code #v1
 - **Verify shipped-artifact status before deleting tracked files** [`nodes/practice/practice-verify-shipped-artifact-before-delete.md`] #safety #destructive-actions #verification
 
 ## Components (what exists)
 - **The three Claude Code hooks registered by init** [`nodes/map/map-claude-hooks.md`] #hooks #claude-code #capture #extract #consume
 - **nodes/: the canonical knowledge tree** [`nodes/map/map-nodes-directory.md`] #storage #nodes #canonical #git
 - **templates/: shipped npm artifact, regenerated on publish** [`nodes/map/map-templates-npm-artifact.md`] #npm #publish #artifact
-- **Adapter interface: src/adapters/types.ts** [`nodes/map/map-adapter-interface.md`] #adapters #interface #claude-code #extension-point
-- **ai-knowledge-base CLI: the package binary** [`nodes/map/map-ai-knowledge-base-cli.md`] #cli #commander #binary
 - **INDEX.md and GRAPH.md: deterministic outputs derived from nodes/** [`nodes/map/map-index-and-graph-files.md`] #index #graph #deterministic #generated
 - **kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact** [`nodes/map/map-kb-capture-hook.md`] #hook #capture #kb-pipeline
 - **_sessions/: captured session logs (gitignored by default)** [`nodes/map/map-sessions-directory.md`] #storage #capture #sessions #gitignore
+- **ai-knowledge-base CLI: the package binary** [`nodes/map/map-ai-knowledge-base-cli.md`] #cli #commander #binary
 - **Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap** [`nodes/map/map-kb-claude-skills.md`] #skills #claude-code #curate #add #bootstrap
 - **dedup-cache: sha256-of-slice cache with 5-minute TTL** [`nodes/map/map-dedup-cache.md`] #dedup #kb-pipeline #cache
 - **Map node: what-exists, named entities and vocabulary** [`nodes/map/map-map-node.md`] #vocabulary #node-kind #map
@@ -55,8 +54,8 @@ _41 nodes • ~9342 estimated tokens_
 
 ## By topic
 
-- **#claude-code (7):** The three Claude Code hooks registered by init, Adapter interface: src/adapters/types.ts, Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess, Sync hooks must finish in under 1 second, The curator's only allowed tool is Read, v1 ships Claude Code only; the adapter interface is preparation, not plurality
 - **#kb-pipeline (7):** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact, dedup-cache: sha256-of-slice cache with 5-minute TTL, session-log and queue helpers in src/lib, kb-proposal-drain: async worker that runs the extraction step, Proposal: structured candidate nodes extracted from a Transcript, Transcript: raw session capture in the KB pipeline, Session logs and extraction logs are intermediate artifacts, safe to wipe
+- **#claude-code (6):** The three Claude Code hooks registered by init, Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess, Sync hooks must finish in under 1 second, The curator's only allowed tool is Read, v1 supports Claude Code only
 - **#bootstrap (5):** Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, Never run curate or bootstrap-incremental in CI, Project documentation layout, .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap
 - **#hooks (5):** The three Claude Code hooks registered by init, One session log per session_id, not per assistant turn, .claude/hooks/*.mjs: this repo's own init output (dogfooding), Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess, Sync hooks must finish in under 1 second
 - **#docs (4):** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, Project documentation layout, No em-dashes or hyphen-as-dash in prose, One logical change per PR, with the docs update for that change
@@ -68,7 +67,6 @@ _41 nodes • ~9342 estimated tokens_
 - **#graph (3):** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/, INDEX/GRAPH and nodes_hash are deterministic and content-addressed, INDEX.md and GRAPH.md regenerate only on curate and pre-commit
 - **#index (3):** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/, INDEX/GRAPH and nodes_hash are deterministic and content-addressed, INDEX.md and GRAPH.md regenerate only on curate and pre-commit
 - **#state (3):** .state/pending-conflicts.json: curator-detected contradictions, .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap, .state/state.json: lock and nudge timestamp
-- **#adapters (2):** Adapter interface: src/adapters/types.ts, v1 ships Claude Code only; the adapter interface is preparation, not plurality
 - **#commits (2):** Conventional Commits are required: they drive the release, No em-dashes or hyphen-as-dash in prose
 - **#config (2):** .ai/knowledge-base/config.yaml: project-level tunables, ai-knowledge-base config is YAML, never JSON
 - **#curate (2):** Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Never run curate or bootstrap-incremental in CI
@@ -79,7 +77,7 @@ _41 nodes • ~9342 estimated tokens_
 - **#node-kind (2):** Map node: what-exists, named entities and vocabulary, Practice node: how-we-build, imperative guidance
 - **#policy (2):** Never run curate or bootstrap-incremental in CI, Strict schema-version policy: clean break, no migrators
 - **#prompts (2):** The curator's only allowed tool is Read, Bump the Version: N comment on every prompt behavior change
-- **#scope (2):** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, v1 ships Claude Code only; the adapter interface is preparation, not plurality
+- **#scope (2):** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, v1 supports Claude Code only
 - **#storage (2):** nodes/: the canonical knowledge tree, _sessions/: captured session logs (gitignored by default)
 - **#versioning (2):** Strict schema-version policy: clean break, no migrators, Bump the Version: N comment on every prompt behavior change
 - **#yaml (2):** .ai/knowledge-base/config.yaml: project-level tunables, ai-knowledge-base config is YAML, never JSON
@@ -106,12 +104,10 @@ _41 nodes • ~9342 estimated tokens_
 - **#directory-layout (1):** Project documentation layout
 - **#dogfooding (1):** .claude/hooks/*.mjs: this repo's own init output (dogfooding)
 - **#env-vars (1):** Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess
-- **#extension-point (1):** Adapter interface: src/adapters/types.ts
 - **#extract (1):** The three Claude Code hooks registered by init
 - **#generated (1):** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/
 - **#helpers (1):** session-log and queue helpers in src/lib
 - **#hook (1):** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact
-- **#interface (1):** Adapter interface: src/adapters/types.ts
 - **#intermediate-artifacts (1):** Session logs and extraction logs are intermediate artifacts, safe to wipe
 - **#kb-capture (1):** One session log per session_id, not per assistant turn
 - **#kb-curate (1):** .state/pending-conflicts.json: curator-detected contradictions
@@ -146,6 +142,6 @@ _41 nodes • ~9342 estimated tokens_
 - **#testing (1):** INDEX/GRAPH and nodes_hash are deterministic and content-addressed
 - **#tools (1):** The curator's only allowed tool is Read
 - **#tunables (1):** .ai/knowledge-base/config.yaml: project-level tunables
-- **#v1 (1):** v1 ships Claude Code only; the adapter interface is preparation, not plurality
+- **#v1 (1):** v1 supports Claude Code only
 - **#verification (1):** Verify shipped-artifact status before deleting tracked files
 - **#worker (1):** kb-proposal-drain: async worker that runs the extraction step

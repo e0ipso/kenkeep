@@ -7,8 +7,7 @@ tags: [cli, commander, binary]
 derived_from:
   - docs/cli-reference.md
   - docs/internals/architecture.md
-relates_to: [map-kb-claude-skills, map-adapter-interface]
-depends_on: []
+relates_to: [map-kb-claude-skills]
 confidence: high
 summary: "Commander-based CLI. Two shapes: deterministic (init, doctor, status, node add, index rebuild, logs prune) and LLM-invoking (curate, bootstrap-incremental)."
 ---

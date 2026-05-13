@@ -285,9 +285,9 @@ No public API docs exist for the deleted types; nothing else needs updating.
 - ✔️ Task 004: Remove the `topics` session-log field across schema, renderer, drain, curate, and tests
 - ✔️ Task 005: Delete the unused `packageName()` export from `src/lib/version.ts`
 
-### Phase 2: Documentation Alignment
+### ✅ Phase 2: Documentation Alignment
 **Parallel Tasks:**
-- Task 006: Update KB memos and CHANGELOG (depends on: 001, 002, 003, 004, 005)
+- ✔️ Task 006: Update KB memos and CHANGELOG (depends on: 001, 002, 003, 004, 005)
 
 ### Phase 3: Verification
 **Parallel Tasks:**

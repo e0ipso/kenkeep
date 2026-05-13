@@ -1,22 +1,24 @@
 ---
 schema_version: 1
 id: practice-v1-claude-code-only
-title: "v1 ships Claude Code only; the adapter interface is preparation, not plurality"
+title: "v1 supports Claude Code only"
 kind: practice
-tags: [adapters, scope, claude-code, v1]
+tags: [scope, claude-code, v1]
 derived_from:
   - PRD.md
   - docs/internals/architecture.md
-relates_to: [map-adapter-interface]
-depends_on: []
+relates_to: []
 confidence: high
-summary: "v1 supports Claude Code as the sole assistant. The adapter interface isolates assistant-specific code so v2 can add others; v1 does not."
+summary: "v1 supports Claude Code as the sole assistant. Assistant-specific code lives in dedicated helpers (writeClaudeHookConfig, runHeadlessClaude); no plurality is implied."
 ---
 
-# v1 ships Claude Code only; the adapter interface is preparation, not plurality
+# v1 supports Claude Code only
 
-v1 supports Claude Code as the sole assistant. The architecture isolates assistant-specific code behind the `Adapter` interface in `src/adapters/types.ts` so adapters for other AI assistants can be added later, but only `adapters/claude.ts` ships in v1.
+`SUPPORTED_ASSISTANTS` is hardcoded to `['claude']`. The package ships exactly one assistant integration.
 
-When working on the package, treat the adapter interface as the seam, not as evidence of pluralism: every code path that talks to an assistant must go through an `Adapter` method, but you only need to make Claude Code work.
+Assistant-specific code is reachable directly:
 
-Adapters for other assistants are an explicit v2 goal, not an open question.
+- Hook installation in `.claude/settings.json` goes through `writeClaudeHookConfig` in `src/lib/hooks-config.ts`.
+- Subprocess invocation goes through `runHeadlessClaude` in `src/lib/headless.ts`.
+
+There is no abstraction layer prepared for additional assistants. Adding another assistant in the future means writing new helpers and call sites, not implementing an interface.

@@ -1,26 +1,18 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:0ba77978f6a241c29ddb773ac6634d112f629fa36121c75057873ab6fbc9c8e4'
-node_count: 41
+nodes_hash: 'sha256:cf49e02b152339459167ac04c4cc778cd86d802985efe236313e9bcaa8ec8d74'
+node_count: 40
 ---
 # KB Graph
 
-Total nodes: 41
-
-## map-adapter-interface
-
-- **kind:** map
-- **title:** Adapter interface: src/adapters/types.ts
-- **tags:** adapters, interface, claude-code, extension-point
-- **relates_to:** practice-v1-claude-code-only, map-ai-knowledge-base-cli
-- **derived_from:** docs/internals/architecture.md
+Total nodes: 40
 
 ## map-ai-knowledge-base-cli
 
 - **kind:** map
 - **title:** ai-knowledge-base CLI: the package binary
 - **tags:** cli, commander, binary
-- **relates_to:** map-kb-claude-skills, map-adapter-interface
+- **relates_to:** map-kb-claude-skills
 - **derived_from:** docs/cli-reference.md, docs/internals/architecture.md
 
 ## map-bootstrap-state-file
@@ -180,7 +172,7 @@ Total nodes: 41
 - **kind:** map
 - **title:** templates/: shipped npm artifact, regenerated on publish
 - **tags:** npm, publish, artifact
-- **relates_to:** map-build-templates-script, map-adapter-interface, practice-do-not-commit-bundled-output
+- **relates_to:** map-build-templates-script, practice-do-not-commit-bundled-output
 - **derived_from:** 20260512-1439-722a03fa9cbe.md
 
 ## map-transcript-artifact
@@ -316,9 +308,8 @@ Total nodes: 41
 ## practice-v1-claude-code-only
 
 - **kind:** practice
-- **title:** v1 ships Claude Code only; the adapter interface is preparation, not plurality
-- **tags:** adapters, scope, claude-code, v1
-- **relates_to:** map-adapter-interface
+- **title:** v1 supports Claude Code only
+- **tags:** scope, claude-code, v1
 - **derived_from:** PRD.md, docs/internals/architecture.md
 
 ## practice-verify-shipped-artifact-before-delete

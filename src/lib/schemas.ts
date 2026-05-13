@@ -208,13 +208,12 @@ export type PendingConflictsFile = z.infer<typeof PendingConflictsFileSchema>;
  * already exists, or a `modify` whose `target_node_id` is missing on disk.
  * Reported in run output; not persisted across runs.
  */
-export const FailureReportSchema = z.object({
-  reason: z.enum(['add_collision', 'modify_missing_target']),
-  candidate_origin: z.string(),
-  node_id: z.string(),
-  detail: z.string(),
-});
-export type FailureReport = z.infer<typeof FailureReportSchema>;
+export interface FailureReport {
+  reason: 'add_collision' | 'modify_missing_target';
+  candidate_origin: string;
+  node_id: string;
+  detail: string;
+}
 
 /**
  * Settings shipped in the project-level `.ai/knowledge-base/config.yaml`

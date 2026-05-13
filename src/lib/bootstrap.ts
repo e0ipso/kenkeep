@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, posix, relative, sep } from 'node:path';
+import picomatch from 'picomatch';
+import ignore, { type Ignore } from 'ignore';
 import type { ZodSchema } from 'zod';
 import {
   BootstrapOutputSchema,
@@ -126,116 +128,33 @@ export function writeBootstrapState(file: string, state: BootstrapState): void {
   atomicWriteJson(file, validated);
 }
 
-/**
- * Lightweight glob matcher supporting the patterns documented for
- * `bootstrap-incremental --include` / `--exclude`:
- *
- * - `**` matches any number of path segments (including zero).
- * - `*` matches anything in a single segment.
- * - `?` matches a single non-slash character.
- *
- * Both pattern and path use posix-style separators.
- */
-export function globMatch(pattern: string, path: string): boolean {
-  const re = new RegExp(`^${globToRegex(pattern)}$`);
-  return re.test(path);
-}
-
-function globToRegex(pattern: string): string {
-  let out = '';
-  let i = 0;
-  while (i < pattern.length) {
-    const c = pattern[i]!;
-    if (c === '*') {
-      if (pattern[i + 1] === '*') {
-        // Handle `**/`, `/**`, and bare `**`.
-        if (pattern[i + 2] === '/') {
-          out += '(?:.*/)?';
-          i += 3;
-          continue;
-        }
-        if (out.endsWith('/')) {
-          out = out.slice(0, -1) + '(?:/.*)?';
-          i += 2;
-          continue;
-        }
-        out += '.*';
-        i += 2;
-        continue;
-      }
-      out += '[^/]*';
-      i += 1;
-      continue;
-    }
-    if (c === '?') {
-      out += '[^/]';
-      i += 1;
-      continue;
-    }
-    if ('\\^$.|+()[]{}'.includes(c)) {
-      out += `\\${c}`;
-    } else {
-      out += c;
-    }
-    i += 1;
-  }
-  return out;
-}
-
-/**
- * Parses a `.gitignore` file into an array of glob patterns. Comments,
- * blank lines, and negation patterns (`!…`) are dropped. Directory-suffix
- * patterns (`foo/`) become `foo/**`. Patterns without a leading `/` are
- * matched anywhere in the tree (prepended with `**\/`).
- */
-export function parseGitignore(text: string): string[] {
-  const out: string[] = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line.length === 0) continue;
-    if (line.startsWith('#')) continue;
-    if (line.startsWith('!')) continue; // v1: ignore negation
-    let pat = line;
-    const anchored = pat.startsWith('/');
-    if (anchored) pat = pat.slice(1);
-    if (pat.endsWith('/')) pat += '**';
-    if (!anchored && !pat.includes('/')) {
-      pat = `**/${pat}`;
-    } else if (!anchored) {
-      pat = `**/${pat}`;
-    }
-    out.push(pat);
-  }
-  return out;
-}
-
 export interface DiscoverOptions {
   sourceDir: string;
   repoRoot: string;
   include?: string[];
   exclude?: string[];
-  gitignorePatterns?: string[];
+  gitignore?: Ignore;
 }
 
 /**
  * Walks `sourceDir` recursively returning every `.md` file (paths relative
  * to `repoRoot`, posix). Applies `--include` (every pattern must allow the
  * path — or the include list is empty), `--exclude` (any pattern blocks),
- * and `.gitignore` patterns (any pattern blocks).
+ * and the provided `.gitignore` Ignore instance (any match blocks).
  */
 export function discoverMarkdownFiles(opts: DiscoverOptions): string[] {
   const out: string[] = [];
   if (!existsSync(opts.sourceDir)) return out;
   walk(opts.sourceDir, opts.sourceDir, out);
-  const includes = opts.include ?? [];
-  const excludes = opts.exclude ?? [];
-  const ignore = opts.gitignorePatterns ?? [];
+  const includeMatchers = (opts.include ?? []).map(p => picomatch(p));
+  const excludeMatchers = (opts.exclude ?? []).map(p => picomatch(p));
+  const ig = opts.gitignore;
   return out
     .map(abs => relativePosix(opts.repoRoot, abs))
     .filter(rel => {
-      if (excludes.some(p => globMatch(p, rel))) return false;
-      if (ignore.some(p => globMatch(p, rel))) return false;
-      if (includes.length > 0 && !includes.some(p => globMatch(p, rel))) return false;
+      if (excludeMatchers.some(m => m(rel))) return false;
+      if (ig && ig.ignores(rel)) return false;
+      if (includeMatchers.length > 0 && !includeMatchers.some(m => m(rel))) return false;
       return true;
     })
     .sort();
@@ -311,15 +230,15 @@ export async function runBootstrapIncremental(ctx: BootstrapContext): Promise<Bo
   const runId = randomUUID();
 
   const gitignorePath = join(ctx.repoRoot, '.gitignore');
-  const gitignorePatterns = existsSync(gitignorePath)
-    ? parseGitignore(readFileSync(gitignorePath, 'utf8'))
-    : [];
+  const gitignoreInstance = existsSync(gitignorePath)
+    ? ignore().add(readFileSync(gitignorePath, 'utf8'))
+    : undefined;
 
   const discoverOpts: DiscoverOptions = {
     sourceDir: ctx.sourceDir,
     repoRoot: ctx.repoRoot,
-    gitignorePatterns,
   };
+  if (gitignoreInstance) discoverOpts.gitignore = gitignoreInstance;
   if (ctx.include !== undefined) discoverOpts.include = ctx.include;
   if (ctx.exclude !== undefined) discoverOpts.exclude = ctx.exclude;
   const relPaths = discoverMarkdownFiles(discoverOpts);

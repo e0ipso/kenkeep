@@ -11,14 +11,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import ignore from 'ignore';
 import {
   BOOTSTRAP_LOCK_NAME,
   buildChunkString,
   buildPrompt,
   CHUNK_PLACEHOLDER,
   discoverMarkdownFiles,
-  globMatch,
-  parseGitignore,
   readBootstrapState,
   runBootstrapIncremental,
   sha256Hex,
@@ -115,34 +114,6 @@ describe('sha256Hex', () => {
   });
 });
 
-describe('globMatch', () => {
-  it('matches **/*.md against nested paths', () => {
-    expect(globMatch('**/*.md', 'docs/foo.md')).toBe(true);
-    expect(globMatch('**/*.md', 'README.md')).toBe(true);
-    expect(globMatch('**/*.md', 'docs/foo.txt')).toBe(false);
-  });
-  it('matches dir/** against everything under dir', () => {
-    expect(globMatch('docs/legacy/**', 'docs/legacy/a.md')).toBe(true);
-    expect(globMatch('docs/legacy/**', 'docs/legacy/sub/b.md')).toBe(true);
-    expect(globMatch('docs/legacy/**', 'docs/current/a.md')).toBe(false);
-  });
-  it('matches single-segment * but not slashes', () => {
-    expect(globMatch('docs/*.md', 'docs/a.md')).toBe(true);
-    expect(globMatch('docs/*.md', 'docs/sub/a.md')).toBe(false);
-  });
-});
-
-describe('parseGitignore', () => {
-  it('drops comments, blanks, and negation; promotes plain names; expands dir patterns', () => {
-    const text = ['# comment', '', 'node_modules', 'dist/', '!keep.md', '/anchored.txt'].join('\n');
-    const patterns = parseGitignore(text);
-    expect(patterns).toContain('**/node_modules');
-    expect(patterns).toContain('**/dist/**');
-    expect(patterns).toContain('anchored.txt');
-    expect(patterns.some(p => p.includes('keep.md'))).toBe(false);
-  });
-});
-
 describe('discoverMarkdownFiles', () => {
   let harness: Harness;
   beforeEach(() => (harness = makeHarness()));
@@ -177,7 +148,18 @@ describe('discoverMarkdownFiles', () => {
     const got = discoverMarkdownFiles({
       sourceDir: harness.sourceDir,
       repoRoot: harness.root,
-      gitignorePatterns: parseGitignore('node_modules'),
+      gitignore: ignore().add('node_modules'),
+    });
+    expect(got).toEqual(['docs/keep.md']);
+  });
+
+  it('honours .gitignore negation patterns', () => {
+    writeFileSync(join(harness.sourceDir, 'keep.md'), 'k');
+    writeFileSync(join(harness.sourceDir, 'drop.md'), 'd');
+    const got = discoverMarkdownFiles({
+      sourceDir: harness.sourceDir,
+      repoRoot: harness.root,
+      gitignore: ignore().add('docs/*.md\n!docs/keep.md'),
     });
     expect(got).toEqual(['docs/keep.md']);
   });

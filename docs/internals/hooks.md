@@ -25,10 +25,10 @@ All three hooks exit immediately if `KB_BUILDER_INTERNAL=1` is set. The extracto
 ## `kb-capture.mjs` (capture)
 
 1. Read hook input from stdin.
-2. Parse the transcript (`user`/`assistant` text, role-tagged).
-3. SHA-256 dedup against `_sessions/.dedup-cache.json` (5-min window).
+2. Validate `session_id` via `assertValidSessionId` (strict UUID v4 shape). On bad input, throw with a named error message; the catch handler writes it to stderr.
+3. Parse the transcript (`user`/`assistant` text, role-tagged).
 4. Run secretlint (with the recommended preset); replace findings with `[REDACTED:<ruleId>]`. If secretlint fails to load or times out, capture aborts.
-5. Write `_sessions/<YYYYMMDD-HHmm-id>.md` with frontmatter and the redacted slice. Append the path to `_sessions/.queue.json` atomically.
+5. Write `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` with frontmatter and the redacted slice. A re-fire for the same `session_id` (multi-turn sessions, PreCompact after Stop) reuses the existing file via `findSessionLogBySessionId`, so the session-log count stays at one per session.
 
 The only difference between the three triggers is the `captured_by` field (`stop`, `session_end`, `pre_compact`).
 
@@ -40,9 +40,9 @@ Never invokes the LLM. 1s deadline. A missed deadline exits silently; the next t
 |---|---|
 | `KB_BUILDER_INTERNAL=1` | Exit. No capture. |
 | Empty / malformed stdin | Exit silently. |
+| `session_id` not a UUID v4 | Write the error to stderr; no session log. |
 | `transcript_path` missing | Exit silently. |
 | Transcript empty | Exit silently. |
-| Dedup hit (recent) | Skip as duplicate. |
 | Secretlint fails to load or crashes | Log to stderr, no session log written. |
 | 1s deadline exceeded | Exit silently; next trigger retries. |
 
@@ -53,10 +53,10 @@ Per `SessionStart`:
 1. Recursion guard.
 2. Acquire the `proposal-drain` lock (PID + 30-min TTL). Stale locks reclaimed.
 3. Load the prompt (local override first, bundled fallback).
-4. Process up to `drainBound` entries (default 5). Rest deferred.
-5. Per entry: spawn `claude -p --output-format stream-json --verbose`, stream to `_logs/proposal/<session-id>__<ts>.jsonl`, parse the final `result`, validate against `ProposalOutputSchema`.
+4. Sweep `_sessions/*.md` for frontmatter with `proposal_status: pending`. Process up to `drainBound` entries (default 5). Rest deferred to the next SessionStart.
+5. Per pending log: spawn `claude -p --output-format stream-json --verbose`, stream to `_logs/proposal/<session-id>__<ts>.jsonl`, parse the final `result`, validate against `ProposalOutputSchema`.
 6. On success: update frontmatter with `proposal_status: done`, populated `proposals.{practice,map}`, deduped `topics`.
-7. On failure: rotate to back of queue with `attempts++`. After `maxAttempts` (default 3), mark `proposal_status: skipped`.
+7. On failure: write `proposal_status: failed` with `proposal_error`. The failure modes here (timeout, schema mismatch, bad JSON) do not heal on retry, so the drain does not rotate them.
 
 ## `kb-session-start.mjs` (consume)
 

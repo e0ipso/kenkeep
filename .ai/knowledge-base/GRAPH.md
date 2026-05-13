@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:cf49e02b152339459167ac04c4cc778cd86d802985efe236313e9bcaa8ec8d74'
-node_count: 40
+nodes_hash: 'sha256:b627ee6f44f381cd9b5f4f21796bc3819abf099d201ec17b232544b3fa06984f'
+node_count: 38
 ---
 # KB Graph
 
-Total nodes: 40
+Total nodes: 38
 
 ## map-ai-knowledge-base-cli
 
@@ -39,14 +39,6 @@ Total nodes: 40
 - **relates_to:** practice-hooks-meet-1s-deadline, practice-recursion-guard-env-var
 - **derived_from:** docs/internals/hooks.md, docs/internals/architecture.md
 
-## map-dedup-cache
-
-- **kind:** map
-- **title:** dedup-cache: sha256-of-slice cache with 5-minute TTL
-- **tags:** dedup, kb-pipeline, cache
-- **relates_to:** map-kb-capture-hook, practice-one-session-log-per-session-id
-- **derived_from:** 20260512-1438-e5b4618a5295.md
-
 ## map-dogfood-claude-hooks-output
 
 - **kind:** map
@@ -68,7 +60,7 @@ Total nodes: 40
 - **kind:** map
 - **title:** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact
 - **tags:** hook, capture, kb-pipeline
-- **relates_to:** map-claude-hooks, map-dedup-cache, map-session-log-and-queue-helpers
+- **relates_to:** map-claude-hooks
 - **derived_from:** 20260512-1438-e5b4618a5295.md
 
 ## map-kb-claude-skills
@@ -142,14 +134,6 @@ Total nodes: 40
 - **tags:** kb-pipeline, artifact, vocabulary
 - **relates_to:** map-transcript-artifact, map-kb-proposal-drain
 - **derived_from:** 20260512-1527-aa21a0a11614.md
-
-## map-session-log-and-queue-helpers
-
-- **kind:** map
-- **title:** session-log and queue helpers in src/lib
-- **tags:** module, kb-pipeline, helpers
-- **relates_to:** map-kb-capture-hook, practice-one-session-log-per-session-id
-- **derived_from:** 20260512-1438-e5b4618a5295.md
 
 ## map-sessions-directory
 
@@ -278,8 +262,8 @@ Total nodes: 40
 
 - **kind:** practice
 - **title:** One session log per session_id, not per assistant turn
-- **tags:** kb-capture, session-log, hooks, dedup
-- **relates_to:** map-kb-capture-hook, map-dedup-cache, map-session-log-and-queue-helpers
+- **tags:** kb-capture, session-log, hooks
+- **relates_to:** map-kb-capture-hook
 - **derived_from:** 20260512-1438-e5b4618a5295.md
 
 ## practice-prompt-versioning

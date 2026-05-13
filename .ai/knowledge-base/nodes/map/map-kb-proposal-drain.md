@@ -15,9 +15,11 @@ relates_to:
 depends_on: []
 confidence: high
 summary: >-
-  SessionStart async hook that spawns a Claude SDK subprocess to extract
-  structured proposals from each queued session log.
+  SessionStart async hook that sweeps pending session logs and spawns a Claude
+  SDK subprocess to extract structured proposals from each.
 ---
-`kb-proposal-drain` (built from `src/lib/proposal-drain.ts`) processes pending entries in `.queue.json`. For each, it spawns a Claude Code SDK subprocess running the extraction prompt against the session log's transcript slice, parses the JSON result with `ProposalOutputSchema` (`proposal-drain.ts:175`), and writes `proposals.practice` and `proposals.map` arrays into the session log's frontmatter. It then replaces the body placeholder with a completion marker (`proposal-drain.ts:294`).
+`kb-proposal-drain` (built from `src/lib/proposal-drain.ts`) sweeps `_sessions/*.md` for frontmatter where `proposal_status` is `pending`. For each pending log, it spawns a Claude Code SDK subprocess running the extraction prompt against the session log's transcript slice, parses the JSON result with `ProposalOutputSchema` (`proposal-drain.ts:175`), and writes `proposals.practice` and `proposals.map` arrays into the session log's frontmatter. It then replaces the body placeholder with a completion marker (`proposal-drain.ts:294`).
+
+On failure (parse error, schema mismatch, non-zero exit), the drain writes `proposal_status: failed` with `proposal_error` and moves on; these failure modes do not heal on retry.
 
 Each subprocess invocation produces one `_logs/proposal/<session-id>__<timestamp>Z.jsonl` stream-json audit log.

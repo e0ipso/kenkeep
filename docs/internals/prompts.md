@@ -157,10 +157,10 @@ Every LLM pipeline writes a stream-JSON trace under `.ai/knowledge-base/_logs/`.
 
 Common failures:
 
-- **No final result** - `claude` was killed or timed out. Check timestamps. The entry retries; three failures mark it `skipped`.
+- **No final result** - `claude` was killed or timed out. Check timestamps. The drain writes `proposal_status: failed` and does not retry on its own; these failure modes do not heal on retry.
 - **Schema mismatch** - model emitted extra prose or skipped a field. Inspect `result` text; tune the prompt if consistent.
 
-To force re-extraction of a skipped entry: set `proposal_status: pending` in the session log, clear `proposal_error`, and re-add the path to `_sessions/.queue.json`.
+To force re-extraction of a `failed` entry: set `proposal_status: pending` in the session log and clear `proposal_error`. The next drain sweep will pick it up.
 
 ### Curator - `_logs/curator/<run-id>__<ts>.jsonl`
 
@@ -174,7 +174,7 @@ To force re-extraction of a skipped entry: set `proposal_status: pending` in the
 Common issues:
 
 - **`nodesWritten: 0` despite a non-empty batch** - check the final `result` for `is_error: true`, then check `failures` and `conflicts` in the curate output: every action either writes, fails, conflicts, or drops.
-- **Fenced JSON** - `runHeadlessClaude` strips ` ```json ``` ` fences. Preamble without a fence falls through to raw parsing and fails validation.
+- **Fenced JSON** - `runHeadlessClaude` parses the trimmed final result with `JSON.parse` directly; the curator prompt forbids fences, so a fenced or pre-amble-laden response fails parsing and is reported.
 - **Duplicates after dedup** - cross-batch dedup keeps the higher-confidence action per `proposed_node.id`. Duplicates mean inconsistent slugification produced different ids.
 - **Conflict not surfacing in `/kb-curate`** - verify `.ai/knowledge-base/.state/pending-conflicts.json` exists and contains the entry. The skill reads from there.
 

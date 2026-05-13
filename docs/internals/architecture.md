@@ -37,12 +37,11 @@ flowchart TB
     subgraph capture[Capture]
         H1[Stop / SessionEnd / PreCompact] --> KB1[kb-capture.mjs<br/>sync, secretlint redact]
         KB1 --> SL[_sessions/&lt;log&gt;.md<br/>pending]
-        SL --> Q[_sessions/.queue.json]
     end
 
     subgraph extract[Extract candidates]
         SS1[SessionStart] --> KB2[kb-proposal-drain.mjs<br/>async, claude -p]
-        Q --> KB2
+        SL --> KB2
         KB2 --> SLD[_sessions/&lt;log&gt;.md<br/>done + candidates]
     end
 
@@ -72,9 +71,7 @@ flowchart TB
 
 | File | Owner | Purpose |
 |---|---|---|
-| `_sessions/<log>.md` | capture, extract, curate | Per-session checkpoint. |
-| `_sessions/.queue.json` | capture, extract | Transcript to proposal handoff. |
-| `_sessions/.dedup-cache.json` | capture | 5-min SHA-256 window. |
+| `_sessions/<log>.md` | capture, extract, curate | Per-session checkpoint. Filename is `YYYYMMDD-HHmm-<sessionId>.md`; re-firing the hook for the same `session_id` overwrites in place. |
 | `_logs/{proposal,curator,bootstrap-incremental}/*.jsonl` | LLM pipelines | Stream-JSON traces. Gitignored. |
 | `nodes/{practice,map}/` | curator, node-add, bootstrap, human reviewer | Canonical knowledge. Reviewed via `git diff` and accepted via `git commit`. |
 | `INDEX.md` / `GRAPH.md` | curator, index-rebuild (incl. lint-staged `--stage`) | Deterministic outputs derived from `nodes/`. Regenerated and staged on every commit. |

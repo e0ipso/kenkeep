@@ -76,7 +76,7 @@ If you'd rather resolve manually: read `pending-conflicts.json`, edit (or delete
 ```sh
 npx @e0ipso/ai-knowledge-base doctor --verbose
 cat .ai/knowledge-base/.state/state.json
-cat .ai/knowledge-base/_sessions/.queue.json
+ls .ai/knowledge-base/_sessions/
 ls .ai/knowledge-base/_logs/*/
 ```
 

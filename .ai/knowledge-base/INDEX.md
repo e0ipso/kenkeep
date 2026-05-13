@@ -1,17 +1,16 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:cf49e02b152339459167ac04c4cc778cd86d802985efe236313e9bcaa8ec8d74'
-node_count: 40
+nodes_hash: 'sha256:b627ee6f44f381cd9b5f4f21796bc3819abf099d201ec17b232544b3fa06984f'
+node_count: 38
 ---
 # KB Index
 
-_40 nodes • ~9036 estimated tokens_
+_38 nodes • ~8839 estimated tokens_
 
 
 ## Conventions (how we build)
 - **Don't commit bundled/generated output to the repo** [`nodes/practice/practice-do-not-commit-bundled-output.md`] #build-output #gitignore #repo-hygiene
 - **INDEX/GRAPH and nodes_hash are deterministic and content-addressed** [`nodes/practice/practice-determinism-contract.md`] #determinism #hashing #index #graph #testing
-- **One session log per session_id, not per assistant turn** [`nodes/practice/practice-one-session-log-per-session-id.md`] #kb-capture #session-log #hooks #dedup
 - **Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap** [`nodes/practice/practice-bootstrap-skip-changelog-and-implementation.md`] #bootstrap #kb #docs #scope
 - **ai-knowledge-base config is YAML, never JSON** [`nodes/practice/practice-config-yaml-not-json.md`] #config #yaml #ai-knowledge-base
 - **Never run curate or bootstrap-incremental in CI** [`nodes/practice/practice-no-llm-pipelines-in-ci.md`] #ci #curate #bootstrap #policy
@@ -24,6 +23,7 @@ _40 nodes • ~9036 estimated tokens_
 - **INDEX.md and GRAPH.md regenerate only on curate and pre-commit** [`nodes/practice/practice-index-graph-regen-on-curate-and-precommit.md`] #kb #index #graph #commit-workflow #lint-staged
 - **No em-dashes or hyphen-as-dash in prose** [`nodes/practice/practice-no-em-dashes-or-hyphen-as-dash-in-prose.md`] #prose #style #docs #commits
 - **One logical change per PR, with the docs update for that change** [`nodes/practice/practice-atomic-prs-with-paired-docs.md`] #git #pr #review #docs
+- **One session log per session_id, not per assistant turn** [`nodes/practice/practice-one-session-log-per-session-id.md`] #kb-capture #session-log #hooks
 - **Session logs and extraction logs are intermediate artifacts, safe to wipe** [`nodes/practice/practice-sessions-and-proposal-logs-are-intermediate-artifacts.md`] #cleanup #kb-pipeline #intermediate-artifacts
 - **v1 supports Claude Code only** [`nodes/practice/practice-v1-claude-code-only.md`] #scope #claude-code #v1
 - **Verify shipped-artifact status before deleting tracked files** [`nodes/practice/practice-verify-shipped-artifact-before-delete.md`] #safety #destructive-actions #verification
@@ -33,18 +33,16 @@ _40 nodes • ~9036 estimated tokens_
 - **nodes/: the canonical knowledge tree** [`nodes/map/map-nodes-directory.md`] #storage #nodes #canonical #git
 - **templates/: shipped npm artifact, regenerated on publish** [`nodes/map/map-templates-npm-artifact.md`] #npm #publish #artifact
 - **INDEX.md and GRAPH.md: deterministic outputs derived from nodes/** [`nodes/map/map-index-and-graph-files.md`] #index #graph #deterministic #generated
-- **kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact** [`nodes/map/map-kb-capture-hook.md`] #hook #capture #kb-pipeline
 - **_sessions/: captured session logs (gitignored by default)** [`nodes/map/map-sessions-directory.md`] #storage #capture #sessions #gitignore
 - **ai-knowledge-base CLI: the package binary** [`nodes/map/map-ai-knowledge-base-cli.md`] #cli #commander #binary
 - **Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap** [`nodes/map/map-kb-claude-skills.md`] #skills #claude-code #curate #add #bootstrap
-- **dedup-cache: sha256-of-slice cache with 5-minute TTL** [`nodes/map/map-dedup-cache.md`] #dedup #kb-pipeline #cache
 - **Map node: what-exists, named entities and vocabulary** [`nodes/map/map-map-node.md`] #vocabulary #node-kind #map
 - **Practice node: how-we-build, imperative guidance** [`nodes/map/map-practice-node.md`] #vocabulary #node-kind #practice
 - **scripts/build-templates.mjs: regenerates templates/ from sources** [`nodes/map/map-build-templates-script.md`] #build #templates #script
-- **session-log and queue helpers in src/lib** [`nodes/map/map-session-log-and-queue-helpers.md`] #module #kb-pipeline #helpers
 - **.ai/knowledge-base/config.yaml: project-level tunables** [`nodes/map/map-project-config-json.md`] #settings #config #tunables #yaml
 - **.claude/hooks/*.mjs: this repo's own init output (dogfooding)** [`nodes/map/map-dogfood-claude-hooks-output.md`] #dogfooding #hooks #claude
 - **.state/pending-conflicts.json: curator-detected contradictions** [`nodes/map/map-pending-conflicts-file.md`] #state #curator #contradictions #kb-curate
+- **kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact** [`nodes/map/map-kb-capture-hook.md`] #hook #capture #kb-pipeline
 - **kb-proposal-drain: async worker that runs the extraction step** [`nodes/map/map-kb-proposal-drain.md`] #worker #proposal #kb-pipeline
 - **Project documentation layout** [`nodes/map/map-project-documentation-layout.md`] #docs #directory-layout #bootstrap
 - **Proposal: structured candidate nodes extracted from a Transcript** [`nodes/map/map-proposal-artifact.md`] #kb-pipeline #artifact #vocabulary
@@ -54,15 +52,15 @@ _40 nodes • ~9036 estimated tokens_
 
 ## By topic
 
-- **#kb-pipeline (7):** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact, dedup-cache: sha256-of-slice cache with 5-minute TTL, session-log and queue helpers in src/lib, kb-proposal-drain: async worker that runs the extraction step, Proposal: structured candidate nodes extracted from a Transcript, Transcript: raw session capture in the KB pipeline, Session logs and extraction logs are intermediate artifacts, safe to wipe
 - **#claude-code (6):** The three Claude Code hooks registered by init, Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess, Sync hooks must finish in under 1 second, The curator's only allowed tool is Read, v1 supports Claude Code only
 - **#bootstrap (5):** Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, Never run curate or bootstrap-incremental in CI, Project documentation layout, .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap
-- **#hooks (5):** The three Claude Code hooks registered by init, One session log per session_id, not per assistant turn, .claude/hooks/*.mjs: this repo's own init output (dogfooding), Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess, Sync hooks must finish in under 1 second
+- **#hooks (5):** The three Claude Code hooks registered by init, .claude/hooks/*.mjs: this repo's own init output (dogfooding), Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess, Sync hooks must finish in under 1 second, One session log per session_id, not per assistant turn
+- **#kb-pipeline (5):** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact, kb-proposal-drain: async worker that runs the extraction step, Proposal: structured candidate nodes extracted from a Transcript, Transcript: raw session capture in the KB pipeline, Session logs and extraction logs are intermediate artifacts, safe to wipe
 - **#docs (4):** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, Project documentation layout, No em-dashes or hyphen-as-dash in prose, One logical change per PR, with the docs update for that change
 - **#gitignore (4):** Don't commit bundled/generated output to the repo, _sessions/: captured session logs (gitignored by default), .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap, .state/state.json: lock and nudge timestamp
 - **#vocabulary (4):** Map node: what-exists, named entities and vocabulary, Practice node: how-we-build, imperative guidance, Proposal: structured candidate nodes extracted from a Transcript, Transcript: raw session capture in the KB pipeline
 - **#artifact (3):** templates/: shipped npm artifact, regenerated on publish, Proposal: structured candidate nodes extracted from a Transcript, Transcript: raw session capture in the KB pipeline
-- **#capture (3):** The three Claude Code hooks registered by init, kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact, _sessions/: captured session logs (gitignored by default)
+- **#capture (3):** The three Claude Code hooks registered by init, _sessions/: captured session logs (gitignored by default), kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact
 - **#git (3):** nodes/: the canonical knowledge tree, Conventional Commits are required: they drive the release, One logical change per PR, with the docs update for that change
 - **#graph (3):** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/, INDEX/GRAPH and nodes_hash are deterministic and content-addressed, INDEX.md and GRAPH.md regenerate only on curate and pre-commit
 - **#index (3):** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/, INDEX/GRAPH and nodes_hash are deterministic and content-addressed, INDEX.md and GRAPH.md regenerate only on curate and pre-commit
@@ -71,7 +69,6 @@ _40 nodes • ~9036 estimated tokens_
 - **#config (2):** .ai/knowledge-base/config.yaml: project-level tunables, ai-knowledge-base config is YAML, never JSON
 - **#curate (2):** Claude Code skills: /kb-curate, /kb-add, /kb-bootstrap, Never run curate or bootstrap-incremental in CI
 - **#curator (2):** .state/pending-conflicts.json: curator-detected contradictions, The curator's only allowed tool is Read
-- **#dedup (2):** dedup-cache: sha256-of-slice cache with 5-minute TTL, One session log per session_id, not per assistant turn
 - **#hashing (2):** INDEX/GRAPH and nodes_hash are deterministic and content-addressed, .state/bootstrap-state.json: per-doc SHA-256 cache for bootstrap
 - **#kb (2):** Skip CHANGELOG.md and treat IMPLEMENTATION.md as suspect during bootstrap, INDEX.md and GRAPH.md regenerate only on curate and pre-commit
 - **#node-kind (2):** Map node: what-exists, named entities and vocabulary, Practice node: how-we-build, imperative guidance
@@ -86,7 +83,6 @@ _40 nodes • ~9036 estimated tokens_
 - **#binary (1):** ai-knowledge-base CLI: the package binary
 - **#build (1):** scripts/build-templates.mjs: regenerates templates/ from sources
 - **#build-output (1):** Don't commit bundled/generated output to the repo
-- **#cache (1):** dedup-cache: sha256-of-slice cache with 5-minute TTL
 - **#canonical (1):** nodes/: the canonical knowledge tree
 - **#changelog (1):** Bump the Version: N comment on every prompt behavior change
 - **#ci (1):** Never run curate or bootstrap-incremental in CI
@@ -106,7 +102,6 @@ _40 nodes • ~9036 estimated tokens_
 - **#env-vars (1):** Set KB_BUILDER_INTERNAL=1 on every internal claude -p subprocess
 - **#extract (1):** The three Claude Code hooks registered by init
 - **#generated (1):** INDEX.md and GRAPH.md: deterministic outputs derived from nodes/
-- **#helpers (1):** session-log and queue helpers in src/lib
 - **#hook (1):** kb-capture hook: writes session logs on Stop/SessionEnd/PreCompact
 - **#intermediate-artifacts (1):** Session logs and extraction logs are intermediate artifacts, safe to wipe
 - **#kb-capture (1):** One session log per session_id, not per assistant turn
@@ -114,7 +109,6 @@ _40 nodes • ~9036 estimated tokens_
 - **#lint-staged (1):** INDEX.md and GRAPH.md regenerate only on curate and pre-commit
 - **#lock (1):** .state/state.json: lock and nudge timestamp
 - **#map (1):** Map node: what-exists, named entities and vocabulary
-- **#module (1):** session-log and queue helpers in src/lib
 - **#no-legacy (1):** Strict schema-version policy: clean break, no migrators
 - **#nodes (1):** nodes/: the canonical knowledge tree
 - **#npm (1):** templates/: shipped npm artifact, regenerated on publish

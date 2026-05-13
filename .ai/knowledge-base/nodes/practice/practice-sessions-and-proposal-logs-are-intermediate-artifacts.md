@@ -20,4 +20,4 @@ summary: >-
 ---
 Files under `.ai/knowledge-base/_sessions/` and `.ai/knowledge-base/_logs/proposal/` are gitignored intermediate artifacts of the capture and extraction pipeline. The committed knowledge lives under `.ai/knowledge-base/nodes/`.
 
-It is safe to delete every file under `_sessions/` and `_logs/proposal/` (plus `.queue.json` and `.dedup-cache.json`) to recover from a broken pipeline state; the directories are recreated automatically by `writeSessionLog` and the drain worker on the next run.
+It is safe to delete every file under `_sessions/` and `_logs/proposal/` to recover from a broken pipeline state; the directories are recreated automatically by `writeSessionLog` and the drain worker on the next run.

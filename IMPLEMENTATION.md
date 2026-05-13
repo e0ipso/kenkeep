@@ -94,8 +94,6 @@ In-session UX (Claude Code skills installed by `init` under `.claude/skills/<nam
 │   │   │   ├── practice/           # how we build things
 │   │   │   └── map/                # what exists in the project
 │   │   ├── _sessions/              # raw + structured session logs (gitignored by default)
-│   │   │   ├── .queue.json         # proposal work queue
-│   │   │   └── .dedup-cache.json   # SHA-256 dedup window
 │   │   ├── _logs/                  # stream-json traces of LLM runs (gitignored)
 │   │   │   ├── proposal/
 │   │   │   │   └── <session-id>__<timestamp>.jsonl
@@ -234,7 +232,7 @@ Fields:
 
 Writes are atomic (write to a temp sibling, then rename). Reads are tolerant: a missing or malformed file falls back to defaults (counter at 0, timestamps `null`, counts 0).
 
-## 5. Capture pipeline (queue-based)
+## 5. Capture pipeline
 
 Three triggers feed the same path. **All three ship in M1**, not staged across phases; PreCompact in particular cannot be deferred without risking data loss during early phases.
 
@@ -242,46 +240,47 @@ Three triggers feed the same path. **All three ship in M1**, not staged across p
 Stop / SessionEnd / PreCompact
         │
         ▼ (synchronous, fast, deterministic; ≤1s deadline)
-┌────────────────────────────┐
-│ Transcript capture         │
-│ • SHA-256 dedup window     │
-│ • Secretlint scan + redact │
-│ • Write _sessions/<id>.md  │
-│ • Append to .queue.json    │
-│ • proposal_status: pending │
-└────────────────────────────┘
+┌──────────────────────────────────┐
+│ Transcript capture               │
+│ • assertValidSessionId (boundary)│
+│ • Secretlint scan + redact       │
+│ • Write _sessions/<id>.md        │
+│ • proposal_status: pending       │
+└──────────────────────────────────┘
 
 Next session:
         │
         ▼
-┌─────────────────────────────────┐
-│ kb-proposal-drain.mjs           │
-│ (SessionStart, async: true)     │
-│ • Reads .queue.json             │
-│ • For each entry: spawns a      │
-│   `claude -p` subprocess with   │
-│   proposal prompt & stream-json │
-│   --verbose output              │
-│ • Pipes stream into             │
-│   _logs/proposal/...jsonl       │
-│ • Parses final result, updates  │
-│   session log, removes entry    │
-└─────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ kb-proposal-drain.mjs               │
+│ (SessionStart, async: true)         │
+│ • Sweeps _sessions/*.md for         │
+│   frontmatter proposal_status:      │
+│   pending                           │
+│ • Per pending log: spawns a         │
+│   `claude -p` subprocess with       │
+│   proposal prompt & stream-json     │
+│   --verbose output                  │
+│ • Pipes stream into                 │
+│   _logs/proposal/...jsonl           │
+│ • Parses final result; writes       │
+│   done or failed back to            │
+│   frontmatter                       │
+└─────────────────────────────────────┘
 ```
 
 ### 5.1 Transcript capture: deterministic, fast, blocking-safe
 
-- **Dedup.** SHA-256 of the transcript slice. 5-minute rolling cache in `_sessions/.dedup-cache.json`. If hash matches, exit silently.
+- **Session-id boundary.** The hook validates `session_id` against the UUID v4 shape via `assertValidSessionId` and throws a named error on bad input; downstream code uses the lowercased UUID verbatim.
 - **Secret-scan pass.** Programmatic call to `@secretlint/core`'s `lintSource()` using the recommended preset config. Findings (each with `range: [start, end]`) → redact with `[REDACTED:<rule-id>]` placeholders. On exception or timeout (>1 second), abort with `secret_scan_status: blocked`.
-- **Write the session log.** Valid frontmatter + `## Transcript`. `proposal_status: pending`.
-- **Append to queue.** Atomic write to `_sessions/.queue.json` (read, append, write to temp, rename).
+- **Write the session log.** Valid frontmatter + `## Transcript`. `proposal_status: pending`. The filename is `YYYYMMDD-HHmm-<sessionId>.md`; a repeated capture for the same session_id reuses the existing file via `findSessionLogBySessionId`, so multi-turn sessions land as one file.
 - **Hard deadline:** transcript capture must complete within 1 second on any trigger.
 
 ### 5.2 Proposal generation: async hook + headless `claude -p` subprocess
 
 The drain hook is registered as `async: true` in `.claude/settings.json`, so it runs in parallel with the rest of session start without blocking the user. Stdout from async hooks is not injected into the parent session's context: that's fine; status surfaces via `ai-knowledge-base status` and inline on subsequent sessions.
 
-For each entry in `.queue.json`, the drain spawns a fresh Claude Code process:
+The drain sweeps `_sessions/*.md`, filters to frontmatter where `proposal_status` is `pending`, and for each pending log spawns a fresh Claude Code process:
 
 ```
 execa('claude', [
@@ -300,10 +299,10 @@ Behavior:
 - Output is **stream-json with verbose**, written line by line to `.ai/knowledge-base/_logs/proposal/<session-id>__<wallclock-timestamp>.jsonl`. Each line is a JSON message (assistant text, tool calls, final result).
 - The drain consumes the stream as it arrives, identifies the final `result` message, and validates its content against the proposal Zod schema.
 - On success: the session log is updated with `proposal_status: done`, `proposal_log` set to the log filename, `proposals` populated.
-- On failure (parse error, schema mismatch, non-zero exit): `proposal_status: failed`, `proposal_error` recorded, queue entry retained for retry. After 3 failed attempts, marked `skipped` and removed from queue.
+- On failure (parse error, schema mismatch, non-zero exit): `proposal_status: failed` is written to the session log along with `proposal_error`. Failures here (timeout, schema mismatch, bad JSON) do not heal on retry, so the drain does not rotate them.
 - The `KB_BUILDER_INTERNAL=1` env var is checked by all of our own hooks (`kb-capture`, `kb-proposal-drain`, `kb-session-start`); if set, they exit immediately. This prevents the spawned `claude -p` process from triggering recursive proposal/capture work on its own startup.
 - Concurrency on drain: the drain acquires a lock under `.ai/knowledge-base/.state/state.json` (PID + 30-min TTL). If two SessionStart events fire concurrently (two terminals, same repo), the second waits or skips.
-- Drain bound: by default the drain processes at most 5 queue entries per invocation; the rest are deferred to subsequent sessions. Configurable in settings.
+- Drain bound: by default the drain processes at most 5 pending logs per invocation; the rest are deferred to subsequent sessions. Configurable in settings.
 
 Authentication: the spawned `claude -p` inherits the user's Claude Code authentication (OAuth or API key). No separate setup. We deliberately do **not** use `--bare`, because `--bare` requires `ANTHROPIC_API_KEY` and would not work for users on Claude.ai subscriptions. The `KB_BUILDER_INTERNAL` env-var guard substitutes for `--bare`'s hook-suppression behavior.
 
@@ -895,7 +894,7 @@ Each phase shippable on its own.
 
 **M0 (Project skeleton + secret scanning + docs foundation).** npm package, TS+ESM build, `init` command that copies stub `.ai/knowledge-base/` and `.claude/`, scaffolds the husky + lint-staged + secretlint commit-time scan, writes `.ai/knowledge-base/.state/installed-version`. `ai-knowledge-base doctor` checks secretlint resolves in node_modules, Node version, and `claude` CLI availability. Documentation foundation ships here too: minimal top-level `README.md`, `CONTRIBUTING.md` skeleton, in-KB `README.md` template that `init` copies, and the Jekyll/Just-the-Docs site skeleton (Home + Getting Started shell, deployed to GitHub Pages). No KB functionality yet, but the security guarantee and documentation scaffolding are in place from day 1.
 
-**M1 (Transcript capture for all three triggers).** `Stop`, `SessionEnd`, and `PreCompact` hooks ship together. Dedup, secretlint redaction, write session logs, append to `.queue.json`. Stress-test PreCompact on long sessions during this phase.
+**M1 (Transcript capture for all three triggers).** `Stop`, `SessionEnd`, and `PreCompact` hooks ship together. Session-id boundary check, secretlint redaction, write session logs (one file per `session_id`, overwritten on re-fire). Stress-test PreCompact on long sessions during this phase.
 
 **M2 (Proposal drain).** `kb-proposal-drain.mjs` async SessionStart hook. Adapter's `runHeadless` implementation invoking `claude -p --output-format stream-json --verbose`. Stream-json log writing under `_logs/proposal/`. Two-pass extraction prompt with role-aware rules. Tests with a mocked subprocess against fixture transcripts.
 
@@ -909,7 +908,7 @@ Each phase shippable on its own.
 
 ## 13. Testing strategy
 
-- **Unit tests** (`vitest`): frontmatter parsers, schema validators, INDEX generator (golden files), `nodes_hash` computation, dedup cache, secretlint redaction & finding-to-range conversion, queue file atomic write, lock TTL, stale-INDEX detection, role-tagged transcript splitting, stream-json line parser.
+- **Unit tests** (`vitest`): frontmatter parsers, schema validators, INDEX generator (golden files), `nodes_hash` computation, secretlint redaction & finding-to-range conversion, lock TTL, stale-INDEX detection, role-tagged transcript splitting, stream-json line parser, session-id boundary check.
 - **Integration smoke tests with mocked subprocess:** proposal extractor against fixture transcripts (covering teaching moments, project-map introductions, role-aware filtering, ownership boundary cases); curator against fixture session-log + node sets (covering add/modify/contradict/drop, add-collision and missing-target failures, conflict side-channel population, batching, dedup).
 - **Real-`claude` end-to-end suite:** a separate test suite (run on demand, not in CI by default) exercising one full capture → drain → curate → consume cycle against the actual `claude -p` CLI with a controlled fixture transcript. Catches drift in CLI behavior or prompt regressions that mocks miss.
 - **Manual testing checklist** in `docs/manual-test-plan.md`: PreCompact timing, hook installation on Windows, secretlint redaction on each platform, real session capture quality, log file rotation behavior.

@@ -1,7 +1,7 @@
 ---
 name: kb-curate
 description: Curate pending session logs into knowledge-base nodes by running the `ai-knowledge-base curate` CLI, then resolve any contradictions surfaced by the curator with the user in-session. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
-allowed-tools: Bash(ai-knowledge-base curate:*), Bash(rm:*), Read, Edit, Write
+allowed-tools: Bash(ai-knowledge-base curate:*), Bash(ai-knowledge-base conflict:*), Read
 ---
 
 # kb-curate
@@ -27,18 +27,19 @@ Tell the user the curator's headline numbers (nodes written, drops, batches, run
 
 ### 3. Resolve pending conflicts
 
-Read `.ai/knowledge-base/.state/pending-conflicts.json`. For every entry in `conflicts`:
+Run `ai-knowledge-base conflict list`. The command prints the pending conflicts array as JSON on stdout. If the output is `[]`, skip this section.
+
+For every entry in the parsed array:
 
 1. Read the existing node referenced by `target_node_id` (under `nodes/<kind>/<target_node_id>.md`).
 2. Present both sides to the user concisely:
    - **Existing node**: title, summary, the relevant body excerpt.
    - **Proposed contradiction**: `proposed_node.title`, `summary`, `body`, plus the curator's `rationale`.
 3. Ask the user to choose exactly one of two actions:
-   - **Replace**: overwrite the existing node with the proposed content. Run `rm nodes/<kind>/<target_node_id>.md` first, then write the proposed node file. The proposed node may reuse the deleted id (the previous file is gone) or introduce a fresh id; use whichever the `proposed_node.id` field specifies. Use `Bash` for the `rm`, then `Write` for the new file. The human reviewer accepts the replacement via `git commit` or rejects it via `git restore`.
-   - **Reject**: take no action on disk; the existing node stays as is and the proposal is discarded.
-4. Once the user has decided (Replace or Reject) and you've applied the change, **remove the entry from `pending-conflicts.json`**. Use `Edit` to delete just that one entry; never overwrite the whole file with a stale snapshot.
+   - **Replace**: run `ai-knowledge-base conflict resolve <id> --action replace`. The CLI deletes the existing node, writes the proposed node, removes the entry from `pending-conflicts.json`, and regenerates `INDEX.md`/`GRAPH.md`. Report the CLI's one-line result to the user.
+   - **Reject**: run `ai-knowledge-base conflict resolve <id> --action reject`. The CLI removes the entry and regenerates `INDEX.md`/`GRAPH.md`; the existing node stays as is.
 
-If the user defers a conflict ("I'll think about it"), leave the entry in place. `ai-knowledge-base status` reports the count, so it won't be forgotten.
+If the user defers a conflict ("I'll think about it"), leave the entry alone. `ai-knowledge-base status` continues to report the count, so it won't be forgotten.
 
 ### 4. Hand off
 
@@ -46,7 +47,7 @@ Tell the user to review the changed nodes with `git diff nodes/` and commit when
 
 ## Constraints
 
-- The curator wrapper writes directly to `nodes/`. **You** only modify `nodes/` while resolving contradictions, and only with the user's explicit decision per conflict.
+- The curator wrapper writes directly to `nodes/`. The `ai-knowledge-base conflict resolve` CLI is the only path that modifies `nodes/` during conflict resolution; it runs once per user decision.
 - If `ai-knowledge-base curate` reports `locked`, do not retry; explain that another curate run is in progress.
 - If no session logs are pending, the command still regenerates INDEX/GRAPH; that's expected, not an error.
-- If `pending-conflicts.json` is missing or has `conflicts: []`, there's nothing to resolve; skip step 3.
+- If `ai-knowledge-base conflict list` prints `[]`, there's nothing to resolve; skip step 3.

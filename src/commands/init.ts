@@ -338,17 +338,17 @@ interface GitignoreState {
 }
 
 const EXPECTED_HOOK_COMMANDS: Array<{ event: string; command: string; async?: boolean }> = [
-  { event: 'Stop', command: 'node .claude/hooks/kb-capture.mjs' },
-  { event: 'SessionEnd', command: 'node .claude/hooks/kb-capture.mjs' },
-  { event: 'PreCompact', command: 'node .claude/hooks/kb-capture.mjs' },
+  { event: 'Stop', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"' },
+  { event: 'SessionEnd', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"' },
+  { event: 'PreCompact', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"' },
   {
     event: 'SessionStart',
-    command: 'node .claude/hooks/kb-proposal-drain.mjs',
+    command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-proposal-drain.mjs"',
     async: true,
   },
   {
     event: 'SessionStart',
-    command: 'node .claude/hooks/kb-session-start.mjs',
+    command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-session-start.mjs"',
   },
 ];
 

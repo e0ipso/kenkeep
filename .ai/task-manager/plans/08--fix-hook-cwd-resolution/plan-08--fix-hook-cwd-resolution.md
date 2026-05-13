@@ -253,10 +253,10 @@ graph TD
     001[Task 001: Emit $CLAUDE_PROJECT_DIR-prefixed hook commands and refresh dogfood settings] --> 002[Task 002: Update hook-command assertions and add subdirectory-CWD regression test]
 ```
 
-### Phase 1: Adapter and detector parity
+### ✅ Phase 1: Adapter and detector parity
 
 **Parallel Tasks:**
-- Task 001: Emit `$CLAUDE_PROJECT_DIR`-prefixed hook commands in the adapter, mirror `EXPECTED_HOOK_COMMANDS`, rewrite committed `.claude/settings.json`.
+- ✔️ Task 001: Emit `$CLAUDE_PROJECT_DIR`-prefixed hook commands in the adapter, mirror `EXPECTED_HOOK_COMMANDS`, rewrite committed `.claude/settings.json`. (completed)
 
 ### Phase 2: Test parity and regression coverage
 

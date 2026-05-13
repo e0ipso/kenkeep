@@ -55,7 +55,7 @@ export class ClaudeAdapter implements Adapter {
 
     for (const hook of hooks) {
       const entryList = (settings.hooks[hook.event] ??= []);
-      const command = `node ${hook.scriptPath}`;
+      const command = `node "$CLAUDE_PROJECT_DIR/${hook.scriptPath}"`;
       const entry: {
         matcher?: string;
         hooks: Array<{ type: string; command: string; async?: boolean }>;

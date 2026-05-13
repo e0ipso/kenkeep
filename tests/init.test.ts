@@ -161,7 +161,7 @@ describe('init', () => {
       const entries = settings.hooks?.[event];
       expect(entries, `expected hook entry for ${event}`).toBeDefined();
       expect(entries?.[0]?.hooks[0]?.command).toBe(
-        `node .claude/hooks/kb-capture.mjs`
+        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"'
       );
     }
   });
@@ -183,11 +183,11 @@ describe('init', () => {
     expect(commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          command: 'node .claude/hooks/kb-proposal-drain.mjs',
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-proposal-drain.mjs"',
           async: true,
         }),
         expect.objectContaining({
-          command: 'node .claude/hooks/kb-session-start.mjs',
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-session-start.mjs"',
         }),
       ])
     );
@@ -218,8 +218,8 @@ describe('init', () => {
     const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
     expect(commands).toEqual(
       expect.arrayContaining([
-        'node .claude/hooks/kb-capture.mjs',
-        'node .claude/hooks/kb-lint-tick.mjs',
+        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"',
+        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-lint-tick.mjs"',
       ])
     );
   });
@@ -233,8 +233,12 @@ describe('init', () => {
     };
     const sessionEnd = settings.hooks?.['SessionEnd'] ?? [];
     const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
-    const captureCount = commands.filter(c => c === 'node .claude/hooks/kb-capture.mjs').length;
-    const lintCount = commands.filter(c => c === 'node .claude/hooks/kb-lint-tick.mjs').length;
+    const captureCount = commands.filter(
+      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"'
+    ).length;
+    const lintCount = commands.filter(
+      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-lint-tick.mjs"'
+    ).length;
     expect(captureCount).toBe(1);
     expect(lintCount).toBe(1);
   });

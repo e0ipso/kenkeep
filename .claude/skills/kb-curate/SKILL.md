@@ -1,7 +1,7 @@
 ---
 name: kb-curate
-description: Curate pending session logs into knowledge-base nodes by running the `ai-knowledge-base curate` CLI, then resolve any contradictions surfaced by the curator with the user in-session. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
-allowed-tools: Bash(ai-knowledge-base curate:*), Read
+description: Curate pending session logs into knowledge-base nodes by running the `npx @e0ipso/ai-knowledge-base curate` CLI, then resolve any contradictions surfaced by the curator with the user in-session. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
+allowed-tools: Bash(npx @e0ipso/ai-knowledge-base curate:*), Read
 ---
 
 # kb-curate
@@ -12,7 +12,7 @@ Run the curator over pending session logs and apply its decisions directly to `n
 
 ### 1. Run the curator
 
-Run `ai-knowledge-base curate` in the project root. The command:
+Run `npx @e0ipso/ai-knowledge-base curate` in the project root. The command:
 
 - Acquires the curator lock (`.ai/knowledge-base/.state/state.json`, name=`curator`, PID + 30-min TTL).
 - Batches every session log whose `proposal_status: done` and which has not yet been curated.
@@ -45,11 +45,11 @@ If the user defers a conflict ("I'll think about it"), leave the file alone. It 
 
 ### 4. Hand off
 
-Tell the user to review the changed nodes and conflict files with `git diff` and commit when they're satisfied. The curator already regenerated `INDEX.md`/`GRAPH.md` at end-of-run; if the user has a pre-commit hook wired up (see the installation docs), `ai-knowledge-base index rebuild --stage` keeps them aligned on subsequent hand edits.
+Tell the user to review the changed nodes and conflict files with `git diff` and commit when they're satisfied. The curator already regenerated `INDEX.md`/`GRAPH.md` at end-of-run; if the user has a pre-commit hook wired up (see the installation docs), `npx @e0ipso/ai-knowledge-base index rebuild --stage` keeps them aligned on subsequent hand edits.
 
 ## Constraints
 
 - The curator wrapper writes directly to `nodes/`. Conflict resolution edits `nodes/` only when the user accepts a proposal; the conflict files themselves are reviewed via `git diff` and accepted with `git commit` or discarded with `git restore`.
-- If `ai-knowledge-base curate` reports `locked`, do not retry; explain that another curate run is in progress.
+- If `npx @e0ipso/ai-knowledge-base curate` reports `locked`, do not retry; explain that another curate run is in progress.
 - If no session logs are pending, the command still regenerates INDEX/GRAPH; that's expected, not an error.
 - If `.ai/knowledge-base/conflicts/` is empty or every file has `status` other than `pending`, there's nothing to resolve; skip step 3.

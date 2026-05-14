@@ -48,5 +48,5 @@ Body: just the markdown the user gave you. Add a `# <title>` H1 at the top if th
 
 - Only use the `Write` tool, and only on a single file path under `.ai/knowledge-base/nodes/<kind>/`.
 - Do not modify or read any other file in the KB.
-- Do not regenerate `INDEX.md` or `GRAPH.md`; the lint-staged pre-commit hook does that automatically (`ai-knowledge-base index rebuild --stage`) when the user commits.
+- Do not regenerate `INDEX.md` or `GRAPH.md`; the lint-staged pre-commit hook does that automatically (`npx @e0ipso/ai-knowledge-base index rebuild --stage`) when the user commits.
 - After writing, tell the user the file path and remind them to review with `git diff` and accept with `git commit` (or reject with `git restore <path>`).

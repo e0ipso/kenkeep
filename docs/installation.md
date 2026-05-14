@@ -31,7 +31,7 @@ This creates / updates:
 
 ## Verify
 
-`ai-knowledge-base doctor` checks your Node version, that `claude` is on PATH, that the Claude hooks are registered, that the installed-version marker is present, and that INDEX is fresh. Exits 0 when clean.
+`npx @e0ipso/ai-knowledge-base doctor` checks your Node version, that `claude` is on PATH, that the Claude hooks are registered, that the installed-version marker is present, and that INDEX is fresh. Exits 0 when clean.
 
 ## Optional: commit-time hardening
 
@@ -73,7 +73,7 @@ And `.lintstagedrc.cjs`:
 ```js
 module.exports = {
   '*': ['secretlint'],
-  '.ai/knowledge-base/nodes/**/*.md': () => ['npx ai-knowledge-base index rebuild --stage'],
+  '.ai/knowledge-base/nodes/**/*.md': () => ['npx @e0ipso/ai-knowledge-base index rebuild --stage'],
 };
 ```
 

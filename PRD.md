@@ -129,7 +129,7 @@ Plain markdown. Browse in any editor or on the GitHub web UI.
 
 > "I want to see proposed KB changes the same way I see code changes."
 
-Proposed KB changes *are* code changes. Skills and the curator write directly to `nodes/<kind>/<slug>.md`; the reviewer inspects with `git diff nodes/`, accepts with `git commit`, and rejects with `git restore <path>`. The curator regenerates `INDEX.md`/`GRAPH.md` at the end of every run, and `ai-knowledge-base index rebuild` does the same on demand. Teams that want commit-time regeneration wire it into their own pre-commit hook (this repo's `.lintstagedrc.cjs` is the dogfood example). KB commits can land as a dedicated PR with a `[KB]` prefix (recommended for shared repos with formal review) or bundled with the code change that motivated them (recommended for solo contributors). The system does not enforce either workflow.
+Proposed KB changes *are* code changes. Skills and the curator write directly to `nodes/<kind>/<slug>.md`; the reviewer inspects with `git diff nodes/`, accepts with `git commit`, and rejects with `git restore <path>`. The curator regenerates `INDEX.md`/`GRAPH.md` at the end of every run, and `npx @e0ipso/ai-knowledge-base index rebuild` does the same on demand. Teams that want commit-time regeneration wire it into their own pre-commit hook (this repo's `.lintstagedrc.cjs` is the dogfood example). KB commits can land as a dedicated PR with a `[KB]` prefix (recommended for shared repos with formal review) or bundled with the code change that motivated them (recommended for solo contributors). The system does not enforce either workflow.
 
 > "I want to know which session a piece of knowledge came from."
 
@@ -155,7 +155,7 @@ Every node carries a `derived_from` list pointing to session log filenames. **Ca
 1. After enough session logs accumulate (default `curationThreshold` = 5; configurable per project), a nudge appears at session start: "You have 7 pending session logs. Invoke the `kb-curate` skill when ready." Throttled to at most once per hour.
 2. The contributor invokes the `kb-curate` skill. The curator reads pending logs and current KB nodes, then applies its decisions directly to `nodes/`: new files for `add` actions, in-place rewrites for `modify` actions. `contradict` actions are written as one markdown file per conflict under `.ai/knowledge-base/conflicts/<run-id>-<n>.md` instead of writing the conflicting node to `nodes/`. The curator regenerates `INDEX.md`/`GRAPH.md` inline and writes its stream-json trace to `_logs/curator/`.
 3. The kb-curate skill reads every pending file under `.ai/knowledge-base/conflicts/` and walks each conflict with the contributor in-session. The contributor picks Accept (the skill rewrites the target node from the proposed body, the contributor then `git restore`s the conflict file), Reject (the contributor `git restore`s the conflict file, existing node stands), or Keep as record (the contributor `git commit`s the conflict file as durable history).
-4. The reviewer inspects all changes with `git diff nodes/`, accepts with `git commit`, and rejects unwanted changes with `git restore <path>`. INDEX/GRAPH are already aligned by the curator at end-of-run; `ai-knowledge-base index rebuild` realigns them if a reviewer hand-edits a node afterwards.
+4. The reviewer inspects all changes with `git diff nodes/`, accepts with `git commit`, and rejects unwanted changes with `git restore <path>`. INDEX/GRAPH are already aligned by the curator at end-of-run; `npx @e0ipso/ai-knowledge-base index rebuild` realigns them if a reviewer hand-edits a node afterwards.
 
 ### 8.4 Consuming the KB
 
@@ -208,11 +208,11 @@ Operational defaults (curation threshold, log retention window, lint cadence, pl
 | Failure | What the user sees |
 |---|---|
 | Transcript capture fails (secretlint crashes, disk full) | Session log not written. Brief warning at next session start. Session content is lost; user can paste relevant parts manually. |
-| Proposal extraction fails (CLI error, rate limit) | Session log retained as `proposal_status: failed`. Visible in `ai-knowledge-base status`. Curator retries on next run. Full log under `_logs/proposal/` for diagnosis. |
+| Proposal extraction fails (CLI error, rate limit) | Session log retained as `proposal_status: failed`. Visible in `npx @e0ipso/ai-knowledge-base status`. Curator retries on next run. Full log under `_logs/proposal/` for diagnosis. |
 | `SessionStart` hook fails | Session starts without KB context. Single-line warning in transcript. The session works, just without injection. |
-| `INDEX.md` stale (someone hand-edited a node) | `ai-knowledge-base doctor` flags it. Run `ai-knowledge-base index rebuild` to refresh. |
+| `INDEX.md` stale (someone hand-edited a node) | `npx @e0ipso/ai-knowledge-base doctor` flags it. Run `npx @e0ipso/ai-knowledge-base index rebuild` to refresh. |
 | Two contributors invoke `kb-curate` simultaneously | Second invocation aborts with "curation already in progress, started 4 minutes ago." Cleared by lock TTL (default 30 minutes, configurable). |
-| `derived_from` references a missing session log | Silent ignore in consume path. `ai-knowledge-base doctor --verbose` warns. Curator treats as "evidence not available" and proceeds. |
+| `derived_from` references a missing session log | Silent ignore in consume path. `npx @e0ipso/ai-knowledge-base doctor --verbose` warns. Curator treats as "evidence not available" and proceeds. |
 
 ## 10. Success criteria
 

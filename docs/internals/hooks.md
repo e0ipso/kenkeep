@@ -62,7 +62,7 @@ Per `SessionStart`:
 
 1. Recursion guard.
 2. Load `INDEX.md`. If missing, emit "_The knowledge base is empty._".
-3. Compare frontmatter `nodes_hash` against the live hash of `nodes/`. On drift, append `> KB index is stale - run \`ai-knowledge-base index rebuild\``.
+3. Compare frontmatter `nodes_hash` against the live hash of `nodes/`. On drift, append `> KB index is stale, run \`npx @e0ipso/ai-knowledge-base index rebuild\``.
 4. Count pending logs. If above `curationThreshold` AND last nudge was over an hour ago, append a nudge and write `last_nudged_at`.
 5. Emit:
 

@@ -5,7 +5,7 @@ nav_order: 6
 
 # Troubleshooting
 
-Start with `ai-knowledge-base doctor --verbose`.
+Start with `npx @e0ipso/ai-knowledge-base doctor --verbose`.
 
 ## Nothing is being captured
 
@@ -69,7 +69,7 @@ The curator writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`. Review
 
 ## Resolving curator contradictions
 
-The curator never overwrites a node it conflicts with. Conflicts land in `.ai/knowledge-base/.state/pending-conflicts.json` and surface in `ai-knowledge-base status`. Run `/kb-curate` and the skill will walk each entry with you (existing node side-by-side with the new claim) and let you choose: Replace (delete the existing node file and write the proposed one) or Reject (do nothing). The skill applies your decision and removes the entry from the file.
+The curator never overwrites a node it conflicts with. Conflicts land in `.ai/knowledge-base/.state/pending-conflicts.json` and surface in `npx @e0ipso/ai-knowledge-base status`. Run `/kb-curate` and the skill will walk each entry with you (existing node side-by-side with the new claim) and let you choose: Replace (delete the existing node file and write the proposed one) or Reject (do nothing). The skill applies your decision and removes the entry from the file.
 
 If you'd rather resolve manually: read `pending-conflicts.json`, edit (or delete) the relevant node yourself, then remove the entry from the JSON array.
 

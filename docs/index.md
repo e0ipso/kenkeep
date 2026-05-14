@@ -15,7 +15,7 @@ npx @e0ipso/ai-knowledge-base init --assistants claude
 npx @e0ipso/ai-knowledge-base doctor
 ```
 
-Then code normally. When you want to turn captured material into knowledge nodes, run `/kb-curate` inside a Claude Code session (or `ai-knowledge-base curate` in a shell). New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
+Then code normally. When you want to turn captured material into knowledge nodes, run `/kb-curate` inside a Claude Code session (or `npx @e0ipso/ai-knowledge-base curate` in a shell). New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
 
 ## Read next
 

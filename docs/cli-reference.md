@@ -128,6 +128,6 @@ After `init --assistants claude`, three skills are available inside a session:
 
 | Command | Equivalent |
 |---|---|
-| `/kb-curate` | `ai-knowledge-base curate` |
-| `/kb-add` | `ai-knowledge-base node add` |
+| `/kb-curate` | `npx @e0ipso/ai-knowledge-base curate` |
+| `/kb-add` | `npx @e0ipso/ai-knowledge-base node add` |
 | `/kb-bootstrap [path]` | (no CLI equivalent, agent-driven) |

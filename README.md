@@ -14,7 +14,7 @@ npx @e0ipso/ai-knowledge-base init --assistants claude
 npx @e0ipso/ai-knowledge-base doctor
 ```
 
-That's the consumer path. After running `init`, AI sessions in this repo automatically capture candidate knowledge; `ai-knowledge-base curate` (or `/kb-curate` from inside a session) writes new knowledge nodes directly under `nodes/`. You review with `git diff`, accept with `git commit`, reject with `git restore`.
+That's the consumer path. After running `init`, AI sessions in this repo automatically capture candidate knowledge; `npx @e0ipso/ai-knowledge-base curate` (or `/kb-curate` from inside a session) writes new knowledge nodes directly under `nodes/`. You review with `git diff`, accept with `git commit`, reject with `git restore`.
 
 If your repo already has READMEs, ADRs, and module docs, seed the KB from them:
 
@@ -32,7 +32,7 @@ Two cooperating pieces. The **builder tool** (this npm package) installs hooks u
 
 ## CLI reference
 
-### `ai-knowledge-base lint`
+### `npx @e0ipso/ai-knowledge-base lint`
 
 Runs four mechanical, no-LLM checks against `nodes/`:
 

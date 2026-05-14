@@ -1,3 +1,13 @@
+## [0.5.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.4.1...v0.5.0) (2026-05-14)
+
+### Features
+
+* **kb:** harden kb-add and add verify nudge ([7d52438](https://github.com/e0ipso/ai-knowledge-base/commit/7d524386ffd5d70ebb6e03d80fbfa1bdc1822ab8))
+
+### Bug Fixes
+
+* **cli:** use scoped npx form in hint strings ([9fcf09e](https://github.com/e0ipso/ai-knowledge-base/commit/9fcf09e6223e5ca63d272283c38d0ebef029cae2))
+
 ## [0.4.1](https://github.com/e0ipso/ai-knowledge-base/compare/v0.4.0...v0.4.1) (2026-05-14)
 
 ### Bug Fixes

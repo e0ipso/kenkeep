@@ -1,14 +1,14 @@
 /**
- * Stop / SessionEnd / PreCompact hook.
+ * Stop / SessionEnd / PreCompact hook for the Claude Code adapter.
  *
  * Runs the deterministic transcript capture pipeline: secret-scan redact,
  * write session log, append to queue. Must complete within 1 second on any
  * trigger; if the wall-clock deadline elapses, exits silently to avoid
  * blocking session shutdown.
  */
-import { captureSession, type HookInput } from '../lib/capture.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import { assertValidSessionId } from '../lib/session-log.js';
+import { captureSession, type HookInput } from '../../../lib/capture.js';
+import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
+import { assertValidSessionId } from '../../../lib/session-log.js';
 
 const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[ai-knowledge-base]';

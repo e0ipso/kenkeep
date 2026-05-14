@@ -7,7 +7,8 @@ import {
   type CuratorRunner,
   type PendingSession,
 } from '../lib/curate.js';
-import { runHeadlessClaude, type RunHeadlessOptions } from '../lib/headless.js';
+import { getHarness } from '../harnesses/registry.js';
+import type { HeadlessRunOptions } from '../harnesses/types.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
@@ -33,8 +34,9 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
     return 1;
   }
 
+  const harness = getHarness('claude');
   const runner: CuratorRunner = (prompt, stdin, schema, runnerOpts) =>
-    runHeadlessClaude(prompt, stdin, schema, runnerOpts as RunHeadlessOptions);
+    harness.runHeadless(prompt, stdin, schema, runnerOpts as HeadlessRunOptions);
 
   log.info('Curating pending session logs…');
   const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });

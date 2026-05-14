@@ -18,10 +18,10 @@ export default defineConfig([
     // .mjs extension so they run as ESM in consumer repos regardless
     // of the consumer's package.json `type` field.
     entry: {
-      'kb-capture': 'src/hooks/kb-capture.ts',
-      'kb-proposal-drain': 'src/hooks/kb-proposal-drain.ts',
-      'kb-session-start': 'src/hooks/kb-session-start.ts',
-      'kb-lint-tick': 'src/hooks/kb-lint-tick.ts',
+      'kb-capture': 'src/harnesses/claude/hooks/kb-capture.ts',
+      'kb-proposal-drain': 'src/harnesses/claude/hooks/kb-proposal-drain.ts',
+      'kb-session-start': 'src/harnesses/claude/hooks/kb-session-start.ts',
+      'kb-lint-tick': 'src/harnesses/claude/hooks/kb-lint-tick.ts',
     },
     outDir: 'dist/hooks',
     format: ['esm'],

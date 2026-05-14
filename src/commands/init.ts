@@ -7,8 +7,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { HOOK_SPECS } from '../lib/hook-spec.js';
-import { writeClaudeHookConfig } from '../lib/hooks-config.js';
+import { refreshClaudeTemplates } from '../harnesses/claude/install.js';
+import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
@@ -37,8 +37,6 @@ const GITIGNORE_LINES = [
   '.ai/knowledge-base/.state/',
   '!.ai/knowledge-base/.state/installed-version',
 ];
-
-const SUPPORTED_ASSISTANTS = new Set(['claude']);
 
 export async function runInit(opts: InitOptions): Promise<void> {
   validateAssistants(opts.assistants);
@@ -73,8 +71,12 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 1. Knowledge-base skeleton.
   copyTree(join(templatesDir, 'knowledge-base'), paths.kbDir);
 
-  // 2. Claude-specific files (commands + settings + hooks).
-  await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
+  // 2. Per-harness files (templates + hook registration). Each adapter in
+  //    src/harnesses/<id>/ knows where its own files live.
+  for (const id of opts.assistants) {
+    const adapter = getHarness(id);
+    await adapter.install({ root, paths, templatesDir, upgrade: false });
+  }
 
   // 3. Prompts under .ai/knowledge-base/.config/prompts (for local override).
   const promptsSrc = join(templatesDir, 'prompts');
@@ -108,9 +110,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
 
 function validateAssistants(assistants: string[]): void {
   for (const a of assistants) {
-    if (!SUPPORTED_ASSISTANTS.has(a)) {
+    if (!hasHarness(a)) {
       throw new Error(
-        `Unsupported assistant '${a}'. v1 only supports: ${[...SUPPORTED_ASSISTANTS].join(', ')}.`
+        `Unsupported assistant '${a}'. v1 only supports: ${listHarnessIds().join(', ')}.`
       );
     }
   }
@@ -133,10 +135,15 @@ async function runUpgrade(
   const current = packageVersion();
   log.info(`Upgrading in ${root} to ${current}`);
 
-  copyTree(join(templatesDir, 'claude', 'hooks'), paths.claudeHooksDir);
-  copyTree(join(templatesDir, 'claude', 'skills'), paths.claudeSkillsDir);
+  // Force-refresh shipped templates for the Claude adapter before re-running
+  // its installer. Other adapters that need a similar pre-step can expose it
+  // through their own modules.
+  refreshClaudeTemplates({ root, paths, templatesDir, upgrade: true });
 
-  await installClaude(opts.assistants, templatesDir, paths.claudeDir, root);
+  for (const id of opts.assistants) {
+    const adapter = getHarness(id);
+    await adapter.upgrade({ root, paths, templatesDir, upgrade: true });
+  }
 
   copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
@@ -165,27 +172,6 @@ function copyPromptsPreservingLocal(src: string, dst: string): void {
     }
     cpSync(srcPath, dstPath);
   }
-}
-
-async function installClaude(
-  assistants: string[],
-  templatesDir: string,
-  claudeDir: string,
-  root: string
-): Promise<void> {
-  if (!assistants.includes('claude')) return;
-  const claudeTemplateDir = join(templatesDir, 'claude');
-  if (existsSync(claudeTemplateDir)) {
-    copyTree(claudeTemplateDir, claudeDir);
-  }
-  await writeClaudeHookConfig(
-    root,
-    HOOK_SPECS.map(spec => ({
-      event: spec.event,
-      scriptPath: `.claude/hooks/${spec.scriptPath}`,
-      ...(spec.async ? { async: true } : {}),
-    }))
-  );
 }
 
 function writeInstalledVersion(file: string, stateDir: string, assistants: string[]): void {

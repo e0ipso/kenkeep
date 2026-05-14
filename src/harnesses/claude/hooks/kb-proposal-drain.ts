@@ -1,5 +1,5 @@
 /**
- * SessionStart hook (async).
+ * SessionStart hook (async) for the Claude Code adapter.
  *
  * Drains the proposal queue without blocking session start. For each queued
  * entry it spawns `claude -p --output-format stream-json --verbose`, parses
@@ -11,10 +11,10 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { runHeadlessClaude } from '../lib/headless.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
-import { resolveSettings } from '../lib/settings.js';
-import { drainProposalQueue, type ProposalRunner } from '../lib/proposal-drain.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths } from '../../../lib/paths.js';
+import { resolveSettings } from '../../../lib/settings.js';
+import { drainProposalQueue, type ProposalRunner } from '../../../lib/proposal-drain.js';
+import { runHeadlessClaude } from '../headless.js';
 
 const PACKAGE_TAG = '[ai-knowledge-base]';
 

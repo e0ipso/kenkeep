@@ -1,16 +1,10 @@
-export type HookEvent = 'Stop' | 'SessionEnd' | 'PreCompact' | 'SessionStart' | 'UserPromptSubmit';
+/**
+ * Back-compat re-export. The canonical Claude-Code hook list now lives in
+ * `src/harnesses/claude/hook-spec.ts`; importing through this module
+ * remains supported for the existing call sites and tests.
+ */
+import { CLAUDE_HOOK_SPECS } from '../harnesses/claude/hook-spec.js';
+import type { HookEvent, HookSpec } from '../harnesses/types.js';
 
-export interface HookSpec {
-  event: HookEvent;
-  scriptPath: string;
-  async?: boolean;
-}
-
-export const HOOK_SPECS: readonly HookSpec[] = [
-  { event: 'Stop', scriptPath: 'kb-capture.mjs' },
-  { event: 'SessionEnd', scriptPath: 'kb-capture.mjs' },
-  { event: 'SessionEnd', scriptPath: 'kb-lint-tick.mjs', async: true },
-  { event: 'PreCompact', scriptPath: 'kb-capture.mjs' },
-  { event: 'SessionStart', scriptPath: 'kb-proposal-drain.mjs', async: true },
-  { event: 'SessionStart', scriptPath: 'kb-session-start.mjs' },
-];
+export type { HookEvent, HookSpec };
+export const HOOK_SPECS: readonly HookSpec[] = CLAUDE_HOOK_SPECS;

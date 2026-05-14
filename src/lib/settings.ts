@@ -12,6 +12,15 @@ export const SETTINGS_DEFAULTS = {
   lintEveryNSessions: 50,
 } as const;
 
+/**
+ * Thresholds for the cursory-session pre-filter. A session matching all three
+ * cannot have established a durable convention; the proposal worker is skipped.
+ * Hardcoded by design: promoting these to config is a one-line change later.
+ */
+export const CURSORY_MAX_USER_TURNS = 1;
+export const CURSORY_MAX_USER_CHARS = 200;
+export const CURSORY_MAX_AGENT_CHARS = 500;
+
 export type EffectiveSettings = {
   -readonly [K in keyof typeof SETTINGS_DEFAULTS]: (typeof SETTINGS_DEFAULTS)[K];
 } & {

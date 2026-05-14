@@ -10,18 +10,24 @@ export interface SessionLogInput {
   transcriptHash: string;
   secretScanStatus: SecretScanStatus;
   body: string;
+  proposalStatus?: 'pending' | 'skipped';
+  proposalError?: string | null;
+  proposalCompletedAt?: string | null;
 }
 
 export function renderSessionLog(input: SessionLogInput): string {
+  const proposalStatus = input.proposalStatus ?? 'pending';
+  const proposalError = input.proposalError ?? null;
+  const proposalCompletedAt = input.proposalCompletedAt ?? null;
   const frontmatter = {
     schema_version: 1,
     session_id: input.sessionId,
     captured_by: input.capturedBy,
     captured_at: input.capturedAt,
     transcript_hash: input.transcriptHash,
-    proposal_status: 'pending',
-    proposal_completed_at: null,
-    proposal_error: null,
+    proposal_status: proposalStatus,
+    proposal_completed_at: proposalCompletedAt,
+    proposal_error: proposalError,
     proposal_log: null,
     secret_scan_status: input.secretScanStatus,
     proposals: { practice: [], map: [] },

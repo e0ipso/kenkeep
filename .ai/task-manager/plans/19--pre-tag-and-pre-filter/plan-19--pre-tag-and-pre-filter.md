@@ -194,11 +194,11 @@ This plan does not require a new public-facing documentation page.
 **Validation Gates:**
 - Reference: `/config/hooks/POST_PHASE.md`
 
-### Phase 1: Wrapper preprocessing + prompt trim
+### ✅ Phase 1: Wrapper preprocessing + prompt trim
 **Parallel Tasks:**
-- Task 001: Deterministically tag /self-review-apply turns in renderRoleTagged
-- Task 002: Cursory pre-filter at capture time with hardcoded thresholds
-- Task 003: Trim proposal-extract prompt, collapse self-review-apply section, bump Version
+- ✔️ Task 001: Deterministically tag /self-review-apply turns in renderRoleTagged
+- ✔️ Task 002: Cursory pre-filter at capture time with hardcoded thresholds
+- ✔️ Task 003: Trim proposal-extract prompt, collapse self-review-apply section, bump Version
 
 ```mermaid
 graph TD

@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 2
+  Version: 3
   Used by: kb-proposal-drain.mjs (via `claude -p`)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -17,15 +17,14 @@ The transcript is provided as role-tagged segments below. Each segment is prefix
 
 Before extracting any candidate, judge the **session disposition**: did the session, taken as a whole, converge on durable knowledge worth recording? The unit of judgment here is the **session**, not the individual turn. This filter operates at a different level from the two later filters and stacks with them: the task-specific scope filter judges whether a single rule generalizes across files and changes, and the end-state framing rule judges the wording of a single candidate body. Session disposition asks a prior question, about the conversation as a whole.
 
-If the session reads as **non-productive**, emit `{"practice": [], "map": []}` and stop. Five non-productive shapes apply, each a whole-session reject: abandoned, exploratory, cursory, unrelated, and meta-only.
+If the session reads as **non-productive**, emit `{"practice": [], "map": []}` and stop. Four non-productive shapes apply, each a whole-session reject: abandoned, exploratory, unrelated, and meta-only.
 
 - **Abandoned / dead-end.** The user reverses an in-flight approach without committing to a replacement. Triggers in the transcript include "let's not do this", "never mind", "we'll come back to this", "let's defer this", "actually, don't bother". The session ends with the reversal or with a tangent, not with a durable claim. This shape is distinct from the corrective pattern below: a corrective pattern names a replacement rule ("don't do X, do Y"); abandonment names no replacement.
 - **Exploratory / open-ended.** The session is investigation that surveys options without selecting one. Triggers include "what could we do about X?", "let me look at how this works", "I'm trying to understand Y". Questions are raised, hypotheses are floated, no end-state claim is committed to.
-- **Cursory / single-turn / trivial.** The session is very short or very shallow. Single-turn exchanges, status checks, formatting fixes, one-line questions, "is it running?" probes. No durable convention can have been established.
 - **Unrelated / off-project.** The session is not about this project. General programming help, work on a different repository, personal conversation, support questions that do not reference this project's modules, vocabulary, or conventions.
-- **Meta-only.** The session's visible work is planning, tasking, brainstorming, scoping, or architecture-sketching, without arriving at a durable end-state claim about the project itself. Plan or task documents under `.ai/task-manager` (or any equivalent location the session reveals) are the canonical case, but the category is broader: any conversation that talks *about* what to build rather than capturing how the project already is. The whole session is skipped, with **no exception** for imperative corrections that occur mid-conversation; consistency with the other four shapes wins over per-candidate salvage.
+- **Meta-only.** The session's visible work is planning, tasking, brainstorming, scoping, or architecture-sketching, without arriving at a durable end-state claim about the project itself. Plan or task documents under `.ai/task-manager` (or any equivalent location the session reveals) are the canonical case, but the category is broader: any conversation that talks *about* what to build rather than capturing how the project already is. The whole session is skipped, with **no exception** for imperative corrections that occur mid-conversation; consistency with the other three shapes wins over per-candidate salvage.
 
-**Gate decision.** If any of the five shapes applies to the session as a whole, emit `{"practice": [], "map": []}` and stop. Producing nothing is the correct output for a non-productive session, just as it is for a productive session with no teaching moments.
+**Gate decision.** If any of the four shapes applies to the session as a whole, emit `{"practice": [], "map": []}` and stop. Producing nothing is the correct output for a non-productive session, just as it is for a productive session with no teaching moments.
 
 **Confidence-bias rule for the gate.** When the session's disposition is ambiguous (could be productive, could not), prefer the empty proposal. A phantom convention costs more to remove than a missed real one costs to leave on the table.
 
@@ -99,12 +98,7 @@ Gate every corrective pattern through the task-specific filter below. If the und
 
 #### Self-review-apply turns
 
-A common high-signal pattern in this project is the `/self-review-apply` skill. It looks like this in the transcript:
-
-- A `[USER]:` turn invokes `/self-review-apply <path>.xml`. The XML filename is variable: it may be `review.xml`, `feedback/round-2.xml`, `reviews/security-pass.xml`, or any other path. Do not assume a fixed filename.
-- The next `[AGENT]:` turn narrates the changes the agent applied in response to review comments parsed from the XML. The transcript does not contain the XML body itself, only the agent's narration of which comments were addressed and how.
-
-Treat each narrated change as a candidate corrective signal. Judge generalizability per change: a comment that names a project-wide rule ("loop variables in this codebase use descriptive names") becomes a practice candidate; a comment that only fixes a one-off issue in the change under review is dropped. Apply both the corrective-pattern rule and the task-specific filter to each narrated change independently.
+When you see a `[USER /self-review-apply ...]:` tag, treat each narrated change in the following agent turn (which is tagged `[AGENT NARRATION OF SELF-REVIEW ...]:`) as a candidate corrective signal. Apply both the corrective-pattern rule and the task-specific filter to each narrated change independently.
 
 ### Map nodes, "what exists in this project"
 
@@ -216,13 +210,13 @@ Notice what the example does NOT capture:
 
 ### Inline example: a self-review-apply turn
 
-This second example shows the self-review-apply pattern in action. It produces one kept practice candidate (a generalizable rule) and one dropped item (a task-specific comment). Note that the XML filename here is not `review.xml`; treat any `.xml` path as a valid self-review-apply target.
+This second example shows the self-review-apply pattern in action. It produces one kept practice candidate (a generalizable rule) and one dropped item (a task-specific comment). Note the role markers: the user turn carries the `[USER /self-review-apply ...]:` tag and the agent narration carries `[AGENT NARRATION OF SELF-REVIEW ...]:`. The example below uses those tags directly.
 
 **Input transcript:**
 
 ```
-[USER]: /self-review-apply feedback/round-2.xml
-[AGENT]: I worked through the review comments in feedback/round-2.xml and applied two changes.
+[USER /self-review-apply feedback/round-2.xml]: /self-review-apply feedback/round-2.xml
+[AGENT NARRATION OF SELF-REVIEW feedback/round-2.xml]: I worked through the review comments in feedback/round-2.xml and applied two changes.
 
 First, the reviewer flagged that I had used a single-letter loop variable `i` inside `src/lib/feed-builder.ts`. The note said loop variables in this codebase always use descriptive names so the intent is readable at a glance. I renamed `i` to `cardIndex`.
 

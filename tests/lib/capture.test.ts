@@ -38,6 +38,26 @@ const SESS_X = '22222222-2222-4222-8222-222222222222';
 const SESS_SECRET = '33333333-3333-4333-8333-333333333333';
 const SESS_MULTI = '44444444-4444-4444-8444-444444444444';
 const SESS_PC = '55555555-5555-4555-8555-555555555555';
+const SESS_CURSORY_UNDER = '66666666-6666-4666-8666-666666666666';
+const SESS_CURSORY_BOUNDARY = '77777777-7777-4777-8777-777777777777';
+const SESS_OVER_USER = '88888888-8888-4888-8888-888888888888';
+const SESS_OVER_AGENT = '99999999-9999-4999-8999-999999999999';
+const SESS_TWO_TURNS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+function writeTwoTurnTranscript(
+  path: string,
+  userText: string,
+  agentText: string
+): void {
+  const lines = [
+    JSON.stringify({ type: 'user', message: { role: 'user', content: userText } }),
+    JSON.stringify({
+      type: 'assistant',
+      message: { role: 'assistant', content: [{ type: 'text', text: agentText }] },
+    }),
+  ];
+  writeFileSync(path, lines.join('\n'));
+}
 
 describe('captureSession', () => {
   let sandbox: string;
@@ -53,6 +73,7 @@ describe('captureSession', () => {
   afterEach(() => cleanSandbox(sandbox));
 
   it('writes a session log with pending frontmatter on a fresh capture', async () => {
+    writeTwoTurnTranscript(transcriptPath, 'u'.repeat(50), 'a'.repeat(501));
     const result = await captureSession(
       {
         session_id: SESS_1,
@@ -207,5 +228,147 @@ describe('captureSession', () => {
     );
     const fm = matter(log).data as { captured_by: string };
     expect(fm.captured_by).toBe('pre_compact');
+  });
+
+  describe('cursory pre-filter', () => {
+    const FIXED_NOW = new Date('2026-05-13T12:00:00.000Z');
+    const fixedNow = (): Date => FIXED_NOW;
+
+    function readFrontmatter(): {
+      proposal_status: string;
+      proposal_error: string | null;
+      proposal_completed_at: string | null;
+      secret_scan_status: string;
+    } {
+      const files = readdirSync(sessionsDir).filter(f => f.endsWith('.md'));
+      expect(files).toHaveLength(1);
+      const log = readFileSync(join(sessionsDir, files[0] as string), 'utf8');
+      return matter(log).data as {
+        proposal_status: string;
+        proposal_error: string | null;
+        proposal_completed_at: string | null;
+        secret_scan_status: string;
+      };
+    }
+
+    it('marks all-under sessions as skipped with cursory_session error', async () => {
+      writeTwoTurnTranscript(transcriptPath, 'hello', 'a'.repeat(50));
+      const result = await captureSession(
+        {
+          session_id: SESS_CURSORY_UNDER,
+          transcript_path: transcriptPath,
+          hook_event_name: 'Stop',
+        },
+        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow }
+      );
+      expect(result.status).toBe('written');
+      const fm = readFrontmatter();
+      expect(fm.proposal_status).toBe('skipped');
+      expect(fm.proposal_error).toBe('cursory_session');
+      expect(fm.proposal_completed_at).toBe(FIXED_NOW.toISOString());
+      expect(fm.secret_scan_status).toBe('clean');
+    });
+
+    it('treats threshold boundaries as inclusive (skipped)', async () => {
+      writeTwoTurnTranscript(transcriptPath, 'u'.repeat(200), 'a'.repeat(500));
+      const result = await captureSession(
+        {
+          session_id: SESS_CURSORY_BOUNDARY,
+          transcript_path: transcriptPath,
+          hook_event_name: 'Stop',
+        },
+        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow }
+      );
+      expect(result.status).toBe('written');
+      const fm = readFrontmatter();
+      expect(fm.proposal_status).toBe('skipped');
+      expect(fm.proposal_error).toBe('cursory_session');
+      expect(fm.proposal_completed_at).toBe(FIXED_NOW.toISOString());
+    });
+
+    it('keeps pending when user chars exceed the threshold by one', async () => {
+      writeTwoTurnTranscript(transcriptPath, 'u'.repeat(201), 'a'.repeat(100));
+      const result = await captureSession(
+        {
+          session_id: SESS_OVER_USER,
+          transcript_path: transcriptPath,
+          hook_event_name: 'Stop',
+        },
+        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow }
+      );
+      expect(result.status).toBe('written');
+      const fm = readFrontmatter();
+      expect(fm.proposal_status).toBe('pending');
+      expect(fm.proposal_error).toBeNull();
+      expect(fm.proposal_completed_at).toBeNull();
+    });
+
+    it('keeps pending when agent chars exceed the threshold by one', async () => {
+      writeTwoTurnTranscript(transcriptPath, 'u'.repeat(50), 'a'.repeat(501));
+      const result = await captureSession(
+        {
+          session_id: SESS_OVER_AGENT,
+          transcript_path: transcriptPath,
+          hook_event_name: 'Stop',
+        },
+        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow }
+      );
+      expect(result.status).toBe('written');
+      const fm = readFrontmatter();
+      expect(fm.proposal_status).toBe('pending');
+      expect(fm.proposal_error).toBeNull();
+      expect(fm.proposal_completed_at).toBeNull();
+    });
+
+    it('keeps pending when there are two user turns at low char counts', async () => {
+      const lines = [
+        JSON.stringify({ type: 'user', message: { role: 'user', content: 'hello' } }),
+        JSON.stringify({
+          type: 'assistant',
+          message: { role: 'assistant', content: [{ type: 'text', text: 'a'.repeat(50) }] },
+        }),
+        JSON.stringify({ type: 'user', message: { role: 'user', content: 'again' } }),
+      ];
+      writeFileSync(transcriptPath, lines.join('\n'));
+      const result = await captureSession(
+        {
+          session_id: SESS_TWO_TURNS,
+          transcript_path: transcriptPath,
+          hook_event_name: 'Stop',
+        },
+        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow }
+      );
+      expect(result.status).toBe('written');
+      const fm = readFrontmatter();
+      expect(fm.proposal_status).toBe('pending');
+      expect(fm.proposal_error).toBeNull();
+      expect(fm.proposal_completed_at).toBeNull();
+    });
+
+    it('runs the secret scan on the cursory branch and records its status', async () => {
+      writeTwoTurnTranscript(transcriptPath, 'sk-abc123', 'understood');
+      const result = await captureSession(
+        {
+          session_id: SESS_CURSORY_UNDER,
+          transcript_path: transcriptPath,
+          hook_event_name: 'Stop',
+        },
+        { sessionsDir, scan: fakeScanner('redact'), now: fixedNow }
+      );
+      expect(result.status).toBe('written');
+      expect(result.secretScanStatus).toBe('redacted');
+      const files = readdirSync(sessionsDir).filter(f => f.endsWith('.md'));
+      const log = readFileSync(join(sessionsDir, files[0] as string), 'utf8');
+      const fm = matter(log).data as {
+        proposal_status: string;
+        proposal_error: string | null;
+        secret_scan_status: string;
+      };
+      expect(fm.proposal_status).toBe('skipped');
+      expect(fm.proposal_error).toBe('cursory_session');
+      expect(fm.secret_scan_status).toBe('redacted');
+      expect(log).toContain('[REDACTED:test-secret]');
+      expect(log).not.toContain('sk-abc123');
+    });
   });
 });

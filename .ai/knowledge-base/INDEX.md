@@ -1,14 +1,15 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:48eb6c57f6f3ebf44f160ce1db4937ad478427a74f1b292a7839a58759e00576'
-node_count: 30
+nodes_hash: 'sha256:ac141f5fdafa711a4aaef14e127af50ff73783a9aad44afd7112533a6f579bbe'
+node_count: 31
 ---
 # KB Index
 
-_30 nodes • ~8809 estimated tokens_
+_31 nodes • ~9221 estimated tokens_
 
 
 ## Conventions (how we build)
+- **All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`** [`nodes/practice/practice-cli-invocations-use-npx-scoped.md`] #cli #invocation #npx #prompts
 - **All KB changes go through git review** [`nodes/practice/practice-human-in-the-loop-via-git.md`] #review #git #workflow
 - **Bootstrap never overwrites an existing node** [`nodes/practice/practice-bootstrap-never-overwrites.md`] #bootstrap #prohibition #conservative
 - **Bump prompt Version: on every behavior change** [`nodes/practice/practice-prompt-version-bump-on-behavior-change.md`] #prompts #versioning #llm
@@ -27,13 +28,13 @@ _30 nodes • ~8809 estimated tokens_
 - **v1 supports only Claude Code** [`nodes/practice/practice-claude-code-v1-only.md`] #scope #assistant #v1
 
 ## Components (what exists)
+- **@e0ipso/ai-knowledge-base npm package** [`nodes/map/map-ai-knowledge-base-package.md`] #package #cli #scope
+- **Claude Code skills installed by init** [`nodes/map/map-claude-skills.md`] #skills #claude-code #slash-commands
 - **.ai/knowledge-base/ directory layout** [`nodes/map/map-knowledge-base-directory.md`] #layout #directory #kb
 - **.ai/knowledge-base/config.yaml** [`nodes/map/map-config-yaml.md`] #config #settings #tunables
 - **.state/pending-conflicts.json** [`nodes/map/map-pending-conflicts.md`] #state #conflicts #curator
-- **@e0ipso/ai-knowledge-base npm package** [`nodes/map/map-ai-knowledge-base-package.md`] #package #cli #scope
 - **Assistant adapter interface** [`nodes/map/map-adapter-interface.md`] #adapter #extensibility #interface
 - **Claude Code hooks registered by ai-knowledge-base** [`nodes/map/map-claude-hooks.md`] #hooks #claude-code #integration
-- **Claude Code skills installed by init** [`nodes/map/map-claude-skills.md`] #skills #claude-code #slash-commands
 - **Map node** [`nodes/map/map-map-node.md`] #node #kind #vocabulary
 - **Node frontmatter shape** [`nodes/map/map-node-frontmatter.md`] #schema #frontmatter #node
 - **nodes/ directory** [`nodes/map/map-nodes-directory.md`] #layout #nodes #kb
@@ -46,14 +47,15 @@ _30 nodes • ~8809 estimated tokens_
 
 - **#schema (5):** config.yaml schema is strict; unknown keys are a hard error, Every YAML/JSON shape is validated by Zod at read time, Node frontmatter shape, Schema bumps are a clean break; no migrators, no shims, Session log (_sessions/*.md)
 - **#llm (4):** Bump prompt Version: on every behavior change, Curator subprocess can only use the Read tool, Don't run curate or bootstrap-incremental in CI, Prompt overrides at .config/prompts/
+- **#prompts (4):** All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`, Bump prompt Version: on every behavior change, Prompt overrides at .config/prompts/, Split combined statements into separate practice and map nodes
 - **#curator (3):** .state/pending-conflicts.json, Curator never auto-resolves contradictions, Curator subprocess can only use the Read tool
 - **#hooks (3):** Claude Code hooks registered by ai-knowledge-base, INDEX.md and GRAPH.md are deterministic outputs of nodes/, KB_BUILDER_INTERNAL=1 prevents hook recursion
 - **#layout (3):** .ai/knowledge-base/ directory layout, nodes/ directory, Package source layout
 - **#node (3):** Map node, Node frontmatter shape, Practice node
 - **#prohibition (3):** Bootstrap never overwrites an existing node, Don't run curate or bootstrap-incremental in CI, Schema bumps are a clean break; no migrators, no shims
-- **#prompts (3):** Bump prompt Version: on every behavior change, Prompt overrides at .config/prompts/, Split combined statements into separate practice and map nodes
 - **#capture (2):** Secretlint redacts every session transcript before write, Session log (_sessions/*.md)
-- **#claude-code (2):** Claude Code hooks registered by ai-knowledge-base, Claude Code skills installed by init
+- **#claude-code (2):** Claude Code skills installed by init, Claude Code hooks registered by ai-knowledge-base
+- **#cli (2):** @e0ipso/ai-knowledge-base npm package, All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
 - **#config (2):** .ai/knowledge-base/config.yaml, config.yaml schema is strict; unknown keys are a hard error
 - **#conflicts (2):** .state/pending-conflicts.json, Curator never auto-resolves contradictions
 - **#kb (2):** .ai/knowledge-base/ directory layout, nodes/ directory
@@ -68,7 +70,6 @@ _30 nodes • ~8809 estimated tokens_
 - **#bootstrap (1):** Bootstrap never overwrites an existing node
 - **#build (1):** Package source layout
 - **#ci (1):** Don't run curate or bootstrap-incremental in CI
-- **#cli (1):** @e0ipso/ai-knowledge-base npm package
 - **#commits (1):** Conventional Commits drive semantic-release
 - **#concurrency (1):** Per-pipeline locks in state.json with 30-minute TTL
 - **#conservative (1):** Bootstrap never overwrites an existing node
@@ -85,9 +86,11 @@ _30 nodes • ~8809 estimated tokens_
 - **#index (1):** INDEX.md and GRAPH.md are deterministic outputs of nodes/
 - **#integration (1):** Claude Code hooks registered by ai-knowledge-base
 - **#interface (1):** Assistant adapter interface
+- **#invocation (1):** All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
 - **#locking (1):** Per-pipeline locks in state.json with 30-minute TTL
 - **#modeling (1):** Split combined statements into separate practice and map nodes
 - **#nodes (1):** nodes/ directory
+- **#npx (1):** All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
 - **#package (1):** @e0ipso/ai-knowledge-base npm package
 - **#recursion (1):** KB_BUILDER_INTERNAL=1 prevents hook recursion
 - **#release (1):** Conventional Commits drive semantic-release

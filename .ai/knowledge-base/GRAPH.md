@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:48eb6c57f6f3ebf44f160ce1db4937ad478427a74f1b292a7839a58759e00576'
-node_count: 30
+nodes_hash: 'sha256:ac141f5fdafa711a4aaef14e127af50ff73783a9aad44afd7112533a6f579bbe'
+node_count: 31
 ---
 # KB Graph
 
-Total nodes: 30
+Total nodes: 31
 
 ## map-adapter-interface
 
@@ -118,6 +118,13 @@ Total nodes: 30
 - **title:** v1 supports only Claude Code
 - **tags:** scope, assistant, v1
 - **derived_from:** PRD.md, docs/installation.md
+
+## practice-cli-invocations-use-npx-scoped
+
+- **kind:** practice
+- **title:** All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
+- **tags:** cli, invocation, npx, prompts
+- **relates_to:** map-ai-knowledge-base-package, map-claude-skills
 
 ## practice-conventional-commits-semantic-release
 

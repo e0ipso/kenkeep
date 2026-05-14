@@ -1,3 +1,16 @@
+## [0.4.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.3.0...v0.4.0) (2026-05-14)
+
+### Features
+
+* **cleanup:** remove speculative abstractions ([b695e82](https://github.com/e0ipso/ai-knowledge-base/commit/b695e8246ed8555fe6a1fed4a1bc8ffc0b63616a))
+* **cli:** wire conflict subcommands ([df45e8b](https://github.com/e0ipso/ai-knowledge-base/commit/df45e8bd55cbd2977920e9a8433d29730aa99ea0))
+* **conflict:** add CLI conflict command group ([7dabccb](https://github.com/e0ipso/ai-knowledge-base/commit/7dabccba7c47e6ecca994d2c2575730b4f2abc42))
+* **wrapper:** pre-tag and pre-filter cursory ([149aa70](https://github.com/e0ipso/ai-knowledge-base/commit/149aa7020c4244fa7e8a7da0b3a1412bac32794b))
+
+### Bug Fixes
+
+* **adapter:** resolve hook paths via env var ([360a36b](https://github.com/e0ipso/ai-knowledge-base/commit/360a36b9d7a0780325e4796119112bd10917c3c4))
+
 ## [0.3.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.2.0...v0.3.0) (2026-05-13)
 
 ### ⚠ BREAKING CHANGES

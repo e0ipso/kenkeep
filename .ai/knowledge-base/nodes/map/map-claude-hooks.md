@@ -1,30 +1,27 @@
 ---
 schema_version: 1
 id: map-claude-hooks
-title: "The three Claude Code hooks registered by init"
+title: "Claude Code hooks registered by ai-knowledge-base"
 kind: map
-tags: [hooks, claude-code, capture, extract, consume]
+tags: [hooks, claude-code, integration]
 derived_from:
   - docs/internals/hooks.md
   - docs/internals/architecture.md
-relates_to: [practice-hooks-meet-1s-deadline, practice-recursion-guard-env-var]
-depends_on: []
+relates_to: []
 confidence: high
-summary: "init registers three hook scripts in .claude/settings.json: kb-capture (Stop/SessionEnd/PreCompact), kb-proposal-drain (SessionStart async), kb-session-start (SessionStart sync)."
+summary: "Three hook scripts under .claude/hooks/: kb-capture, kb-proposal-drain, kb-session-start."
 ---
 
-# The three Claude Code hooks registered by init
+# Claude Code hooks registered by ai-knowledge-base
 
-`init` registers three hook scripts in `.claude/settings.json`, compiled to `.claude/hooks/*.mjs` from the TS sources under `src/hooks/`.
+`init` writes three hook scripts under `.claude/hooks/` and registers them in `.claude/settings.json`:
 
-| Script | Events | Mode |
-|---|---|---|
-| `kb-capture.mjs` | `Stop`, `SessionEnd`, `PreCompact` | sync, ≤1s |
-| `kb-proposal-drain.mjs` | `SessionStart` | async (`async: true`) |
-| `kb-session-start.mjs` | `SessionStart` | sync, ≤1s |
+| Script | Event(s) | Mode | Role |
+|---|---|---|---|
+| `kb-capture.mjs` | `Stop`, `SessionEnd`, `PreCompact` | sync, ≤1s | Redact transcript with secretlint and write a session log. |
+| `kb-proposal-drain.mjs` | `SessionStart` | async | Sweep pending session logs, spawn `claude -p` to extract proposal candidates. |
+| `kb-session-start.mjs` | `SessionStart` | sync, ≤1s | Inject `INDEX.md` (plus optional staleness/nudge lines) into the new session. |
 
-The two `SessionStart` entries are independent; a failure in one does not block the other.
+The two `SessionStart` entries are independent; failure in one does not block the other. The KB hook scripts are *consumers* of Claude Code's hook mechanism, not extension points: `ai-knowledge-base` does not expose a hook API of its own.
 
-- **Capture** reads the transcript, dedupes against a 5-minute SHA-256 window, runs secretlint with the recommended preset, and writes `_sessions/<ts>-<id>.md`. The `KB_BUILDER_HOOK=<event>` env var distinguishes Stop / SessionEnd / PreCompact triggers.
-- **Drain** is async: it spawns `claude -p` per pending session log (up to `drainBound`, default 5), streams `_logs/proposal/*.jsonl`, and updates the log to `proposal_status: done` or rotates with `attempts++` on failure.
-- **Consume** loads `INDEX.md`, checks `nodes_hash` for drift, emits a curate nudge if pending logs exceed `curationThreshold` (default 5) and last nudge was over an hour ago.
+User-defined hooks in `.claude/settings.json` are preserved on re-init.

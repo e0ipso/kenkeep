@@ -1,23 +1,25 @@
 ---
 schema_version: 1
 id: map-map-node
-title: "Map node: what-exists, named entities and vocabulary"
+title: "Map node"
 kind: map
-tags: [vocabulary, node-kind, map]
+tags: [node, kind, vocabulary]
 derived_from:
-  - docs/how-it-works.md
-  - docs/internals/schemas.md
   - PRD.md
-relates_to: [map-practice-node, map-nodes-directory]
-depends_on: []
+  - docs/internals/schemas.md
+relates_to: []
 confidence: high
-summary: "A map node captures named things that exist in the project: modules, services, vocabulary, file-tree locations. Stored under nodes/map/."
+summary: "Map nodes capture what exists in the project: named features, modules, vocabulary, and locations."
 ---
 
-# Map node: what-exists, named entities and vocabulary
+# Map node
 
-A **map** node captures "what exists in the project": named features/modules/services and what they do, project-specific vocabulary ("Bravo Insider = personalized section on the platform"), and locations of major systems in the file tree.
+A **map** node records *what exists* in the project. It names things and points the agent to them.
 
-Stored at `.ai/knowledge-base/nodes/map/<id>.md`. The id slug is `map-<slug>`. Frontmatter shape is defined by `NodeFrontmatterSchema` in `src/lib/schemas.ts`.
+Covers:
 
-Map content is nominative (what something is, where it lives). Imperative content (do/don't/why) belongs to practice. Stage-2 enforces this boundary; curator and bootstrap should respect it too.
+- **Features and architecture** - systems being built, what they do, where their seams are.
+- **Vocabulary** - project-specific terms ("Bravo Insider = personalized section on the platform"), internal module names, custom entity names.
+- **Locations** - where major systems live in the file tree.
+
+Map nodes live under `nodes/map/<id>.md` with `kind: map`. The proposal extractor and curator are explicitly instructed to split combined statements: "use `bravo_analytics.dispatcher`, our event-tracking service" becomes one [[map-practice-node]] (use the dispatcher) and one map node (what the dispatcher is).

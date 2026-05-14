@@ -1,20 +1,20 @@
 ---
 schema_version: 1
 id: practice-no-llm-pipelines-in-ci
-title: "Never run curate or bootstrap-incremental in CI"
+title: "Don't run curate or bootstrap-incremental in CI"
 kind: practice
-tags: [ci, curate, bootstrap, policy]
+tags: [ci, llm, prohibition]
 derived_from:
   - docs/daily-use.md
-relates_to: [map-ai-knowledge-base-cli]
-depends_on: []
+  - docs/installation.md
+relates_to: []
 confidence: high
-summary: "CI validates that what's committed is well-formed; it does not run LLM pipelines. curate and bootstrap-incremental write to nodes/ and need human review."
+summary: "CI validates committed shape; curate and bootstrap-incremental spawn the model and produce changes that still need human review."
 ---
 
-# Never run curate or bootstrap-incremental in CI
+# Don't run `curate` or `bootstrap-incremental` in CI
 
-CI's job is to validate that what's committed is well-formed, not to run the LLM pipelines. A reasonable CI check is:
+CI's job is to validate that what's committed is well-formed, not to run the LLM pipelines. A reasonable CI block is:
 
 ```sh
 npx @e0ipso/ai-knowledge-base doctor --verbose
@@ -22,6 +22,8 @@ npx @e0ipso/ai-knowledge-base index rebuild
 git diff --exit-code .ai/knowledge-base/INDEX.md .ai/knowledge-base/GRAPH.md
 ```
 
-The last step catches commits that bypassed the pre-commit hook.
+The `git diff --exit-code` catches commits that bypassed the pre-commit hook.
 
-Do **not** run `curate` or `bootstrap-incremental` in CI: they spawn `claude -p` and produce changes to `nodes/` that still need human review with `git diff`.
+**Why:** `curate` and `bootstrap-incremental` spawn `claude -p` and write directly to `nodes/`. The output still needs human review via `git diff`. Running them in CI would either commit unreviewed changes or burn LLM time on a workflow that produces an unreviewable diff against `main`.
+
+**How to apply:** CI scripts use `doctor`, `index rebuild`, and `git diff --exit-code` only. Never wire `curate` or `bootstrap-incremental` into CI, even as a "drift check".

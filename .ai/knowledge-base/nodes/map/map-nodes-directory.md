@@ -1,27 +1,24 @@
 ---
 schema_version: 1
 id: map-nodes-directory
-title: "nodes/: the canonical knowledge tree"
+title: "nodes/ directory"
 kind: map
-tags: [storage, nodes, canonical, git]
+tags: [layout, nodes, kb]
 derived_from:
   - docs/how-it-works.md
-  - docs/internals/architecture.md
-relates_to: [map-practice-node, map-map-node, map-index-and-graph-files]
-depends_on: []
+  - docs/internals/schemas.md
+relates_to: []
 confidence: high
-summary: "The committed knowledge tree at .ai/knowledge-base/nodes/{practice,map}/. Curator, node add, bootstrap, and humans all write here; review is git diff; acceptance is git commit."
+summary: "Canonical knowledge lives at nodes/{practice,map}/<id>.md; reviewed via git diff, accepted via git commit."
 ---
 
-# `nodes/`: the canonical knowledge tree
+# `nodes/` directory
 
-The committed knowledge tree lives at `.ai/knowledge-base/nodes/{practice,map}/<id>.md`. This is the canonical state of the KB; everything else (sessions, logs, state files, index) is supporting infrastructure.
+All canonical knowledge lives under `.ai/knowledge-base/nodes/`, split by kind:
 
-All four producers write here directly:
+- `nodes/practice/<id>.md` - see [[map-practice-node]].
+- `nodes/map/<id>.md` - see [[map-map-node]].
 
-- The **curator** (`curate` CLI / `/kb-curate` skill) writes `add` actions to new files and overwrites `modify` targets.
-- The **manual-add** path (`node add` CLI / `/kb-add` skill) writes new files interactively.
-- **Bootstrap** (`/kb-bootstrap` skill, `bootstrap-incremental` CLI) writes new files from existing docs. Existing nodes are never overwritten; collisions are skipped and reported.
-- **Humans** edit directly when needed (rebases, in-session conflict resolution, hand corrections).
+Each file is a markdown document with YAML frontmatter validated by Zod (see [[map-node-frontmatter]]). Filenames must be `<id>.md` where `id == <kind>-<slug>`; mismatches are reported as lint errors.
 
-Review is `git diff nodes/`; acceptance is `git commit`; rejection is `git restore <path>`. The lint-staged pre-commit hook regenerates `INDEX.md` / `GRAPH.md` and stages them into the same commit, so the injected index can never drift from the committed nodes.
+The curator, the `node add` command, and the bootstrap pipelines all write here directly. There is no separate staging directory: the review surface is `git diff nodes/`, `git commit`, `git restore <path>`.

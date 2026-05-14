@@ -45,10 +45,13 @@ Run the curator over all session logs that have been processed but not yet curat
 ## `node add`
 
 ```sh
-npx @e0ipso/ai-knowledge-base node add
+npx @e0ipso/ai-knowledge-base node add \
+  [--kind <practice|map>] [--title <text>] [--summary <text>] \
+  [--tags <list>] [--relates-to <list>] [--confidence <low|medium|high>] \
+  [--body <text|@->] [--yes]
 ```
 
-Interactive prompt to create a node manually. Writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`. Fails loud if a node with that id already exists. Review with `git diff` and commit to accept.
+Create a node manually. With no flags, prompts for every field. When `--kind`, `--title`, `--summary`, and `--body` are all supplied, runs non-interactively; partial flags prompt only for the missing fields. `--yes` skips the confirmation step and errors loud if any required field is missing. `--body @-` reads the body from stdin so multi-line markdown does not need shell escaping. Writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`; fails loud on slug collision. Review with `git diff` and commit to accept.
 
 ## `bootstrap-incremental`
 

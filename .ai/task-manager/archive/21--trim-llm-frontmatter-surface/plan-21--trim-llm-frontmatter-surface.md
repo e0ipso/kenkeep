@@ -270,3 +270,31 @@ graph TD
 - Total Phases: 2
 - Total Tasks: 5
 
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-14
+
+### Results
+
+Five tasks landed across two commits on `feature/20--kb-bootstrap-cli-deterministic-discovery`:
+
+- `5c6911e` covers tasks 1, 3, 5: node-add CLI flags (--kind/--title/--summary/--tags/--body/--relates-to/--confidence/--yes with stdin support via `@-`), curator schema trim (`CuratorProposedNodeSchema` loses `id` and `derived_from`, becomes `.strict()`, wrapper synthesizes `derived_from` from `candidate_origin`), and bootstrap-incremental single-file batching (`BOOTSTRAP_BATCH_SIZE` and the `chunk` call in bootstrap deleted; `BootstrapCandidateSchema` drops both `derived_from` and the always-null hint fields, becomes `.strict()`).
+- `f3a9431` covers tasks 2 and 4: `ProposalCandidateSchema` drops both hint fields and becomes `.strict()`; `buildBatchPayload` no longer reads candidate hints and emits `existing_nodes: []` unconditionally; curator and proposal-extract prompts lose all hint-field text; the kb-add SKILL.md shrinks from ~50 lines of by-hand frontmatter assembly to 21 lines that gather inputs and delegate to `npx @e0ipso/ai-knowledge-base node add --body @- --yes`, with `allowed-tools` narrowed accordingly.
+
+Prompt versions bumped: curator 6→8, proposal-extract 3→4, bootstrap-incremental 3→4. The `docs/cli-reference.md` `node add` section documents the new flag set.
+
+Test counts: 248 before plan 21 → 253 after (five new tests covering strict-schema rejection of `id` / `derived_from` / non-null hints / unknown keys, single-file batching with per-file deterministic attribution, and the flag-driven node-add path with stdin body and enum validation). All 253 pass; `pnpm exec tsc --noEmit` and `eslint .` are clean.
+
+### Noteworthy Events
+
+- The plan called for `z.null().default(null)` on the hint fields, but Zod's input/output type split with `.default()` failed to typecheck against the generic `BootstrapRunner` / `ProposalRunner` runners (the runner's `T` resolved to the input type with optional fields, mismatching the strict-null output type). Resolution: drop the hint fields from `BootstrapCandidateSchema` and `ProposalCandidateSchema` entirely and add `.strict()` to both. This satisfies the underlying acceptance criterion (parse fails loudly on any non-null hint value, surfaced as an "unrecognized key" error) without a divergent input/output shape.
+- Plan task 5 referenced a `chunkDocs` helper and `DEFAULT_TOKEN_BUDGET` constant. The code actually used the generic `chunk` helper from `chunk-batch.ts` with a `BOOTSTRAP_BATCH_SIZE = 20` constant, and `chunk` is still consumed by curate. Deleted only the bootstrap-specific use and the `BOOTSTRAP_BATCH_SIZE` constant.
+- Plan referenced "plan 13" providing the `writeNewNode(answers, deps)` split. That split was already in place when this plan ran; the flag-driven path branches inside `runNodeAdd` and converges on the same `writeNewNode` call.
+- One hooks test (`tests/hooks/kb-proposal-drain.test.ts`) seeded a fake `claude` response with the old hint fields; updated to the trimmed candidate shape in the phase 2 commit.
+
+### Necessary follow-ups
+
+- None. The plan is fully landed and the self-validation steps pass.
+- Optional future work flagged by the plan but explicitly out of scope: upgrading the curator's existing-node lookup signal (today's `existing_nodes: []` makes `modify` decisions less informed). The plan author argued the hint surface risk outweighed lookup quality; revisit if real curate runs show degraded `modify` quality.
+

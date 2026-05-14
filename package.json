@@ -1,6 +1,6 @@
 {
   "name": "@e0ipso/ai-knowledge-base",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Builds and maintains a per-repo knowledge base from AI coding sessions, for use with Claude Code.",
   "license": "MIT",
   "author": "e0ipso",

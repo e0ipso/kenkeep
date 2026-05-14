@@ -9,7 +9,7 @@ When you (or a teammate) run an AI coding session against this repo, the tool wa
 ## How knowledge gets here
 
 1. **Capture.** During an AI session, a hook records redacted slices of the transcript to `_sessions/`.
-2. **Curate.** When enough sessions accumulate, you run `/kb-curate` (or `ai-knowledge-base curate`). The curator reads pending sessions and applies its decisions directly to `nodes/`: new files for `add` actions, in-place rewrites for `modify`. Contradictions are written as markdown files under `conflicts/` for the curate skill to surface to you in-session; you review them with `git diff` and accept by committing or reject with `git restore`.
+2. **Curate.** When enough sessions accumulate, you run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`). The curator reads pending sessions and applies its decisions directly to `nodes/`: new files for `add` actions, in-place rewrites for `modify`. Contradictions are written as markdown files under `conflicts/` for the curate skill to surface to you in-session; you review them with `git diff` and accept by committing or reject with `git restore`.
 3. **Review.** The changes show up in `git status` like any other code change. Inspect with `git diff`, accept with `git commit`, reject with `git restore <file>`. The lint-staged pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit.
 4. **Consume.** Every future session sees the new nodes in its injected index.
 

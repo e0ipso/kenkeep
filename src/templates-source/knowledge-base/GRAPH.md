@@ -6,4 +6,4 @@ node_count: 0
 
 # Knowledge base graph
 
-No nodes yet. This file is regenerated automatically by `ai-knowledge-base curate` / `ai-knowledge-base index rebuild`.
+No nodes yet. This file is regenerated automatically by `npx @e0ipso/ai-knowledge-base curate` / `npx @e0ipso/ai-knowledge-base index rebuild`.

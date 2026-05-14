@@ -8,4 +8,4 @@ node_count: 0
 
 _0 nodes • ~0 estimated tokens_
 
-The knowledge base is empty. Run sessions and `/kb-curate` (or `ai-knowledge-base curate`) to populate it, or seed it from existing docs with `/kb-bootstrap`.
+The knowledge base is empty. Run sessions and `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`) to populate it, or seed it from existing docs with `/kb-bootstrap`.

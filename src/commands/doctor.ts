@@ -200,7 +200,7 @@ async function checkClaude(): Promise<CheckResult> {
 
 function checkInstalled(file: string): CheckResult {
   if (!existsSync(file)) {
-    return err('missing. Run `ai-knowledge-base init --assistants claude` from the repo root.');
+    return err('missing. Run `npx @e0ipso/ai-knowledge-base init --assistants claude` from the repo root.');
   }
   let parsed: { version?: string };
   try {
@@ -213,13 +213,13 @@ function checkInstalled(file: string): CheckResult {
   if (installed === null) return warn('installed-version has no `version` field.');
   if (installed === current) return ok(current);
   return warn(
-    `installed ${installed}, package ${current}. Run \`ai-knowledge-base init --upgrade\` to refresh templates.`
+    `installed ${installed}, package ${current}. Run \`npx @e0ipso/ai-knowledge-base init --upgrade\` to refresh templates.`
   );
 }
 
 function checkClaudeHooks(settingsFile: string, hooksDir: string): CheckResult {
   if (!existsSync(settingsFile)) {
-    return err('no .claude/settings.json. Run `ai-knowledge-base init --assistants claude --force`.');
+    return err('no .claude/settings.json. Run `npx @e0ipso/ai-knowledge-base init --assistants claude --force`.');
   }
   let settings: { hooks?: Record<string, Array<{ hooks: Array<{ command?: string }> }>> };
   try {
@@ -243,17 +243,17 @@ function checkClaudeHooks(settingsFile: string, hooksDir: string): CheckResult {
   const parts: string[] = [];
   if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
   if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return err(`${parts.join('; ')}. Re-run \`ai-knowledge-base init --assistants claude --force\`.`);
+  return err(`${parts.join('; ')}. Re-run \`npx @e0ipso/ai-knowledge-base init --assistants claude --force\`.`);
 }
 
 function checkClaudeSkills(skillsDir: string): CheckResult {
   if (!existsSync(skillsDir)) {
-    return err('no .claude/skills/ directory. Re-run `ai-knowledge-base init --assistants claude --force`.');
+    return err('no .claude/skills/ directory. Re-run `npx @e0ipso/ai-knowledge-base init --assistants claude --force`.');
   }
   const missing = EXPECTED_SKILLS.filter(name => !existsSync(join(skillsDir, name, 'SKILL.md')));
   return missing.length === 0
     ? ok(EXPECTED_SKILLS.join(', '))
-    : err(`missing SKILL.md for: ${missing.join(', ')}. Re-run \`ai-knowledge-base init --upgrade\`.`);
+    : err(`missing SKILL.md for: ${missing.join(', ')}. Re-run \`npx @e0ipso/ai-knowledge-base init --upgrade\`.`);
 }
 
 function checkPrompts(promptsDir: string): CheckResult {
@@ -266,7 +266,7 @@ function checkPrompts(promptsDir: string): CheckResult {
 }
 
 function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
-  if (!existsSync(indexFile)) return warn('INDEX.md missing; run `ai-knowledge-base index rebuild`.');
+  if (!existsSync(indexFile)) return warn('INDEX.md missing; run `npx @e0ipso/ai-knowledge-base index rebuild`.');
   try {
     const parsed = matter(readFileSync(indexFile, 'utf8'));
     const fm = IndexFrontmatterSchema.safeParse(parsed.data);
@@ -276,7 +276,7 @@ function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
       : fm.data.nodes_hash;
     return recorded === computeNodesHash(nodesDir)
       ? ok(`fresh (${fm.data.node_count} node(s))`)
-      : warn('stale (nodes_hash drift); run `ai-knowledge-base index rebuild`.');
+      : warn('stale (nodes_hash drift); run `npx @e0ipso/ai-knowledge-base index rebuild`.');
   } catch (e) {
     return warn(`unreadable: ${(e as Error).message}`);
   }
@@ -285,7 +285,7 @@ function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
 function checkSettings(file: string): CheckResult {
   if (!existsSync(file)) {
     return warn(
-      'no .ai/knowledge-base/config.yaml, package defaults are in effect. Run `ai-knowledge-base init --upgrade` to create one.'
+      'no .ai/knowledge-base/config.yaml, package defaults are in effect. Run `npx @e0ipso/ai-knowledge-base init --upgrade` to create one.'
     );
   }
   let loaded: unknown;

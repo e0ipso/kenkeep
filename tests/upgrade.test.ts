@@ -79,7 +79,7 @@ describe('init --upgrade', () => {
     expect(result.exitCode).toBe(0);
 
     const skill = readFileSync(skillFile, 'utf8');
-    expect(skill).toContain('allowed-tools: Bash(ai-knowledge-base curate:*), Read');
+    expect(skill).toContain('allowed-tools: Bash(npx @e0ipso/ai-knowledge-base curate:*), Read');
     expect(skill).not.toContain('Bash(rm:*)');
     expect(skill).not.toMatch(/allowed-tools:[^\n]*\bEdit\b/);
     expect(skill).not.toMatch(/allowed-tools:[^\n]*\bWrite\b/);

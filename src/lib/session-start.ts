@@ -68,13 +68,13 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   if (indexStale) {
     lines.push('');
     lines.push(
-      `> KB index is stale — run \`ai-knowledge-base index rebuild\` to refresh (live hash differs from INDEX.md \`nodes_hash\`).`
+      `> KB index is stale, run \`npx @e0ipso/ai-knowledge-base index rebuild\` to refresh (live hash differs from INDEX.md \`nodes_hash\`).`
     );
   }
   if (shouldNudge) {
     lines.push('');
     lines.push(
-      `> You have ${pending} pending session log(s). Run \`/kb-curate\` (or \`ai-knowledge-base curate\`) when ready.`
+      `> You have ${pending} pending session log(s). Run \`/kb-curate\` (or \`npx @e0ipso/ai-knowledge-base curate\`) when ready.`
     );
   }
 
@@ -84,7 +84,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     if (lintState.last_errors > 0 || lintState.last_findings > 0) {
       lines.push('');
       lines.push(
-        `> Last KB lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`ai-knowledge-base lint --verbose\` for details.`
+        `> Last KB lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`npx @e0ipso/ai-knowledge-base lint --verbose\` for details.`
       );
       lintNudged = true;
     }
@@ -134,7 +134,7 @@ function stubIndex(): string {
   return [
     '# KB Index',
     '',
-    '_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `ai-knowledge-base node add` to seed it._',
+    '_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `npx @e0ipso/ai-knowledge-base node add` to seed it._',
   ].join('\n');
 }
 

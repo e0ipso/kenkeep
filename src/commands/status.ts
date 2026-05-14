@@ -10,7 +10,7 @@ export async function runStatus(): Promise<void> {
 
   if (!existsSync(paths.installedVersionFile)) {
     log.warn(
-      'ai-knowledge-base is not initialized in this repo. Run `ai-knowledge-base init --assistants claude`.'
+      'ai-knowledge-base is not initialized in this repo. Run `npx @e0ipso/ai-knowledge-base init --assistants claude`.'
     );
     return;
   }

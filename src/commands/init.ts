@@ -103,7 +103,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   log.plain('');
   log.plain('Next steps:');
   log.plain('  1. Review and commit `.ai/knowledge-base/`, `.claude/`, and the updated `.gitignore`.');
-  log.plain('  2. Run `ai-knowledge-base doctor` to verify the setup.');
+  log.plain('  2. Run `npx @e0ipso/ai-knowledge-base doctor` to verify the setup.');
 }
 
 function validateAssistants(assistants: string[]): void {
@@ -127,7 +127,7 @@ async function runUpgrade(
 ): Promise<void> {
   if (!existsSync(paths.installedVersionFile)) {
     throw new Error(
-      'Not initialized. Run `ai-knowledge-base init --assistants claude` for a first-time install.'
+      'Not initialized. Run `npx @e0ipso/ai-knowledge-base init --assistants claude` for a first-time install.'
     );
   }
   const current = packageVersion();
@@ -150,7 +150,7 @@ async function runUpgrade(
   writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.assistants);
 
   log.success(`Upgraded to ${current}.`);
-  log.plain('Run `ai-knowledge-base doctor` to verify.');
+  log.plain('Run `npx @e0ipso/ai-knowledge-base doctor` to verify.');
 }
 
 function copyPromptsPreservingLocal(src: string, dst: string): void {

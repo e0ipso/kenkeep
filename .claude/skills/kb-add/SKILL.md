@@ -22,9 +22,29 @@ Ask the user concise questions and gather:
 
 If anything is missing or ambiguous, ask before writing; the file lands directly in `nodes/`, and editing it after a commit means another commit.
 
+## What is NOT a node
+
+Push back if the user asks to capture any of these. Suggest they record it elsewhere (commit message, CHANGELOG, plan document) or simply drop it.
+
+- **Code that speaks for itself.** Function shapes, file layout, naming patterns, framework idioms. A reader of the codebase can derive these from `grep` and `tsc`. Nodes earn their tokens by carrying intent that the code does not.
+- **History.** "We renamed X to Y", "we used to use Z". Git log is the timeline of record. Capture the current end-state claim, not the journey.
+- **Debugging recipes.** "When test T fails, try Q". The fix lives in the diff that made T pass; the rationale belongs in that commit message.
+- **In-flight work.** Plans, task scopes, success criteria, "we're thinking about". A node is a claim about how the project *is*, not how it might become.
+- **General programming knowledge.** "Prefer pure functions", "validate user input". True everywhere; teaches the agent nothing about *this* project.
+
+If the user insists the item belongs in the KB despite matching one of these, ask them to state the project-specific claim in one sentence. If they cannot, drop it.
+
 ## What to write
 
-Create the file at `.ai/knowledge-base/nodes/<kind>/<kind>-<slug>.md`. The slug is derived from the title: lowercase, ascii letters and digits only, hyphens between words. **Before writing, check whether the file already exists** (e.g. via `Read`-equivalent intuition or by trying a more specific title). If a node with the same id already exists, do not overwrite; ask the user whether to refine the title or edit the existing node directly.
+Create the file at `.ai/knowledge-base/nodes/<kind>/<kind>-<slug>.md`. The slug is derived from the title: lowercase, ascii letters and digits only, hyphens between words.
+
+**Search before writing.** Skim `.ai/knowledge-base/INDEX.md` (already in your context as the SessionStart payload) for nodes whose title or tags overlap the candidate. If you find one, do not write a new file. Show the existing node to the user and ask whether to:
+
+1. Edit the existing node body directly (preferred when the new content extends or refines the old), or
+2. Refine the candidate title so the scopes are clearly distinct, or
+3. Drop the candidate.
+
+Only write a new file when no existing node covers the same scope. The wrapper will also fail loud on exact-id collisions, but the goal is to catch same-topic duplication that uses a different slug.
 
 Frontmatter (every field is required):
 

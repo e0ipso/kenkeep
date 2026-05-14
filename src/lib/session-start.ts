@@ -65,6 +65,10 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
 
   const lines: string[] = [];
   lines.push(indexBody.trim());
+  lines.push('');
+  lines.push(
+    '> KB nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user.'
+  );
   if (indexStale) {
     lines.push('');
     lines.push(

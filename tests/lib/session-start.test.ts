@@ -108,6 +108,18 @@ describe('buildSessionStartContext', () => {
     expect(result.additionalContext).toContain('empty');
   });
 
+  it('appends the verification footer on every session-start payload', () => {
+    seedNode(harness, 'practice', 'practice-foo');
+    writeIndexFromCurrentNodes(harness);
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+    });
+    expect(result.additionalContext).toContain('KB nodes are snapshots in time');
+  });
+
   it('injects the live INDEX.md when fresh and emits no warnings', () => {
     seedNode(harness, 'practice', 'practice-foo');
     writeIndexFromCurrentNodes(harness);
@@ -120,7 +132,7 @@ describe('buildSessionStartContext', () => {
     expect(result.indexStale).toBe(false);
     expect(result.indexMissing).toBe(false);
     expect(result.additionalContext).toContain('practice-foo');
-    expect(result.additionalContext).not.toContain('stale');
+    expect(result.additionalContext).not.toContain('KB index is stale');
     expect(result.additionalContext).not.toContain('pending session log');
   });
 

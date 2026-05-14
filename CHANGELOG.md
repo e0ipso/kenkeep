@@ -1,3 +1,12 @@
+## [0.6.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.5.0...v0.6.0) (2026-05-14)
+
+### Features
+
+* **bootstrap:** centralise STATIC_SKIPS deny list ([e1b2362](https://github.com/e0ipso/ai-knowledge-base/commit/e1b23620d8d3fcc262ec9b1da636543459712da7))
+* **kb-bootstrap:** rewrite over deterministic CLI ([42af31a](https://github.com/e0ipso/ai-knowledge-base/commit/42af31a2430c0b1ff0c6c84dd540a2c6f6502c55))
+* **kb:** trim LLM frontmatter surface (phase 1) ([5c6911e](https://github.com/e0ipso/ai-knowledge-base/commit/5c6911e1ddb6727a24f2b62e895fe541d73b5894))
+* **kb:** trim LLM frontmatter surface (phase 2) ([f3a9431](https://github.com/e0ipso/ai-knowledge-base/commit/f3a94316d4a1f6a17064f4281f8e7981073e925a))
+
 ## [0.5.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.4.1...v0.5.0) (2026-05-14)
 
 ### Features

@@ -1,10 +1,8 @@
-import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
-import { HOOK_SPECS } from '../lib/hook-spec.js';
+import { getHarness, listHarnessIds } from '../harnesses/registry.js';
 import { log } from '../lib/log.js';
 import {
   computeNodesHash,
@@ -16,8 +14,6 @@ import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
 import { packageVersion } from '../lib/version.js';
 
-const exec = promisify(execFile);
-const EXPECTED_SKILLS = ['kb-add', 'kb-bootstrap', 'kb-curate'];
 const EXPECTED_PROMPTS = ['proposal-extract.md', 'curator.md', 'bootstrap-incremental.md'];
 
 export interface DoctorOptions {
@@ -63,9 +59,15 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
           }`
         );
 
+  const harnessChecks: NamedCheck[] = [];
+  for (const id of listHarnessIds()) {
+    const adapter = getHarness(id);
+    const checks = await adapter.doctorChecks(paths);
+    for (const c of checks) harnessChecks.push({ name: c.name, result: c.result });
+  }
+
   const checks: NamedCheck[] = [
     { name: 'Node.js >= 22', result: checkNodeVersion() },
-    { name: 'claude CLI on PATH', result: await checkClaude() },
     {
       name: '.ai/knowledge-base/.state/installed-version',
       result: checkInstalled(paths.installedVersionFile),
@@ -74,11 +76,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
       name: '.gitignore lists ai-knowledge-base paths',
       result: checkGitignore(paths.gitignoreFile),
     },
-    {
-      name: 'Claude hooks registered',
-      result: checkClaudeHooks(paths.claudeSettingsFile, paths.claudeHooksDir),
-    },
-    { name: 'Claude skills installed', result: checkClaudeSkills(paths.claudeSkillsDir) },
+    ...harnessChecks,
     { name: 'shipped prompts present', result: checkPrompts(paths.promptsDir) },
     { name: 'settings file is valid', result: checkSettings(paths.projectConfigFile) },
     {
@@ -189,15 +187,6 @@ function checkNodeVersion(): CheckResult {
     : err(`Node ${process.versions.node} (need >= 22)`);
 }
 
-async function checkClaude(): Promise<CheckResult> {
-  try {
-    const { stdout } = await exec('claude', ['--version'], { timeout: 5000 });
-    return ok(stdout.trim() || 'present');
-  } catch (e) {
-    return err(`not runnable (${(e as Error).message.split('\n')[0]})`);
-  }
-}
-
 function checkInstalled(file: string): CheckResult {
   if (!existsSync(file)) {
     return err('missing. Run `npx @e0ipso/ai-knowledge-base init --assistants claude` from the repo root.');
@@ -215,45 +204,6 @@ function checkInstalled(file: string): CheckResult {
   return warn(
     `installed ${installed}, package ${current}. Run \`npx @e0ipso/ai-knowledge-base init --upgrade\` to refresh templates.`
   );
-}
-
-function checkClaudeHooks(settingsFile: string, hooksDir: string): CheckResult {
-  if (!existsSync(settingsFile)) {
-    return err('no .claude/settings.json. Run `npx @e0ipso/ai-knowledge-base init --assistants claude --force`.');
-  }
-  let settings: { hooks?: Record<string, Array<{ hooks: Array<{ command?: string }> }>> };
-  try {
-    settings = JSON.parse(readFileSync(settingsFile, 'utf8')) as typeof settings;
-  } catch (e) {
-    return err(`unparseable: ${(e as Error).message}`);
-  }
-  const hooks = settings.hooks ?? {};
-  const missingRegs: string[] = [];
-  const missingFiles = new Set<string>();
-  for (const spec of HOOK_SPECS) {
-    const cmds = (hooks[spec.event] ?? []).flatMap(e => (e.hooks ?? []).map(h => h.command ?? ''));
-    if (!cmds.some(c => c.includes(spec.scriptPath))) {
-      missingRegs.push(`${spec.event} -> ${spec.scriptPath}`);
-    }
-    if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);
-  }
-  if (missingRegs.length === 0 && missingFiles.size === 0) {
-    return ok('all expected hook entries and scripts present');
-  }
-  const parts: string[] = [];
-  if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
-  if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return err(`${parts.join('; ')}. Re-run \`npx @e0ipso/ai-knowledge-base init --assistants claude --force\`.`);
-}
-
-function checkClaudeSkills(skillsDir: string): CheckResult {
-  if (!existsSync(skillsDir)) {
-    return err('no .claude/skills/ directory. Re-run `npx @e0ipso/ai-knowledge-base init --assistants claude --force`.');
-  }
-  const missing = EXPECTED_SKILLS.filter(name => !existsSync(join(skillsDir, name, 'SKILL.md')));
-  return missing.length === 0
-    ? ok(EXPECTED_SKILLS.join(', '))
-    : err(`missing SKILL.md for: ${missing.join(', ')}. Re-run \`npx @e0ipso/ai-knowledge-base init --upgrade\`.`);
 }
 
 function checkPrompts(promptsDir: string): CheckResult {

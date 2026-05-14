@@ -1,5 +1,5 @@
 /**
- * SessionEnd hook (async).
+ * SessionEnd hook (async) for the Claude Code adapter.
  *
  * Increments a session counter on every fire. When the counter reaches the
  * configured `lintEveryNSessions` threshold, runs the lint library across
@@ -9,10 +9,10 @@
  * does not flow back into the parent session.
  */
 import { existsSync } from 'node:fs';
-import { runLint } from '../lib/lint.js';
-import { lintStateFile, readLintState, writeLintState } from '../lib/lint-state.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import { resolveSettings } from '../lib/settings.js';
+import { runLint } from '../../../lib/lint.js';
+import { lintStateFile, readLintState, writeLintState } from '../../../lib/lint-state.js';
+import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
+import { resolveSettings } from '../../../lib/settings.js';
 
 const PACKAGE_TAG = '[ai-knowledge-base]';
 

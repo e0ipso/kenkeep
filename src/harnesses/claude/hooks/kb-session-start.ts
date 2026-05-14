@@ -1,5 +1,5 @@
 /**
- * SessionStart hook (sync).
+ * SessionStart hook (sync) for the Claude Code adapter.
  *
  * Injects the current `INDEX.md` body as additionalContext, optionally
  * appends a stale-INDEX warning, and optionally appends a curate nudge
@@ -12,10 +12,10 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildSessionStartContext } from '../lib/session-start.js';
-import { lintStateFile } from '../lib/lint-state.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import { resolveSettings } from '../lib/settings.js';
+import { buildSessionStartContext } from '../../../lib/session-start.js';
+import { lintStateFile } from '../../../lib/lint-state.js';
+import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
+import { resolveSettings } from '../../../lib/settings.js';
 
 const PACKAGE_TAG = '[ai-knowledge-base]';
 const HARD_DEADLINE_MS = 1000;

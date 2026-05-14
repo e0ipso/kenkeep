@@ -5,7 +5,8 @@ import {
   type BootstrapContext,
   type BootstrapRunner,
 } from '../lib/bootstrap.js';
-import { runHeadlessClaude, type RunHeadlessOptions } from '../lib/headless.js';
+import { getHarness } from '../harnesses/registry.js';
+import type { HeadlessRunOptions } from '../harnesses/types.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
@@ -43,8 +44,9 @@ export async function runBootstrapIncrementalCommand(
     return 1;
   }
 
+  const harness = getHarness('claude');
   const runner: BootstrapRunner = (prompt, stdin, schema, runnerOpts) =>
-    runHeadlessClaude(prompt, stdin, schema, runnerOpts as RunHeadlessOptions);
+    harness.runHeadless(prompt, stdin, schema, runnerOpts as HeadlessRunOptions);
 
   const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
 

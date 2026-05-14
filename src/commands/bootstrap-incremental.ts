@@ -45,7 +45,7 @@ export async function runBootstrapIncrementalCommand(
   }
 
   const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-  const harness = resolveActiveHarness({ configuredDefault: settings.defaultHarness });
+  const harness = resolveActiveHarness({ cliDefault: settings.cliDefaultHarness });
   const runner: BootstrapRunner = (prompt, stdin, schema, runnerOpts) =>
     harness.runHeadless(prompt, stdin, schema, runnerOpts as HeadlessRunOptions);
 

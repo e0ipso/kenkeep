@@ -205,13 +205,18 @@ export const SettingsSchema = z
     curatorModel: ModelChoiceSchema.optional(),
     bootstrapModel: ModelChoiceSchema.optional(),
     /**
-     * Harness id used when env detection cannot identify the running
-     * assistant (e.g. a plain shell invocation of the CLI). Must match
-     * a registered harness adapter; the registry validates this at use
-     * time. Omitted from `defaultProjectConfigBody` so existing repos
-     * continue to default to the first registered harness (`claude`).
+     * Default harness for plain-shell CLI invocations (e.g.
+     * `npx ai-knowledge-base curate` from a terminal that is not inside
+     * any assistant session). Skills and hooks always auto-resolve via
+     * env detection (`CLAUDECODE=1`, `CLAUDE_PROJECT_DIR`, …) and do
+     * NOT consult this setting — only the bare CLI fallback path does.
+     *
+     * Must match a registered harness adapter; the registry validates
+     * this at use time. Omitted from `defaultProjectConfigBody` so
+     * existing repos continue to default to the first registered
+     * harness (`claude`).
      */
-    defaultHarness: z.string().min(1).optional(),
+    cliDefaultHarness: z.string().min(1).optional(),
   })
   .strict();
 export type SettingsFile = z.infer<typeof SettingsSchema>;

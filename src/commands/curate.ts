@@ -35,7 +35,7 @@ export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise
   }
 
   const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-  const harness = resolveActiveHarness({ configuredDefault: settings.defaultHarness });
+  const harness = resolveActiveHarness({ cliDefault: settings.cliDefaultHarness });
   const runner: CuratorRunner = (prompt, stdin, schema, runnerOpts) =>
     harness.runHeadless(prompt, stdin, schema, runnerOpts as HeadlessRunOptions);
 

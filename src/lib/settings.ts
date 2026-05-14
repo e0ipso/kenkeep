@@ -27,7 +27,8 @@ export type EffectiveSettings = {
   proposalModel?: ModelChoice;
   curatorModel?: ModelChoice;
   bootstrapModel?: ModelChoice;
-  defaultHarness?: string;
+  /** Fallback harness id for plain-shell CLI invocations. Skills/hooks resolve via env detection. */
+  cliDefaultHarness?: string;
 };
 
 const MODEL_CHOICE_KEYS = ['proposalModel', 'curatorModel', 'bootstrapModel'] as const;
@@ -70,7 +71,7 @@ function applyOverrides(target: EffectiveSettings, src: SettingsFile | null): vo
     const value = src[key];
     if (value !== undefined) target[key] = value;
   }
-  if (src.defaultHarness !== undefined) target.defaultHarness = src.defaultHarness;
+  if (src.cliDefaultHarness !== undefined) target.cliDefaultHarness = src.cliDefaultHarness;
 }
 
 function loadFile(file: string): SettingsFile | null {

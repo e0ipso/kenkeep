@@ -30,18 +30,23 @@ describe('detectHarnessFromEnv', () => {
 });
 
 describe('resolveActiveHarness', () => {
-  it('prefers env detection over configured default', () => {
+  it('prefers env detection over the CLI default (skills use the invoking harness)', () => {
+    // A bogus cliDefault would normally make the resolver throw; the test
+    // passes only if env detection short-circuits before the cliDefault
+    // is even validated. This is the guarantee that skills invoked from
+    // inside Claude Code always use the Claude adapter regardless of what
+    // `cliDefaultHarness` is set to.
     const adapter = resolveActiveHarness({
       env: { CLAUDECODE: '1' },
-      configuredDefault: 'claude',
+      cliDefault: 'definitely-not-registered',
     });
     expect(adapter).toBe(claudeAdapter);
   });
 
-  it('uses the configured default when env detection finds nothing', () => {
+  it('uses the CLI default when env detection finds nothing (plain-shell CLI invocation)', () => {
     const adapter = resolveActiveHarness({
       env: {},
-      configuredDefault: 'claude',
+      cliDefault: 'claude',
     });
     expect(adapter.id).toBe('claude');
   });
@@ -54,7 +59,7 @@ describe('resolveActiveHarness', () => {
   });
 
   it('throws when the configured default is not a registered harness', () => {
-    expect(() => resolveActiveHarness({ env: {}, configuredDefault: 'cursor' })).toThrow(
+    expect(() => resolveActiveHarness({ env: {}, cliDefault: 'cursor' })).toThrow(
       /not a registered harness/
     );
   });

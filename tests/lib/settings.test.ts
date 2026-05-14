@@ -57,17 +57,23 @@ describe('settings', () => {
     expect(result.settings).toEqual(SETTINGS_DEFAULTS);
   });
 
-  it('accepts an optional defaultHarness and passes it through', () => {
+  it('accepts an optional cliDefaultHarness and passes it through', () => {
     const projectFile = join(sandbox, 'project.yaml');
-    writeFileSync(projectFile, 'schema_version: 1\ndefaultHarness: claude\n');
+    writeFileSync(projectFile, 'schema_version: 1\ncliDefaultHarness: claude\n');
     const result = resolveSettings({ projectFile });
-    expect(result.settings.defaultHarness).toBe('claude');
+    expect(result.settings.cliDefaultHarness).toBe('claude');
   });
 
-  it('rejects an empty defaultHarness string', () => {
+  it('rejects an empty cliDefaultHarness string', () => {
     const projectFile = join(sandbox, 'project.yaml');
-    writeFileSync(projectFile, 'schema_version: 1\ndefaultHarness: ""\n');
+    writeFileSync(projectFile, 'schema_version: 1\ncliDefaultHarness: ""\n');
     expect(() => resolveSettings({ projectFile })).toThrow();
+  });
+
+  it('rejects the legacy `defaultHarness` key (strict schema, no alias)', () => {
+    const projectFile = join(sandbox, 'project.yaml');
+    writeFileSync(projectFile, 'schema_version: 1\ndefaultHarness: claude\n');
+    expect(() => resolveSettings({ projectFile })).toThrow(/defaultHarness/);
   });
 
   it('projectConfigPath joins to the kb dir', () => {

@@ -143,7 +143,7 @@ function makeAction(
   return { ...base, ...overrides };
 }
 
-const PROMPT_TEMPLATE = 'You are the curator.\n\n[BATCH PLACEHOLDER — substituted at runtime]';
+const PROMPT_TEMPLATE = 'You are the curator.\n\n[BATCH PLACEHOLDER, substituted at runtime]';
 
 describe('listPendingSessions', () => {
   let harness: Harness;

@@ -134,7 +134,7 @@ function parseCandidateArray(value: unknown): ProposalCandidate[] {
   return out;
 }
 
-export const BATCH_PLACEHOLDER = '[BATCH PLACEHOLDER — substituted at runtime]';
+export const BATCH_PLACEHOLDER = '[BATCH PLACEHOLDER, substituted at runtime]';
 
 /**
  * Builds the JSON payload that the curator subprocess receives on stdin.

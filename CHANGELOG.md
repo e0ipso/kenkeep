@@ -1,3 +1,9 @@
+## [0.7.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.6.0...v0.7.0) (2026-05-15)
+
+### Features
+
+* **harnesses:** runtime detection + configurable default harness ([032d0b6](https://github.com/e0ipso/ai-knowledge-base/commit/032d0b660f00d8005f64743bd291f36bdeba1801))
+
 ## [0.6.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.5.0...v0.6.0) (2026-05-14)
 
 ### Features

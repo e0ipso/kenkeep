@@ -18,6 +18,7 @@ const EXPECTED_PROMPTS = ['proposal-extract.md', 'curator.md', 'bootstrap-increm
 
 export interface DoctorOptions {
   verbose?: boolean;
+  harness?: string;
 }
 
 type CheckResult =
@@ -60,8 +61,11 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
         );
 
   const harnessChecks: NamedCheck[] = [];
-  for (const id of installedHarnessIds(paths.installedVersionFile)) {
+  const installed = installedHarnessIds(paths.installedVersionFile);
+  const scoped = opts.harness ? [opts.harness] : installed;
+  for (const id of scoped) {
     if (!hasHarness(id)) continue;
+    if (opts.harness && !installed.includes(id)) continue;
     const adapter = getHarness(id);
     const checks = await adapter.doctorChecks(paths);
     for (const c of checks) harnessChecks.push({ name: c.name, result: c.result });

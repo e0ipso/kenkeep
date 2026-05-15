@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     .description('Verify hook installation, secret-scan availability, and schema validity.')
     .option('-v, --verbose', 'show extra diagnostics', false)
     .action(async (opts: { verbose: boolean }) => {
-      const code = await runDoctor(opts);
+      const code = await runDoctor({ ...opts, harness: program.opts().harness });
       process.exit(code);
     });
 

@@ -104,7 +104,20 @@ export async function runInit(opts: InitOptions): Promise<void> {
   log.success('Initialized.');
   log.plain('');
   log.plain('Next steps:');
-  log.plain('  1. Review and commit `.ai/knowledge-base/`, `.claude/`, and the updated `.gitignore`.');
+  const harnessDirs = opts.harnesses
+    .map(id => {
+      const adapter = getHarness(id);
+      const dir = adapter.paths(root).dir;
+      const rel = dir.startsWith(root) ? dir.slice(root.length).replace(/^\//, '') : dir;
+      if (id === 'codex') {
+        return `\`${rel}/\` and \`.agents/skills/\``;
+      }
+      return `\`${rel}/\``;
+    })
+    .join(', ');
+  log.plain(
+    `  1. Review and commit \`.ai/knowledge-base/\`, ${harnessDirs}, and the updated \`.gitignore\`.`
+  );
   log.plain('  2. Run `npx @e0ipso/ai-knowledge-base doctor` to verify the setup.');
 }
 

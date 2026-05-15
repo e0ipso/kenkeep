@@ -69,22 +69,23 @@ function checkCodexHooks(
       'no .codex/hooks.json. Run `npx @e0ipso/ai-knowledge-base init --harnesses codex --force`.'
     );
   }
-  let parsed: { hooks?: Array<{ event?: string; command?: string }> };
+  let parsed: {
+    hooks?: Record<string, Array<{ hooks?: Array<{ type?: string; command?: string }> }>>;
+  };
   try {
     parsed = JSON.parse(readFileSync(hooksFile, 'utf8')) as typeof parsed;
   } catch (e) {
     return errCheck(`unparseable: ${(e as Error).message}`);
   }
-  const entries = parsed.hooks ?? [];
+  const eventTable = parsed.hooks ?? {};
   const missingRegs: string[] = [];
   const missingFiles = new Set<string>();
   for (const spec of codexHookSpecs) {
-    const found = entries.some(
-      h =>
-        typeof h?.event === 'string' &&
-        h.event === spec.event &&
-        typeof h?.command === 'string' &&
-        h.command.includes(spec.scriptPath)
+    const buckets = eventTable[spec.event] ?? [];
+    const found = buckets.some(bucket =>
+      (bucket.hooks ?? []).some(
+        entry => typeof entry?.command === 'string' && entry.command.includes(spec.scriptPath)
+      )
     );
     if (!found) missingRegs.push(`${spec.event} -> ${spec.scriptPath}`);
     if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);

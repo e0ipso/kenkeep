@@ -422,10 +422,10 @@ graph TD
 - ✔️ Task 12: Codex skill templates and `.agents/skills/` install (depends on: 07)
 - ✔️ Task 14: KB node alignment (depends on: 05, 07)
 
-### Phase 4: Hook scripts and narrative docs
+### ✅ Phase 4: Hook scripts and narrative docs
 **Parallel Tasks:**
-- Task 11: Codex hook scripts (depends on: 08, 09)
-- Task 13: PRD, README, docs/* alignment + TOML coexistence page (depends on: 07, 08, 12)
+- ✔️ Task 11: Codex hook scripts (depends on: 08, 09)
+- ✔️ Task 13: PRD, README, docs/* alignment + TOML coexistence page (depends on: 07, 08, 12)
 
 ### Post-phase Actions
 

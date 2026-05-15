@@ -1,3 +1,15 @@
+## [0.8.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.7.0...v0.8.0) (2026-05-15)
+
+### Features
+
+* **codex:** hook scripts and narrative docs ([68e1f0f](https://github.com/e0ipso/ai-knowledge-base/commit/68e1f0f0d7fb6e2d9ed3f537b30b8510bd93740a))
+* **codex:** implement adapter modules ([416823e](https://github.com/e0ipso/ai-knowledge-base/commit/416823e9da7a5ed42716c131e12a0df8097217ed))
+* **codex:** scaffold codex harness adapter ([f0bcd56](https://github.com/e0ipso/ai-knowledge-base/commit/f0bcd5653239b2387d6b9c54948e087204d72540))
+
+### Bug Fixes
+
+* **codex:** doctor and post-install messages ([ab23982](https://github.com/e0ipso/ai-knowledge-base/commit/ab23982ddbb287fc1e66a745fa758316dcf81889))
+
 ## [0.7.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.6.0...v0.7.0) (2026-05-15)
 
 ### Features

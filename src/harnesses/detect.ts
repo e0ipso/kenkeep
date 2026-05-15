@@ -15,6 +15,47 @@ export function detectHarnessFromEnv(env: NodeJS.ProcessEnv = process.env): Harn
   return null;
 }
 
+/**
+ * Hint-aware resolution chain shared between the CLI and the
+ * `/tmp/kb-detect-harness.mjs` skill helper. Priority:
+ *
+ *   1. `hint`, when supplied and registered. An unknown hint falls through
+ *      silently so a typo does not silently select the wrong adapter; the
+ *      caller may end up at the env / configDefault paths instead.
+ *   2. Env detection (`adapter.detectFromEnv` in registry order; first
+ *      truthy match wins).
+ *   3. `configDefault`, when supplied and registered.
+ *   4. Throw with a message naming `--hint` and `cliDefaultHarness`.
+ *
+ * Hint wins over env so a user invoking from inside an OpenCode session
+ * with Claude installed globally can still target OpenCode by passing the
+ * hint explicitly (`session.idle` env carries no OpenCode signal, but
+ * `CLAUDECODE=1` might leak in from the parent shell).
+ *
+ * The TS implementation here is mirrored by the heredoc in
+ * `src/templates-source/skills/kb-curate/SKILL.md`. CI guards drift
+ * between the two via `scripts/lint-detect-harness.mjs`.
+ */
+export function resolveWithHint(
+  env: NodeJS.ProcessEnv = process.env,
+  hint?: string,
+  configDefault?: string
+): HarnessAdapter {
+  if (hint !== undefined && hasHarness(hint)) {
+    return getHarness(hint);
+  }
+  const detected = detectHarnessFromEnv(env);
+  if (detected) return detected;
+  if (configDefault !== undefined && hasHarness(configDefault)) {
+    return getHarness(configDefault);
+  }
+  throw new Error(
+    `Could not resolve active harness. Pass --hint <id> or set ` +
+      `cliDefaultHarness in .ai/knowledge-base/config.yaml. ` +
+      `Available: ${listHarnessIds().join(', ') || '(none)'}.`
+  );
+}
+
 export interface ResolveActiveHarnessOpts {
   /**
    * Explicit `--harness <id>` flag value, if the user supplied one.

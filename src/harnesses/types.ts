@@ -3,19 +3,12 @@ import type { RepoPaths } from '../lib/paths.js';
 import type { EffectiveSettings } from '../lib/settings.js';
 
 /**
- * Permissive union of every lifecycle event name any registered adapter
- * declares. Adapters subset this via their own `hooks` list; nothing in the
- * shared code requires every event to be present, and a harness is free to
- * skip events that its host runtime does not emit.
+ * Opaque lifecycle event identifier. Each adapter declares its own event
+ * vocabulary (Claude uses `SessionStart`/`SessionEnd`/`Stop`/..., Codex
+ * reuses Claude names, OpenCode uses `session.created`/`session.idle`).
+ * Shared code never narrows on canonical names; it iterates `adapter.hooks`.
  */
-export type HookEvent =
-  | 'Stop'
-  | 'SessionStart'
-  | 'SessionEnd'
-  | 'PreCompact'
-  | 'UserPromptSubmit'
-  | 'PostToolUse'
-  | 'PreToolUse';
+export type HookEvent = string;
 
 /**
  * Canonical hook registration record. `scriptPath` is harness-relative
@@ -70,8 +63,18 @@ export interface HarnessPaths {
   commandsDir?: string;
   /** Skills directory (`.claude/skills/`, `.agents/skills/`, ...). */
   skillsDir: string;
-  /** Hooks directory (`.claude/hooks/`, `.codex/hooks/`, ...). */
-  hooksDir: string;
+  /**
+   * Hooks directory (`.claude/hooks/`, `.codex/hooks/`, ...). Omitted for
+   * adapters whose extension surface is plugins rather than per-event shell
+   * commands (OpenCode); those set `pluginsDir` instead.
+   */
+  hooksDir?: string;
+  /**
+   * Optional plugins directory (`.opencode/plugins/`). Set by adapters whose
+   * host runtime expects a long-lived TS/JS module subscribing to an event
+   * bus rather than per-event shell commands.
+   */
+  pluginsDir?: string;
   /** Optional adapter-specific settings file path. */
   settingsFile?: string;
 }

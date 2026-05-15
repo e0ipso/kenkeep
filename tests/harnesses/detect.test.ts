@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { detectHarnessFromEnv, resolveActiveHarness } from '../../src/harnesses/detect.js';
+import {
+  detectHarnessFromEnv,
+  resolveActiveHarness,
+  resolveWithHint,
+} from '../../src/harnesses/detect.js';
 import { claudeAdapter } from '../../src/harnesses/claude/index.js';
 
 describe('detectHarnessFromEnv', () => {
@@ -79,5 +83,39 @@ describe('resolveActiveHarness', () => {
     expect(() => resolveActiveHarness({ env: {}, cliDefault: 'cursor' })).toThrow(
       /not a registered harness/
     );
+  });
+});
+
+describe('resolveWithHint', () => {
+  it('hint wins over env when the hint is a registered id', () => {
+    // Even with CLAUDECODE=1 set, the codex hint should win.
+    const adapter = resolveWithHint({ CLAUDECODE: '1' }, 'codex');
+    expect(adapter.id).toBe('codex');
+  });
+
+  it('env wins when hint is absent', () => {
+    const adapter = resolveWithHint({ CLAUDECODE: '1' });
+    expect(adapter.id).toBe('claude');
+  });
+
+  it('configDefault wins when both hint and env are absent', () => {
+    const adapter = resolveWithHint({}, undefined, 'codex');
+    expect(adapter.id).toBe('codex');
+  });
+
+  it('bogus hint falls through to env detection', () => {
+    const adapter = resolveWithHint({ CLAUDECODE: '1' }, 'definitely-not-registered');
+    expect(adapter.id).toBe('claude');
+  });
+
+  it('bogus hint with no env and no configDefault throws', () => {
+    expect(() => resolveWithHint({}, 'definitely-not-registered')).toThrow(
+      /Pass --hint <id> or set cliDefaultHarness/
+    );
+  });
+
+  it('throws when nothing resolves, naming --hint and cliDefaultHarness', () => {
+    expect(() => resolveWithHint({})).toThrow(/--hint <id>/);
+    expect(() => resolveWithHint({})).toThrow(/cliDefaultHarness/);
   });
 });

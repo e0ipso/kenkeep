@@ -11,81 +11,76 @@ Ask the user for seven values (do not invent any): **kind** (`practice` or `map`
 
 Before invoking, skim `.ai/knowledge-base/INDEX.md` (already in context) for an overlapping node. If one exists, offer to edit it, refine the candidate's title, or drop the capture instead. Push back if the candidate is: code that speaks for itself, history, a debugging recipe, in-flight plan/task content, or general programming knowledge.
 
-## Steps
+## Resolve the active harness
 
-1. Materialize the detect-harness helper (skip if it already exists). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `opencode`):
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kb-detect-harness.mjs` on first invocation):
 
-   ```bash
-   if [ ! -f /tmp/kb-detect-harness.mjs ]; then
-     cat << 'EOF' > /tmp/kb-detect-harness.mjs
-   #!/usr/bin/env node
-   // kb-detect-harness: resolves the active KB harness id.
-   // Mirrors src/harnesses/detect.ts resolveWithHint priority.
-   import { existsSync, readFileSync } from 'node:fs';
-   import { dirname, join } from 'node:path';
-   const REGISTERED = ['claude', 'codex', 'opencode'];
-   const ENV_DETECTORS = [
-     { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-     { env: 'CLAUDE_PROJECT_DIR', value: '*nonempty*', harness: 'claude' },
-   ];
-   function findHint(argv) {
-     for (let i = 0; i < argv.length; i++) {
-       if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
-     }
-     return undefined;
-   }
-   function detectFromEnv(env) {
-     for (const d of ENV_DETECTORS) {
-       if (d.value === '*nonempty*') {
-         if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
-       } else if (env[d.env] === d.value) return d.harness;
-     }
-     return undefined;
-   }
-   function findRepoRoot(start) {
-     let dir = start;
-     while (true) {
-       if (existsSync(join(dir, '.ai', 'knowledge-base'))) return dir;
-       const parent = dirname(dir);
-       if (parent === dir) return null;
-       dir = parent;
-     }
-   }
-   function readDefault(root) {
-     if (!root) return undefined;
-     const config = join(root, '.ai', 'knowledge-base', 'config.yaml');
-     if (!existsSync(config)) return undefined;
-     const text = readFileSync(config, 'utf8');
-     const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
-     return m ? m[1] : undefined;
-   }
-   const hint = findHint(process.argv.slice(2));
-   if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
-   const fromEnv = detectFromEnv(process.env);
-   if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
-   const fromDefault = readDefault(findRepoRoot(process.cwd()));
-   if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
-   process.stderr.write('kb-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/knowledge-base/config.yaml.\n');
-   process.exit(2);
-   EOF
-   fi
-   ```
+```bash
+if [ ! -f /tmp/kb-detect-harness.mjs ]; then
+cat << 'EOF' > /tmp/kb-detect-harness.mjs
+#!/usr/bin/env node
+// kb-detect-harness: resolves the active KB harness id.
+// Mirrors src/harnesses/detect.ts resolveWithHint priority.
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+const REGISTERED = ['claude', 'codex', 'opencode'];
+const ENV_DETECTORS = [
+  { env: 'CLAUDECODE', value: '1', harness: 'claude' },
+  { env: 'CLAUDE_PROJECT_DIR', value: '*nonempty*', harness: 'claude' },
+];
+function findHint(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
+  }
+  return undefined;
+}
+function detectFromEnv(env) {
+  for (const d of ENV_DETECTORS) {
+    if (d.value === '*nonempty*') {
+      if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
+    } else if (env[d.env] === d.value) return d.harness;
+  }
+  return undefined;
+}
+function findRepoRoot(start) {
+  let dir = start;
+  while (true) {
+    if (existsSync(join(dir, '.ai', 'knowledge-base'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function readDefault(root) {
+  if (!root) return undefined;
+  const config = join(root, '.ai', 'knowledge-base', 'config.yaml');
+  if (!existsSync(config)) return undefined;
+  const text = readFileSync(config, 'utf8');
+  const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
+  return m ? m[1] : undefined;
+}
+const hint = findHint(process.argv.slice(2));
+if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
+const fromEnv = detectFromEnv(process.env);
+if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
+const fromDefault = readDefault(findRepoRoot(process.cwd()));
+if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
+process.stderr.write('kb-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/knowledge-base/config.yaml.\n');
+process.exit(2);
+EOF
+fi
+HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
+```
 
-2. Resolve the active harness:
+## Capture the node
 
-   ```bash
-   HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
-   ```
-
-3. Invoke the CLI with the resolved id:
-
-   ```bash
-   npx @e0ipso/ai-knowledge-base node add --harness "$HARNESS" \
-     --kind <practice|map> --title "<title>" --summary "<summary>" \
-     --tags "<tags>" --relates-to "<relates-to>" \
-     --confidence <high|medium|low> --body @- --yes <<'EOF'
-   <body markdown>
-   EOF
-   ```
+```bash
+npx @e0ipso/ai-knowledge-base node add --harness "$HARNESS" \
+  --kind <practice|map> --title "<title>" --summary "<summary>" \
+  --tags "<tags>" --relates-to "<relates-to>" \
+  --confidence <high|medium|low> --body @- --yes <<'EOF'
+<body markdown>
+EOF
+```
 
 `--body @-` reads stdin so multi-line markdown does not need escaping. The CLI fails loud on a slug collision; pick a more specific title if it complains. After it returns, give the user the printed path and remind them to review with `git diff`.

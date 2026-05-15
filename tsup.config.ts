@@ -121,6 +121,11 @@ if (Object.keys(discovered.pluginEntries).length > 0) {
     minify: false,
     shims: false,
     outExtension: () => ({ js: '.mjs' }),
+    // Re-inject the per-adapter package marker so doctor checks can
+    // identify our plugin file against unrelated user plugins. The
+    // leading comment in the TS source gets stripped during tsup's
+    // ESM transform; this banner survives.
+    banner: { js: '// @e0ipso/ai-knowledge-base plugin' },
   } as (typeof configs)[number]);
 }
 

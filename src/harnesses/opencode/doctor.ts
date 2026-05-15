@@ -13,7 +13,7 @@ import { openCodeHookSpecs } from './hook-spec.js';
 
 const exec = promisify(execFile);
 const EXPECTED_SKILLS = ['kb-add', 'kb-bootstrap', 'kb-curate'];
-export const OPENCODE_PLUGIN_MARKER = '// @e0ipso/ai-knowledge-base opencode plugin';
+export const OPENCODE_PLUGIN_MARKER = '// @e0ipso/ai-knowledge-base plugin';
 
 function openCodeLocations(root: string) {
   const dir = join(root, '.opencode');

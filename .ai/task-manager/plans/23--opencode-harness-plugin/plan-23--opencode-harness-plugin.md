@@ -402,11 +402,11 @@ graph TD
 - ✔️ Task 07: Implement the OpenCode headless runner driving opencode run --format json (depends on: 04)
 - ✔️ Task 08: Consolidate per-harness SKILL.md to a single shared tree resolved at runtime (depends on: 03, 04)
 
-### Phase 4: Drift Lint + Documentation
+### ✅ Phase 4: Drift Lint + Documentation
 **Parallel Tasks:**
-- Task 09: CI lint that fails on drift between detect.ts and the SKILL.md heredoc (depends on: 03, 08)
-- Task 10: Align project docs (PRD, README, docs/, CONTRIBUTING) with OpenCode support (depends on: 04, 07, 08)
-- Task 11: Align knowledge-base nodes and regenerate INDEX.md/GRAPH.md (depends on: 03, 04, 08)
+- ✔️ Task 09: CI lint that fails on drift between detect.ts and the SKILL.md heredoc (depends on: 03, 08)
+- ✔️ Task 10: Align project docs (PRD, README, docs/, CONTRIBUTING) with OpenCode support (depends on: 04, 07, 08)
+- ✔️ Task 11: Align knowledge-base nodes and regenerate INDEX.md/GRAPH.md (depends on: 03, 04, 08)
 
 ### Post-phase Actions
 

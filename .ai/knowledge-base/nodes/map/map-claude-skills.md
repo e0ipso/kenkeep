@@ -24,3 +24,5 @@ After `init --assistants claude`, three skills appear as slash commands inside a
 | `/kb-bootstrap [path]` | Agent-driven (no CLI equivalent) | One-time supervised seed from existing markdown docs into `nodes/`. |
 
 `/kb-bootstrap` is agent-driven: it spawns a sub-agent via the `Task` tool, not a `claude -p` subprocess. It honors `bootstrapModel.name` on a best-effort basis, but ignores `bootstrapModel.effort` because the `Task` tool exposes no `effort` parameter.
+
+The SKILL.md bytes installed at `.claude/skills/` are identical to the bytes Codex installs at `.agents/skills/` and OpenCode installs at `.opencode/skills/`; see [[practice-shared-skill-templates]]. Each body resolves the active `--harness` value at runtime via a small helper, per [[practice-explicit-harness-flag]].

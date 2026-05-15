@@ -25,3 +25,5 @@ summary: "Three hook scripts under .claude/hooks/: kb-capture, kb-proposal-drain
 The two `SessionStart` entries are independent; failure in one does not block the other. The KB hook scripts are *consumers* of Claude Code's hook mechanism, not extension points: `ai-knowledge-base` does not expose a hook API of its own.
 
 User-defined hooks in `.claude/settings.json` are preserved on re-init.
+
+The Codex and OpenCode adapters wire equivalent functions through their own native event surfaces; see [[map-codex-harness-adapter]] and [[map-opencode-harness-adapter]].

@@ -395,12 +395,12 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 04: Scaffold the OpenCode harness adapter module and register it (depends on: 01, 02)
 
-### Phase 3: OpenCode Adapter Implementation + Skills Consolidation
+### ✅ Phase 3: OpenCode Adapter Implementation + Skills Consolidation
 **Parallel Tasks:**
-- Task 05: Implement the OpenCode plugin shim and non-capture per-event hook scripts (depends on: 04)
-- Task 06: Implement the OpenCode transcript parser and kb-capture hook script (depends on: 04)
-- Task 07: Implement the OpenCode headless runner driving opencode run --format json (depends on: 04)
-- Task 08: Consolidate per-harness SKILL.md to a single shared tree resolved at runtime (depends on: 03, 04)
+- ✔️ Task 05: Implement the OpenCode plugin shim and non-capture per-event hook scripts (depends on: 04)
+- ✔️ Task 06: Implement the OpenCode transcript parser and kb-capture hook script (depends on: 04)
+- ✔️ Task 07: Implement the OpenCode headless runner driving opencode run --format json (depends on: 04)
+- ✔️ Task 08: Consolidate per-harness SKILL.md to a single shared tree resolved at runtime (depends on: 03, 04)
 
 ### Phase 4: Drift Lint + Documentation
 **Parallel Tasks:**

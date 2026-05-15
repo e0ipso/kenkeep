@@ -10,9 +10,10 @@ nav_order: 3
 - Node.js 22+
 - One of the supported AI harnesses:
   - [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/getting-started), or
-  - [OpenAI Codex CLI](https://developers.openai.com/codex/cli/)
+  - [OpenAI Codex CLI](https://developers.openai.com/codex/cli/), or
+  - [OpenCode CLI](https://opencode.ai/)
 
-No API key required for either harness. The tool spawns the harness's own headless driver (`claude -p` or `codex exec`) and inherits whatever auth that CLI already uses. A `package.json` is no longer required at the repo root; `init` does not patch your project manifest.
+No API key required for any of these. The tool spawns the harness's own headless driver (`claude -p`, `codex exec`, or `opencode run`) and inherits whatever auth that CLI already uses. A `package.json` is no longer required at the repo root; `init` does not patch your project manifest.
 
 ## Claude Code
 
@@ -58,7 +59,7 @@ If your `.codex/config.toml` already defines its own `[hooks]` table, `init` ref
 
 ### The `--harness <id>` flag
 
-Every CLI subcommand accepts a global `--harness <id>` flag (`claude` or `codex`). When you are inside an active session the detector picks the right harness from the environment, so the flag is optional; pass it explicitly when running CLI commands outside a session or when a repo has both harnesses installed. Example:
+Every CLI subcommand accepts a global `--harness <id>` flag (`claude`, `codex`, or `opencode`). Inside an active Claude session the detector picks Claude automatically; Codex and OpenCode export no in-session env var, so when running outside an active session or from inside a Codex/OpenCode session you must pass `--harness` explicitly or set `cliDefaultHarness` in `.ai/knowledge-base/config.yaml`. Example:
 
 ```sh
 npx @e0ipso/ai-knowledge-base --harness codex doctor
@@ -76,6 +77,63 @@ npx @e0ipso/ai-knowledge-base --harness codex doctor
 ```
 
 Checks your Node version, that `codex` is on PATH, that `.codex/hooks.json` is registered with our entries, and that INDEX is fresh.
+
+## OpenCode CLI
+
+In the root of your repository:
+
+```sh
+npx @e0ipso/ai-knowledge-base init --harnesses opencode
+npx @e0ipso/ai-knowledge-base --harness opencode doctor
+```
+
+This creates / updates:
+
+- `.ai/knowledge-base/`: your knowledge base scaffold (same layout as the Claude install).
+- `.opencode/plugins/kb.mjs`: a small TS plugin shim that subscribes to the OpenCode runtime event bus and dispatches each event to a per-event Node script. Self-registering by virtue of its location: OpenCode auto-loads every plugin under `.opencode/plugins/` at startup.
+- `.opencode/kb-hooks/`: the per-event scripts (`kb-capture.mjs`, `kb-session-start.mjs`, `kb-proposal-drain.mjs`, `kb-lint-tick.mjs`). The plugin spawns these with stdin payloads matching the contract Claude and Codex use.
+- `.opencode/skills/`: the `kb-add`, `kb-bootstrap`, and `kb-curate` skills. The bytes are identical to the bytes Claude installs at `.claude/skills/` and Codex installs at `.agents/skills/` (see [Shared skill source](#shared-skill-source)).
+- A managed block in `.gitignore` for the runtime state files.
+
+### Transcript discovery
+
+OpenCode's hook payload does not carry a `transcript_path`. The capture hook reads `${XDG_DATA_HOME:-$HOME/.local/share}/opencode/storage/` on disk: it parses `session/<projectID>/<sessionID>.json`, walks `message/<sessionID>/*.json` ordered by `time.created`, and concatenates the text parts under `part/<messageID>/`. If the on-disk parse yields zero turns (e.g. because OpenCode has not finished flushing the session), the hook falls back to spawning `opencode export <sessionID>` (30-second timeout) and parses its JSON output through the same shape adapter.
+
+### Capture-event gap
+
+OpenCode's idiomatic events are `session.created` and `session.idle`. The OpenCode adapter wires capture and the lint tick to `session.idle` and the session-start payload to `session.created`. OpenCode has no v1 equivalent of Claude's `SessionStart` `additionalContext` stdout channel, so the session-start hook writes the current INDEX body to `.opencode/AGENTS.md`; users opt in by referencing that file from their primary `AGENTS.md`.
+
+### No in-session env detection
+
+OpenCode does not export an env var our detector can rely on, so the harness identity must be passed in. Either pass `--harness opencode` to every CLI invocation, set `cliDefaultHarness: opencode` in `.ai/knowledge-base/config.yaml` so plain-shell invocations resolve to OpenCode, or rely on the SKILL.md detect-harness recipe inside skills (the LLM author passes `--hint opencode` when materializing `/tmp/kb-detect-harness.mjs`).
+
+### Verify
+
+```sh
+npx @e0ipso/ai-knowledge-base --harness opencode doctor
+```
+
+Checks your Node version, that `opencode` is on PATH, that `.opencode/plugins/kb.mjs` carries our package marker, that all four `.opencode/kb-hooks/*.mjs` scripts are present, and that the shared skills are installed at `.opencode/skills/`.
+
+## Shared skill source
+
+All three harnesses install the same `kb-add`, `kb-bootstrap`, and `kb-curate` SKILL.md bytes under their respective native skills directories (`.claude/skills/`, `.agents/skills/`, `.opencode/skills/`). The skill body resolves the active `--harness` value at runtime via a tiny `/tmp/kb-detect-harness.mjs` helper that the SKILL.md body materializes from a heredoc on first invocation. The LLM author substitutes its own best-guess id for the `<hint>` placeholder; the script validates the hint against the registered ids and walks the env / `cliDefaultHarness` chain on misses.
+
+### Claude permission story
+
+The shared SKILL.md drops the per-harness `allowed-tools` frontmatter (the field is Claude-specific and would otherwise require per-install rewriting). Claude users wanting the prior pre-approval ergonomics can add the line to `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx @e0ipso/ai-knowledge-base:*)"
+    ]
+  }
+}
+```
+
+That covers every CLI subcommand (`curate`, `bootstrap-incremental`, `node add`, `index rebuild`, ...) and grants the equivalent permissions without needing the per-skill frontmatter.
 
 ## Optional: commit-time hardening
 

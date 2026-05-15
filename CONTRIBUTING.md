@@ -36,6 +36,7 @@ src/
     detect.ts                     # env-based active-harness resolver
     claude/                       # Claude Code adapter
     codex/                        # OpenAI Codex CLI adapter
+    opencode/                     # OpenCode adapter (TS plugin + per-event kb-hooks)
   lib/                            # shared utilities (paths, log, version, schemas, ...)
   templates-source/               # source for the shipped templates/ directory
 scripts/
@@ -94,17 +95,20 @@ CI deploys on push to `main`.
 
 ## Adding a new harness adapter
 
-A "harness" is one of the assistant CLIs we drive (Claude Code, Codex CLI, ...). Each harness lives under `src/harnesses/<id>/` and ships as a `HarnessAdapter` implementation. To wire up a new one (call it `<id>`):
+A "harness" is one of the assistant CLIs we drive (Claude Code, Codex CLI, OpenCode, ...). Each harness lives under `src/harnesses/<id>/` and ships as a `HarnessAdapter` implementation. To wire up a new one (call it `<id>`):
 
 1. **Implement `HarnessAdapter`.** The interface lives in [`src/harnesses/types.ts`](src/harnesses/types.ts). Provide `id`, `hooks`, `paths`, `install`, `upgrade`, `parseTranscript`, `renderTranscript`, `runHeadless`, `buildHarnessOpts`, `doctorChecks`, and (optionally) `detectFromEnv`.
-2. **Register the adapter.** Add it to the central registry in [`src/harnesses/registry.ts`](src/harnesses/registry.ts) so `--harness <id>` and the env detector pick it up.
-3. **Add hook scripts.** Place compiled-source hook scripts under `src/harnesses/<id>/hooks/` (one `.mjs` per hook). The build pipeline in `scripts/build-templates.mjs` auto-discovers them and emits them into the bundled `templates/<id>/hooks/` tree.
-4. **Add templates.** Place static template assets (skills, settings stubs, prompts) under `src/templates-source/<id>/`. The build pipeline auto-copies them into `templates/<id>/`.
-5. **Add doctor checks.** Implement harness-specific health probes (CLI on PATH, settings file validity, hook registration intact) in `src/harnesses/<id>/doctor.ts` and surface them via the adapter's `doctorChecks(paths)` method.
-6. **Add a `ModelChoiceSchema` discriminator option.** The discriminated union in [`src/lib/schemas.ts`](src/lib/schemas.ts) keys per-call model selection on the `harness` field. Add a new schema variant (`{ harness: '<id>', name, effort }`) so `proposalModel`, `curatorModel`, and `bootstrapModel` accept your harness in `config.yaml`.
-7. **Write tests.** Place unit and integration tests under `tests/harnesses/<id>/`. Cover at minimum: transcript parsing, hook registration round-trip, doctor checks, and headless-run option mapping.
+2. **Declare your event vocabulary.** `HookEvent` is opaque `string`; each adapter declares the event names its host runtime actually emits (Claude uses `Stop`/`SessionEnd`/...; Codex reuses Claude names; OpenCode uses `session.idle`/`session.created`). Pick whatever names the runtime exposes natively; do not translate to a global enum.
+3. **Choose `hooksDir` or `pluginsDir` in `paths(root)`.** Adapters whose host runtime fires per-event shell commands use `hooksDir`. Adapters whose host runtime expects a long-lived plugin module subscribed to an event bus (OpenCode) use `pluginsDir` instead; the build pipeline auto-detects a sibling `src/harnesses/<id>/plugins/` directory and emits its TS sources to `templates/<id>/plugins/`, plus renames the hook output to `kb-hooks/` (so `.opencode/kb-hooks/` does not collide with the runtime-reserved `.opencode/hooks/`).
+4. **Register the adapter.** Add it to the central registry in [`src/harnesses/registry.ts`](src/harnesses/registry.ts) so `--harness <id>` and the env detector pick it up.
+5. **Add hook scripts.** Place compiled-source hook scripts under `src/harnesses/<id>/hooks/` (one `.mjs` per hook). The build pipeline in `scripts/build-templates.mjs` auto-discovers them and emits them into the bundled `templates/<id>/hooks/` tree (or `kb-hooks/`, see step 3).
+6. **Add templates.** Place static template assets (settings stubs, harness-specific config) under `src/templates-source/<id>/`. Skills are not per-harness: the shared `src/templates-source/skills/` tree installs identical SKILL.md bytes into every configured harness's native skills dir.
+7. **Add doctor checks.** Implement harness-specific health probes (CLI on PATH, settings file validity, hook registration intact) in `src/harnesses/<id>/doctor.ts` and surface them via the adapter's `doctorChecks(paths)` method.
+8. **Add a `ModelChoiceSchema` discriminator option.** The discriminated union in [`src/lib/schemas.ts`](src/lib/schemas.ts) keys per-call model selection on the `harness` field. Add a new schema variant (`{ harness: '<id>', ... }`) so `proposalModel`, `curatorModel`, and `bootstrapModel` accept your harness in `config.yaml`.
+9. **Wire up env detection (if your runtime exports an in-session env var).** Add an env detector to the adapter's `detectFromEnv` AND to the heredoc inside `src/templates-source/skills/kb-curate/SKILL.md` (the `ENV_DETECTORS` array). Both lists must stay in sync; `npm run lint:detect-harness` fails CI on drift.
+10. **Write tests.** Place unit and integration tests under `tests/harnesses/<id>/`. Cover at minimum: transcript parsing, hook registration round-trip, doctor checks, and headless-run option mapping.
 
-Adapters never reach into each other's directories. Anything shared (paths under `.ai/knowledge-base/`, the curator pipeline, the node schema, the secret scanner) lives in the harness-neutral modules under `src/lib/` or `src/commands/`.
+Adapters never reach into each other's directories. Anything shared (paths under `.ai/knowledge-base/`, the curator pipeline, the node schema, the secret scanner, the SKILL.md tree) lives in the harness-neutral modules under `src/lib/` or `src/commands/`, or under `src/templates-source/skills/`.
 
 ## Submitting a PR
 

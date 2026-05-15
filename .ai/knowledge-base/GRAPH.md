@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:d2d57e255c4dabbd29fe6afe325e0034697c23633c1871295d03ef43f0e96dc9'
-node_count: 32
+nodes_hash: 'sha256:40724d33d2636fba09ee3e8cd5307fd88c53e8a55ab2084285bed98037cbfd1d'
+node_count: 34
 ---
 # KB Graph
 
-Total nodes: 32
+Total nodes: 34
 
 ## map-adapter-interface
 
@@ -76,6 +76,13 @@ Total nodes: 32
 - **title:** nodes/ directory
 - **tags:** layout, nodes, kb
 - **derived_from:** docs/how-it-works.md, docs/internals/schemas.md
+
+## map-opencode-harness-adapter
+
+- **kind:** map
+- **title:** OpenCode harness adapter
+- **tags:** harness, adapter, opencode, integration
+- **relates_to:** map-adapter-interface, practice-explicit-harness-flag, practice-shared-skill-templates, map-codex-harness-adapter
 
 ## map-pending-conflicts
 
@@ -159,7 +166,7 @@ Total nodes: 32
 - **kind:** practice
 - **title:** Every CLI invocation passes `--harness <id>` explicitly
 - **tags:** cli, invocation, harness
-- **relates_to:** practice-cli-invocations-use-npx-scoped, map-codex-harness-adapter, map-adapter-interface
+- **relates_to:** practice-cli-invocations-use-npx-scoped, practice-shared-skill-templates, map-codex-harness-adapter, map-opencode-harness-adapter, map-adapter-interface
 
 ## practice-human-in-the-loop-via-git
 
@@ -209,6 +216,13 @@ Total nodes: 32
 - **title:** Secretlint redacts every session transcript before write
 - **tags:** security, secrets, capture
 - **derived_from:** PRD.md, docs/internals/hooks.md, docs/installation.md
+
+## practice-shared-skill-templates
+
+- **kind:** practice
+- **title:** Shared SKILL.md source resolved at runtime
+- **tags:** skills, templates, harness
+- **relates_to:** practice-explicit-harness-flag, map-opencode-harness-adapter, map-codex-harness-adapter, map-claude-skills
 
 ## practice-split-practice-and-map
 

@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@e0ipso/ai-knowledge-base.svg)](https://www.npmjs.com/package/@e0ipso/ai-knowledge-base)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Build and maintain a per-repo knowledge base from AI coding sessions, for use with [Claude Code](https://docs.claude.com/en/docs/claude-code) or [OpenAI Codex CLI](https://developers.openai.com/codex/cli/).
+Build and maintain a per-repo knowledge base from AI coding sessions, for use with [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenAI Codex CLI](https://developers.openai.com/codex/cli/), or [OpenCode](https://opencode.ai/).
 
 Your AI sessions produce a steady stream of project-specific knowledge - conventions, prohibitions, gotchas, named modules, decision rationale. Today, almost all of it evaporates when the session ends. This tool captures it, asks a human to curate it, and injects it back into every future session so the harness starts each conversation with your team's accumulated context.
 
@@ -14,7 +14,7 @@ npx @e0ipso/ai-knowledge-base init --harnesses claude
 npx @e0ipso/ai-knowledge-base doctor
 ```
 
-For OpenAI Codex CLI, install with `npx @e0ipso/ai-knowledge-base init --harnesses codex` instead; Codex skills install under `.agents/skills/` (Claude skills install under `.claude/skills/`).
+For OpenAI Codex CLI, install with `npx @e0ipso/ai-knowledge-base init --harnesses codex`; Codex skills install under `.agents/skills/`. For OpenCode, install with `npx @e0ipso/ai-knowledge-base init --harnesses opencode`; OpenCode ships a single TS plugin shim at `.opencode/plugins/kb.mjs` plus per-event Node scripts under `.opencode/kb-hooks/`, and skills install under `.opencode/skills/`. All three harnesses share the same SKILL.md source; the active harness is resolved at runtime from inside each skill via a small `/tmp/kb-detect-harness.mjs` helper that the skill body materializes on first use.
 
 That's the consumer path. After running `init`, AI sessions in this repo automatically capture candidate knowledge; `npx @e0ipso/ai-knowledge-base curate` (or `/kb-curate` from inside a session) writes new knowledge nodes directly under `nodes/`. You review with `git diff`, accept with `git commit`, reject with `git restore`.
 

@@ -2,7 +2,7 @@
 id: 6
 group: "opencode-adapter"
 dependencies: [4]
-status: "pending"
+status: "completed"
 created: 2026-05-15
 skills:
   - typescript

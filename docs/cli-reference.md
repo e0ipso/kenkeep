@@ -11,13 +11,29 @@ The `ai-knowledge-base` binary is available after install (or run via `npx`).
 
 ### `--harness <id>`
 
-Selects which harness adapter (`claude` or `codex`) drives this invocation. Inherited by every subcommand. When omitted, the CLI inspects the environment for harness-specific markers (e.g. `CLAUDECODE=1`); if no harness claims the env it falls back to the configured default, then to the first registered harness.
+Selects which harness adapter (`claude`, `codex`, or `opencode`) drives this invocation. Inherited by every subcommand. When omitted, the CLI inspects the environment for harness-specific markers (e.g. `CLAUDECODE=1`); if no harness claims the env it falls back to the configured default, then to the first registered harness. Codex and OpenCode do not export an in-session env var, so when invoking from inside a Codex or OpenCode session you must pass `--harness` explicitly or set `cliDefaultHarness` in `config.yaml`.
 
 Use the flag explicitly when running CLI commands outside an active session, or in a repo where multiple harnesses are installed.
 
 ```sh
 npx @e0ipso/ai-knowledge-base --harness codex doctor
 ```
+
+### Detect-harness recipe for skill authors
+
+Authors writing their own KB-related skills should not hardcode the `--harness <id>` value. The shipped `kb-add`, `kb-bootstrap`, and `kb-curate` skills resolve it at runtime via a tiny helper script that the skill body materializes from a heredoc on first use:
+
+```bash
+if [ ! -f /tmp/kb-detect-harness.mjs ]; then
+  cat << 'EOF' > /tmp/kb-detect-harness.mjs
+# (script body; ~50 lines, mirrored from src/harnesses/detect.ts resolveWithHint)
+EOF
+fi
+HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <claude|codex|opencode>)
+npx @e0ipso/ai-knowledge-base curate --harness "$HARNESS"
+```
+
+The LLM authoring the skill body substitutes its own best-guess id for the `<hint>` placeholder when emitting the bash. The script validates the hint against the registered ids, falls back to env detection (Claude), then `cliDefaultHarness` from `config.yaml`, then exits non-zero with a helpful message. The full heredoc body lives inside the shared `src/templates-source/skills/kb-curate/SKILL.md`; a CI lint (`npm run lint:detect-harness`) catches drift between the heredoc and the TS resolver in `src/harnesses/detect.ts`.
 
 ## `init`
 
@@ -27,7 +43,7 @@ npx @e0ipso/ai-knowledge-base init --harnesses <id[,id,...]> [--force] [--upgrad
 
 First-time setup. Writes the knowledge-base scaffold (`.ai/knowledge-base/`), per-harness hooks and skills, and a managed `.gitignore` block for the runtime state files. Does not patch `package.json` and does not install any commit-time tooling (husky, lint-staged, secretlint, commitlint); see [Installation, Optional commit-time hardening](installation.md#optional-commit-time-hardening) if you want those.
 
-Supported `--harnesses` ids: `claude`, `codex`. Pass a comma-separated list to install several at once (`--harnesses claude,codex`).
+Supported `--harnesses` ids: `claude`, `codex`, `opencode`. Pass a comma-separated list to install several at once (`--harnesses claude,codex,opencode`).
 
 - `--force`: overwrite existing template files (never touches your project config).
 - `--upgrade`: refresh templates and skills while preserving `config.yaml` and local prompt overrides.

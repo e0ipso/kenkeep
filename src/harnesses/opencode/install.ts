@@ -1,5 +1,6 @@
 import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { installSharedSkills } from '../../lib/install-skills.js';
 import type { HarnessInstallOptions } from '../types.js';
 
 /**
@@ -44,6 +45,8 @@ export async function installOpenCode(opts: HarnessInstallOptions): Promise<void
   if (existsSync(kbHooksSrc)) {
     copyTree(kbHooksSrc, paths.kbHooksDir);
   }
+
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
 }
 
 function copyTree(src: string, dest: string): void {

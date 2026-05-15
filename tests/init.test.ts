@@ -102,6 +102,32 @@ describe('init', () => {
     expect(result.stderr + result.stdout).toMatch(/cursor|Unsupported assistant/i);
   });
 
+  it('installs the shared skill bytes identically across claude, codex, and opencode', async () => {
+    const result = await runCli(sandbox, [
+      'init',
+      '--harnesses',
+      'claude,codex,opencode',
+    ]);
+    expect(result.exitCode).toBe(0);
+    const claudeSkill = readFileSync(
+      join(sandbox, '.claude/skills/kb-curate/SKILL.md'),
+      'utf8'
+    );
+    const codexSkill = readFileSync(
+      join(sandbox, '.agents/skills/kb-curate/SKILL.md'),
+      'utf8'
+    );
+    const openCodeSkill = readFileSync(
+      join(sandbox, '.opencode/skills/kb-curate/SKILL.md'),
+      'utf8'
+    );
+    expect(claudeSkill).toBe(codexSkill);
+    expect(codexSkill).toBe(openCodeSkill);
+    expect(claudeSkill).toContain('/tmp/kb-detect-harness.mjs');
+    expect(existsSync(join(sandbox, '.opencode/plugins/kb.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.opencode/kb-hooks/kb-capture.mjs'))).toBe(true);
+  });
+
   it('succeeds in a repo without a package.json and produces no husky/secretlint artefacts', async () => {
     expect(existsSync(join(sandbox, 'package.json'))).toBe(false);
 

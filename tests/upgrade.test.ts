@@ -59,7 +59,7 @@ describe('init --upgrade', () => {
     expect(after.version).not.toBe('0.0.0-test-old');
   });
 
-  it('ships the tightened kb-curate allowed-tools after upgrade', async () => {
+  it('overwrites a stale kb-curate skill with the shared detect-harness body on upgrade', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
 
     const versionFile = join(sandbox, '.ai/knowledge-base/.state/installed-version');
@@ -67,8 +67,9 @@ describe('init --upgrade', () => {
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
 
-    // Pre-populate the installed skill with the previous (looser) allowed-tools
-    // to prove that upgrade rewrites the file rather than leaving it untouched.
+    // Pre-populate the installed skill with stale content (the older
+    // per-harness skill once carried `allowed-tools`; the shared body
+    // does not). Upgrade must overwrite the file with the shared bytes.
     const skillFile = join(sandbox, '.claude/skills/kb-curate/SKILL.md');
     writeFileSync(
       skillFile,
@@ -79,10 +80,10 @@ describe('init --upgrade', () => {
     expect(result.exitCode).toBe(0);
 
     const skill = readFileSync(skillFile, 'utf8');
-    expect(skill).toContain('allowed-tools: Bash(npx @e0ipso/ai-knowledge-base curate:*), Read');
+    expect(skill).toContain('/tmp/kb-detect-harness.mjs');
+    expect(skill).toContain('--harness "$HARNESS"');
     expect(skill).not.toContain('Bash(rm:*)');
-    expect(skill).not.toMatch(/allowed-tools:[^\n]*\bEdit\b/);
-    expect(skill).not.toMatch(/allowed-tools:[^\n]*\bWrite\b/);
+    expect(skill).not.toMatch(/^allowed-tools:/m);
   });
 
   it('preserves a customized local prompt override', async () => {

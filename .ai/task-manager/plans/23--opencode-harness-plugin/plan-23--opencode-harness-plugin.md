@@ -391,9 +391,9 @@ graph TD
 - ✔️ Task 02: Parameterize tsup to discover per-adapter hooks/ AND plugins/ artifacts
 - ✔️ Task 03: Add resolveWithHint to detect.ts implementing the --hint priority chain
 
-### Phase 2: OpenCode Adapter Scaffold
+### ✅ Phase 2: OpenCode Adapter Scaffold
 **Parallel Tasks:**
-- Task 04: Scaffold the OpenCode harness adapter module and register it (depends on: 01, 02)
+- ✔️ Task 04: Scaffold the OpenCode harness adapter module and register it (depends on: 01, 02)
 
 ### Phase 3: OpenCode Adapter Implementation + Skills Consolidation
 **Parallel Tasks:**

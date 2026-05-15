@@ -5,7 +5,7 @@ description: First-time bootstrap of the project knowledge base from existing ma
 
 # kb-bootstrap
 
-You are doing a one-time bootstrap of this project's knowledge base from its existing documentation. The user invoked this skill in their normal Codex session, so they are watching and can correct you in-flight if you go off track.
+You are doing a one-time bootstrap of this project's knowledge base from its existing documentation. The user invoked this skill in their normal session, so they are watching and can correct you in-flight if you go off track.
 
 ## Your task
 
@@ -21,23 +21,91 @@ Before you start, read `.ai/knowledge-base/config.yaml` (falling back to `~/.con
 
 ## Steps
 
-### 1. Survey the structure
+### 1. Resolve the active harness
 
-Run `npx @e0ipso/ai-knowledge-base bootstrap-incremental --harness codex --dry-run --from <scope>` once, where `<scope>` is the user's path argument (or `docs` as the default). Parse the `  + <relpath>` lines from the output: each prefixed line names one candidate markdown file the CLI would process. The CLI has already applied `.gitignore`, the project's include/exclude rules, and a static skip list (filenames like `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `INDEX.md`, `GRAPH.md`, `releases/**/*.md`); you will not see those in the list.
+Materialize the detect-harness helper (skip if it already exists). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `opencode`):
+
+   ```bash
+   if [ ! -f /tmp/kb-detect-harness.mjs ]; then
+     cat << 'EOF' > /tmp/kb-detect-harness.mjs
+   #!/usr/bin/env node
+   // kb-detect-harness: resolves the active KB harness id.
+   // Mirrors src/harnesses/detect.ts resolveWithHint priority.
+   import { existsSync, readFileSync } from 'node:fs';
+   import { dirname, join } from 'node:path';
+   const REGISTERED = ['claude', 'codex', 'opencode'];
+   const ENV_DETECTORS = [
+     { env: 'CLAUDECODE', value: '1', harness: 'claude' },
+     { env: 'CLAUDE_PROJECT_DIR', value: '*nonempty*', harness: 'claude' },
+   ];
+   function findHint(argv) {
+     for (let i = 0; i < argv.length; i++) {
+       if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
+     }
+     return undefined;
+   }
+   function detectFromEnv(env) {
+     for (const d of ENV_DETECTORS) {
+       if (d.value === '*nonempty*') {
+         if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
+       } else if (env[d.env] === d.value) return d.harness;
+     }
+     return undefined;
+   }
+   function findRepoRoot(start) {
+     let dir = start;
+     while (true) {
+       if (existsSync(join(dir, '.ai', 'knowledge-base'))) return dir;
+       const parent = dirname(dir);
+       if (parent === dir) return null;
+       dir = parent;
+     }
+   }
+   function readDefault(root) {
+     if (!root) return undefined;
+     const config = join(root, '.ai', 'knowledge-base', 'config.yaml');
+     if (!existsSync(config)) return undefined;
+     const text = readFileSync(config, 'utf8');
+     const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
+     return m ? m[1] : undefined;
+   }
+   const hint = findHint(process.argv.slice(2));
+   if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
+   const fromEnv = detectFromEnv(process.env);
+   if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
+   const fromDefault = readDefault(findRepoRoot(process.cwd()));
+   if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
+   process.stderr.write('kb-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/knowledge-base/config.yaml.\n');
+   process.exit(2);
+   EOF
+   fi
+   ```
+
+Then resolve the active harness once for the session:
+
+   ```bash
+   HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
+   ```
+
+Pass `--harness "$HARNESS"` to every subsequent CLI call in this skill.
+
+### 2. Survey the structure
+
+Run `npx @e0ipso/ai-knowledge-base bootstrap-incremental --harness "$HARNESS" --dry-run --from <scope>` once, where `<scope>` is the user's path argument (or `docs` as the default). Parse the `  + <relpath>` lines from the output: each prefixed line names one candidate markdown file the CLI would process. The CLI has already applied `.gitignore`, the project's include/exclude rules, and a static skip list (filenames like `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `INDEX.md`, `GRAPH.md`, `releases/**/*.md`); you will not see those in the list.
 
 Count the lines and report briefly to the user before reading anything in depth, e.g. "The CLI lists 30 markdown files across docs/, three module READMEs, two top-level overviews. I'll prioritize the overviews first, then sample modules." Use judgement to spot entry points, suspected-stale docs, and a sampling order from the deterministic list, but do not rebuild it.
 
-### 2. Read entry points first
+### 3. Read entry points first
 
 Read the top-level entry points completely. They usually frame project vocabulary, name the major components, and establish the conventions vocabulary you'll need to recognize.
 
-### 3. Sample and follow cross-references
+### 4. Sample and follow cross-references
 
 Don't read every file end-to-end. Sample representative content and follow links between docs. If a top-level README mentions "see docs/architecture/auth.md for the authentication design," that's a high-signal pointer to follow.
 
 For large reference docs (e.g. method-by-method API listings), skim section headers and only read prose sections, skipping auto-generated tables.
 
-### 4. Identify candidates as you read
+### 5. Identify candidates as you read
 
 For each piece of content that looks like project knowledge, decide which kind:
 
@@ -61,7 +129,7 @@ Skip (content judgement only; filename-pattern skips are already handled by the 
 - General programming knowledge that's not project-specific (Drupal/React/Django basics).
 - Aspirational TODOs and "we should eventually" content.
 
-### 5. Write nodes
+### 6. Write nodes
 
 For each candidate, write a node file at `.ai/knowledge-base/nodes/<kind>/<kind>-<slug>.md`. **Before writing, check whether the file already exists.** Bootstrap is conservative and never overwrites an existing node. If you hit a collision, refine the title or skip the candidate and call it out in your final report.
 
@@ -90,11 +158,11 @@ Default `confidence: medium` for bootstrap content. Existing docs may be stale o
 
 If a candidate is sourced from multiple docs (you found the same convention discussed in two places), list all of them in `derived_from` and produce a single node, not duplicates.
 
-### 6. Refresh INDEX.md and GRAPH.md
+### 7. Refresh INDEX.md and GRAPH.md
 
-After writing nodes, run `npx @e0ipso/ai-knowledge-base index rebuild --harness codex` so the indices reflect the new nodes before the user reviews `git diff nodes/`.
+After writing nodes, run `npx @e0ipso/ai-knowledge-base index rebuild --harness "$HARNESS"` so the indices reflect the new nodes before the user reviews `git diff nodes/`.
 
-### 7. Report back
+### 8. Report back
 
 When you're done, summarize for the user:
 

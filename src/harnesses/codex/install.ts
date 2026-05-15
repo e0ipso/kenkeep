@@ -1,5 +1,6 @@
 import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { installSharedSkills } from '../../lib/install-skills.js';
 import type { HarnessInstallOptions } from '../types.js';
 import { codexHookSpecs } from './hook-spec.js';
 import { writeCodexHooks } from './hooks-config.js';
@@ -35,9 +36,7 @@ export async function installCodex(opts: HarnessInstallOptions): Promise<void> {
   if (existsSync(join(templateDir, 'hooks'))) {
     copyTree(join(templateDir, 'hooks'), paths.hooksDir);
   }
-  if (existsSync(join(templateDir, 'skills'))) {
-    copyTree(join(templateDir, 'skills'), paths.skillsDir);
-  }
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
   await writeCodexHooks(
     opts.root,
     codexHookSpecs.map(spec => ({
@@ -58,7 +57,7 @@ export function refreshCodexTemplates(opts: HarnessInstallOptions): void {
   const templates = join(opts.templatesDir, CODEX_TEMPLATE_SUBDIR);
   const paths = codexPaths(opts.root);
   copyTree(join(templates, 'hooks'), paths.hooksDir);
-  copyTree(join(templates, 'skills'), paths.skillsDir);
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
 }
 
 function copyTree(src: string, dest: string): void {

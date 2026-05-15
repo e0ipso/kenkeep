@@ -1,5 +1,6 @@
 import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { installSharedSkills } from '../../lib/install-skills.js';
 import type { HarnessInstallOptions } from '../types.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
 import { writeClaudeHookConfig } from './hooks-config.js';
@@ -32,6 +33,7 @@ export async function installClaude(opts: HarnessInstallOptions): Promise<void> 
   if (existsSync(claudeTemplateDir)) {
     copyTree(claudeTemplateDir, paths.dir);
   }
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
   await writeClaudeHookConfig(
     opts.root,
     CLAUDE_HOOK_SPECS.map(spec => ({
@@ -52,7 +54,7 @@ export function refreshClaudeTemplates(opts: HarnessInstallOptions): void {
   const templates = join(opts.templatesDir, CLAUDE_TEMPLATE_SUBDIR);
   const paths = claudePaths(opts.root);
   copyTree(join(templates, 'hooks'), paths.hooksDir);
-  copyTree(join(templates, 'skills'), paths.skillsDir);
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
 }
 
 function copyTree(src: string, dest: string): void {

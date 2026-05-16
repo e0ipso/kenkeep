@@ -1,3 +1,14 @@
+## [0.9.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.8.0...v0.9.0) (2026-05-16)
+
+### Features
+
+* **opencode:** implement plugin and skills ([9180c66](https://github.com/e0ipso/ai-knowledge-base/commit/9180c666b154f16282a56e4f7caf7f9108a2b7d5))
+* **opencode:** scaffold harness adapter ([d8de360](https://github.com/e0ipso/ai-knowledge-base/commit/d8de360244e540634599c7b9e67335967e568bb8))
+
+### Bug Fixes
+
+* **opencode:** dedent heredoc and add marker ([c66a5cc](https://github.com/e0ipso/ai-knowledge-base/commit/c66a5cc8feda43643240df1db99103d5063ba7d9))
+
 ## [0.8.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.7.0...v0.8.0) (2026-05-15)
 
 ### Features

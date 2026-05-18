@@ -4,8 +4,6 @@ FROM ${BASE_IMAGE}
 ARG TZ=Europe/Madrid
 ENV TZ="$TZ"
 
-ARG CLAUDE_CODE_VERSION=latest
-
 # Install basic development tools and iptables/ipset
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
@@ -43,7 +41,8 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
   && chown -R $USERNAME /commandhistory
 
 # Pre-create directories that will be needed for bind mounts
-RUN mkdir -p /home/$USERNAME/.claude/debug && chown -R $USERNAME:$USERNAME /home/$USERNAME/.claude
+RUN mkdir -p /home/$USERNAME/.config/opencode && chown -R $USERNAME:$USERNAME /home/$USERNAME/.config/opencode
+RUN mkdir -p /home/$USERNAME/.local/share/opencode && chown -R $USERNAME:$USERNAME /home/$USERNAME/.local/share/opencode
 
 # Set `DEVCONTAINER` environment variable to help with orientation
 ENV DEVCONTAINER=true
@@ -65,5 +64,5 @@ ENV PATH=$PATH:/usr/local/share/npm-global/bin
 ENV EDITOR=vim
 ENV VISUAL=vim
 
-# Install Claude
-RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:-latest}
+# Install OpenCode
+RUN curl -fsSL https://opencode.ai/install | bash

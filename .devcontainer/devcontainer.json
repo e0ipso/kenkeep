@@ -56,7 +56,6 @@
     "source=opencode-data-${devcontainerId},target=/home/node/.local/share/opencode,type=volume",
     "source=${localEnv:HOME}/.local/share/opencode/auth.json,target=/home/node/.local/share/opencode/auth.json,readonly,type=bind,consistency=cached",
 
-
     "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/node/.claude/settings.json,type=bind,consistency=cached",
@@ -75,7 +74,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "sudo chown -R node:node /home/node/.config/opencode || true",
-  "postStartCommand": "opencode upgrade",
+  "postCreateCommand": "true",
+  "postStartCommand": "opencode upgrade; claude upgrade",
   "waitFor": "postStartCommand"
 }

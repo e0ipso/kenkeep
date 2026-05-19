@@ -6,10 +6,10 @@ import type { HookSpec } from '../types.js';
  * `writeClaudeHookConfig` settings writer.
  */
 export const CLAUDE_HOOK_SPECS: readonly HookSpec[] = [
-  { event: 'Stop', scriptPath: 'kb-capture.mjs' },
-  { event: 'SessionEnd', scriptPath: 'kb-capture.mjs' },
-  { event: 'SessionEnd', scriptPath: 'kb-lint-tick.mjs', async: true },
-  { event: 'PreCompact', scriptPath: 'kb-capture.mjs' },
-  { event: 'SessionStart', scriptPath: 'kb-proposal-drain.mjs', async: true },
-  { event: 'SessionStart', scriptPath: 'kb-session-start.mjs' },
+  { event: 'Stop', scriptPath: 'kb-capture.cjs' },
+  { event: 'SessionEnd', scriptPath: 'kb-capture.cjs' },
+  { event: 'SessionEnd', scriptPath: 'kb-lint-tick.cjs', async: true },
+  { event: 'PreCompact', scriptPath: 'kb-capture.cjs' },
+  { event: 'SessionStart', scriptPath: 'kb-proposal-drain.cjs', async: true },
+  { event: 'SessionStart', scriptPath: 'kb-session-start.cjs' },
 ];

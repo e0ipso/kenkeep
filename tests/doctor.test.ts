@@ -69,14 +69,14 @@ describe('doctor', () => {
     expect(combined).toContain('skipped');
   });
 
-  it('reports a missing kb-lint-tick.mjs as an error in the Claude hooks check', async () => {
+  it('reports a missing kb-lint-tick.cjs as an error in the Claude hooks check', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    rmSync(join(sandbox, '.claude/hooks/kb-lint-tick.mjs'));
+    rmSync(join(sandbox, '.claude/hooks/kb-lint-tick.cjs'));
     const result = await runCli(sandbox, ['doctor']);
     expect(result.exitCode).toBe(1);
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('Claude hooks registered');
-    expect(combined).toContain('kb-lint-tick.mjs');
+    expect(combined).toContain('kb-lint-tick.cjs');
   });
 
   it('flags an invalid config.yaml as an error', async () => {

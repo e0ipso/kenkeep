@@ -136,7 +136,7 @@ function guardAgainstTomlHooks(paths: CodexHookWritePaths): void {
  * the `node ./.codex/hooks/kb-` command prefix and replaced wholesale.
  *
  * Hook specs accepted here use Codex-relative script paths (e.g.
- * `.codex/hooks/kb-capture.mjs`). The caller of this function is
+ * `.codex/hooks/kb-capture.cjs`). The caller of this function is
  * responsible for prefixing the harness directory before invoking it.
  */
 export async function writeCodexHooks(

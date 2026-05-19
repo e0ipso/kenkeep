@@ -52,7 +52,7 @@ describe('init --upgrade', () => {
     expect(readFileSync(configFile, 'utf8')).toBe(customized);
 
     // Hooks present.
-    expect(existsSync(join(sandbox, '.claude/hooks/kb-capture.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.claude/hooks/kb-capture.cjs'))).toBe(true);
 
     // installed-version bumped to current.
     const after = JSON.parse(readFileSync(versionFile, 'utf8'));

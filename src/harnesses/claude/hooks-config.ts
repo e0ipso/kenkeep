@@ -18,7 +18,7 @@ const HOOK_INSTALL_PATH = '.claude/hooks';
  * the `.claude/hooks/kb-` script-path prefix and replaced wholesale.
  *
  * Hook specs accepted here use Claude-relative script paths (e.g.
- * `.claude/hooks/kb-capture.mjs`), so the caller of this function is
+ * `.claude/hooks/kb-capture.cjs`), so the caller of this function is
  * responsible for prefixing the harness directory before invoking it.
  */
 export async function writeClaudeHookConfig(

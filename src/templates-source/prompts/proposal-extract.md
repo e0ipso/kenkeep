@@ -2,7 +2,7 @@
 
 <!--
   Version: 4
-  Used by: kb-proposal-drain.mjs (via `claude -p`)
+  Used by: kb-proposal-drain.cjs (via `claude -p`)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
 -->

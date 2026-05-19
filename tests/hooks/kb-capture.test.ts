@@ -9,7 +9,7 @@ import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 const exec = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../..');
-const hookPath = join(repoRoot, 'dist/hooks/claude/kb-capture.mjs');
+const hookPath = join(repoRoot, 'dist/hooks/claude/kb-capture.cjs');
 const HOOK_SESS = '66666666-6666-4666-8666-666666666666';
 
 async function gitInit(dir: string): Promise<void> {
@@ -78,7 +78,7 @@ describe('kb-capture hook (spawned)', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('compiled hook bundle exists at dist/hooks/claude/kb-capture.mjs', () => {
+  it('compiled hook bundle exists at dist/hooks/claude/kb-capture.cjs', () => {
     expect(existsSync(hookPath)).toBe(true);
   });
 

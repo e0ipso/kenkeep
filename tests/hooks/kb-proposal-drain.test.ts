@@ -9,7 +9,7 @@ import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../..');
-const hookPath = join(repoRoot, 'dist/hooks/claude/kb-proposal-drain.mjs');
+const hookPath = join(repoRoot, 'dist/hooks/claude/kb-proposal-drain.cjs');
 
 interface SpawnResult {
   stdout: string;
@@ -87,7 +87,7 @@ describe('kb-proposal-drain hook (spawned)', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('compiled hook bundle exists at dist/hooks/claude/kb-proposal-drain.mjs', () => {
+  it('compiled hook bundle exists at dist/hooks/claude/kb-proposal-drain.cjs', () => {
     expect(existsSync(hookPath)).toBe(true);
   });
 

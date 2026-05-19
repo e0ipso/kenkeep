@@ -1,14 +1,12 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
 
 const exec = promisify(execFile);
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('init', () => {
   let sandbox: string;
@@ -39,9 +37,9 @@ describe('init', () => {
       '.claude/skills/kb-add/SKILL.md',
       '.claude/skills/kb-bootstrap/SKILL.md',
       '.claude/skills/kb-curate/SKILL.md',
-      '.claude/hooks/kb-capture.mjs',
-      '.claude/hooks/kb-proposal-drain.mjs',
-      '.claude/hooks/kb-session-start.mjs',
+      '.claude/hooks/kb-capture.cjs',
+      '.claude/hooks/kb-proposal-drain.cjs',
+      '.claude/hooks/kb-session-start.cjs',
       '.ai/knowledge-base/.state/installed-version',
       '.ai/knowledge-base/.config/prompts/proposal-extract.md',
       '.ai/knowledge-base/.config/prompts/curator.md',
@@ -125,7 +123,7 @@ describe('init', () => {
     expect(codexSkill).toBe(openCodeSkill);
     expect(claudeSkill).toContain('/tmp/kb-detect-harness.mjs');
     expect(existsSync(join(sandbox, '.opencode/plugins/kb.mjs'))).toBe(true);
-    expect(existsSync(join(sandbox, '.opencode/kb-hooks/kb-capture.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.opencode/kb-hooks/kb-capture.cjs'))).toBe(true);
   });
 
   it('succeeds in a repo without a package.json and produces no husky/secretlint artefacts', async () => {
@@ -153,7 +151,7 @@ describe('init', () => {
       const entries = settings.hooks?.[event];
       expect(entries, `expected hook entry for ${event}`).toBeDefined();
       expect(entries?.[0]?.hooks[0]?.command).toBe(
-        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"'
+        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.cjs"'
       );
     }
   });
@@ -175,11 +173,11 @@ describe('init', () => {
     expect(commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-proposal-drain.mjs"',
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-proposal-drain.cjs"',
           async: true,
         }),
         expect.objectContaining({
-          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-session-start.mjs"',
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-session-start.cjs"',
         }),
       ])
     );
@@ -210,12 +208,6 @@ describe('init', () => {
     const stopCommand = settings.hooks?.['Stop']?.[0]?.hooks[0]?.command;
     expect(stopCommand).toBeDefined();
 
-    // Hooks ship as bundles that still depend on a few externals (e.g. zod).
-    // In a consumer install these resolve through npm-installed transitive
-    // deps; the sandbox has no node_modules of its own, so point Node at the
-    // workspace tree by symlinking it.
-    symlinkSync(join(repoRoot, 'node_modules'), join(sandbox, 'node_modules'), 'dir');
-
     const subdir = join(sandbox, 'nested/leaf');
     mkdirSync(subdir, { recursive: true });
 
@@ -245,9 +237,9 @@ describe('init', () => {
     );
   });
 
-  it('registers both SessionEnd capture and lint-tick hooks and ships kb-lint-tick.mjs', async () => {
+  it('registers both SessionEnd capture and lint-tick hooks and ships kb-lint-tick.cjs', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    expect(existsSync(join(sandbox, '.claude/hooks/kb-lint-tick.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.claude/hooks/kb-lint-tick.cjs'))).toBe(true);
 
     const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
       hooks?: Record<string, Array<{ hooks: Array<{ type: string; command: string }> }>>;
@@ -256,8 +248,8 @@ describe('init', () => {
     const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
     expect(commands).toEqual(
       expect.arrayContaining([
-        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"',
-        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-lint-tick.mjs"',
+        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.cjs"',
+        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-lint-tick.cjs"',
       ])
     );
   });
@@ -272,10 +264,10 @@ describe('init', () => {
     const sessionEnd = settings.hooks?.['SessionEnd'] ?? [];
     const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
     const captureCount = commands.filter(
-      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.mjs"'
+      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.cjs"'
     ).length;
     const lintCount = commands.filter(
-      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-lint-tick.mjs"'
+      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-lint-tick.cjs"'
     ).length;
     expect(captureCount).toBe(1);
     expect(lintCount).toBe(1);

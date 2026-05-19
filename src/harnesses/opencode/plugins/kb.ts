@@ -23,8 +23,8 @@ interface OpenCodeEvent {
 }
 
 const DISPATCH: Record<string, string[]> = {
-  'session.created': ['kb-session-start.mjs', 'kb-proposal-drain.mjs'],
-  'session.idle': ['kb-capture.mjs', 'kb-lint-tick.mjs'],
+  'session.created': ['kb-session-start.cjs', 'kb-proposal-drain.cjs'],
+  'session.idle': ['kb-capture.cjs', 'kb-lint-tick.cjs'],
 };
 
 export default async (input: OpenCodePluginInput) => {

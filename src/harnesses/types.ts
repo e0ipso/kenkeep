@@ -12,7 +12,7 @@ export type HookEvent = string;
 
 /**
  * Canonical hook registration record. `scriptPath` is harness-relative
- * (e.g. `kb-capture.mjs` for Claude under `.claude/hooks/`).
+ * (e.g. `kb-capture.cjs` for Claude under `.claude/hooks/`).
  */
 export interface HookSpec {
   event: HookEvent;

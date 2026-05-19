@@ -10,7 +10,7 @@ import { defineConfig } from 'tsup';
  *   1. **Per-event hook scripts** discovered at `src/harnesses/<id>/hooks/*.ts`.
  *      For adapters whose host runtime owns `<dir>/hooks/` (OpenCode reserves
  *      `.opencode/hooks/` for its own use), the output is renamed to
- *      `kb-hooks/<name>.mjs` to keep the private dispatch tree separate. The
+ *      `kb-hooks/<name>.cjs` to keep the private dispatch tree separate. The
  *      rename is triggered by the presence of a sibling `plugins/` directory:
  *      that signals the adapter ships a plugin shim and needs `kb-hooks/`
  *      under its native root (see Plan 23 for the convention).
@@ -91,20 +91,30 @@ const configs = [
     banner: { js: '#!/usr/bin/env node' },
   },
   {
-    // Hooks ship as compiled, self-contained .mjs files. We use the
-    // .mjs extension so they run as ESM in consumer repos regardless
-    // of the consumer's package.json `type` field.
+    // Hooks ship as compiled, self-contained .cjs files. The .cjs
+    // extension forces CommonJS regardless of the consumer's
+    // package.json `type` field. CJS is the natural format here
+    // because the bundled runtime deps (zod, js-yaml, @secretlint/*,
+    // proper-lockfile, etc.) are CJS-native and call `require()`
+    // internally; bundling them into an ESM `.mjs` would require a
+    // `createRequire` shim to satisfy those calls. `noExternal`
+    // inlines every npm dependency so the hook does not rely on the
+    // consumer repo having our runtime deps installed.
     entry: discovered.hookEntries,
     outDir: 'dist/hooks',
-    format: ['esm'] as const,
+    format: ['cjs'] as const,
     target: 'node22',
     splitting: false,
     sourcemap: false,
     clean: false,
     dts: false,
     minify: false,
-    shims: false,
-    outExtension: () => ({ js: '.mjs' }),
+    // Polyfills `import.meta.url` for the CJS output so any helper that
+    // resolves paths relative to its own module (e.g. `packageRoot()` in
+    // `lib/paths.ts`) keeps working when bundled into a `.cjs` hook.
+    shims: true,
+    noExternal: [/.*/],
+    outExtension: () => ({ js: '.cjs' }),
   },
 ];
 

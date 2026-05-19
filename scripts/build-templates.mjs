@@ -2,8 +2,8 @@
 // Builds the shipped `templates/` directory.
 //
 // 1. Copies `src/templates-source/` (static markdown, settings, etc.) into `templates/`.
-// 2. Copies compiled hook scripts from `dist/hooks/<harness>/*.mjs` into
-//    `templates/<harness>/hooks/*.mjs` (or `templates/<harness>/kb-hooks/*.mjs`
+// 2. Copies compiled hook scripts from `dist/hooks/<harness>/*.cjs` into
+//    `templates/<harness>/hooks/*.cjs` (or `templates/<harness>/kb-hooks/*.cjs`
 //    for adapters that also ship a plugin shim, to keep our dispatch tree
 //    separate from a runtime-reserved `hooks/` directory).
 // 3. Copies compiled plugin modules from `dist/plugins/<harness>/*.mjs` into
@@ -49,7 +49,7 @@ if (existsSync(compiledHooksRoot)) {
     for (const name of readdirSync(harnessDir)) {
       const from = join(harnessDir, name);
       if (!statSync(from).isFile()) continue;
-      if (!name.endsWith('.mjs')) continue;
+      if (!name.endsWith('.cjs')) continue;
       cpSync(from, join(destHooksDir, name));
       copied += 1;
     }

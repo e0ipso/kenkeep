@@ -116,7 +116,7 @@ Walks `_logs/` recursively and deletes `*.jsonl` files older than `settings.logs
 Project-level settings live in `.ai/knowledge-base/config.yaml` (committed). The file is strict: unknown keys cause a hard error naming the offending file.
 
 ```yaml
-schema_version: 2
+schema_version: 1
 curationThreshold: 5
 logsRetentionDays: 30
 lintEveryNSessions: 50

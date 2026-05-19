@@ -1,24 +1,27 @@
 ---
 schema_version: 1
 id: map-nodes-directory
-title: "nodes/ directory"
+title: "nodes/ directory and the two kinds"
 kind: map
-tags: [layout, nodes, kb]
+tags: [nodes, practice, map, frontmatter, schema]
 derived_from:
   - docs/how-it-works.md
   - docs/internals/schemas.md
-relates_to: []
+relates_to:
+  - map-node-frontmatter
+  - map-knowledge-base-directory
+depends_on: []
 confidence: high
-summary: "Canonical knowledge lives at nodes/{practice,map}/<id>.md; reviewed via git diff, accepted via git commit."
+summary: "Knowledge nodes live as markdown under nodes/{practice,map}/<id>.md. Two kinds: practice (how we build) and map (what exists)."
 ---
 
-# `nodes/` directory
+# `nodes/` directory and the two kinds
 
-All canonical knowledge lives under `.ai/knowledge-base/nodes/`, split by kind:
+Every kept fact is a markdown file under `.ai/knowledge-base/nodes/` with YAML frontmatter. The directory has exactly two subdirectories, one per kind:
 
-- `nodes/practice/<id>.md` - see [[map-practice-node]].
-- `nodes/map/<id>.md` - see [[map-map-node]].
+- **`nodes/practice/`** — _how we build._ Imperative guidance: conventions, prohibitions, gotchas, decision rationale, tooling/workflow.
+- **`nodes/map/`** — _what exists._ Named things — modules, services, file-tree locations, project-specific vocabulary.
 
-Each file is a markdown document with YAML frontmatter validated by Zod (see [[map-node-frontmatter]]). Filenames must be `<id>.md` where `id == <kind>-<slug>`; mismatches are reported as lint errors.
+Filenames are `<kind>-<slug>.md`, where the slug also appears in the file's `id:` frontmatter as `<kind>-<slug>`. The kind in the path, filename, and id must all agree; the `lint` command rejects mismatches as errors.
 
-The curator, the `node add` command, and the bootstrap pipelines all write here directly. There is no separate staging directory: the review surface is `git diff nodes/`, `git commit`, `git restore <path>`.
+When a piece of content has both aspects (e.g. "use `bravo_analytics.dispatcher`, our event-tracking service"), the proposal prompt splits combined statements: practice owns the imperative ("use the dispatcher"), map owns the entity ("what the dispatcher is").

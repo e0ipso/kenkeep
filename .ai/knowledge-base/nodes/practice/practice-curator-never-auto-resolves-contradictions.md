@@ -3,25 +3,29 @@ schema_version: 1
 id: practice-curator-never-auto-resolves-contradictions
 title: "Curator never auto-resolves contradictions"
 kind: practice
-tags: [curator, conflicts, workflow]
+tags: [curator, conflicts, human-in-the-loop]
 derived_from:
-  - PRD.md
   - docs/how-it-works.md
+  - docs/daily-use.md
   - docs/internals/prompts.md
-relates_to: []
+  - docs/internals/schemas.md
+relates_to:
+  - map-conflict-files
+  - map-curator-action
+  - map-curate-command
+depends_on: []
 confidence: high
-summary: "contradict actions are recorded in pending-conflicts.json and walked by the /kb-curate skill with the user; the wrapper never picks for them."
+summary: "Curator emits contradict; the wrapper writes a conflict file and writes nothing to nodes/. Resolution is always user-driven via /kb-curate."
 ---
 
 # Curator never auto-resolves contradictions
 
-When the curator emits a `contradict` action, the wrapper writes nothing to `nodes/`. Instead, it appends the conflict to `.ai/knowledge-base/.state/pending-conflicts.json`. The `/kb-curate` skill reads that file after the curator subprocess exits and walks each entry with the contributor in-session: existing node side-by-side with the proposed node, choice of **Replace** or **Reject**, then `ai-knowledge-base conflict resolve <id> --action <...>` applies it.
+When the curator detects a candidate that contradicts an existing node, it emits a `contradict` action. The wrapper writes nothing to `nodes/`; instead it writes one markdown file per conflict under `.ai/knowledge-base/conflicts/<run-id>-<n>.md` with `status: pending`. The `/kb-curate` skill walks each pending file with the user in-session and applies the chosen resolution (Accept / Reject / Keep as record).
 
-The curator prompt is instructed to emit `null` for `suggested_resolution`; the wrapper ignores any value it sends.
-
-**Why:** "the system never modifies the KB without human approval" is a PRD goal. Truthful-as-of-last-curation means conflicts surface for a human, not silently overwrite or silently ignore. The skill is the authoritative resolution path.
+**Why:** contradictions are the only case where a curator decision could destroy committed, human-reviewed content. Putting a human in the loop here — and only here — is the single load-bearing review point in an otherwise mostly-automatic pipeline. The curator prompt is explicitly told to emit `suggested_resolution: null`; the wrapper ignores the field unconditionally.
 
 **How to apply:**
 
-- Never add an auto-supersede or auto-merge code path. New conflict types go through `pending-conflicts.json` and the skill.
-- Prompt edits to `curator.md` must keep the binary Replace/Reject resolution menu intact. Anti-pattern listed in the prompt docs: suggesting a `suggested_resolution` value.
+- Never write logic that resolves a `contradict` action without a human prompt.
+- `suggested_resolution` is always ignored — do not read it as input to any automated decision.
+- When extending the curator or its prompt, preserve this property. Adding an "auto-supersede on high confidence" code path is the exact thing this design forbids.

@@ -3,23 +3,27 @@ schema_version: 1
 id: map-session-log
 title: "Session log (_sessions/*.md)"
 kind: map
-tags: [sessions, capture, schema]
+tags: [session, capture, state, schema]
 derived_from:
   - docs/internals/hooks.md
   - docs/internals/schemas.md
-relates_to: []
+  - docs/internals/architecture.md
+relates_to:
+  - map-capture-hook
+  - map-proposal-drain-hook
+depends_on: []
 confidence: high
-summary: "Per-session redacted transcript checkpoint with proposal state, validated by SessionLogFrontmatterSchema."
+summary: "Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases."
 ---
 
 # Session log (`_sessions/*.md`)
 
-Each Claude Code session produces at most one log under `.ai/knowledge-base/_sessions/`. Filename is `YYYYMMDD-HHmm-<sessionId>.md`; a re-fire for the same `session_id` (multi-turn sessions, PreCompact after Stop) reuses the existing file via `findSessionLogBySessionId`, so the count stays at one per session.
+Filename: `YYYYMMDD-HHmm-<sessionId>.md`. Re-firing the capture hook for the same `session_id` overwrites in place via `findSessionLogBySessionId`, so the session-log count stays at one per session even across multi-turn sessions, PreCompact-after-Stop, etc.
 
 Frontmatter (validated by `SessionLogFrontmatterSchema`):
 
 ```yaml
-schema_version: 2
+schema_version: 1
 session_id: <claude-code-session-id>
 captured_by: stop | session_end | pre_compact | manual
 captured_at: <ISO>
@@ -29,7 +33,7 @@ proposal_completed_at: <ISO> | null
 proposal_error: <string> | null
 proposal_log: _logs/proposal/<id>__<ts>.jsonl | null
 secret_scan_status: clean | redacted | blocked | skipped
-topics: [...]
+topics: [string, ...]
 proposals:
   practice: [<ProposalCandidate>, ...]
   map: [<ProposalCandidate>, ...]
@@ -37,4 +41,8 @@ curator_processed_at: <ISO>
 curator_run_id: <UUID>
 ```
 
-The body is the redacted transcript slice. Logs are gitignored by default; provenance via `derived_from` only works for the original contributor unless the team commits `_sessions/` (more bloat, full audit trail; documented trade-off).
+Lifecycle:
+
+1. `kb-capture.mjs` writes the file with `proposal_status: pending` and the redacted transcript slice.
+2. `kb-proposal-drain.mjs` (next `SessionStart`, async) processes pending entries, populates `proposals.{practice,map}` and `topics`, and sets `proposal_status: done` (or `failed` with `proposal_error`).
+3. `curate` reads `done` logs, applies actions to `nodes/`, sets `curator_processed_at` and `curator_run_id`.

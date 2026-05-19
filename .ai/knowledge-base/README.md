@@ -4,7 +4,7 @@ This directory holds the project's AI-session-derived knowledge base. It is buil
 
 ## What this is
 
-When you (or a teammate) run an AI coding session against this repo, the tool watches the session and extracts candidate knowledge: project conventions, prohibitions, named modules and features, gotchas. The curator turns those candidates into knowledge nodes under `nodes/`. You review and accept the new content via `git`. A `SessionStart` hook injects a token-budgeted index of these nodes into every new AI session, so the assistant starts each conversation with the project's accumulated context.
+When you (or a teammate) run an AI coding session against this repo, the tool watches the session and extracts candidate knowledge: project conventions, prohibitions, named modules and features, gotchas. The curator turns those candidates into knowledge nodes under `nodes/`. You review and accept the new content via `git`. A `SessionStart` hook injects a token-budgeted index of these nodes into every new AI session, so the harness starts each conversation with the project's accumulated context.
 
 ## How knowledge gets here
 
@@ -43,7 +43,7 @@ If your repo already has READMEs, ADRs, and module docs, you can seed the KB fro
 - `_logs/`: stream-json traces from LLM-driven runs (gitignored).
 - `conflicts/`: one markdown file per curator-detected contradiction, surfaced by the kb-curate skill and reviewed via `git diff`.
 - `INDEX.md`: token-budgeted summary; injected into every new session. Regenerated automatically on commit.
-- `GRAPH.md`: full edge listing of nodes; available for the assistant to read on demand. Regenerated automatically on commit.
+- `GRAPH.md`: full edge listing of nodes; available for the harness to read on demand. Regenerated automatically on commit.
 
 ## Learn more
 

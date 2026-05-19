@@ -3,20 +3,25 @@ schema_version: 1
 id: map-ai-knowledge-base-package
 title: "@e0ipso/ai-knowledge-base npm package"
 kind: map
-tags: [package, cli, scope]
+tags: [overview, package, npm]
 derived_from:
   - README.md
-  - PRD.md
-  - IMPLEMENTATION.md
-relates_to: []
+  - docs/index.md
+  - docs/how-it-works.md
+relates_to:
+  - map-harness-adapter
+  - map-knowledge-base-directory
+depends_on: []
 confidence: high
-summary: "Per-repo npm tool that captures AI session knowledge into a reviewable markdown KB."
+summary: "Per-repo knowledge base built from AI sessions; installs hooks, captures redacted slices, lets a curator write nodes/, injects INDEX into every new session."
 ---
 
-# @e0ipso/ai-knowledge-base npm package
+# `@e0ipso/ai-knowledge-base` npm package
 
-The product is a single npm package installed per repo (`npx @e0ipso/ai-knowledge-base init --assistants claude`). It has two cooperating pieces: the **builder tool** (this npm package), and the **knowledge base** it writes into (`.ai/knowledge-base/` inside the consuming repo).
+The package builds and maintains a per-repo knowledge base from AI coding sessions for Claude Code, OpenAI Codex CLI, and OpenCode. Sessions produce project-specific knowledge (conventions, prohibitions, gotchas, named modules, rationale); without intervention this evaporates at session end. The package captures it, runs it through human-supervised curation, and injects the resulting index back into every future session.
 
-The builder ships a CLI (`init`, `doctor`, `status`, `curate`, `node add`, `conflict list/resolve`, `bootstrap-incremental`, `index rebuild`, `logs prune`), Claude Code hooks (capture, proposal drain, session start), and Claude Code skills (`/kb-curate`, `/kb-add`, `/kb-bootstrap`). It does not run services or require an Anthropic API key; LLM-driven steps spawn `claude -p` against the user's existing Claude Code installation.
+Two cooperating pieces. The **builder tool** (this npm package) installs hooks under the harness's native directory (`.claude/`, `.codex/`, `.opencode/`) and a knowledge directory under `.ai/knowledge-base/`. Hooks capture redacted session slices, an async proposal extractor turns them into structured candidates, and the curator writes new knowledge nodes directly under `nodes/`. Review is via `git diff`; commit accepts, `git restore` rejects.
 
-The KB itself is plain markdown navigable like any code: reviewed via `git diff`, accepted via `git commit`, rejected via `git restore`.
+A `SessionStart` hook injects `INDEX.md` into every new AI session so the harness starts each conversation with the team's accumulated context. The KB itself is plain markdown — readable, diffable, reviewable like code.
+
+CLI binary: `ai-knowledge-base` (run via `npx @e0ipso/ai-knowledge-base ...`). Requires Node 22+. No API key — the tool spawns the harness's own headless driver (`claude -p`, `codex exec`, or `opencode run`) and inherits its auth.

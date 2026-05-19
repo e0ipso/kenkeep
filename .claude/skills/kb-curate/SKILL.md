@@ -1,31 +1,89 @@
 ---
 name: kb-curate
 description: Curate pending session logs into knowledge-base nodes by running the `npx @e0ipso/ai-knowledge-base curate` CLI, then resolve any contradictions surfaced by the curator with the user in-session. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
-allowed-tools: Bash(npx @e0ipso/ai-knowledge-base curate:*), Read
 ---
 
 # kb-curate
 
 Run the curator over pending session logs and apply its decisions directly to `nodes/`, then resolve any contradictions interactively with the user.
 
-## What to do
+## Resolve the active harness
 
-### 1. Run the curator
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kb-detect-harness.mjs` on first invocation):
 
-Run `npx @e0ipso/ai-knowledge-base curate` in the project root. The command:
+```bash
+if [ ! -f /tmp/kb-detect-harness.mjs ]; then
+cat << 'EOF' > /tmp/kb-detect-harness.mjs
+#!/usr/bin/env node
+// kb-detect-harness: resolves the active KB harness id.
+// Mirrors src/harnesses/detect.ts resolveWithHint priority.
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+const REGISTERED = ['claude', 'codex', 'opencode'];
+const ENV_DETECTORS = [
+  { env: 'CLAUDECODE', value: '1', harness: 'claude' },
+  { env: 'CLAUDE_PROJECT_DIR', value: '*nonempty*', harness: 'claude' },
+];
+function findHint(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
+  }
+  return undefined;
+}
+function detectFromEnv(env) {
+  for (const d of ENV_DETECTORS) {
+    if (d.value === '*nonempty*') {
+      if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
+    } else if (env[d.env] === d.value) return d.harness;
+  }
+  return undefined;
+}
+function findRepoRoot(start) {
+  let dir = start;
+  while (true) {
+    if (existsSync(join(dir, '.ai', 'knowledge-base'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function readDefault(root) {
+  if (!root) return undefined;
+  const config = join(root, '.ai', 'knowledge-base', 'config.yaml');
+  if (!existsSync(config)) return undefined;
+  const text = readFileSync(config, 'utf8');
+  const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
+  return m ? m[1] : undefined;
+}
+const hint = findHint(process.argv.slice(2));
+if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
+const fromEnv = detectFromEnv(process.env);
+if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
+const fromDefault = readDefault(findRepoRoot(process.cwd()));
+if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
+process.stderr.write('kb-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/knowledge-base/config.yaml.\n');
+process.exit(2);
+EOF
+fi
+HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
+```
+
+## 1. Run the curator
+
+Run `npx --yes @e0ipso/ai-knowledge-base@latest curate --harness "$HARNESS"` in the project root. The command:
 
 - Acquires the curator lock (`.ai/knowledge-base/.state/state.json`, name=`curator`, PID + 30-min TTL).
 - Batches every session log whose `proposal_status: done` and which has not yet been curated.
-- Spawns `claude -p` per batch with the curator prompt (no recursion: `KB_BUILDER_INTERNAL=1`).
+- Spawns the curator subprocess per batch with the curator prompt (no recursion: `KB_BUILDER_INTERNAL=1`).
 - Writes node files directly to `.ai/knowledge-base/nodes/<kind>/` for `add` and `modify` actions.
 - Writes one markdown file per `contradict` action to `.ai/knowledge-base/conflicts/<id>.md` **without writing the conflicting node to disk**.
 - Regenerates `INDEX.md` and `GRAPH.md` from the resulting `nodes/` tree.
 
-### 2. Report the summary
+## 2. Report the summary
 
 Tell the user the curator's headline numbers (nodes written, drops, batches, run id). If the command reported any failures (`add_collision` or `modify_missing_target`), surface those clearly so the user may need to clean up the offending candidate manually.
 
-### 3. Resolve pending conflicts
+## 3. Resolve pending conflicts
 
 List every markdown file under `.ai/knowledge-base/conflicts/` (sorted by filename). For each file, read its frontmatter; skip files whose `status` is not `pending`. If no pending files remain, skip this section.
 
@@ -43,13 +101,13 @@ For every pending entry:
 
 If the user defers a conflict ("I'll think about it"), leave the file alone. It remains in `.ai/knowledge-base/conflicts/` and surfaces again on the next pass.
 
-### 4. Hand off
+## 4. Hand off
 
-Tell the user to review the changed nodes and conflict files with `git diff` and commit when they're satisfied. The curator already regenerated `INDEX.md`/`GRAPH.md` at end-of-run; if the user has a pre-commit hook wired up (see the installation docs), `npx @e0ipso/ai-knowledge-base index rebuild --stage` keeps them aligned on subsequent hand edits.
+Tell the user to review the changed nodes and conflict files with `git diff` and commit when they're satisfied. The curator already regenerated `INDEX.md`/`GRAPH.md` at end-of-run; if the user has a pre-commit hook wired up (see the installation docs), `npx @e0ipso/ai-knowledge-base index rebuild --harness "$HARNESS" --stage` keeps them aligned on subsequent hand edits.
 
 ## Constraints
 
 - The curator wrapper writes directly to `nodes/`. Conflict resolution edits `nodes/` only when the user accepts a proposal; the conflict files themselves are reviewed via `git diff` and accepted with `git commit` or discarded with `git restore`.
-- If `npx @e0ipso/ai-knowledge-base curate` reports `locked`, do not retry; explain that another curate run is in progress.
+- If the curate command reports `locked`, do not retry; explain that another curate run is in progress.
 - If no session logs are pending, the command still regenerates INDEX/GRAPH; that's expected, not an error.
 - If `.ai/knowledge-base/conflicts/` is empty or every file has `status` other than `pending`, there's nothing to resolve; skip step 3.

@@ -3,28 +3,40 @@ schema_version: 1
 id: map-knowledge-base-directory
 title: ".ai/knowledge-base/ directory layout"
 kind: map
-tags: [layout, directory, kb]
+tags: [layout, state, directory]
 derived_from:
   - docs/internals/architecture.md
-  - IMPLEMENTATION.md
-relates_to: []
+  - docs/installation.md
+relates_to:
+  - map-nodes-directory
+  - map-session-log
+  - map-index-md
+  - map-graph-md
+  - map-state-file
+  - map-bootstrap-state-file
+  - map-config-yaml
+  - map-conflict-files
+depends_on: []
 confidence: high
-summary: "Root of the per-repo knowledge base. Holds nodes, INDEX/GRAPH, sessions, logs, state, and config."
+summary: "Per-repo scaffold at .ai/knowledge-base/: nodes/, INDEX/GRAPH, _sessions/, _logs/, .state/, .config/prompts/, conflicts/."
 ---
 
 # `.ai/knowledge-base/` directory layout
 
-The knowledge base lives inside the consuming repo at `.ai/knowledge-base/`. Contents:
+Created by `init`. Same layout across all three harnesses.
 
-- `nodes/{practice,map}/<id>.md` - canonical knowledge, the only files that survive review.
-- `INDEX.md` / `GRAPH.md` - regenerated deterministically from `nodes/`; injected into sessions.
-- `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` - per-session redacted transcript checkpoints.
-- `_logs/{proposal,curator,bootstrap-incremental}/*.jsonl` - stream-JSON traces from every LLM run. Gitignored.
-- `.state/state.json` - lock plus `last_nudged_at`. Gitignored.
-- `.state/pending-conflicts.json` - curator-detected contradictions awaiting in-session resolution.
-- `.state/bootstrap-state.json` - SHA-256 cache of processed docs for incremental bootstrap. Gitignored.
-- `.state/installed-version` - package version + selected assistants. Committed.
-- `.config/prompts/*` - local prompt overrides. Committed.
-- `config.yaml` - per-project tunables. Committed.
+| Path | Purpose |
+|---|---|
+| `nodes/{practice,map}/` | Canonical knowledge nodes. Reviewed via `git diff`, accepted via `git commit`. |
+| `INDEX.md` | Catalog of every node (title, path, tags). Injected into every new session. Regenerated deterministically. |
+| `GRAPH.md` | Full edge listing. Not injected; read on demand. Regenerated deterministically. |
+| `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` | Per-session checkpoint (redacted transcript + frontmatter). |
+| `_logs/{proposal,curator,bootstrap-incremental}/*.jsonl` | Stream-JSON traces from LLM pipelines. Gitignored. |
+| `.state/installed-version` | Package version + selected harnesses. Committed. |
+| `.state/state.json` | Lock + `last_nudged_at`. Gitignored. |
+| `.state/bootstrap-state.json` | Per-doc SHA-256 cache for bootstrap. Gitignored. |
+| `.config/prompts/{proposal-extract,curator,bootstrap-incremental}.md` | Local prompt overrides. Committed. |
+| `conflicts/<run-id>-<n>.md` | Curator-detected contradictions, one file per conflict. |
+| `config.yaml` | Project settings (committed). |
 
-A managed gitignore block hides `_logs/`, `_sessions/` (by default), and the runtime state files.
+The package installs a managed block in the repo `.gitignore` for the runtime state files (`_sessions/`, `_logs/`, `state.json`, `bootstrap-state.json`).

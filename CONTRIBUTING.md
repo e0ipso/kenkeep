@@ -68,7 +68,7 @@ Every frontmatter and JSON state file in the system carries `schema_version: 1`.
 
 Concretely:
 
-- **Bump `schema_version: 1 → 2`** when: removing a field; renaming a field; changing the semantics of a field; making a previously-optional field required.
+- **Bump `schema_version`** when: removing a field; renaming a field; changing the semantics of a field; making a previously-optional field required.
 - **Do not bump** when: adding an optional field; adding a new enum case; relaxing a constraint.
 
 When you bump, the reader rejects v1 files with a clear error directing the user to re-run `init`. Do not write a migrator.

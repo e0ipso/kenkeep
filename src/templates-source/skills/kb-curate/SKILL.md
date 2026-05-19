@@ -70,7 +70,7 @@ HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
 
 ## 1. Run the curator
 
-Run `npx @e0ipso/ai-knowledge-base curate --harness "$HARNESS"` in the project root. The command:
+Run `npx --yes @e0ipso/ai-knowledge-base@latest curate --harness "$HARNESS"` in the project root. The command:
 
 - Acquires the curator lock (`.ai/knowledge-base/.state/state.json`, name=`curator`, PID + 30-min TTL).
 - Batches every session log whose `proposal_status: done` and which has not yet been curated.

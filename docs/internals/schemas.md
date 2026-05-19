@@ -8,13 +8,13 @@ nav_order: 3
 
 Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. The schemas in [`src/lib/schemas.ts`](https://github.com/e0ipso/ai-knowledge-base/blob/main/src/lib/schemas.ts) are the source of truth; when this page disagrees with the code, the code wins.
 
-All shapes carry `schema_version: 2`. A schema mismatch is a parse failure; the file is silently dropped.
+All shapes carry `schema_version: 1`. A schema mismatch is a parse failure; the file is silently dropped.
 
 ## Node (`nodes/{practice,map}/<slug>.md`)
 
 ```yaml
 ---
-schema_version: 2
+schema_version: 1
 id: practice-prefer-constructor-injection   # <kind>-<slug>
 title: "..."
 kind: practice | map
@@ -99,7 +99,7 @@ Failures are reported in CLI output and not persisted; rerun the curator after f
 ## Session log (`_sessions/<YYYYMMDD-HHmm-id>.md`)
 
 ```yaml
-schema_version: 2
+schema_version: 1
 session_id: <claude-code-session-id>
 captured_by: stop | session_end | pre_compact | manual
 captured_at: 2026-05-11T10:00:00Z
@@ -154,7 +154,7 @@ Validated by `CuratorOutputSchema` (array of actions).
 ## INDEX.md / GRAPH.md frontmatter
 
 ```yaml
-schema_version: 2
+schema_version: 1
 nodes_hash: sha256:<hex>
 node_count: 47
 ```
@@ -180,7 +180,7 @@ Defined in `computeNodesHash` (`src/lib/nodes.ts`).
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "lock": { "name": "...", "pid": 12345, "acquired_at": "...", "ttl_ms": 1800000 },
   "last_nudged_at": "2026-05-11T10:00:00Z"
 }
@@ -194,7 +194,7 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "last_full_bootstrap_at": "2026-05-10T14:30:00Z",
   "last_incremental_at": "2026-05-15T09:12:00Z",
   "docs": {

@@ -1,116 +1,141 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:5d9145b886482a628a8641a58509b639092b3d78952432926a4ad85e870c92f0'
-node_count: 34
+nodes_hash: 'sha256:1412f29ff7780dadc035e63dcfbc8c8dec39249a1a313db76ac18d2219e8cf29'
+node_count: 44
 ---
 # KB Index
 
-_34 nodes • ~12313 estimated tokens_
+_44 nodes • ~15685 estimated tokens_
 
 
 ## Conventions (how we build)
-- **Every CLI invocation passes `--harness <id>` explicitly** [`nodes/practice/practice-explicit-harness-flag.md`] #cli #invocation #harness
-- **Shared SKILL.md source resolved at runtime** [`nodes/practice/practice-shared-skill-templates.md`] #skills #templates #harness
-- **All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`** [`nodes/practice/practice-cli-invocations-use-npx-scoped.md`] #cli #invocation #npx #prompts
-- **All KB changes go through git review** [`nodes/practice/practice-human-in-the-loop-via-git.md`] #review #git #workflow
-- **Bootstrap never overwrites an existing node** [`nodes/practice/practice-bootstrap-never-overwrites.md`] #bootstrap #prohibition #conservative
-- **Bump prompt Version: on every behavior change** [`nodes/practice/practice-prompt-version-bump-on-behavior-change.md`] #prompts #versioning #llm
-- **config.yaml schema is strict; unknown keys are a hard error** [`nodes/practice/practice-strict-config-yaml-schema.md`] #config #schema #strict
-- **Conventional Commits drive semantic-release** [`nodes/practice/practice-conventional-commits-semantic-release.md`] #commits #release #format
-- **Curator never auto-resolves contradictions** [`nodes/practice/practice-curator-never-auto-resolves-contradictions.md`] #curator #conflicts #workflow
-- **Curator subprocess can only use the Read tool** [`nodes/practice/practice-curator-tools-read-only.md`] #curator #llm #tool-use
-- **Don't run curate or bootstrap-incremental in CI** [`nodes/practice/practice-no-llm-pipelines-in-ci.md`] #ci #llm #prohibition
-- **Every YAML/JSON shape is validated by Zod at read time** [`nodes/practice/practice-zod-validation-at-read.md`] #zod #schema #validation
-- **INDEX.md and GRAPH.md are deterministic outputs of nodes/** [`nodes/practice/practice-deterministic-index-graph-regeneration.md`] #index #graph #determinism #hooks
-- **KB_BUILDER_INTERNAL=1 prevents hook recursion** [`nodes/practice/practice-kb-builder-internal-recursion-guard.md`] #hooks #recursion #env #subprocess
-- **Per-pipeline locks in state.json with 30-minute TTL** [`nodes/practice/practice-locking-30min-ttl.md`] #locking #state #concurrency
-- **Schema bumps are a clean break; no migrators, no shims** [`nodes/practice/practice-no-migrators-clean-schema-break.md`] #schema #versioning #prohibition
-- **Secretlint redacts every session transcript before write** [`nodes/practice/practice-secretlint-redaction-before-write.md`] #security #secrets #capture
-- **Split combined statements into separate practice and map nodes** [`nodes/practice/practice-split-practice-and-map.md`] #extraction #prompts #modeling
+- **Set KB_BUILDER_INTERNAL=1 on every claude -p child** [`nodes/practice/practice-recursion-guard-kb-builder-internal.md`] #recursion #hooks #env
+- **Bootstrap never overwrites existing nodes** [`nodes/practice/practice-bootstrap-never-overwrites-existing-nodes.md`] #bootstrap #nodes #safety
+- **Capture runs secretlint and aborts on loader failure** [`nodes/practice/practice-capture-runs-secretlint-with-redaction.md`] #secretlint #capture #security #redaction
+- **Curator never auto-resolves contradictions** [`nodes/practice/practice-curator-never-auto-resolves-contradictions.md`] #curator #conflicts #human-in-the-loop
+- **Bootstrap is supervised and judgmental, not exhaustive** [`nodes/practice/practice-bootstrap-is-supervised-and-judgmental.md`] #bootstrap #supervision #sampling
+- **Determinism contract for INDEX/GRAPH generation** [`nodes/practice/practice-determinism-contract.md`] #determinism #indexing #testing
+- **Don't run curate or bootstrap-incremental in CI** [`nodes/practice/practice-dont-run-llm-pipelines-in-ci.md`] #ci #llm #workflow
+- **Don't translate event names across harness adapters** [`nodes/practice/practice-no-event-translation-across-adapters.md`] #adapter #events #harness
+- **Local prompt overrides fall back to bundled templates** [`nodes/practice/practice-local-prompt-overrides-fall-back-to-bundled.md`] #prompts #customization #override
+- **Pass --harness explicitly outside an active Claude session** [`nodes/practice/practice-explicit-harness-flag-outside-claude.md`] #harness #cli #codex #opencode
+- **Pre-commit regenerates and stages INDEX.md and GRAPH.md** [`nodes/practice/practice-pre-commit-stages-index-graph.md`] #pre-commit #index #graph #lint-staged
+- **Adapters never reach into each other's directories** [`nodes/practice/practice-adapters-never-cross-directories.md`] #adapter #architecture #isolation
+- **Bump the prompt's Version comment on every behavior change** [`nodes/practice/practice-bump-prompt-version-comment.md`] #prompts #versioning #audit
+- **Conventional Commits drive semantic-release** [`nodes/practice/practice-conventional-commits-and-release.md`] #git #release #conventional-commits
+- **Curator drops non-productive and change-oriented candidates** [`nodes/practice/practice-curator-drops-non-productive-candidates.md`] #curator #prompts #calibration #anti-pattern
+- **Default bootstrap nodes to confidence: medium** [`nodes/practice/practice-confidence-default-medium-bootstrap.md`] #bootstrap #confidence #calibration
+- **init does not install husky/lint-staged/secretlint/commitlint** [`nodes/practice/practice-init-does-not-install-commit-tooling.md`] #init #install #scope
+- **Node naming: id, filename, and kind must agree** [`nodes/practice/practice-lint-naming-rules.md`] #lint #naming #nodes
+- **Review node changes via git** [`nodes/practice/practice-review-nodes-via-git.md`] #review #git #workflow
+- **Strict schema-version bump policy: no migrators** [`nodes/practice/practice-strict-schema-version-bump-policy.md`] #schema #versioning #breaking-change
 
 ## Components (what exists)
-- **Assistant adapter interface** [`nodes/map/map-adapter-interface.md`] #adapter #extensibility #interface
-- **Codex harness adapter** [`nodes/map/map-codex-harness-adapter.md`] #harness #adapter #codex #integration
-- **Claude Code skills installed by init** [`nodes/map/map-claude-skills.md`] #skills #claude-code #slash-commands
-- **OpenCode harness adapter** [`nodes/map/map-opencode-harness-adapter.md`] #harness #adapter #opencode #integration
-- **@e0ipso/ai-knowledge-base npm package** [`nodes/map/map-ai-knowledge-base-package.md`] #package #cli #scope
-- **Claude Code hooks registered by ai-knowledge-base** [`nodes/map/map-claude-hooks.md`] #hooks #claude-code #integration
-- **.ai/knowledge-base/ directory layout** [`nodes/map/map-knowledge-base-directory.md`] #layout #directory #kb
-- **.ai/knowledge-base/config.yaml** [`nodes/map/map-config-yaml.md`] #config #settings #tunables
-- **.state/pending-conflicts.json** [`nodes/map/map-pending-conflicts.md`] #state #conflicts #curator
-- **Map node** [`nodes/map/map-map-node.md`] #node #kind #vocabulary
-- **Node frontmatter shape** [`nodes/map/map-node-frontmatter.md`] #schema #frontmatter #node
-- **nodes/ directory** [`nodes/map/map-nodes-directory.md`] #layout #nodes #kb
-- **Package source layout** [`nodes/map/map-source-layout.md`] #layout #source #build
-- **Practice node** [`nodes/map/map-practice-node.md`] #node #kind #vocabulary
-- **Prompt overrides at .config/prompts/** [`nodes/map/map-prompts-directory.md`] #prompts #customization #llm
-- **Session log (_sessions/*.md)** [`nodes/map/map-session-log.md`] #sessions #capture #schema
+- **Harness adapter** [`nodes/map/map-harness-adapter.md`] #harness #adapter #claude #codex #opencode #architecture
+- **INDEX.md** [`nodes/map/map-index-md.md`] #index #deterministic #sessionstart
+- **bootstrap-incremental (CLI)** [`nodes/map/map-bootstrap-incremental-command.md`] #cli #bootstrap #deterministic
+- **curate (CLI command + /kb-curate skill)** [`nodes/map/map-curate-command.md`] #cli #curate #skill
+- **GRAPH.md** [`nodes/map/map-graph-md.md`] #graph #deterministic
+- **kb-proposal-drain.mjs (extraction hook)** [`nodes/map/map-proposal-drain-hook.md`] #hooks #extraction #llm #async
+- **/kb-bootstrap skill** [`nodes/map/map-kb-bootstrap-skill.md`] #skill #bootstrap #agent
+- **Curator action (add / modify / contradict / drop)** [`nodes/map/map-curator-action.md`] #schema #curator #action
+- **Node frontmatter schema** [`nodes/map/map-node-frontmatter.md`] #schema #frontmatter #nodes
+- **Conflict files (conflicts/<run-id>-<n>.md)** [`nodes/map/map-conflict-files.md`] #conflicts #curator #schema
+- **kb-capture.mjs (capture hook)** [`nodes/map/map-capture-hook.md`] #hooks #capture #secretlint #redaction
+- **.state/bootstrap-state.json (per-doc hash cache)** [`nodes/map/map-bootstrap-state-file.md`] #bootstrap #hash #state #schema
+- **config.yaml (project settings)** [`nodes/map/map-config-yaml.md`] #config #settings #model
+- **kb-session-start.mjs (consume hook)** [`nodes/map/map-session-start-hook.md`] #hooks #consume #sessionstart #index
+- **nodes/ directory and the two kinds** [`nodes/map/map-nodes-directory.md`] #nodes #practice #map #frontmatter #schema
+- **Session log (_sessions/*.md)** [`nodes/map/map-session-log.md`] #session #capture #state #schema
+- **.ai/knowledge-base/ directory layout** [`nodes/map/map-knowledge-base-directory.md`] #layout #state #directory
+- **Claude Code harness adapter** [`nodes/map/map-claude-harness.md`] #harness #claude #hooks
+- **Codex CLI harness adapter** [`nodes/map/map-codex-harness.md`] #harness #codex #hooks
+- **nodes_hash algorithm** [`nodes/map/map-nodes-hash.md`] #hash #deterministic #sha256
+- **OpenCode harness adapter** [`nodes/map/map-opencode-harness.md`] #harness #opencode #hooks #plugin
+- **Proposal candidate schema** [`nodes/map/map-proposal-candidate-schema.md`] #schema #proposal #candidate
+- **.state/state.json (lock + nudge state)** [`nodes/map/map-state-file.md`] #state #lock #schema
+- **@e0ipso/ai-knowledge-base npm package** [`nodes/map/map-ai-knowledge-base-package.md`] #overview #package #npm
 
 ## By topic
 
-- **#schema (5):** config.yaml schema is strict; unknown keys are a hard error, Every YAML/JSON shape is validated by Zod at read time, Node frontmatter shape, Schema bumps are a clean break; no migrators, no shims, Session log (_sessions/*.md)
-- **#harness (4):** Codex harness adapter, Every CLI invocation passes `--harness <id>` explicitly, OpenCode harness adapter, Shared SKILL.md source resolved at runtime
-- **#llm (4):** Bump prompt Version: on every behavior change, Curator subprocess can only use the Read tool, Don't run curate or bootstrap-incremental in CI, Prompt overrides at .config/prompts/
-- **#prompts (4):** All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`, Bump prompt Version: on every behavior change, Prompt overrides at .config/prompts/, Split combined statements into separate practice and map nodes
-- **#adapter (3):** Assistant adapter interface, Codex harness adapter, OpenCode harness adapter
-- **#cli (3):** Every CLI invocation passes `--harness <id>` explicitly, @e0ipso/ai-knowledge-base npm package, All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
-- **#curator (3):** .state/pending-conflicts.json, Curator never auto-resolves contradictions, Curator subprocess can only use the Read tool
-- **#hooks (3):** Claude Code hooks registered by ai-knowledge-base, INDEX.md and GRAPH.md are deterministic outputs of nodes/, KB_BUILDER_INTERNAL=1 prevents hook recursion
-- **#integration (3):** Codex harness adapter, OpenCode harness adapter, Claude Code hooks registered by ai-knowledge-base
-- **#layout (3):** .ai/knowledge-base/ directory layout, nodes/ directory, Package source layout
-- **#node (3):** Map node, Node frontmatter shape, Practice node
-- **#prohibition (3):** Bootstrap never overwrites an existing node, Don't run curate or bootstrap-incremental in CI, Schema bumps are a clean break; no migrators, no shims
-- **#capture (2):** Secretlint redacts every session transcript before write, Session log (_sessions/*.md)
-- **#claude-code (2):** Claude Code skills installed by init, Claude Code hooks registered by ai-knowledge-base
-- **#config (2):** .ai/knowledge-base/config.yaml, config.yaml schema is strict; unknown keys are a hard error
-- **#conflicts (2):** .state/pending-conflicts.json, Curator never auto-resolves contradictions
-- **#invocation (2):** Every CLI invocation passes `--harness <id>` explicitly, All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
-- **#kb (2):** .ai/knowledge-base/ directory layout, nodes/ directory
-- **#kind (2):** Map node, Practice node
-- **#skills (2):** Claude Code skills installed by init, Shared SKILL.md source resolved at runtime
-- **#state (2):** .state/pending-conflicts.json, Per-pipeline locks in state.json with 30-minute TTL
-- **#versioning (2):** Bump prompt Version: on every behavior change, Schema bumps are a clean break; no migrators, no shims
-- **#vocabulary (2):** Map node, Practice node
-- **#workflow (2):** All KB changes go through git review, Curator never auto-resolves contradictions
-- **#bootstrap (1):** Bootstrap never overwrites an existing node
-- **#build (1):** Package source layout
+- **#schema (9):** Curator action (add / modify / contradict / drop), Node frontmatter schema, Conflict files (conflicts/<run-id>-<n>.md), .state/bootstrap-state.json (per-doc hash cache), nodes/ directory and the two kinds, Session log (_sessions/*.md), Proposal candidate schema, .state/state.json (lock + nudge state), Strict schema-version bump policy: no migrators
+- **#hooks (7):** kb-proposal-drain.mjs (extraction hook), kb-capture.mjs (capture hook), kb-session-start.mjs (consume hook), Set KB_BUILDER_INTERNAL=1 on every claude -p child, Claude Code harness adapter, Codex CLI harness adapter, OpenCode harness adapter
+- **#bootstrap (6):** bootstrap-incremental (CLI), /kb-bootstrap skill, .state/bootstrap-state.json (per-doc hash cache), Bootstrap never overwrites existing nodes, Bootstrap is supervised and judgmental, not exhaustive, Default bootstrap nodes to confidence: medium
+- **#harness (6):** Harness adapter, Claude Code harness adapter, Codex CLI harness adapter, OpenCode harness adapter, Don't translate event names across harness adapters, Pass --harness explicitly outside an active Claude session
+- **#curator (4):** Curator action (add / modify / contradict / drop), Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions, Curator drops non-productive and change-oriented candidates
+- **#deterministic (4):** INDEX.md, bootstrap-incremental (CLI), GRAPH.md, nodes_hash algorithm
+- **#nodes (4):** Node frontmatter schema, nodes/ directory and the two kinds, Bootstrap never overwrites existing nodes, Node naming: id, filename, and kind must agree
+- **#state (4):** .state/bootstrap-state.json (per-doc hash cache), Session log (_sessions/*.md), .ai/knowledge-base/ directory layout, .state/state.json (lock + nudge state)
+- **#adapter (3):** Harness adapter, Don't translate event names across harness adapters, Adapters never reach into each other's directories
+- **#capture (3):** kb-capture.mjs (capture hook), Session log (_sessions/*.md), Capture runs secretlint and aborts on loader failure
+- **#cli (3):** bootstrap-incremental (CLI), curate (CLI command + /kb-curate skill), Pass --harness explicitly outside an active Claude session
+- **#codex (3):** Harness adapter, Codex CLI harness adapter, Pass --harness explicitly outside an active Claude session
+- **#index (3):** INDEX.md, kb-session-start.mjs (consume hook), Pre-commit regenerates and stages INDEX.md and GRAPH.md
+- **#opencode (3):** Harness adapter, OpenCode harness adapter, Pass --harness explicitly outside an active Claude session
+- **#prompts (3):** Local prompt overrides fall back to bundled templates, Bump the prompt's Version comment on every behavior change, Curator drops non-productive and change-oriented candidates
+- **#architecture (2):** Harness adapter, Adapters never reach into each other's directories
+- **#calibration (2):** Curator drops non-productive and change-oriented candidates, Default bootstrap nodes to confidence: medium
+- **#claude (2):** Harness adapter, Claude Code harness adapter
+- **#conflicts (2):** Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions
+- **#frontmatter (2):** Node frontmatter schema, nodes/ directory and the two kinds
+- **#git (2):** Conventional Commits drive semantic-release, Review node changes via git
+- **#graph (2):** GRAPH.md, Pre-commit regenerates and stages INDEX.md and GRAPH.md
+- **#hash (2):** .state/bootstrap-state.json (per-doc hash cache), nodes_hash algorithm
+- **#llm (2):** kb-proposal-drain.mjs (extraction hook), Don't run curate or bootstrap-incremental in CI
+- **#redaction (2):** kb-capture.mjs (capture hook), Capture runs secretlint and aborts on loader failure
+- **#secretlint (2):** kb-capture.mjs (capture hook), Capture runs secretlint and aborts on loader failure
+- **#sessionstart (2):** INDEX.md, kb-session-start.mjs (consume hook)
+- **#skill (2):** curate (CLI command + /kb-curate skill), /kb-bootstrap skill
+- **#versioning (2):** Bump the prompt's Version comment on every behavior change, Strict schema-version bump policy: no migrators
+- **#workflow (2):** Don't run curate or bootstrap-incremental in CI, Review node changes via git
+- **#action (1):** Curator action (add / modify / contradict / drop)
+- **#agent (1):** /kb-bootstrap skill
+- **#anti-pattern (1):** Curator drops non-productive and change-oriented candidates
+- **#async (1):** kb-proposal-drain.mjs (extraction hook)
+- **#audit (1):** Bump the prompt's Version comment on every behavior change
+- **#breaking-change (1):** Strict schema-version bump policy: no migrators
+- **#candidate (1):** Proposal candidate schema
 - **#ci (1):** Don't run curate or bootstrap-incremental in CI
-- **#codex (1):** Codex harness adapter
-- **#commits (1):** Conventional Commits drive semantic-release
-- **#concurrency (1):** Per-pipeline locks in state.json with 30-minute TTL
-- **#conservative (1):** Bootstrap never overwrites an existing node
-- **#customization (1):** Prompt overrides at .config/prompts/
-- **#determinism (1):** INDEX.md and GRAPH.md are deterministic outputs of nodes/
+- **#confidence (1):** Default bootstrap nodes to confidence: medium
+- **#config (1):** config.yaml (project settings)
+- **#consume (1):** kb-session-start.mjs (consume hook)
+- **#conventional-commits (1):** Conventional Commits drive semantic-release
+- **#curate (1):** curate (CLI command + /kb-curate skill)
+- **#customization (1):** Local prompt overrides fall back to bundled templates
+- **#determinism (1):** Determinism contract for INDEX/GRAPH generation
 - **#directory (1):** .ai/knowledge-base/ directory layout
-- **#env (1):** KB_BUILDER_INTERNAL=1 prevents hook recursion
-- **#extensibility (1):** Assistant adapter interface
-- **#extraction (1):** Split combined statements into separate practice and map nodes
-- **#format (1):** Conventional Commits drive semantic-release
-- **#frontmatter (1):** Node frontmatter shape
-- **#git (1):** All KB changes go through git review
-- **#graph (1):** INDEX.md and GRAPH.md are deterministic outputs of nodes/
-- **#index (1):** INDEX.md and GRAPH.md are deterministic outputs of nodes/
-- **#interface (1):** Assistant adapter interface
-- **#locking (1):** Per-pipeline locks in state.json with 30-minute TTL
-- **#modeling (1):** Split combined statements into separate practice and map nodes
-- **#nodes (1):** nodes/ directory
-- **#npx (1):** All CLI invocations use `npx @e0ipso/ai-knowledge-base ...`
-- **#opencode (1):** OpenCode harness adapter
+- **#env (1):** Set KB_BUILDER_INTERNAL=1 on every claude -p child
+- **#events (1):** Don't translate event names across harness adapters
+- **#extraction (1):** kb-proposal-drain.mjs (extraction hook)
+- **#human-in-the-loop (1):** Curator never auto-resolves contradictions
+- **#indexing (1):** Determinism contract for INDEX/GRAPH generation
+- **#init (1):** init does not install husky/lint-staged/secretlint/commitlint
+- **#install (1):** init does not install husky/lint-staged/secretlint/commitlint
+- **#isolation (1):** Adapters never reach into each other's directories
+- **#layout (1):** .ai/knowledge-base/ directory layout
+- **#lint (1):** Node naming: id, filename, and kind must agree
+- **#lint-staged (1):** Pre-commit regenerates and stages INDEX.md and GRAPH.md
+- **#lock (1):** .state/state.json (lock + nudge state)
+- **#map (1):** nodes/ directory and the two kinds
+- **#model (1):** config.yaml (project settings)
+- **#naming (1):** Node naming: id, filename, and kind must agree
+- **#npm (1):** @e0ipso/ai-knowledge-base npm package
+- **#override (1):** Local prompt overrides fall back to bundled templates
+- **#overview (1):** @e0ipso/ai-knowledge-base npm package
 - **#package (1):** @e0ipso/ai-knowledge-base npm package
-- **#recursion (1):** KB_BUILDER_INTERNAL=1 prevents hook recursion
+- **#plugin (1):** OpenCode harness adapter
+- **#practice (1):** nodes/ directory and the two kinds
+- **#pre-commit (1):** Pre-commit regenerates and stages INDEX.md and GRAPH.md
+- **#proposal (1):** Proposal candidate schema
+- **#recursion (1):** Set KB_BUILDER_INTERNAL=1 on every claude -p child
 - **#release (1):** Conventional Commits drive semantic-release
-- **#review (1):** All KB changes go through git review
-- **#scope (1):** @e0ipso/ai-knowledge-base npm package
-- **#secrets (1):** Secretlint redacts every session transcript before write
-- **#security (1):** Secretlint redacts every session transcript before write
-- **#sessions (1):** Session log (_sessions/*.md)
-- **#settings (1):** .ai/knowledge-base/config.yaml
-- **#slash-commands (1):** Claude Code skills installed by init
-- **#source (1):** Package source layout
-- **#strict (1):** config.yaml schema is strict; unknown keys are a hard error
-- **#subprocess (1):** KB_BUILDER_INTERNAL=1 prevents hook recursion
-- **#templates (1):** Shared SKILL.md source resolved at runtime
-- **#tool-use (1):** Curator subprocess can only use the Read tool
-- **#tunables (1):** .ai/knowledge-base/config.yaml
-- **#validation (1):** Every YAML/JSON shape is validated by Zod at read time
-- **#zod (1):** Every YAML/JSON shape is validated by Zod at read time
+- **#review (1):** Review node changes via git
+- **#safety (1):** Bootstrap never overwrites existing nodes
+- **#sampling (1):** Bootstrap is supervised and judgmental, not exhaustive
+- **#scope (1):** init does not install husky/lint-staged/secretlint/commitlint
+- **#security (1):** Capture runs secretlint and aborts on loader failure
+- **#session (1):** Session log (_sessions/*.md)
+- **#settings (1):** config.yaml (project settings)
+- **#sha256 (1):** nodes_hash algorithm
+- **#supervision (1):** Bootstrap is supervised and judgmental, not exhaustive
+- **#testing (1):** Determinism contract for INDEX/GRAPH generation

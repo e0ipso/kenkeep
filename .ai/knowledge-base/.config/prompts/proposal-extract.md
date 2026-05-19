@@ -1,8 +1,8 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 3
-  Used by: kb-proposal-drain.mjs (via `claude -p`)
+  Version: 4
+  Used by: kb-proposal-drain.cjs (via `claude -p`)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
 -->
@@ -184,9 +184,7 @@ Here is a small example transcript and the correct output, so you know exactly w
       "title": "Use bravo_pii.cache for any content with PII",
       "summary": "Don't use Drupal's default render cache for PII-bearing pages; use bravo_pii.cache (encrypts at rest).",
       "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `bravo_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
-      "confidence": "high",
-      "supports_existing_node": null,
-      "contradicts_existing_node": null
+      "confidence": "high"
     }
   ],
   "map": [
@@ -196,9 +194,7 @@ Here is a small example transcript and the correct output, so you know exactly w
       "title": "bravo_pii.cache - encrypted cache backend for PII",
       "summary": "Custom Drupal cache backend service that encrypts at rest; used wherever content includes user PII.",
       "body": "`bravo_pii.cache` is a custom cache backend service. It encrypts cached entries at rest, unlike Drupal's default render cache which stores plaintext in the database. Adopted in response to a GDPR audit finding.",
-      "confidence": "high",
-      "supports_existing_node": null,
-      "contradicts_existing_node": null
+      "confidence": "high"
     }
   ]
 }
@@ -234,9 +230,7 @@ Second, the reviewer pointed out a typo in the JSDoc for `assembleHeroCard`: "re
       "title": "Loop variables use descriptive names",
       "summary": "Loop variables in this codebase use descriptive names (for example cardIndex) rather than single letters, so intent is readable at a glance.",
       "body": "Loop variables in this codebase use descriptive names that convey what is being iterated, such as `cardIndex` or `userId`. Single-letter loop counters like `i`, `j`, or `k` are not used. The rule applies to every loop in the codebase, not only to the file where it was flagged.\n\nRationale: readability at a glance. A descriptive loop variable removes the need to scan the loop body to remember what is being indexed.",
-      "confidence": "high",
-      "supports_existing_node": null,
-      "contradicts_existing_node": null
+      "confidence": "high"
     }
   ],
   "map": []
@@ -263,8 +257,8 @@ Each candidate has these required fields:
 - `summary`: max 140 characters. This is what shows up in the KB index.
 - `body`: markdown explaining the knowledge. Include rationale when present in the source ("because…", "since…"). Keep concise - 1-4 short paragraphs is typical.
 - `confidence`: `"low"`, `"medium"`, or `"high"`. Use `"high"` when the user stated it explicitly with rationale; `"medium"` when the user stated it without rationale; `"low"` when you're inferring from context.
-- `supports_existing_node`: always `null` in your output (the curator populates this later).
-- `contradicts_existing_node`: always `null` in your output (the curator populates this later).
+
+The wrapper rejects any additional keys on a candidate (including the legacy `supports_existing_node` / `contradicts_existing_node` hints).
 
 Either array may be empty. Many sessions produce zero of one kind or both - that's expected and correct. **Producing nothing is better than producing low-signal noise.**
 

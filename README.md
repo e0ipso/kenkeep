@@ -3,9 +3,11 @@
 [![npm](https://img.shields.io/npm/v/@e0ipso/ai-knowledge-base.svg)](https://www.npmjs.com/package/@e0ipso/ai-knowledge-base)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Build and maintain a per-repo knowledge base from AI coding sessions, for use with [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenAI Codex CLI](https://developers.openai.com/codex/cli/), or [OpenCode](https://opencode.ai/).
+A **team-shared, git-native knowledge base** for AI coding sessions on [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenAI Codex CLI](https://developers.openai.com/codex/cli/), and [OpenCode](https://opencode.ai/). Knowledge lives in your repo as plain markdown — not in a per-user database on one developer's laptop — so it propagates to teammates through `git pull` and is **reviewable like code** in PR diffs and commit history.
 
-Your AI sessions produce a steady stream of project-specific knowledge - conventions, prohibitions, gotchas, named modules, decision rationale. Today, almost all of it evaporates when the session ends. This tool captures it, asks a human to curate it, and injects it back into every future session so the harness starts each conversation with your team's accumulated context.
+No daemons. No services. No external runtimes. Just Node + git.
+
+Your AI sessions produce a steady stream of project-specific knowledge — conventions, prohibitions, gotchas, named modules, decision rationale. Today, almost all of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session so the harness starts each conversation with your team's accumulated context.
 
 ## Quick start
 

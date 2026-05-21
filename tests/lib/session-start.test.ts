@@ -143,6 +143,19 @@ describe('buildSessionStartContext', () => {
     expect(result.additionalContext).toContain('KB nodes are snapshots in time');
   });
 
+  it('emits the KB navigation directive in the additional context payload', () => {
+    seedNode(harness, 'practice', 'practice-foo');
+    writeIndexFromCurrentNodes(harness);
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+    });
+    expect(result.additionalContext).toContain('grep -C 2');
+    expect(result.additionalContext).toContain('nodes/');
+  });
+
   it('injects the live INDEX.md when fresh and emits no warnings', () => {
     seedNode(harness, 'practice', 'practice-foo');
     writeIndexFromCurrentNodes(harness);

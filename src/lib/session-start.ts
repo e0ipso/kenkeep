@@ -84,6 +84,10 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   lines.push(
     '> KB nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user.'
   );
+  lines.push('');
+  lines.push(
+    '> KB navigation: consult the index above first, then `grep -C 2 <term> nodes/` for candidate slugs (the `-C 2` context surfaces the `summary:` frontmatter line), and only open full node bodies for confirmed matches.'
+  );
   if (indexStale) {
     lines.push('');
     lines.push(

@@ -270,3 +270,35 @@ graph TD
 ### Execution Summary
 - Total Phases: 2
 - Total Tasks: 3
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-21
+
+### Results
+
+All three surfaces from issue #29 shipped in two commits on `main`:
+
+- `599af39` — `feat(curate): reduce curation friction`. Implements Surface 1 (richer SessionStart nudge with soft + loud forms, `DEFAULT_STALE_DAYS = 7`, single-pass `summarizePendingSessions`), Surface 2 (fast-path one-liner exit in `kb-curate` SKILL.md when `conflicts === 0 && failures.length === 0`), and Surface 3 (conflict grouping by `target_node_id`, default heuristic, `y`/`n`/`s`/`k` reply contract). Also adds `proposed_confidence` to conflict-file frontmatter in `src/lib/curate.ts`.
+- `0b2614b` — `docs: refresh curate UX docs`. Documents the new nudge, fast path, and y/n/s/k contract in `docs/daily-use.md` (with a Breaking change callout); refreshes `docs/how-it-works.md` to reference `.ai/knowledge-base/conflicts/` and the new prompt UX.
+
+Validation:
+- `npm test` — 336 / 336 tests pass on both commits (run via pre-commit).
+- `npm run lint` — only pre-existing errors in bundled `.cjs` hooks under `.claude/hooks/` and `.opencode/kb-hooks/`; no errors in touched files.
+- Harness invariance verified: `git diff HEAD~2 HEAD -- src/harnesses/types.ts` returns empty. No `HarnessAdapter` contract change.
+- SKILL.md mirror sync verified: `templates/skills/kb-curate/SKILL.md` regenerates byte-identical from source via `npm run build:templates`.
+
+### Noteworthy Events
+
+- **Branch drift**: the plan started on `main` per the session-start git status, but at branch-creation time `git branch --show-current` reported `docs/compare-claude-mem`. The branch script honored its "if not on main, do not create a branch" rule. During the first commit, the pre-commit hook's stash/restore appears to have switched the working branch back to `main`, so both feature commits landed on `main` directly rather than on a `feature/25--*` branch. The user was prompted about branching and chose to continue; the `docs/compare-claude-mem` branch remains intact with its 2 prior commits, untouched.
+- **Whole-repo prettier reformat**: the Phase 1 implementing agents ran `npm run format`, which is `prettier --write .` — it reformatted 50 unrelated files (~13k lines of diff). The user opted to commit everything together rather than revert the spurious changes. The substantive Phase 1 changes are in `src/lib/session-start.ts`, `src/lib/curate.ts`, `src/templates-source/skills/kb-curate/SKILL.md`, `tests/lib/session-start.test.ts`, and `tests/lib/curate.test.ts`. Future agent prompts should avoid `npm run format` and use `npx prettier --write <specific files>` instead.
+- **Commit-message hook learning**: the project's pre-git-safety hook flags any lowercase mention of harness names that overlap with the AI-disclosure pattern (`\bClaude\b` case-insensitive). The first commit message required several rewrites to drop a "across claude, codex, and opencode" phrase that tripped the filter.
+- **"Estimated curation time"** from the issue text was intentionally dropped in the plan — no telemetry exists to base it on; candidate-proposal count is shipped as the honest proxy.
+
+### Necessary follow-ups
+
+- **Move feature commits to a topic branch / PR**: `599af39` and `0b2614b` landed on `main` rather than a feature branch. Before pushing to origin, consider `git branch feature/25--reduce-curation-friction main` and `git reset --hard main~2` to extract them, or open a PR straight from `main` if the team's workflow allows it.
+- **KB node candidate**: the harness-portability conclusion ("skills can only read user input through the LLM REPL across all three harnesses; one char + Enter is the LCD") is the kind of cross-harness invariant the project's KB tracks. Consider adding a node like `practice-skill-user-prompt-portability` linking back to `practice-no-event-translation-across-adapters` and the `feedback_harness_portability` memory.
+- **Telemetry for curation time**: if the project later adds per-curate-run telemetry (median time per candidate), the "estimated curation time" field can be added to the loud nudge with real numbers.
+- **Tighten default `y` threshold**: success-criterion #3 (5–10 conflicts cleared in under 60s by accepting defaults) is a stopwatch test that only runs in the field. If users report over-acceptance, tighten the heuristic from "< 5 lines changed + high confidence → default y" to "< 3 lines + high confidence" per the Risk section mitigation.

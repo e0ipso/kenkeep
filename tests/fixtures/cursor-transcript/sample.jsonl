@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"How do I run tests?"}]},"session_id":"c6b62c6f-7ead-4fd6-9922-e952131177ff"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Run `npm test` from the repo root."}]},"session_id":"c6b62c6f-7ead-4fd6-9922-e952131177ff"}

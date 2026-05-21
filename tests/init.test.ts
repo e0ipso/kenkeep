@@ -94,10 +94,44 @@ describe('init', () => {
     expect(second.stdout + second.stderr).toContain('Already initialized');
   });
 
-  it('rejects unsupported assistants', async () => {
-    const result = await runCli(sandbox, ['init', '--harnesses', 'cursor']);
+  it('rejects unsupported harness ids', async () => {
+    const result = await runCli(sandbox, ['init', '--harnesses', 'not-a-harness']);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr + result.stdout).toMatch(/cursor|Unsupported assistant/i);
+    expect(result.stderr + result.stdout).toMatch(/not-a-harness|Unsupported/i);
+  });
+
+  it('installs cursor hooks and skills on init --harnesses cursor', async () => {
+    const result = await runCli(sandbox, ['init', '--harnesses', 'cursor']);
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(join(sandbox, '.cursor/hooks.json'))).toBe(true);
+    expect(existsSync(join(sandbox, '.cursor/hooks/kb-capture.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.cursor/hooks/kb-session-start.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.cursor/hooks/kb-proposal-drain.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.cursor/hooks/kb-lint-tick.cjs'))).toBe(true);
+    const skill = readFileSync(join(sandbox, '.cursor/skills/kb-curate/SKILL.md'), 'utf8');
+    expect(skill).toContain("'cursor'");
+    const hooks = JSON.parse(readFileSync(join(sandbox, '.cursor/hooks.json'), 'utf8'));
+    expect(hooks.hooks.stop.some((e: { command: string }) => e.command.includes('kb-capture'))).toBe(
+      true
+    );
+  });
+
+  it('installs the shared skill bytes identically across all four harnesses', async () => {
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude,codex,cursor,opencode']);
+    expect(result.exitCode).toBe(0);
+    const claudeSkill = readFileSync(join(sandbox, '.claude/skills/kb-curate/SKILL.md'), 'utf8');
+    const codexSkill = readFileSync(join(sandbox, '.agents/skills/kb-curate/SKILL.md'), 'utf8');
+    const cursorSkill = readFileSync(join(sandbox, '.cursor/skills/kb-curate/SKILL.md'), 'utf8');
+    const openCodeSkill = readFileSync(
+      join(sandbox, '.opencode/skills/kb-curate/SKILL.md'),
+      'utf8'
+    );
+    expect(claudeSkill).toBe(codexSkill);
+    expect(codexSkill).toBe(cursorSkill);
+    expect(cursorSkill).toBe(openCodeSkill);
+    expect(claudeSkill).toContain('/tmp/kb-detect-harness.mjs');
+    expect(existsSync(join(sandbox, '.opencode/plugins/kb.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.opencode/kb-hooks/kb-capture.cjs'))).toBe(true);
   });
 
   it('installs the shared skill bytes identically across claude, codex, and opencode', async () => {

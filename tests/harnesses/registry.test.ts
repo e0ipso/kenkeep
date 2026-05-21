@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { claudeAdapter } from '../../src/harnesses/claude/index.js';
 import { codexAdapter } from '../../src/harnesses/codex/index.js';
+import { cursorAdapter } from '../../src/harnesses/cursor/index.js';
 import { openCodeAdapter } from '../../src/harnesses/opencode/index.js';
 import { getHarness, hasHarness, listHarnessIds } from '../../src/harnesses/registry.js';
 
@@ -17,19 +18,24 @@ describe('harness registry', () => {
     expect(getHarness('opencode')).toBe(openCodeAdapter);
   });
 
-  it('lists claude, codex, and opencode harness ids', () => {
-    expect(listHarnessIds()).toEqual(['claude', 'codex', 'opencode']);
+  it('returns the cursor adapter from getHarness("cursor")', () => {
+    expect(getHarness('cursor')).toBe(cursorAdapter);
+  });
+
+  it('lists claude, codex, cursor, and opencode harness ids', () => {
+    expect(listHarnessIds()).toEqual(['claude', 'codex', 'cursor', 'opencode']);
   });
 
   it('hasHarness recognizes every registered id', () => {
     expect(hasHarness('claude')).toBe(true);
     expect(hasHarness('codex')).toBe(true);
+    expect(hasHarness('cursor')).toBe(true);
     expect(hasHarness('opencode')).toBe(true);
     expect(hasHarness('not-a-real-harness')).toBe(false);
   });
 
   it('throws a helpful error for unregistered harnesses', () => {
-    expect(() => getHarness('cursor')).toThrow(/Unsupported harness 'cursor'/);
+    expect(() => getHarness('not-a-real-harness')).toThrow(/Unsupported harness 'not-a-real-harness'/);
   });
 });
 
@@ -52,6 +58,30 @@ describe('opencode adapter shape', () => {
 
   it('does not implement detectFromEnv (selection via hint or cliDefaultHarness)', () => {
     expect(openCodeAdapter.detectFromEnv).toBeUndefined();
+  });
+});
+
+describe('cursor adapter shape', () => {
+  it('exposes the documented paths under the repo root', () => {
+    const paths = cursorAdapter.paths('/repo');
+    expect(paths.dir).toBe('/repo/.cursor');
+    expect(paths.hooksDir).toBe('/repo/.cursor/hooks');
+    expect(paths.skillsDir).toBe('/repo/.cursor/skills');
+    expect(paths.settingsFile).toBe('/repo/.cursor/hooks.json');
+    expect(paths.commandsDir).toBeUndefined();
+  });
+
+  it('declares native Cursor camelCase hook events', () => {
+    const events = new Set(cursorAdapter.hooks.map(h => h.event));
+    expect(events.has('stop')).toBe(true);
+    expect(events.has('sessionEnd')).toBe(true);
+    expect(events.has('preCompact')).toBe(true);
+    expect(events.has('sessionStart')).toBe(true);
+  });
+
+  it('detects Cursor from CURSOR_VERSION', () => {
+    expect(cursorAdapter.detectFromEnv?.({ CURSOR_VERSION: '1.0.0' })).toBe(true);
+    expect(cursorAdapter.detectFromEnv?.({})).toBe(false);
   });
 });
 

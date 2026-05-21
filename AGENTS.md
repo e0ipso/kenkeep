@@ -38,7 +38,7 @@ src/
     types.ts              # HarnessAdapter contract
     registry.ts           # central adapter registry
     detect.ts             # env-based active-harness resolver
-    claude/ codex/ opencode/
+    claude/ codex/ cursor/ opencode/
   lib/                    # shared utilities, schemas, paths, logging
   templates-source/       # source for the shipped templates/ tree
     skills/               # SKILL.md files shared across all harnesses

@@ -70,10 +70,19 @@ export const OpenCodeModelChoiceSchema = z
   .strict();
 export type OpenCodeModelChoice = z.infer<typeof OpenCodeModelChoiceSchema>;
 
+export const CursorModelChoiceSchema = z
+  .object({
+    harness: z.literal('cursor'),
+    model: z.string().min(1),
+  })
+  .strict();
+export type CursorModelChoice = z.infer<typeof CursorModelChoiceSchema>;
+
 export const ModelChoiceSchema = z.discriminatedUnion('harness', [
   ClaudeModelChoiceSchema,
   CodexModelChoiceSchema,
   OpenCodeModelChoiceSchema,
+  CursorModelChoiceSchema,
 ]);
 export type ModelChoice = z.infer<typeof ModelChoiceSchema>;
 

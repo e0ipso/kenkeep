@@ -9,6 +9,7 @@
  * does not flow back into the parent session.
  */
 import { existsSync } from 'node:fs';
+import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
 import { runLint } from '../../../lib/lint.js';
 import { lintStateFile, readLintState, writeLintState } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
@@ -26,7 +27,9 @@ async function main(): Promise<void> {
   if (raw.trim().length > 0) {
     try {
       input = JSON.parse(raw) as { cwd?: unknown };
-    } catch {
+    } catch (err) {
+      const paths = repoPaths(findRepoRoot(process.cwd()));
+      appendHookDiagnostic('claude:kb-lint-tick', 'parse', err, paths.logsDir);
       input = {};
     }
   }
@@ -79,4 +82,12 @@ function readStdin(): Promise<string> {
   });
 }
 
-void main().catch(() => process.exit(0));
+void main().catch((err: unknown) => {
+  try {
+    const paths = repoPaths(findRepoRoot(process.cwd()));
+    appendHookDiagnostic('claude:kb-lint-tick', 'uncaught', err, paths.logsDir);
+  } catch {
+    // Outside any project / cannot resolve paths — nothing to log to.
+  }
+  process.exit(0);
+});

@@ -12,6 +12,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
 import { buildSessionStartContext } from '../../../lib/session-start.js';
 import { lintStateFile } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
@@ -36,7 +37,9 @@ async function main(): Promise<void> {
   if (raw.trim().length > 0) {
     try {
       input = JSON.parse(raw) as { cwd?: unknown };
-    } catch {
+    } catch (err) {
+      const paths = repoPaths(findRepoRoot(process.cwd()));
+      appendHookDiagnostic('claude:kb-session-start', 'parse', err, paths.logsDir);
       input = {};
     }
   }
@@ -87,4 +90,12 @@ function readStdin(): Promise<string> {
   });
 }
 
-void main().catch(() => process.exit(0));
+void main().catch((err: unknown) => {
+  try {
+    const paths = repoPaths(findRepoRoot(process.cwd()));
+    appendHookDiagnostic('claude:kb-session-start', 'uncaught', err, paths.logsDir);
+  } catch {
+    // Outside any project / cannot resolve paths — nothing to log to.
+  }
+  process.exit(0);
+});

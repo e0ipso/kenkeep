@@ -15,6 +15,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput, type TranscriptParser } from '../../../lib/capture.js';
+import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { RoleTaggedTranscript } from '../../types.js';
@@ -35,7 +36,9 @@ async function main(): Promise<void> {
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
+  } catch (err) {
+    const paths = repoPaths(findRepoRoot(process.cwd()));
+    appendHookDiagnostic('opencode:kb-capture', 'parse', err, paths.logsDir);
     return;
   }
 
@@ -164,4 +167,12 @@ function readStdin(): Promise<string> {
   });
 }
 
-void main().catch(() => process.exit(0));
+void main().catch((err: unknown) => {
+  try {
+    const paths = repoPaths(findRepoRoot(process.cwd()));
+    appendHookDiagnostic('opencode:kb-capture', 'uncaught', err, paths.logsDir);
+  } catch {
+    // Outside any project / cannot resolve paths — nothing to log to.
+  }
+  process.exit(0);
+});

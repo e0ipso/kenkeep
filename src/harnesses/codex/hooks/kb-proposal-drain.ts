@@ -7,6 +7,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../../../lib/paths.js';
 import { resolveSettings } from '../../../lib/settings.js';
 import { drainProposalQueue, type ProposalRunner } from '../../../lib/proposal-drain.js';
@@ -23,7 +24,9 @@ async function main(): Promise<void> {
   if (raw.trim().length > 0) {
     try {
       input = JSON.parse(raw) as { cwd?: unknown };
-    } catch {
+    } catch (err) {
+      const paths = repoPaths(findRepoRoot(process.cwd()));
+      appendHookDiagnostic('codex:kb-proposal-drain', 'parse', err, paths.logsDir);
       input = {};
     }
   }
@@ -88,4 +91,12 @@ function readStdin(): Promise<string> {
   });
 }
 
-void main().catch(() => process.exit(0));
+void main().catch((err: unknown) => {
+  try {
+    const paths = repoPaths(findRepoRoot(process.cwd()));
+    appendHookDiagnostic('codex:kb-proposal-drain', 'uncaught', err, paths.logsDir);
+  } catch {
+    // Outside any project / cannot resolve paths — nothing to log to.
+  }
+  process.exit(0);
+});

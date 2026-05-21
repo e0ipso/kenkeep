@@ -24,14 +24,11 @@ import { parseTranscriptJsonl } from './transcript.js';
  */
 /**
  * Returns true when the process appears to be running inside a Claude Code
- * session. `CLAUDECODE=1` is the explicit marker Claude Code exports; we
- * also accept a non-empty `CLAUDE_PROJECT_DIR` because every Claude hook
- * command is invoked with that variable set.
+ * session. `CLAUDECODE=1` is the explicit marker Claude Code exports in
+ * hook subprocesses and headless children.
  */
 function detectClaudeFromEnv(env: NodeJS.ProcessEnv): boolean {
-  if (env['CLAUDECODE'] === '1') return true;
-  const projectDir = env['CLAUDE_PROJECT_DIR'];
-  return typeof projectDir === 'string' && projectDir.length > 0;
+  return env['CLAUDECODE'] === '1';
 }
 
 function claudePaths(root: string): HarnessPaths {

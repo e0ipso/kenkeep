@@ -13,7 +13,7 @@ Before invoking, skim `.ai/knowledge-base/INDEX.md` (already in context) for an 
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kb-detect-harness.mjs` on first invocation):
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kb-detect-harness.mjs` on first invocation):
 
 ```bash
 if [ ! -f /tmp/kb-detect-harness.mjs ]; then
@@ -23,10 +23,10 @@ cat << 'EOF' > /tmp/kb-detect-harness.mjs
 // Mirrors src/harnesses/detect.ts resolveWithHint priority.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'opencode'];
+const REGISTERED = ['claude', 'codex', 'cursor', 'opencode'];
 const ENV_DETECTORS = [
+  { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
   { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-  { env: 'CLAUDE_PROJECT_DIR', value: '*nonempty*', harness: 'claude' },
 ];
 function findHint(argv) {
   for (let i = 0; i < argv.length; i++) {
@@ -35,6 +35,7 @@ function findHint(argv) {
   return undefined;
 }
 function detectFromEnv(env) {
+  if (env.CLAUDECODE === '1') return 'claude';
   for (const d of ENV_DETECTORS) {
     if (d.value === '*nonempty*') {
       if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;

@@ -5,6 +5,7 @@ import {
   resolveWithHint,
 } from '../../src/harnesses/detect.js';
 import { claudeAdapter } from '../../src/harnesses/claude/index.js';
+import { cursorAdapter } from '../../src/harnesses/cursor/index.js';
 
 describe('detectHarnessFromEnv', () => {
   it('returns the claude adapter when CLAUDECODE=1', () => {
@@ -12,8 +13,21 @@ describe('detectHarnessFromEnv', () => {
     expect(adapter?.id).toBe('claude');
   });
 
-  it('returns the claude adapter when CLAUDE_PROJECT_DIR is set', () => {
+  it('does not return claude when only CLAUDE_PROJECT_DIR is set', () => {
     const adapter = detectHarnessFromEnv({ CLAUDE_PROJECT_DIR: '/repo' });
+    expect(adapter).toBeNull();
+  });
+
+  it('returns the cursor adapter when CURSOR_VERSION is set without CLAUDECODE', () => {
+    const adapter = detectHarnessFromEnv({
+      CURSOR_VERSION: '1.0.0',
+      CLAUDE_PROJECT_DIR: '/repo',
+    });
+    expect(adapter?.id).toBe('cursor');
+  });
+
+  it('prefers claude over cursor when CLAUDECODE=1 and CURSOR_VERSION are both set', () => {
+    const adapter = detectHarnessFromEnv({ CLAUDECODE: '1', CURSOR_VERSION: '1.0.0' });
     expect(adapter?.id).toBe('claude');
   });
 
@@ -39,15 +53,18 @@ describe('resolveActiveHarness', () => {
     expect(adapter).toBe(claudeAdapter);
   });
 
+  it('returns the cursor adapter when --harness cursor is passed', () => {
+    const adapter = resolveActiveHarness({ flag: 'cursor', env: {} });
+    expect(adapter).toBe(cursorAdapter);
+  });
+
   it('throws when --harness names an unregistered adapter', () => {
-    expect(() => resolveActiveHarness({ flag: 'cursor', env: {} })).toThrow(
-      /Unsupported harness 'cursor'/
+    expect(() => resolveActiveHarness({ flag: 'not-real', env: {} })).toThrow(
+      /Unsupported harness 'not-real'/
     );
   });
 
   it('the --harness flag takes precedence over env detection', () => {
-    // The flag is the highest-priority signal: it wins even when the env
-    // matches another harness.
     const adapter = resolveActiveHarness({
       flag: 'claude',
       env: { CLAUDECODE: '1' },
@@ -56,9 +73,6 @@ describe('resolveActiveHarness', () => {
   });
 
   it('prefers env detection over the CLI default when no flag is given', () => {
-    // A bogus cliDefault would normally make the resolver throw; the test
-    // passes only if env detection short-circuits before the cliDefault
-    // is even validated.
     const adapter = resolveActiveHarness({
       env: { CLAUDECODE: '1' },
       cliDefault: 'definitely-not-registered',
@@ -79,16 +93,14 @@ describe('resolveActiveHarness', () => {
     expect(adapter.id).toBe('claude');
   });
 
-  it('throws when the configured default is not a registered harness', () => {
-    expect(() => resolveActiveHarness({ env: {}, cliDefault: 'cursor' })).toThrow(
-      /not a registered harness/
-    );
+  it('accepts cursor as cliDefaultHarness when registered', () => {
+    const adapter = resolveActiveHarness({ env: {}, cliDefault: 'cursor' });
+    expect(adapter).toBe(cursorAdapter);
   });
 });
 
 describe('resolveWithHint', () => {
   it('hint wins over env when the hint is a registered id', () => {
-    // Even with CLAUDECODE=1 set, the codex hint should win.
     const adapter = resolveWithHint({ CLAUDECODE: '1' }, 'codex');
     expect(adapter.id).toBe('codex');
   });

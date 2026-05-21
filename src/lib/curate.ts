@@ -171,7 +171,7 @@ export function buildBatchPrompt(template: string, payload: CuratorBatchPayload)
   const json = JSON.stringify(payload, null, 2);
   if (!template.includes(BATCH_PLACEHOLDER)) {
     throw new Error(
-      `curator prompt is missing the ${BATCH_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`,
+      `curator prompt is missing the ${BATCH_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
     );
   }
   return template.replace(BATCH_PLACEHOLDER, json);
@@ -357,9 +357,9 @@ function persistAction(action: CuratorAction, ctx: PersistContext): PersistOutco
       target_node_id: action.target_node_id ?? null,
       proposed_kind: proposedNode.kind,
       proposed_title: proposedNode.title,
+      proposed_confidence: proposedNode.confidence,
     };
-    const body =
-      `## Rationale\n\n${action.rationale}\n\n## Proposed node\n\n${proposedNode.body}\n`;
+    const body = `## Rationale\n\n${action.rationale}\n\n## Proposed node\n\n${proposedNode.body}\n`;
     writeFileSync(join(ctx.conflictsDir, `${conflictId}.md`), matter.stringify(body, frontmatter));
     return { kind: 'conflict' };
   }
@@ -436,8 +436,7 @@ export function dedupActions(actions: CuratorAction[]): CuratorAction[] {
       continue;
     }
     const node = action.proposed_node;
-    const key =
-      action.target_node_id ?? deriveNodeId(node.kind, node.title);
+    const key = action.target_node_id ?? deriveNodeId(node.kind, node.title);
     const existing = byKey.get(key);
     if (!existing || rankConfidence(action) > rankConfidence(existing)) {
       byKey.set(key, action);
@@ -492,4 +491,3 @@ function regenerateIndexAndGraph(ctx: CurateContext): void {
 export function curatorLogFile(logsDir: string, runId: string, now: Date): string {
   return join(logsDir, 'curator', `${runId}__${compactStamp(now)}.jsonl`);
 }
-

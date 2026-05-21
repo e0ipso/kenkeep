@@ -115,9 +115,7 @@ describe('writeClaudeHookConfig', () => {
     const commands = parsed.hooks.Stop.flatMap((e: { hooks: Array<{ command: string }> }) =>
       e.hooks.map(h => h.command)
     );
-    expect(commands).not.toContain(
-      'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-old-name.mjs"'
-    );
+    expect(commands).not.toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-old-name.mjs"');
     expect(commands).toContain('node ./scripts/user-stop.mjs');
     expect(commands).toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-capture.cjs"');
   });

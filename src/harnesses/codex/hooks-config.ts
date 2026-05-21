@@ -87,9 +87,7 @@ export function readCodexHooks(paths: CodexHookWritePaths): CodexHooksFile {
   try {
     raw = JSON.parse(readFileSync(paths.settingsFile, 'utf8'));
   } catch (err) {
-    throw new Error(
-      `Could not parse existing ${paths.settingsFile}: ${(err as Error).message}`
-    );
+    throw new Error(`Could not parse existing ${paths.settingsFile}: ${(err as Error).message}`);
   }
   const parsed = CodexHooksFileSchema.safeParse(raw);
   if (!parsed.success) {
@@ -112,9 +110,7 @@ function guardAgainstTomlHooks(paths: CodexHookWritePaths): void {
   try {
     parsed = parseToml(text);
   } catch (err) {
-    throw new Error(
-      `Could not parse ${paths.configToml}: ${(err as Error).message}`
-    );
+    throw new Error(`Could not parse ${paths.configToml}: ${(err as Error).message}`);
   }
   if (
     parsed !== null &&

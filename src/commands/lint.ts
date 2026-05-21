@@ -34,7 +34,7 @@ function printCounts(result: LintResult): void {
   ];
   for (const { rule, bucket } of rules) {
     const n = bucket === 'errors' ? (errBy.get(rule) ?? 0) : (findBy.get(rule) ?? 0);
-    const fn = bucket === 'errors' ? (n > 0 ? log.error : log.plain) : (n > 0 ? log.warn : log.plain);
+    const fn = bucket === 'errors' ? (n > 0 ? log.error : log.plain) : n > 0 ? log.warn : log.plain;
     fn(`${rule}: ${n}`);
   }
 }

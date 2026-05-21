@@ -46,7 +46,9 @@ function readFile(path) {
 function readRegisteredFromTs() {
   const text = readFile(registryFile);
   const ids = new Set();
-  for (const match of text.matchAll(/\bimport\s*\{\s*(\w+)\s*\}\s*from\s*'\.\/(\w+)\/index\.js'/g)) {
+  for (const match of text.matchAll(
+    /\bimport\s*\{\s*(\w+)\s*\}\s*from\s*'\.\/(\w+)\/index\.js'/g
+  )) {
     ids.add(match[2]);
   }
   return ids;
@@ -85,7 +87,9 @@ function readEnvDetectorsFromTs() {
 //    to the matching `EOF` token.
 function readFromHeredoc() {
   const text = readFile(skillFile);
-  const match = text.match(/cat <<\s*'EOF'\s*>\s*\/tmp\/kb-detect-harness\.mjs\s*\n([\s\S]*?)\n\s*EOF/);
+  const match = text.match(
+    /cat <<\s*'EOF'\s*>\s*\/tmp\/kb-detect-harness\.mjs\s*\n([\s\S]*?)\n\s*EOF/
+  );
   if (!match) fail(`could not locate detect-harness heredoc in ${skillFile}`);
   const body = match[1];
 

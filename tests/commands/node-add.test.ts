@@ -172,7 +172,13 @@ describe('runNodeAdd flag-driven path', () => {
   });
 
   it('rejects an out-of-enum --kind', async () => {
-    const code = await runNodeAdd({ kind: 'bogus', title: 't', summary: 's', body: 'b', yes: true });
+    const code = await runNodeAdd({
+      kind: 'bogus',
+      title: 't',
+      summary: 's',
+      body: 'b',
+      yes: true,
+    });
     expect(code).toBe(1);
   });
 

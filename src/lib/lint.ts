@@ -23,7 +23,7 @@ export function runLint(opts: LintOptions): LintResult {
   const errors: LintEntry[] = [];
   const findings: LintEntry[] = [];
 
-  const idSet = new Set<string>(nodes.map((n) => n.frontmatter.id));
+  const idSet = new Set<string>(nodes.map(n => n.frontmatter.id));
 
   const incomingRefs = new Map<string, Set<string>>();
   for (const node of nodes) {
@@ -95,7 +95,7 @@ export function runLint(opts: LintOptions): LintResult {
     const outgoing = node.frontmatter.relates_to.length;
     const incoming = incomingRefs.get(node.frontmatter.id);
     const incomingFromOthers = incoming
-      ? [...incoming].filter((src) => src !== node.frontmatter.id).length
+      ? [...incoming].filter(src => src !== node.frontmatter.id).length
       : 0;
     if (outgoing === 0 && incomingFromOthers === 0) {
       findings.push({

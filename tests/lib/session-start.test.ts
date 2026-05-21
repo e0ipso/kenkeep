@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateIndex, writeIndex } from '../../src/lib/index-gen.js';
 import {
   DEFAULT_NUDGE_THRESHOLD,
+  DEFAULT_STALE_DAYS,
   buildSessionStartContext,
   countPendingSessions,
+  summarizePendingSessions,
 } from '../../src/lib/session-start.js';
 import { writeState, readState } from '../../src/lib/state.js';
 
@@ -32,24 +34,45 @@ function makeHarness(): Harness {
   return { root, kbDir, nodesDir, sessionsDir, stateFile };
 }
 
-function seedSession(harness: Harness, sessionId: string, processed: boolean): void {
+interface SeedOptions {
+  capturedAt?: string;
+  practiceCount?: number;
+  mapCount?: number;
+}
+
+function seedSession(
+  harness: Harness,
+  sessionId: string,
+  processed: boolean,
+  opts: SeedOptions = {}
+): void {
+  const capturedAt = opts.capturedAt ?? '2026-05-11T10:00:00Z';
+  const practice = Array.from({ length: opts.practiceCount ?? 0 }, (_, i) => ({ idx: i }));
+  const map = Array.from({ length: opts.mapCount ?? 0 }, (_, i) => ({ idx: i }));
   const fm: Record<string, unknown> = {
     schema_version: 1,
     session_id: sessionId,
     captured_by: 'stop',
-    captured_at: '2026-05-11T10:00:00Z',
+    captured_at: capturedAt,
     transcript_hash: `sha256:${sessionId}`,
     proposal_status: 'done',
-    proposal_completed_at: '2026-05-11T10:00:01Z',
+    proposal_completed_at: capturedAt,
     proposal_error: null,
     proposal_log: null,
     secret_scan_status: 'clean',
-    proposals: { practice: [], map: [] },
+    proposals: { practice, map },
   };
   if (processed) fm['curator_processed_at'] = '2026-05-11T11:00:00Z';
   writeFileSync(
     join(harness.sessionsDir, `session-${sessionId}.md`),
     matter.stringify('## body\n', fm)
+  );
+}
+
+function seedMalformedSession(harness: Harness, sessionId: string): void {
+  writeFileSync(
+    join(harness.sessionsDir, `session-${sessionId}.md`),
+    '---\nnot: valid frontmatter\n---\n## body\n'
   );
 }
 
@@ -213,6 +236,153 @@ describe('buildSessionStartContext', () => {
     expect(result.pendingSessions).toBe(1);
   });
 
+  it('renders soft form when at threshold and oldest is today', () => {
+    const today = '2026-05-11T08:00:00Z';
+    for (let i = 0; i < DEFAULT_NUDGE_THRESHOLD; i += 1) {
+      seedSession(harness, `s-${i}`, false, {
+        capturedAt: today,
+        practiceCount: 1,
+        mapCount: 1,
+      });
+    }
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      now: () => new Date('2026-05-11T20:00:00Z'),
+    });
+    expect(result.nudged).toBe(true);
+    expect(result.additionalContext).not.toContain('KB curation queue is overdue');
+    expect(result.additionalContext).toContain(
+      `${DEFAULT_NUDGE_THRESHOLD} pending session log(s), ${DEFAULT_NUDGE_THRESHOLD * 2} candidate proposal(s), captured today`
+    );
+    expect(result.additionalContext).toContain(
+      'Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`)'
+    );
+  });
+
+  it('renders loud form when oldest pending is at or beyond staleDays', () => {
+    for (let i = 0; i < DEFAULT_NUDGE_THRESHOLD; i += 1) {
+      seedSession(harness, `s-${i}`, false, {
+        capturedAt: '2026-05-03T10:00:00Z', // 8 days before "now"
+        practiceCount: 2,
+      });
+    }
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      now: () => new Date('2026-05-11T10:00:00Z'),
+    });
+    expect(result.nudged).toBe(true);
+    expect(result.additionalContext).toContain('KB curation queue is overdue');
+    expect(result.additionalContext).toContain('oldest pending: 8 day(s)');
+    expect(result.additionalContext).toContain(
+      `${DEFAULT_NUDGE_THRESHOLD} pending session log(s), ${DEFAULT_NUDGE_THRESHOLD * 2} candidate proposal(s)`
+    );
+  });
+
+  it('renders loud form via the 2x threshold path even when all are fresh', () => {
+    const today = '2026-05-11T09:00:00Z';
+    for (let i = 0; i < DEFAULT_NUDGE_THRESHOLD * 2; i += 1) {
+      seedSession(harness, `s-${i}`, false, { capturedAt: today, mapCount: 1 });
+    }
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      now: () => new Date('2026-05-11T20:00:00Z'),
+    });
+    expect(result.nudged).toBe(true);
+    expect(result.additionalContext).toContain('KB curation queue is overdue');
+    expect(result.additionalContext).toContain('captured today');
+    expect(result.additionalContext).toContain(
+      `${DEFAULT_NUDGE_THRESHOLD * 2} pending session log(s)`
+    );
+  });
+
+  it('throttle suppresses loud form when last_nudged_at is recent', () => {
+    for (let i = 0; i < DEFAULT_NUDGE_THRESHOLD; i += 1) {
+      seedSession(harness, `s-${i}`, false, { capturedAt: '2026-05-03T10:00:00Z' });
+    }
+    writeState(harness.stateFile, {
+      schema_version: 1,
+      last_nudged_at: '2026-05-11T09:30:00Z', // 30 min before "now"
+    });
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      now: () => new Date('2026-05-11T10:00:00Z'),
+    });
+    expect(result.nudged).toBe(false);
+    expect(result.additionalContext).not.toContain('KB curation queue is overdue');
+    expect(result.additionalContext).not.toContain('pending session log');
+  });
+
+  it('still emits the soft nudge when one session log is malformed', () => {
+    const today = '2026-05-11T09:00:00Z';
+    for (let i = 0; i < DEFAULT_NUDGE_THRESHOLD; i += 1) {
+      seedSession(harness, `s-${i}`, false, { capturedAt: today, practiceCount: 1 });
+    }
+    seedMalformedSession(harness, 'broken');
+    const result = buildSessionStartContext({
+      kbDir: harness.kbDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      now: () => new Date('2026-05-11T20:00:00Z'),
+    });
+    expect(result.nudged).toBe(true);
+    expect(result.pendingSessions).toBe(DEFAULT_NUDGE_THRESHOLD);
+    expect(result.additionalContext).toContain(
+      `${DEFAULT_NUDGE_THRESHOLD} pending session log(s), ${DEFAULT_NUDGE_THRESHOLD} candidate proposal(s)`
+    );
+    expect(result.additionalContext).not.toContain('KB curation queue is overdue');
+  });
+});
+
+describe('summarizePendingSessions', () => {
+  let harness: Harness;
+  beforeEach(() => (harness = makeHarness()));
+  afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
+
+  it('aggregates candidate counts across pending sessions and ignores processed ones', () => {
+    seedSession(harness, 'a', false, {
+      capturedAt: '2026-05-05T10:00:00Z',
+      practiceCount: 2,
+      mapCount: 1,
+    });
+    seedSession(harness, 'b', false, {
+      capturedAt: '2026-05-08T10:00:00Z',
+      practiceCount: 0,
+      mapCount: 3,
+    });
+    seedSession(harness, 'c', true, {
+      capturedAt: '2026-05-01T10:00:00Z',
+      practiceCount: 10,
+      mapCount: 10,
+    });
+    const summary = summarizePendingSessions(harness.sessionsDir);
+    expect(summary.pending).toBe(2);
+    expect(summary.candidateCount).toBe(6);
+    expect(summary.oldestCapturedAt?.toISOString()).toBe('2026-05-05T10:00:00.000Z');
+  });
+
+  it('returns zeroes for an empty directory', () => {
+    const summary = summarizePendingSessions(harness.sessionsDir);
+    expect(summary).toEqual({ pending: 0, candidateCount: 0, oldestCapturedAt: null });
+  });
+});
+
+describe('DEFAULT_STALE_DAYS', () => {
+  it('is 7 days', () => {
+    expect(DEFAULT_STALE_DAYS).toBe(7);
+  });
 });
 
 describe('buildSessionStartContext lint nudge', () => {

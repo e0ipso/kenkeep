@@ -7,6 +7,7 @@ import { IndexFrontmatterSchema, SessionLogFrontmatterSchema } from './schemas.j
 import { readState, writeState } from './state.js';
 
 export const DEFAULT_NUDGE_THRESHOLD = 5;
+export const DEFAULT_STALE_DAYS = 7;
 export const NUDGE_THROTTLE_MS = 60 * 60 * 1000; // 1 hour
 
 export interface SessionStartContext {
@@ -16,6 +17,7 @@ export interface SessionStartContext {
   stateFile: string;
   lintStateFile?: string;
   threshold?: number;
+  staleDays?: number;
   throttleMs?: number;
   now?: () => Date;
 }
@@ -49,19 +51,32 @@ export interface SessionStartResult {
 export function buildSessionStartContext(ctx: SessionStartContext): SessionStartResult {
   const now = ctx.now ?? (() => new Date());
   const threshold = ctx.threshold ?? DEFAULT_NUDGE_THRESHOLD;
+  const staleDays = ctx.staleDays ?? DEFAULT_STALE_DAYS;
   const throttleMs = ctx.throttleMs ?? NUDGE_THROTTLE_MS;
 
   const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kbDir);
   const liveHash = computeNodesHash(ctx.nodesDir);
   const indexStale = !missing && frontmatterHash !== null && frontmatterHash !== liveHash;
 
-  const pending = countPendingSessions(ctx.sessionsDir);
+  const summary = summarizePendingSessions(ctx.sessionsDir);
+  const pending = summary.pending;
   const state = readState(ctx.stateFile);
   const nowDate = now();
   const lastNudgedAt = parseLastNudgedAt(state.last_nudged_at ?? null);
   const throttled =
     lastNudgedAt !== null && nowDate.getTime() - lastNudgedAt.getTime() < throttleMs;
   const shouldNudge = pending >= threshold && !throttled;
+
+  const oldestAgeDays =
+    summary.oldestCapturedAt === null
+      ? 0
+      : Math.max(
+          0,
+          Math.floor((nowDate.getTime() - summary.oldestCapturedAt.getTime()) / 86_400_000)
+        );
+  const loud =
+    shouldNudge &&
+    ((pending >= threshold && oldestAgeDays >= staleDays) || pending >= 2 * threshold);
 
   const lines: string[] = [];
   lines.push(indexBody.trim());
@@ -76,10 +91,22 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     );
   }
   if (shouldNudge) {
+    const oldestPhrase =
+      oldestAgeDays === 0 ? 'captured today' : `oldest pending: ${oldestAgeDays} day(s)`;
+    const copyPaste = 'Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`)';
     lines.push('');
-    lines.push(
-      `> You have ${pending} pending session log(s). Run \`/kb-curate\` (or \`npx @e0ipso/ai-knowledge-base curate\`) when ready.`
-    );
+    if (loud) {
+      lines.push('> 🔔 KB curation queue is overdue');
+      lines.push(
+        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
+      );
+      lines.push(`> ${copyPaste}`);
+    } else {
+      lines.push(
+        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
+      );
+      lines.push(`> ${copyPaste}`);
+    }
   }
 
   let lintNudged = false;
@@ -148,15 +175,26 @@ function normalizeNodesHash(value: string): string {
   return value.startsWith('sha256:') ? value.slice(7) : value;
 }
 
+export interface PendingSessionsSummary {
+  pending: number;
+  candidateCount: number;
+  oldestCapturedAt: Date | null;
+}
+
 /**
- * Counts session logs whose proposal is done but which have not yet been
- * curated. Mirrors the filter used by `listPendingSessions` in
- * `src/lib/curate.ts`. Kept here so the consume hook does not have to load
- * the entire curate module.
+ * Single-pass walk over `_sessions/*.md` returning the pending count, the
+ * sum of candidate proposals across those sessions, and the oldest
+ * `captured_at` timestamp. Mirrors the filter used by `listPendingSessions`
+ * in `src/lib/curate.ts`. Kept here so the consume hook does not have to
+ * load the entire curate module.
  */
-export function countPendingSessions(sessionsDir: string): number {
-  if (!existsSync(sessionsDir)) return 0;
-  let count = 0;
+export function summarizePendingSessions(sessionsDir: string): PendingSessionsSummary {
+  if (!existsSync(sessionsDir)) {
+    return { pending: 0, candidateCount: 0, oldestCapturedAt: null };
+  }
+  let pending = 0;
+  let candidateCount = 0;
+  let oldest: Date | null = null;
   for (const name of readdirSync(sessionsDir)) {
     if (!name.endsWith('.md')) continue;
     const file = join(sessionsDir, name);
@@ -167,12 +205,29 @@ export function countPendingSessions(sessionsDir: string): number {
       if (fm.data.proposal_status !== 'done') continue;
       const data = parsed.data as { curator_processed_at?: unknown };
       if (typeof data.curator_processed_at === 'string') continue;
-      count += 1;
+      pending += 1;
+      const proposals = fm.data.proposals;
+      candidateCount += (proposals?.practice?.length ?? 0) + (proposals?.map?.length ?? 0);
+      const ms = Date.parse(fm.data.captured_at);
+      if (Number.isFinite(ms)) {
+        const captured = new Date(ms);
+        if (oldest === null || captured.getTime() < oldest.getTime()) {
+          oldest = captured;
+        }
+      }
     } catch {
       // Skip unreadable session logs; doctor will surface them.
     }
   }
-  return count;
+  return { pending, candidateCount, oldestCapturedAt: oldest };
+}
+
+/**
+ * Back-compat thin wrapper around `summarizePendingSessions` for callers
+ * that only need the pending count.
+ */
+export function countPendingSessions(sessionsDir: string): number {
+  return summarizePendingSessions(sessionsDir).pending;
 }
 
 function parseLastNudgedAt(value: string | null): Date | null {

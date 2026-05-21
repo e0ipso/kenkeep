@@ -123,12 +123,7 @@ export async function runHeadlessOpenCode<T>(
     if (parsed.type === 'message.part.updated') {
       const messageId = parsed.properties?.messageID;
       const part = parsed.properties?.part;
-      if (
-        messageId &&
-        part &&
-        part.type === 'text' &&
-        typeof part.text === 'string'
-      ) {
+      if (messageId && part && part.type === 'text' && typeof part.text === 'string') {
         if (messageId !== currentAssistantMessageId) {
           currentAssistantMessageId = messageId;
           accumulatedText = '';

@@ -299,10 +299,7 @@ describe('runCurate', () => {
       ? readdirSync(harness.paths.conflictsDir)
       : [];
     expect(conflictFiles).toHaveLength(1);
-    const conflictBody = readFileSync(
-      join(harness.paths.conflictsDir, conflictFiles[0]!),
-      'utf8'
-    );
+    const conflictBody = readFileSync(join(harness.paths.conflictsDir, conflictFiles[0]!), 'utf8');
     const parsedConflict = matter(conflictBody);
     expect((parsedConflict.data as Record<string, unknown>).target_node_id).toBe(
       'practice-contra-target'
@@ -347,6 +344,7 @@ describe('runCurate', () => {
     expect(fm['target_node_id']).toBe('practice-target');
     expect(fm['proposed_kind']).toBe('practice');
     expect(fm['proposed_title']).toBe('New practice title');
+    expect(fm['proposed_confidence']).toBe('high');
     expect(typeof fm['detected_at']).toBe('string');
     expect(parsed.content).toContain('## Rationale');
     expect(parsed.content).toContain('The user reversed the earlier decision.');
@@ -590,8 +588,8 @@ describe('buildBatchPrompt', () => {
   it('throws when the placeholder is missing, naming the placeholder and the curator prompt', () => {
     expect(() => buildBatchPrompt('no placeholder here', emptyPayload)).toThrowError(
       new RegExp(
-        `curator prompt is missing the ${BATCH_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-      ),
+        `curator prompt is missing the ${BATCH_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
     );
   });
 });

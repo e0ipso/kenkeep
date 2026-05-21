@@ -101,20 +101,10 @@ describe('init', () => {
   });
 
   it('installs the shared skill bytes identically across claude, codex, and opencode', async () => {
-    const result = await runCli(sandbox, [
-      'init',
-      '--harnesses',
-      'claude,codex,opencode',
-    ]);
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude,codex,opencode']);
     expect(result.exitCode).toBe(0);
-    const claudeSkill = readFileSync(
-      join(sandbox, '.claude/skills/kb-curate/SKILL.md'),
-      'utf8'
-    );
-    const codexSkill = readFileSync(
-      join(sandbox, '.agents/skills/kb-curate/SKILL.md'),
-      'utf8'
-    );
+    const claudeSkill = readFileSync(join(sandbox, '.claude/skills/kb-curate/SKILL.md'), 'utf8');
+    const codexSkill = readFileSync(join(sandbox, '.agents/skills/kb-curate/SKILL.md'), 'utf8');
     const openCodeSkill = readFileSync(
       join(sandbox, '.opencode/skills/kb-curate/SKILL.md'),
       'utf8'
@@ -232,9 +222,12 @@ describe('init', () => {
     expect(body['curationThreshold']).toBe(5);
     expect(body['logsRetentionDays']).toBe(30);
     expect(body['lintEveryNSessions']).toBe(50);
-    expect(Object.keys(body).sort()).toEqual(
-      ['curationThreshold', 'lintEveryNSessions', 'logsRetentionDays', 'schema_version']
-    );
+    expect(Object.keys(body).sort()).toEqual([
+      'curationThreshold',
+      'lintEveryNSessions',
+      'logsRetentionDays',
+      'schema_version',
+    ]);
   });
 
   it('registers both SessionEnd capture and lint-tick hooks and ships kb-lint-tick.cjs', async () => {

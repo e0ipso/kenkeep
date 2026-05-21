@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readCodexHooks, codexHookConfigPaths, writeCodexHooks } from '../../../src/harnesses/codex/hooks-config.js';
+import {
+  readCodexHooks,
+  codexHookConfigPaths,
+  writeCodexHooks,
+} from '../../../src/harnesses/codex/hooks-config.js';
 
 describe('writeCodexHooks', () => {
   let root: string;
@@ -77,9 +81,7 @@ describe('writeCodexHooks', () => {
       })
     );
 
-    await writeCodexHooks(root, [
-      { event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' },
-    ]);
+    await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' }]);
 
     const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
     const commands = parsed.hooks.Stop.flatMap((e: { hooks: Array<{ command: string }> }) =>
@@ -118,9 +120,7 @@ describe('writeCodexHooks', () => {
       })
     );
 
-    await writeCodexHooks(root, [
-      { event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' },
-    ]);
+    await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' }]);
 
     const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
     const commands = parsed.hooks.Stop.flatMap((e: { hooks: Array<{ command: string }> }) =>
@@ -135,20 +135,12 @@ describe('writeCodexHooks', () => {
     mkdirSync(join(root, '.codex'), { recursive: true });
     writeFileSync(
       join(root, '.codex/config.toml'),
-      [
-        '[hooks]',
-        '',
-        '[[hooks.Stop]]',
-        'command = "echo hi"',
-        '',
-      ].join('\n')
+      ['[hooks]', '', '[[hooks.Stop]]', 'command = "echo hi"', ''].join('\n')
     );
 
     let caught: Error | null = null;
     try {
-      await writeCodexHooks(root, [
-        { event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' },
-      ]);
+      await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' }]);
     } catch (err) {
       caught = err as Error;
     }
@@ -162,13 +154,8 @@ describe('writeCodexHooks', () => {
 
   it('does not trip the TOML guard when .codex/config.toml exists but has no [hooks] table', async () => {
     mkdirSync(join(root, '.codex'), { recursive: true });
-    writeFileSync(
-      join(root, '.codex/config.toml'),
-      'model = "gpt-5-codex"\n'
-    );
-    await writeCodexHooks(root, [
-      { event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' },
-    ]);
+    writeFileSync(join(root, '.codex/config.toml'), 'model = "gpt-5-codex"\n');
+    await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kb-capture.cjs' }]);
     expect(existsSync(hooksFile)).toBe(true);
   });
 

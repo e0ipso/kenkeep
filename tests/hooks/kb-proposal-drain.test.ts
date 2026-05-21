@@ -95,9 +95,7 @@ describe('kb-proposal-drain hook (spawned)', () => {
     const file = seedSession(sandbox, 'guarded');
     const result = await runHook(sandbox, { cwd: sandbox }, { KB_BUILDER_INTERNAL: '1' });
     expect(result.exitCode).toBe(0);
-    const after = matter(
-      readFileSync(join(sandbox, '.ai/knowledge-base/_sessions', file), 'utf8')
-    );
+    const after = matter(readFileSync(join(sandbox, '.ai/knowledge-base/_sessions', file), 'utf8'));
     expect(after.data['proposal_status']).toBe('pending');
   });
 

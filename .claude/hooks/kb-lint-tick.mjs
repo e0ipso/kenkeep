@@ -1,25 +1,18 @@
 // src/hooks/kb-lint-tick.ts
-import { existsSync as existsSync5 } from "fs";
+import { existsSync as existsSync5 } from 'fs';
 
 // src/lib/nodes.ts
-import { createHash } from "crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  writeFileSync
-} from "fs";
-import { join, posix, relative, sep } from "path";
-import matter from "gray-matter";
-import "zod";
+import { createHash } from 'crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'fs';
+import { join, posix, relative, sep } from 'path';
+import matter from 'gray-matter';
+import 'zod';
 
 // src/lib/schemas.ts
-import { z } from "zod";
-var CaptureTriggerSchema = z.enum(["stop", "session_end", "pre_compact", "manual"]);
-var SecretScanStatusSchema = z.enum(["clean", "redacted", "blocked", "skipped"]);
-var ProposalStatusSchema = z.enum(["pending", "done", "failed"]);
+import { z } from 'zod';
+var CaptureTriggerSchema = z.enum(['stop', 'session_end', 'pre_compact', 'manual']);
+var SecretScanStatusSchema = z.enum(['clean', 'redacted', 'blocked', 'skipped']);
+var ProposalStatusSchema = z.enum(['pending', 'done', 'failed']);
 var SessionLogFrontmatterSchema = z.object({
   schema_version: z.literal(1),
   session_id: z.string(),
@@ -33,39 +26,39 @@ var SessionLogFrontmatterSchema = z.object({
   secret_scan_status: SecretScanStatusSchema,
   proposals: z.object({
     practice: z.array(z.unknown()),
-    map: z.array(z.unknown())
-  })
+    map: z.array(z.unknown()),
+  }),
 });
-var ConfidenceSchema = z.enum(["low", "medium", "high"]);
-var ModelFamilySchema = z.enum(["haiku", "sonnet", "opus"]);
-var EffortLevelSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
+var ConfidenceSchema = z.enum(['low', 'medium', 'high']);
+var ModelFamilySchema = z.enum(['haiku', 'sonnet', 'opus']);
+var EffortLevelSchema = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
 var ModelChoiceSchema = z.object({ name: ModelFamilySchema, effort: EffortLevelSchema }).strict();
 var ProposalCandidateSchema = z.object({
-  kind: z.enum(["practice", "map"]),
+  kind: z.enum(['practice', 'map']),
   tags: z.array(z.string()),
   title: z.string(),
   summary: z.string(),
   body: z.string(),
   confidence: ConfidenceSchema,
   supports_existing_node: z.string().nullable(),
-  contradicts_existing_node: z.string().nullable()
+  contradicts_existing_node: z.string().nullable(),
 });
 var ProposalOutputSchema = z.object({
   practice: z.array(ProposalCandidateSchema),
-  map: z.array(ProposalCandidateSchema)
+  map: z.array(ProposalCandidateSchema),
 });
 var StateFileSchema = z.object({
   schema_version: z.literal(1),
-  last_nudged_at: z.string().nullable().optional()
+  last_nudged_at: z.string().nullable().optional(),
 });
 var LintStateFileSchema = z.object({
   schema_version: z.literal(1),
   sessions_since_last_lint: z.number().int().nonnegative(),
   last_lint_at: z.string().nullable(),
   last_errors: z.number().int().nonnegative(),
-  last_findings: z.number().int().nonnegative()
+  last_findings: z.number().int().nonnegative(),
 });
-var NodeKindSchema = z.enum(["practice", "map"]);
+var NodeKindSchema = z.enum(['practice', 'map']);
 var NodeFrontmatterSchema = z.object({
   schema_version: z.literal(1),
   id: z.string(),
@@ -75,7 +68,7 @@ var NodeFrontmatterSchema = z.object({
   derived_from: z.array(z.string()),
   relates_to: z.array(z.string()),
   confidence: ConfidenceSchema,
-  summary: z.string()
+  summary: z.string(),
 });
 var CuratorProposedNodeSchema = z.object({
   id: z.string(),
@@ -86,28 +79,28 @@ var CuratorProposedNodeSchema = z.object({
   body: z.string(),
   confidence: ConfidenceSchema,
   derived_from: z.array(z.string()),
-  relates_to: z.array(z.string())
+  relates_to: z.array(z.string()),
 });
 var CuratorActionSchema = z.object({
-  action: z.enum(["add", "modify", "contradict", "drop"]),
+  action: z.enum(['add', 'modify', 'contradict', 'drop']),
   candidate_origin: z.string(),
   target_node_id: z.string().nullable(),
   proposed_node: CuratorProposedNodeSchema.nullable(),
-  rationale: z.string()
+  rationale: z.string(),
 });
 var CuratorOutputSchema = z.array(CuratorActionSchema);
 var IndexFrontmatterSchema = z.object({
   schema_version: z.literal(1),
   nodes_hash: z.string(),
-  node_count: z.number().int().nonnegative()
+  node_count: z.number().int().nonnegative(),
 });
 var GraphFrontmatterSchema = z.object({
   schema_version: z.literal(1),
   nodes_hash: z.string(),
-  node_count: z.number().int().nonnegative()
+  node_count: z.number().int().nonnegative(),
 });
 var BootstrapCandidateSchema = z.object({
-  kind: z.enum(["practice", "map"]),
+  kind: z.enum(['practice', 'map']),
   tags: z.array(z.string()),
   title: z.string(),
   summary: z.string(),
@@ -115,31 +108,33 @@ var BootstrapCandidateSchema = z.object({
   confidence: ConfidenceSchema,
   derived_from: z.array(z.string()),
   supports_existing_node: z.string().nullable(),
-  contradicts_existing_node: z.string().nullable()
+  contradicts_existing_node: z.string().nullable(),
 });
 var BootstrapOutputSchema = z.object({
   practice: z.array(BootstrapCandidateSchema),
-  map: z.array(BootstrapCandidateSchema)
+  map: z.array(BootstrapCandidateSchema),
 });
 var BootstrapDocEntrySchema = z.object({
   content_sha256: z.string(),
   last_processed_at: z.string(),
-  produced_nodes: z.array(z.string())
+  produced_nodes: z.array(z.string()),
 });
-var SettingsSchema = z.object({
-  schema_version: z.literal(1),
-  curationThreshold: z.number().int().positive().optional(),
-  logsRetentionDays: z.number().int().positive().optional(),
-  lintEveryNSessions: z.number().int().positive().optional(),
-  proposalModel: ModelChoiceSchema.optional(),
-  curatorModel: ModelChoiceSchema.optional(),
-  bootstrapModel: ModelChoiceSchema.optional()
-}).strict();
+var SettingsSchema = z
+  .object({
+    schema_version: z.literal(1),
+    curationThreshold: z.number().int().positive().optional(),
+    logsRetentionDays: z.number().int().positive().optional(),
+    lintEveryNSessions: z.number().int().positive().optional(),
+    proposalModel: ModelChoiceSchema.optional(),
+    curatorModel: ModelChoiceSchema.optional(),
+    bootstrapModel: ModelChoiceSchema.optional(),
+  })
+  .strict();
 var BootstrapStateSchema = z.object({
   schema_version: z.literal(1),
   last_full_bootstrap_at: z.string().nullable().optional(),
   last_incremental_at: z.string().nullable().optional(),
-  docs: z.record(BootstrapDocEntrySchema)
+  docs: z.record(BootstrapDocEntrySchema),
 });
 
 // src/lib/nodes.ts
@@ -147,11 +142,11 @@ var InvalidNodeFrontmatterError = class extends Error {
   failures;
   constructor(failures) {
     super(formatFailures(failures));
-    this.name = "InvalidNodeFrontmatterError";
+    this.name = 'InvalidNodeFrontmatterError';
     this.failures = failures;
   }
 };
-var KINDS = ["practice", "map"];
+var KINDS = ['practice', 'map'];
 function readAllNodes(nodesDir) {
   const out = [];
   const failures = [];
@@ -159,9 +154,9 @@ function readAllNodes(nodesDir) {
     const dir = join(nodesDir, kind);
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir)) {
-      if (!name.endsWith(".md")) continue;
+      if (!name.endsWith('.md')) continue;
       const filePath = join(dir, name);
-      const raw = readFileSync(filePath, "utf8");
+      const raw = readFileSync(filePath, 'utf8');
       let parsed;
       try {
         parsed = matter(raw);
@@ -169,7 +164,7 @@ function readAllNodes(nodesDir) {
         failures.push({
           file: filePath,
           reason: `YAML frontmatter parse error: ${err.message}`,
-          issues: []
+          issues: [],
         });
         continue;
       }
@@ -177,8 +172,8 @@ function readAllNodes(nodesDir) {
       if (!result.success) {
         failures.push({
           file: filePath,
-          reason: "frontmatter does not match NodeFrontmatterSchema",
-          issues: result.error.issues
+          reason: 'frontmatter does not match NodeFrontmatterSchema',
+          issues: result.error.issues,
         });
         continue;
       }
@@ -186,7 +181,7 @@ function readAllNodes(nodesDir) {
         path: filePath,
         filename: name,
         frontmatter: result.data,
-        body: parsed.content
+        body: parsed.content,
       });
     }
   }
@@ -203,15 +198,18 @@ function formatFailures(failures) {
       lines.push(`    - ${formatIssue(issue)}`);
     }
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 function formatIssue(issue) {
-  const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+  const path = issue.path.length > 0 ? issue.path.join('.') : '(root)';
   return `${path}: ${issue.message}`;
 }
 function slugify(input) {
-  const slug = input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return slug || "untitled";
+  const slug = input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'untitled';
 }
 
 // src/lib/lint.ts
@@ -219,7 +217,7 @@ function runLint(opts) {
   const nodes = readAllNodes(opts.nodesDir);
   const errors = [];
   const findings = [];
-  const idSet = new Set(nodes.map((n) => n.frontmatter.id));
+  const idSet = new Set(nodes.map(n => n.frontmatter.id));
   const incomingRefs = /* @__PURE__ */ new Map();
   for (const node of nodes) {
     const refs = node.frontmatter.relates_to;
@@ -237,10 +235,10 @@ function runLint(opts) {
     for (const ref of refs) {
       if (!idSet.has(ref)) {
         errors.push({
-          rule: "dangling-edge",
+          rule: 'dangling-edge',
           file: node.path,
           message: `references unknown node ${ref}`,
-          action: "Remove the broken reference from the frontmatter or create the missing node."
+          action: 'Remove the broken reference from the frontmatter or create the missing node.',
         });
       }
     }
@@ -249,10 +247,11 @@ function runLint(opts) {
     const mismatch = checkSlugId(node);
     if (mismatch) {
       errors.push({
-        rule: "slug-id-mismatch",
+        rule: 'slug-id-mismatch',
         file: node.path,
         message: mismatch,
-        action: "Rename the file and fix the id so id == <kind>-<slug> and filename == <id>.md under nodes/<kind>/."
+        action:
+          'Rename the file and fix the id so id == <kind>-<slug> and filename == <id>.md under nodes/<kind>/.',
       });
     }
   }
@@ -272,25 +271,28 @@ function runLint(opts) {
   }
   for (const entry of clusters.values()) {
     if (entry.original.size >= 2) {
-      const members = [...entry.original].sort().join(", ");
+      const members = [...entry.original].sort().join(', ');
       findings.push({
-        rule: "tag-near-duplicate",
-        file: "",
+        rule: 'tag-near-duplicate',
+        file: '',
         message: `tag cluster {${members}} affects ${entry.nodeIds.size} node(s)`,
-        action: "Pick a canonical tag and normalize the affected nodes."
+        action: 'Pick a canonical tag and normalize the affected nodes.',
       });
     }
   }
   for (const node of nodes) {
     const outgoing = node.frontmatter.relates_to.length;
     const incoming = incomingRefs.get(node.frontmatter.id);
-    const incomingFromOthers = incoming ? [...incoming].filter((src) => src !== node.frontmatter.id).length : 0;
+    const incomingFromOthers = incoming
+      ? [...incoming].filter(src => src !== node.frontmatter.id).length
+      : 0;
     if (outgoing === 0 && incomingFromOthers === 0) {
       findings.push({
-        rule: "orphan",
+        rule: 'orphan',
         file: node.path,
         message: `orphan node ${node.frontmatter.id}`,
-        action: "Add cross-links to neighboring nodes, or accept that this node legitimately stands alone."
+        action:
+          'Add cross-links to neighboring nodes, or accept that this node legitimately stands alone.',
       });
     }
   }
@@ -315,12 +317,15 @@ function checkSlugId(node) {
   }
   const parentSegment = node.path.split(/[\\/]/).slice(-2, -1)[0];
   if (parentSegment !== kind) {
-    return `file is under nodes/${parentSegment ?? "?"}/ but kind is ${kind}`;
+    return `file is under nodes/${parentSegment ?? '?'}/ but kind is ${kind}`;
   }
   return null;
 }
 function normalizeTag(tag) {
-  return tag.toLowerCase().replace(/[^a-z0-9]+/g, "").replace(/s$/, "");
+  return tag
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .replace(/s$/, '');
 }
 function compareEntries(a, b) {
   if (a.rule !== b.rule) return a.rule < b.rule ? -1 : 1;
@@ -330,22 +335,31 @@ function compareEntries(a, b) {
 }
 
 // src/lib/lint-state.ts
-import { join as join2 } from "path";
+import { join as join2 } from 'path';
 
 // src/lib/fs-atomic.ts
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, renameSync as renameSync2, writeFileSync as writeFileSync2 } from "fs";
-import { dirname } from "path";
+import {
+  existsSync as existsSync2,
+  mkdirSync as mkdirSync2,
+  readFileSync as readFileSync2,
+  renameSync as renameSync2,
+  writeFileSync as writeFileSync2,
+} from 'fs';
+import { dirname } from 'path';
 function atomicWriteJson(file, data) {
   mkdirSync2(dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;
-  writeFileSync2(tmp, `${JSON.stringify(data, null, 2)}
-`);
+  writeFileSync2(
+    tmp,
+    `${JSON.stringify(data, null, 2)}
+`
+  );
   renameSync2(tmp, file);
 }
 function readJsonValidated(file, schema, fallback) {
   if (!existsSync2(file)) return fallback;
   try {
-    const raw = JSON.parse(readFileSync2(file, "utf8"));
+    const raw = JSON.parse(readFileSync2(file, 'utf8'));
     const parsed = schema.safeParse(raw);
     if (parsed.success) return parsed.data;
     return fallback;
@@ -360,10 +374,10 @@ var DEFAULT_LINT_STATE = {
   sessions_since_last_lint: 0,
   last_lint_at: null,
   last_errors: 0,
-  last_findings: 0
+  last_findings: 0,
 };
 function lintStateFile(stateDir) {
-  return join2(stateDir, "lint-state.json");
+  return join2(stateDir, 'lint-state.json');
 }
 function readLintState(file) {
   return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
@@ -373,13 +387,16 @@ function writeLintState(file, state) {
 }
 
 // src/lib/paths.ts
-import { existsSync as existsSync3, readFileSync as readFileSync3, statSync } from "fs";
-import { dirname as dirname2, join as join3, resolve } from "path";
-import { fileURLToPath } from "url";
+import { existsSync as existsSync3, readFileSync as readFileSync3, statSync } from 'fs';
+import { dirname as dirname2, join as join3, resolve } from 'path';
+import { fileURLToPath } from 'url';
 function findRepoRoot(from = process.cwd()) {
   let cur = resolve(from);
   while (true) {
-    if (existsSync3(join3(cur, ".git")) || existsSync3(join3(cur, ".ai/knowledge-base/.state/installed-version"))) {
+    if (
+      existsSync3(join3(cur, '.git')) ||
+      existsSync3(join3(cur, '.ai/knowledge-base/.state/installed-version'))
+    ) {
       return cur;
     }
     const parent = dirname2(cur);
@@ -388,12 +405,12 @@ function findRepoRoot(from = process.cwd()) {
   }
 }
 function repoPaths(root) {
-  const aiDir = join3(root, ".ai");
-  const kbDir = join3(aiDir, "knowledge-base");
-  const stateDir = join3(kbDir, ".state");
-  const configDir = join3(kbDir, ".config");
-  const promptsDir = join3(configDir, "prompts");
-  const claudeDir = join3(root, ".claude");
+  const aiDir = join3(root, '.ai');
+  const kbDir = join3(aiDir, 'knowledge-base');
+  const stateDir = join3(kbDir, '.state');
+  const configDir = join3(kbDir, '.config');
+  const promptsDir = join3(configDir, 'prompts');
+  const claudeDir = join3(root, '.claude');
   return {
     root,
     aiDir,
@@ -401,31 +418,31 @@ function repoPaths(root) {
     stateDir,
     configDir,
     promptsDir,
-    installedVersionFile: join3(stateDir, "installed-version"),
-    projectConfigFile: join3(kbDir, "config.yaml"),
-    sessionsDir: join3(kbDir, "_sessions"),
-    logsDir: join3(kbDir, "_logs"),
-    nodesDir: join3(kbDir, "nodes"),
-    conflictsDir: join3(kbDir, "conflicts"),
+    installedVersionFile: join3(stateDir, 'installed-version'),
+    projectConfigFile: join3(kbDir, 'config.yaml'),
+    sessionsDir: join3(kbDir, '_sessions'),
+    logsDir: join3(kbDir, '_logs'),
+    nodesDir: join3(kbDir, 'nodes'),
+    conflictsDir: join3(kbDir, 'conflicts'),
     claudeDir,
-    claudeCommandsDir: join3(claudeDir, "commands"),
-    claudeSkillsDir: join3(claudeDir, "skills"),
-    claudeHooksDir: join3(claudeDir, "hooks"),
-    claudeSettingsFile: join3(claudeDir, "settings.json"),
-    gitignoreFile: join3(root, ".gitignore")
+    claudeCommandsDir: join3(claudeDir, 'commands'),
+    claudeSkillsDir: join3(claudeDir, 'skills'),
+    claudeHooksDir: join3(claudeDir, 'hooks'),
+    claudeSettingsFile: join3(claudeDir, 'settings.json'),
+    gitignoreFile: join3(root, '.gitignore'),
   };
 }
 
 // src/lib/settings.ts
-import { existsSync as existsSync4, readFileSync as readFileSync4 } from "fs";
-import { join as join4 } from "path";
-import yaml from "js-yaml";
+import { existsSync as existsSync4, readFileSync as readFileSync4 } from 'fs';
+import { join as join4 } from 'path';
+import yaml from 'js-yaml';
 var SETTINGS_DEFAULTS = {
   curationThreshold: 5,
   logsRetentionDays: 30,
-  lintEveryNSessions: 50
+  lintEveryNSessions: 50,
 };
-var MODEL_CHOICE_KEYS = ["proposalModel", "curatorModel", "bootstrapModel"];
+var MODEL_CHOICE_KEYS = ['proposalModel', 'curatorModel', 'bootstrapModel'];
 function resolveSettings(opts = {}) {
   const projectFile = opts.projectFile ?? null;
   const project = projectFile ? loadFile(projectFile) : null;
@@ -433,7 +450,7 @@ function resolveSettings(opts = {}) {
   applyOverrides(effective, project);
   return {
     settings: effective,
-    projectFile
+    projectFile,
   };
 }
 function applyOverrides(target, src) {
@@ -451,7 +468,7 @@ function applyOverrides(target, src) {
 }
 function loadFile(file) {
   if (!existsSync4(file)) return null;
-  const raw = readFileSync4(file, "utf8");
+  const raw = readFileSync4(file, 'utf8');
   let parsed;
   try {
     parsed = yaml.load(raw);
@@ -466,9 +483,9 @@ function loadFile(file) {
 }
 
 // src/hooks/kb-lint-tick.ts
-var PACKAGE_TAG = "[ai-knowledge-base]";
+var PACKAGE_TAG = '[ai-knowledge-base]';
 async function main() {
-  if (process.env["KB_BUILDER_INTERNAL"] === "1") return;
+  if (process.env['KB_BUILDER_INTERNAL'] === '1') return;
   const raw = await readStdin();
   let input = {};
   if (raw.trim().length > 0) {
@@ -478,7 +495,8 @@ async function main() {
       input = {};
     }
   }
-  const startCwd = typeof input.cwd === "string" && input.cwd.length > 0 ? input.cwd : process.cwd();
+  const startCwd =
+    typeof input.cwd === 'string' && input.cwd.length > 0 ? input.cwd : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
   if (!existsSync5(paths.installedVersionFile)) return;
@@ -496,9 +514,9 @@ async function main() {
     writeLintState(stateFile, {
       schema_version: 1,
       sessions_since_last_lint: 0,
-      last_lint_at: (/* @__PURE__ */ new Date()).toISOString(),
+      last_lint_at: /* @__PURE__ */ new Date().toISOString(),
       last_errors: result.errors.length,
-      last_findings: result.findings.length
+      last_findings: result.findings.length,
     });
   } catch (err) {
     process.stderr.write(
@@ -508,18 +526,18 @@ async function main() {
   }
 }
 function readStdin() {
-  return new Promise((resolve2) => {
+  return new Promise(resolve2 => {
     if (process.stdin.isTTY) {
-      resolve2("");
+      resolve2('');
       return;
     }
-    let data = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => {
       data += chunk;
     });
-    process.stdin.on("end", () => resolve2(data));
-    process.stdin.on("error", () => resolve2(""));
+    process.stdin.on('end', () => resolve2(data));
+    process.stdin.on('error', () => resolve2(''));
   });
 }
 void main().catch(() => process.exit(0));

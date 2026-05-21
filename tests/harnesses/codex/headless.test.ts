@@ -33,7 +33,9 @@ function fakeExeca(
     timedOut: opts.timedOut === true,
   };
   const thenable = Object.assign(Promise.resolve(result), { stdout, stderr });
-  return { result: thenable as unknown as FakeExecaResult & { stdout: Readable; stderr: Readable } };
+  return {
+    result: thenable as unknown as FakeExecaResult & { stdout: Readable; stderr: Readable },
+  };
 }
 
 function mockExecaOnce(

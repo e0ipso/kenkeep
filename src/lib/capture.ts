@@ -26,11 +26,7 @@ export interface HookInput {
   cwd?: string;
 }
 
-export type CaptureStatus =
-  | 'written'
-  | 'no-content'
-  | 'no-transcript'
-  | 'secret-scan-blocked';
+export type CaptureStatus = 'written' | 'no-content' | 'no-transcript' | 'secret-scan-blocked';
 
 export interface CaptureResult {
   status: CaptureStatus;

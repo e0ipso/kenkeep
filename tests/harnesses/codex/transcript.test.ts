@@ -78,9 +78,7 @@ describe('parseCodexTranscript', () => {
       },
     });
     const result = parseCodexTranscript(line);
-    expect(result.interleaved).toEqual([
-      { role: 'agent', text: 'first part\nsecond part' },
-    ]);
+    expect(result.interleaved).toEqual([{ role: 'agent', text: 'first part\nsecond part' }]);
   });
 
   it('skips empty lines and malformed JSON lines without throwing', () => {

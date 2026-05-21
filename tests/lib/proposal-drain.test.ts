@@ -142,9 +142,7 @@ describe('drainProposalQueue', () => {
 
     expect(summary.processed).toHaveLength(1);
     expect(summary.processed[0]?.sessionId).toBe('fresh');
-    const after = matter(
-      readFileSync(join(harness.sessionsDir, pendingFile), 'utf8')
-    );
+    const after = matter(readFileSync(join(harness.sessionsDir, pendingFile), 'utf8'));
     expect(after.data['proposal_status']).toBe('done');
   });
 
@@ -302,8 +300,8 @@ describe('buildProposalPrompt', () => {
   it('throws when the placeholder is missing, naming the placeholder and the proposal-extract prompt', () => {
     expect(() => buildProposalPrompt('no placeholder here', 'TRANS')).toThrowError(
       new RegExp(
-        `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-      ),
+        `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
     );
   });
 });

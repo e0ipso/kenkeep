@@ -3,12 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
-import {
-  errCheck,
-  ok,
-  type DoctorCheckResult,
-  type NamedDoctorCheck,
-} from '../types.js';
+import { errCheck, ok, type DoctorCheckResult, type NamedDoctorCheck } from '../types.js';
 import { openCodeHookSpecs } from './hook-spec.js';
 
 const exec = promisify(execFile);

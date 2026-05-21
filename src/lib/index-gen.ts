@@ -55,10 +55,7 @@ function makeCatalogComparator(inDegree: Map<string, number>) {
  * Render the `## By topic` block. Tag buckets are sorted by bucket size DESC
  * then alpha; titles within a bucket by in-degree DESC then alpha.
  */
-export function renderTagIndex(
-  nodes: NodeFile[],
-  inDegree: Map<string, number>
-): string {
+export function renderTagIndex(nodes: NodeFile[], inDegree: Map<string, number>): string {
   const buckets = new Map<string, NodeFile[]>();
   for (const n of nodes) {
     for (const t of n.frontmatter.tags) {

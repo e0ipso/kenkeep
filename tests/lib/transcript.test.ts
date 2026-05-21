@@ -14,7 +14,11 @@ describe('parseTranscriptJsonl', () => {
     ].join('\n');
 
     const parsed = parseTranscriptJsonl(jsonl);
-    expect(parsed.interleaved.map(s => s.text)).toEqual(['Hello', 'Hi there', 'Use bravo_pii cache.']);
+    expect(parsed.interleaved.map(s => s.text)).toEqual([
+      'Hello',
+      'Hi there',
+      'Use bravo_pii cache.',
+    ]);
     expect(parsed.interleaved.map(s => s.role)).toEqual(['user', 'agent', 'user']);
   });
 
@@ -79,7 +83,7 @@ describe('renderRoleTagged self-review-apply tagging', () => {
     const rendered = renderRoleTagged(t);
     expect(rendered).toBe(
       '[USER /self-review-apply feedback/round-2.xml]: /self-review-apply feedback/round-2.xml\n\n' +
-        '[AGENT NARRATION OF SELF-REVIEW feedback/round-2.xml]: I worked through the comments...',
+        '[AGENT NARRATION OF SELF-REVIEW feedback/round-2.xml]: I worked through the comments...'
     );
   });
 
@@ -88,7 +92,7 @@ describe('renderRoleTagged self-review-apply tagging', () => {
       interleaved: [{ role: 'user' as const, text: '/self-review-apply feedback/round-2.xml' }],
     };
     expect(renderRoleTagged(t)).toBe(
-      '[USER /self-review-apply feedback/round-2.xml]: /self-review-apply feedback/round-2.xml',
+      '[USER /self-review-apply feedback/round-2.xml]: /self-review-apply feedback/round-2.xml'
     );
   });
 
@@ -101,7 +105,7 @@ describe('renderRoleTagged self-review-apply tagging', () => {
     };
     expect(renderRoleTagged(t)).toBe(
       '[USER /self-review-apply feedback/round-2.xml]: /self-review-apply feedback/round-2.xml\n\n' +
-        '[USER]: also check the tests',
+        '[USER]: also check the tests'
     );
   });
 
@@ -113,7 +117,7 @@ describe('renderRoleTagged self-review-apply tagging', () => {
       ],
     };
     expect(renderRoleTagged(t)).toBe(
-      '[USER]: I will run /self-review-apply foo.xml later today\n\n[AGENT]: sure',
+      '[USER]: I will run /self-review-apply foo.xml later today\n\n[AGENT]: sure'
     );
   });
 
@@ -126,7 +130,7 @@ describe('renderRoleTagged self-review-apply tagging', () => {
     };
     expect(renderRoleTagged(t)).toBe(
       '[USER /self-review-apply x.xml]:   /self-review-apply x.xml\n\n\n' +
-        '[AGENT NARRATION OF SELF-REVIEW x.xml]: done',
+        '[AGENT NARRATION OF SELF-REVIEW x.xml]: done'
     );
   });
 });

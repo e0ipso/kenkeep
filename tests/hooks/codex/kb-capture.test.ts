@@ -178,4 +178,3 @@ describe('codex kb-capture hook (spawned)', () => {
     expect(result.exitCode).toBe(0);
   });
 });
-

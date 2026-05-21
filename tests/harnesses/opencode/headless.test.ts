@@ -132,9 +132,7 @@ describe('runHeadlessOpenCode', () => {
 
   it('throws when no assistant text was produced', async () => {
     mockExecaOnce([JSON.stringify({ type: 'session.idle' })]);
-    await expect(runHeadlessOpenCode('hello', '', Schema)).rejects.toThrow(
-      /no assistant text/
-    );
+    await expect(runHeadlessOpenCode('hello', '', Schema)).rejects.toThrow(/no assistant text/);
   });
 
   it('throws when the accumulated text is not valid JSON', async () => {

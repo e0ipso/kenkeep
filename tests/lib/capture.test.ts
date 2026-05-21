@@ -45,11 +45,7 @@ const SESS_OVER_USER = '88888888-8888-4888-8888-888888888888';
 const SESS_OVER_AGENT = '99999999-9999-4999-8999-999999999999';
 const SESS_TWO_TURNS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-function writeTwoTurnTranscript(
-  path: string,
-  userText: string,
-  agentText: string
-): void {
+function writeTwoTurnTranscript(path: string, userText: string, agentText: string): void {
   const lines = [
     JSON.stringify({ type: 'user', message: { role: 'user', content: userText } }),
     JSON.stringify({
@@ -260,7 +256,12 @@ describe('captureSession', () => {
           transcript_path: transcriptPath,
           hook_event_name: 'Stop',
         },
-        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow, parseTranscript: parseTranscriptJsonl }
+        {
+          sessionsDir,
+          scan: fakeScanner('clean'),
+          now: fixedNow,
+          parseTranscript: parseTranscriptJsonl,
+        }
       );
       expect(result.status).toBe('written');
       const fm = readFrontmatter();
@@ -278,7 +279,12 @@ describe('captureSession', () => {
           transcript_path: transcriptPath,
           hook_event_name: 'Stop',
         },
-        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow, parseTranscript: parseTranscriptJsonl }
+        {
+          sessionsDir,
+          scan: fakeScanner('clean'),
+          now: fixedNow,
+          parseTranscript: parseTranscriptJsonl,
+        }
       );
       expect(result.status).toBe('written');
       const fm = readFrontmatter();
@@ -295,7 +301,12 @@ describe('captureSession', () => {
           transcript_path: transcriptPath,
           hook_event_name: 'Stop',
         },
-        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow, parseTranscript: parseTranscriptJsonl }
+        {
+          sessionsDir,
+          scan: fakeScanner('clean'),
+          now: fixedNow,
+          parseTranscript: parseTranscriptJsonl,
+        }
       );
       expect(result.status).toBe('written');
       const fm = readFrontmatter();
@@ -312,7 +323,12 @@ describe('captureSession', () => {
           transcript_path: transcriptPath,
           hook_event_name: 'Stop',
         },
-        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow, parseTranscript: parseTranscriptJsonl }
+        {
+          sessionsDir,
+          scan: fakeScanner('clean'),
+          now: fixedNow,
+          parseTranscript: parseTranscriptJsonl,
+        }
       );
       expect(result.status).toBe('written');
       const fm = readFrontmatter();
@@ -337,7 +353,12 @@ describe('captureSession', () => {
           transcript_path: transcriptPath,
           hook_event_name: 'Stop',
         },
-        { sessionsDir, scan: fakeScanner('clean'), now: fixedNow, parseTranscript: parseTranscriptJsonl }
+        {
+          sessionsDir,
+          scan: fakeScanner('clean'),
+          now: fixedNow,
+          parseTranscript: parseTranscriptJsonl,
+        }
       );
       expect(result.status).toBe('written');
       const fm = readFrontmatter();
@@ -354,7 +375,12 @@ describe('captureSession', () => {
           transcript_path: transcriptPath,
           hook_event_name: 'Stop',
         },
-        { sessionsDir, scan: fakeScanner('redact'), now: fixedNow, parseTranscript: parseTranscriptJsonl }
+        {
+          sessionsDir,
+          scan: fakeScanner('redact'),
+          now: fixedNow,
+          parseTranscript: parseTranscriptJsonl,
+        }
       );
       expect(result.status).toBe('written');
       expect(result.secretScanStatus).toBe('redacted');

@@ -140,20 +140,12 @@ describe('nodes helpers', () => {
       'practice-foo-3'
     );
     expect(
-      ensureUniqueId(
-        new Set(['practice-foo', 'practice-foo-2', 'practice-foo-3']),
-        'practice-foo'
-      )
+      ensureUniqueId(new Set(['practice-foo', 'practice-foo-2', 'practice-foo-3']), 'practice-foo')
     ).toBe('practice-foo-4');
   });
 
   it('ensureUniqueId throws after 4 collisions with a guiding message', () => {
-    const set = new Set([
-      'practice-foo',
-      'practice-foo-2',
-      'practice-foo-3',
-      'practice-foo-4',
-    ]);
+    const set = new Set(['practice-foo', 'practice-foo-2', 'practice-foo-3', 'practice-foo-4']);
     expect(() => ensureUniqueId(set, 'practice-foo')).toThrow(
       'id "practice-foo" collides with 4 existing ids; choose a more distinct title'
     );

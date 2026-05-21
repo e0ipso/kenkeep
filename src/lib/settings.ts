@@ -123,7 +123,7 @@ export function defaultProjectConfigBody(): string {
     '# matches that id.',
     '#',
     '# proposalModel:',
-    "#   harness: claude       # one of: claude, codex",
+    '#   harness: claude       # one of: claude, codex',
     '#   name: haiku           # claude only: haiku | sonnet | opus',
     '#   effort: low           # claude only: low | medium | high | xhigh | max',
     '#',
@@ -132,10 +132,10 @@ export function defaultProjectConfigBody(): string {
     '#   model: gpt-5-codex    # codex only: opaque model id',
     '#   reasoningEffort: high # codex only: opaque effort string (optional)',
     '#',
-    "# Set `cliDefaultHarness: <id>` to pick the adapter for plain-shell",
+    '# Set `cliDefaultHarness: <id>` to pick the adapter for plain-shell',
     '# CLI invocations (e.g. `npx ai-knowledge-base curate` typed in a',
     '# terminal). Skills and hooks always resolve via env detection or',
-    "# the explicit `--harness <id>` flag and ignore this setting.",
+    '# the explicit `--harness <id>` flag and ignore this setting.',
     '',
   ].join('\n');
   return `${header}${yaml.dump(body, { indent: 2, lineWidth: 0, noRefs: true })}`;

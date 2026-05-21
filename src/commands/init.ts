@@ -1,11 +1,4 @@
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { refreshClaudeTemplates } from '../harnesses/claude/install.js';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
@@ -124,9 +117,7 @@ function validateHarnesses(harnesses: string[]): void {
   }
   for (const h of harnesses) {
     if (!hasHarness(h)) {
-      throw new Error(
-        `Unsupported harness '${h}'. Supported: ${listHarnessIds().join(', ')}.`
-      );
+      throw new Error(`Unsupported harness '${h}'. Supported: ${listHarnessIds().join(', ')}.`);
     }
   }
 }

@@ -166,9 +166,10 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
     return { sessionId: entry.sessionId, status: 'done', logFile };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const truncated = message.length > MAX_PROPOSAL_ERROR_LEN
-      ? `${message.slice(0, MAX_PROPOSAL_ERROR_LEN)}...`
-      : message;
+    const truncated =
+      message.length > MAX_PROPOSAL_ERROR_LEN
+        ? `${message.slice(0, MAX_PROPOSAL_ERROR_LEN)}...`
+        : message;
     writeSessionLogFrontmatter(entry.file, parsed, {
       proposal_status: 'failed',
       proposal_completed_at: new Date().toISOString(),
@@ -192,7 +193,7 @@ function extractTranscript(body: string): string {
 export function buildProposalPrompt(template: string, transcript: string): string {
   if (!template.includes(TRANSCRIPT_PLACEHOLDER)) {
     throw new Error(
-      `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`,
+      `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
     );
   }
   return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);

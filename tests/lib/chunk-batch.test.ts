@@ -7,7 +7,11 @@ describe('chunk', () => {
   });
 
   it('splits an exact multiple into equal-size batches', () => {
-    expect(chunk([1, 2, 3, 4, 5, 6], 2)).toEqual([[1, 2], [3, 4], [5, 6]]);
+    expect(chunk([1, 2, 3, 4, 5, 6], 2)).toEqual([
+      [1, 2],
+      [3, 4],
+      [5, 6],
+    ]);
   });
 
   it('puts the remainder in a smaller final batch', () => {

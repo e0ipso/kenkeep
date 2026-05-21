@@ -172,8 +172,7 @@ export function discoverMarkdownFiles(opts: DiscoverOptions): string[] {
     .map(abs => relativePosix(opts.repoRoot, abs))
     .filter(rel => {
       const staticallySkipped = staticSkipMatchers.some(m => m(rel));
-      const explicitlyIncluded =
-        includeMatchers.length > 0 && includeMatchers.some(m => m(rel));
+      const explicitlyIncluded = includeMatchers.length > 0 && includeMatchers.some(m => m(rel));
       if (staticallySkipped && !explicitlyIncluded) return false;
       if (excludeMatchers.some(m => m(rel))) return false;
       if (ig && ig.ignores(rel)) return false;
@@ -231,7 +230,7 @@ export function buildChunkString(batch: DocCandidateFile[]): string {
 export function buildPrompt(template: string, chunk: string): string {
   if (!template.includes(CHUNK_PLACEHOLDER)) {
     throw new Error(
-      `bootstrap prompt is missing the ${CHUNK_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`,
+      `bootstrap prompt is missing the ${CHUNK_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
     );
   }
   return template.replace(CHUNK_PLACEHOLDER, chunk);
@@ -499,4 +498,3 @@ function writeBootstrapNode(args: WriteBootstrapNodeArgs): string | 'collision' 
   writeNodeFile({ nodesDir, frontmatter, body: candidate.body });
   return join(candidate.kind, `${id}.md`);
 }
-

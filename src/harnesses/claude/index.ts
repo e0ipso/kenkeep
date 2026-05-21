@@ -1,10 +1,6 @@
 import { join } from 'node:path';
 import type { EffectiveSettings } from '../../lib/settings.js';
-import type {
-  HarnessAdapter,
-  HarnessPaths,
-  ModelChoiceRole,
-} from '../types.js';
+import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
 import { claudeDoctorChecks } from './doctor.js';
 import { runHeadlessClaude } from './headless.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';

@@ -74,10 +74,7 @@ export async function runNodeAdd(
   }
 }
 
-async function resolveAnswers(
-  flags: NodeAddFlags,
-  deps: NodeAddDeps
-): Promise<NodeAnswers> {
+async function resolveAnswers(flags: NodeAddFlags, deps: NodeAddDeps): Promise<NodeAnswers> {
   const yes = Boolean(flags.yes);
   const readStdin = deps.readStdin ?? (() => readStdinText(process.stdin));
   const isTTY = deps.isTTY ?? (() => Boolean(process.stdin.isTTY));
@@ -209,20 +206,18 @@ async function promptForNode(partial: Partial<NodeAnswers> = {}): Promise<NodeAn
         { name: 'map — what exists in the project', value: 'map' },
       ],
     })) as NodeKind);
-  const title =
-    partial.title?.trim()
-      ? partial.title
-      : await input({
-          message: 'Title (short, ≤ 80 chars)',
-          validate: v => v.trim().length > 0 || 'Required',
-        });
-  const summary =
-    partial.summary?.trim()
-      ? partial.summary
-      : await input({
-          message: 'Summary (≤ 140 chars)',
-          validate: v => v.trim().length > 0 || 'Required',
-        });
+  const title = partial.title?.trim()
+    ? partial.title
+    : await input({
+        message: 'Title (short, ≤ 80 chars)',
+        validate: v => v.trim().length > 0 || 'Required',
+      });
+  const summary = partial.summary?.trim()
+    ? partial.summary
+    : await input({
+        message: 'Summary (≤ 140 chars)',
+        validate: v => v.trim().length > 0 || 'Required',
+      });
   const tags = partial.tags ?? (await input({ message: 'Tags (comma-separated, optional)' }));
   const relatesTo =
     partial.relatesTo ??

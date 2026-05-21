@@ -505,8 +505,8 @@ describe('buildPrompt', () => {
   it('throws when the placeholder is missing, naming the placeholder and the bootstrap prompt', () => {
     expect(() => buildPrompt('no placeholder here', 'CHUNK')).toThrowError(
       new RegExp(
-        `bootstrap prompt is missing the ${CHUNK_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-      ),
+        `bootstrap prompt is missing the ${CHUNK_PLACEHOLDER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      )
     );
   });
 });

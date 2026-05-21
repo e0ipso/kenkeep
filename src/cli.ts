@@ -46,14 +46,9 @@ async function main(): Promise<void> {
       'refresh hooks/slash commands/prompts to the current package version while preserving local overrides and config.yaml',
       false
     )
-    .action(
-      async (opts: {
-        harnesses: string[];
-        upgrade: boolean;
-      }) => {
-        await runInit(opts);
-      }
-    );
+    .action(async (opts: { harnesses: string[]; upgrade: boolean }) => {
+      await runInit(opts);
+    });
 
   program
     .command('status')

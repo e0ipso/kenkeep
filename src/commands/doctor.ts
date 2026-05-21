@@ -212,7 +212,9 @@ function installedHarnessIds(file: string): string[] {
 
 function checkInstalled(file: string): CheckResult {
   if (!existsSync(file)) {
-    return err('missing. Run `npx @e0ipso/ai-knowledge-base init --harnesses claude` from the repo root.');
+    return err(
+      'missing. Run `npx @e0ipso/ai-knowledge-base init --harnesses claude` from the repo root.'
+    );
   }
   let parsed: { version?: string };
   try {
@@ -239,7 +241,8 @@ function checkPrompts(promptsDir: string): CheckResult {
 }
 
 function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
-  if (!existsSync(indexFile)) return warn('INDEX.md missing; run `npx @e0ipso/ai-knowledge-base index rebuild`.');
+  if (!existsSync(indexFile))
+    return warn('INDEX.md missing; run `npx @e0ipso/ai-knowledge-base index rebuild`.');
   try {
     const parsed = matter(readFileSync(indexFile, 'utf8'));
     const fm = IndexFrontmatterSchema.safeParse(parsed.data);

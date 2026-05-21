@@ -180,9 +180,7 @@ describe('runHeadlessClaude', () => {
 
   it('throws when no final result message is present', async () => {
     mockExecaOnce([JSON.stringify({ type: 'assistant', message: { content: 'hi' } })]);
-    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(
-      /no final result message/
-    );
+    await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(/no final result message/);
   });
 
   it('throws when the result message is flagged as an error', async () => {

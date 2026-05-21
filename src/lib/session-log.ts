@@ -74,10 +74,7 @@ export function buildSessionLogFilename(capturedAt: string, sessionId: string): 
  * Claude Code session emits multiple capture events; this lets the capture
  * path overwrite the prior file in place instead of writing a new one each turn.
  */
-export function findSessionLogBySessionId(
-  sessionsDir: string,
-  sessionId: string
-): string | null {
+export function findSessionLogBySessionId(sessionsDir: string, sessionId: string): string | null {
   if (!existsSync(sessionsDir)) return null;
   const suffix = `-${sessionId}.md`;
   const matches = readdirSync(sessionsDir)

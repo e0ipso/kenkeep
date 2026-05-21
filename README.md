@@ -34,6 +34,29 @@ npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
 
 Two cooperating pieces. The **builder tool** (this npm package) installs hooks under `.claude/` and a knowledge directory under `.ai/knowledge-base/`. Hooks capture redacted session slices, an async proposal extractor turns them into structured candidates, and the curator writes new knowledge nodes directly under `nodes/`. You review the diff and commit (or restore) like any other code change; a pre-commit hook keeps `INDEX.md`/`GRAPH.md` in lockstep. A `SessionStart` hook injects the current `INDEX.md` into every new AI session. The KB itself is plain markdown - readable, diffable, reviewable like code.
 
+## Compared to claude-mem
+
+[claude-mem](https://github.com/thedotmack/claude-mem) is the most visible project in this space and solves a different problem than this one. If you have already evaluated claude-mem, here is an honest read of the tradeoffs in both directions.
+
+**Where claude-mem is the better fit**
+
+- **Search.** claude-mem ships SQLite with FTS5 plus a vector index, so you can ask fuzzy semantic questions across past sessions and get ranked results. This tool relies on the AI agent reading `INDEX.md` and grepping markdown — fine for an LLM, not a substitute for a real search engine.
+- **Zero-friction capture.** claude-mem captures observations automatically across the full session lifecycle, with no curation step. This tool deliberately puts a human in the loop between capture and merge — fewer entries land, but every entry is something a teammate signed off on.
+- **Integration surface.** claude-mem advertises support for a wider set of harnesses and agents. This tool currently targets Claude Code, OpenAI Codex CLI, and OpenCode.
+
+**Where this tool is differentiated**
+
+- **Team-shared by default.** Knowledge lives in `nodes/` inside your repo, not in a per-user database at `~/.claude-mem/`. Distribution is `git pull`; a new teammate gets the full KB from a fresh clone.
+- **PR-reviewable.** Every new knowledge entry is a markdown file in a commit. Reviewers see additions in `git diff`, comment in PRs, and reject with `git restore` — the same workflow as code.
+- **No daemons, no external services.** No background worker, no local HTTP port, no vector DB, no second runtime. Just Node and git. Works in airgapped environments and behind corporate proxies without extra plumbing.
+- **Lintable, named-node graph.** Nodes have stable ids and structured `relates_to` / `depends_on` edges. `npx @e0ipso/ai-knowledge-base lint` catches dangling references, naming drift, tag near-duplicates, and orphans before review.
+- **Plain markdown outlives the tool.** If this package disappears tomorrow, you still have a tree of human-readable markdown files in your repo. Nothing is locked inside a database file or vector index format.
+
+**Pick the one that matches your situation**
+
+- Solo developer, want zero curation overhead and strong cross-session search of your own activity → **claude-mem**.
+- Team that wants accumulated project knowledge to live in the repo, be reviewed like code, and be reproducible from a fresh `git clone` → **this tool**.
+
 ## CLI reference
 
 ### `npx @e0ipso/ai-knowledge-base lint`

@@ -1,5 +1,5 @@
 title: '@e0ipso/ai-knowledge-base'
-description: Build and maintain a per-repo knowledge base from AI coding sessions.
+description: A team-shared, git-native knowledge base for AI coding sessions. No daemons, no services — just Node and git.
 url: https://mateuaguilo.com
 baseurl: '/ai-knowledge-base'
 

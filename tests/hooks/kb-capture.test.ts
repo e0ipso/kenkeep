@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -122,6 +122,42 @@ describe('kb-capture hook (spawned)', () => {
       cwd: sandbox,
     });
     expect(result.exitCode).toBe(0);
+  });
+
+  it('records a parse-failure diagnostic when stdin is invalid JSON', async () => {
+    const result = await new Promise<SpawnResult>(resolveFn => {
+      const proc = execFile(
+        'node',
+        [hookPath],
+        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1' } },
+        (err, stdout, stderr) => {
+          const code =
+            err && typeof (err as NodeJS.ErrnoException).code === 'number'
+              ? ((err as { code: number }).code as number)
+              : 0;
+          resolveFn({
+            stdout: stdout.toString(),
+            stderr: stderr.toString(),
+            exitCode: code,
+          });
+        }
+      );
+      proc.stdin?.write('not json');
+      proc.stdin?.end();
+    });
+    expect(result.exitCode).toBe(0);
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const logFile = join(sandbox, '.ai/knowledge-base/_logs', `hook-errors-${dateStr}.log`);
+    expect(existsSync(logFile)).toBe(true);
+    const lines = readFileSync(logFile, 'utf8')
+      .split('\n')
+      .filter(l => l.length > 0);
+    expect(lines).toHaveLength(1);
+    const obj = JSON.parse(lines[0]!) as { hook: string; phase: string; error: string };
+    expect(obj.hook).toBe('claude:kb-capture');
+    expect(obj.phase).toBe('parse');
+    expect(typeof obj.error).toBe('string');
   });
 
   it('exits 0 on empty stdin without throwing', async () => {

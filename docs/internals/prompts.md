@@ -24,6 +24,93 @@ Bump the top-of-file `Version: N` comment on every behavior change; logs record 
 
 For the agent-driven `/kb-bootstrap` skill, edit `.claude/skills/kb-bootstrap/SKILL.md` instead.
 
+## Pipeline overview
+
+The three prompts form the knowledge-acquisition pipeline. Two extractors (one for live sessions, one for existing docs) emit candidate nodes; the curator decides what becomes a file on disk. The diagram below shows the gates, filters, and decisions inside each prompt.
+
+```mermaid
+flowchart TB
+    subgraph proposal["Proposal extraction · proposal-extract.md v4"]
+        direction TB
+        PI["Redacted transcript<br/>role-tagged USER / AGENT segments"]
+        PG{"Session-disposition gate<br/>abandoned · exploratory<br/>unrelated · meta-only?"}
+        PEMPTY["Empty proposal<br/>practice=[], map=[]"]
+        PP1["Practice pass<br/>USER turns + self-review-apply<br/>(incl. corrective patterns)"]
+        PP2["Map pass<br/>USER or AGENT turns"]
+        PF2{"Task-specific scope?<br/>one-off names · 'in this PR'<br/>this file / this function"}
+        PF3{"End-state framing?<br/>present tense<br/>no transition narrative"}
+        PO["Practice + Map candidates<br/>tags · title · summary · body · confidence"]
+
+        PI --> PG
+        PG -- "non-productive" --> PEMPTY
+        PG -- "productive" --> PP1
+        PG -- "productive" --> PP2
+        PP1 --> PF2
+        PF2 -- "yes → drop" --> PEMPTY
+        PF2 -- "no" --> PF3
+        PP2 --> PF3
+        PF3 -- "no → drop" --> PEMPTY
+        PF3 -- "yes" --> PO
+    end
+
+    subgraph bootstrap["Bootstrap-incremental · bootstrap-incremental.md v4"]
+        direction TB
+        BI["One markdown doc<br/>=== FILE: path === ... === END FILE ==="]
+        BS{"Skip filter<br/>API dumps · boilerplate<br/>generic framework · TODOs?"}
+        BSKIP["Empty output"]
+        BP1["Practice pass<br/>imperatives · rationale markers<br/>admonitions"]
+        BP2["Map pass<br/>component headers · definitions<br/>file paths"]
+        BC["Confidence calibration<br/>high: explicit + maintained<br/>medium: default<br/>low: draft/legacy/ambiguous"]
+        BO["Practice + Map candidates"]
+
+        BI --> BS
+        BS -- "yes" --> BSKIP
+        BS -- "no" --> BP1
+        BS -- "no" --> BP2
+        BP1 --> BC
+        BP2 --> BC
+        BC --> BO
+    end
+
+    subgraph curator["Curator · curator.md v8"]
+        direction TB
+        CI["Batch of candidates<br/>existing_nodes always empty<br/>(overlap judged from candidate framing)"]
+        CG{"Non-productive<br/>provenance signals?<br/>hedged · hypothetical · plan-scoped"}
+        CCF{"Change-oriented framing?<br/>'used to X, now Y' · rename · removal"}
+        CSAL{"Clean end-state claim<br/>salvageable?"}
+        COV{"Suspected overlap<br/>with existing KB node?"}
+        CNEG{"Direct negation?<br/>(both cannot be true<br/>in the same scope)"}
+        CEXT{"Extends without<br/>negating?"}
+
+        CADD["add<br/>writes nodes/&lt;kind&gt;/&lt;slug&gt;.md"]
+        CMOD["modify<br/>overwrites target node<br/>requires target_node_id on disk<br/>end-state rewrite rule"]
+        CCON["contradict<br/>writes conflicts/&lt;id&gt;.md<br/>no node touched"]
+        CDROP["drop<br/>(rationale recorded)"]
+
+        CI --> CG
+        CG -- "yes" --> CDROP
+        CG -- "no" --> CCF
+        CCF -- "yes" --> CSAL
+        CSAL -- "no" --> CDROP
+        CSAL -- "yes" --> COV
+        CCF -- "no" --> COV
+        COV -- "no" --> CADD
+        COV -- "yes" --> CNEG
+        CNEG -- "yes" --> CCON
+        CNEG -- "no" --> CEXT
+        CEXT -- "yes" --> CMOD
+        CEXT -- "no, rephrase only" --> CDROP
+    end
+
+    PO --> CI
+    BO --> CI
+    CADD --> NODES[("nodes/practice/<br/>nodes/map/")]
+    CMOD --> NODES
+    CCON --> CONF[("conflicts/&lt;id&gt;.md")]
+```
+
+Read top to bottom: each extractor short-circuits to an empty output when its gate fires; surviving candidates land in the curator, which routes every candidate to exactly one of four actions. The two extractors never interact - the curator is the only stage that writes to `nodes/` or `conflicts/`.
+
 ## Proposal prompt
 
 The biggest quality lever in capture. Controls what the extractor treats as worth remembering.

@@ -282,17 +282,16 @@ The `proposed_node` object (for add/modify/contradict) has **exactly** these key
 
 Any other key in `proposed_node` will be rejected by the dedup primitive's schema validation.
 
-## 3. Mint a run id and write the proposals tmpfile
+## 3. Write the proposals tmpfile
 
-Pick a `runId` (use a UUID via `uuidgen`, or a compact timestamp like `curate-$(date -u +%Y%m%dT%H%M%SZ)`):
+`$RUN_ID` was minted at the top of Step 2 and is reused here. Mint the two tmpfile paths:
 
 ```bash
-RUN_ID=$(uuidgen 2>/dev/null || date -u +"curate-%Y%m%dT%H%M%SZ")
 PROPOSALS=$(mktemp -t kb-curate-proposals.XXXXXX.json)
 SURVIVORS=$(mktemp -t kb-curate-survivors.XXXXXX.json)
 ```
 
-`Write` your accumulated actions array (a JSON array, top-level) to `$PROPOSALS`. The array must validate against `CuratorOutputSchema` (an array of `CuratorAction`).
+If you came through the **parallel path**, the collector turn in Step 2 already wrote the concatenated actions array to `$PROPOSALS` — skip ahead to Step 4. If you came through the **inline path**, `Write` your accumulated actions array (a JSON array, top-level) to `$PROPOSALS` now. Either way, the array must validate against `CuratorOutputSchema` (an array of `CuratorAction`).
 
 ## 4. Dedup and stamp via the primitive
 

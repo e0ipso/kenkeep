@@ -2,7 +2,7 @@
 id: 1
 group: "cli-primitive"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-05-23
 skills:
   - typescript

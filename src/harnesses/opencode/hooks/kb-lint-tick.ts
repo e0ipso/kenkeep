@@ -47,6 +47,7 @@ async function main(): Promise<void> {
       return;
     }
 
+    process.stderr.write('🔍 Lint: Running knowledge base lint…\n');
     const result = runLint({ nodesDir: paths.nodesDir });
     writeLintState(stateFile, {
       schema_version: 1,
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
       last_errors: result.errors.length,
       last_findings: result.findings.length,
     });
+    process.stderr.write('🧹 Lint: Knowledge base lint complete.\n');
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} lint tick error: ${err instanceof Error ? err.message : String(err)}\n`

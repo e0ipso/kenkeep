@@ -60,6 +60,7 @@ async function main(): Promise<void> {
       hook_event_name: 'Stop',
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
+    process.stderr.write('📸 Capture: Saving session transcript…\n');
     const result = await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseCodexTranscript,
@@ -68,6 +69,8 @@ async function main(): Promise<void> {
       process.stderr.write(
         `${PACKAGE_TAG} secret scan blocked transcript capture: ${result.error ?? 'unknown error'}\n`
       );
+    } else {
+      process.stderr.write('💾 Capture: Session transcript saved.\n');
     }
   } catch (err) {
     process.stderr.write(

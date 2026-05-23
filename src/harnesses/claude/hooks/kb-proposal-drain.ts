@@ -53,6 +53,7 @@ async function main(): Promise<void> {
     runHeadlessClaude(prompt, stdin, schema, opts);
 
   try {
+    process.stderr.write('🔄 Proposals: Draining queue…\n');
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const summary = await drainProposalQueue({
       paths,
@@ -61,17 +62,16 @@ async function main(): Promise<void> {
       harnessOpts: buildClaudeHarnessOpts(settings, 'proposal'),
     });
     if (summary.status === 'locked') {
-      // Another drain is in flight; nothing to do.
+      process.stderr.write('🔒 Proposals: Drain already in progress.\n');
       return;
     }
-    // Async hook stdout is not injected into the parent session, so log to
-    // stderr only on failures the user should know about.
     const failed = summary.processed.filter(p => p.status === 'failed');
     if (failed.length > 0) {
       process.stderr.write(
         `${PACKAGE_TAG} proposal drain: ${failed.length} session(s) failed; see _logs/proposal/\n`
       );
     }
+    process.stderr.write('📬 Proposals: Queue drained.\n');
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} proposal drain error: ${err instanceof Error ? err.message : String(err)}\n`

@@ -55,6 +55,7 @@ async function main(): Promise<void> {
         : {}),
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
+    process.stderr.write('📸 Capture: Saving session transcript…\n');
     const result = await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseTranscriptJsonl,
@@ -63,9 +64,9 @@ async function main(): Promise<void> {
       process.stderr.write(
         `${PACKAGE_TAG} secret scan blocked transcript capture: ${result.error ?? 'unknown error'}\n`
       );
+    } else {
+      process.stderr.write('💾 Capture: Session transcript saved.\n');
     }
-    // All other statuses are intentionally silent. `ai-knowledge-base status`
-    // surfaces pending counts when the user wants to check.
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

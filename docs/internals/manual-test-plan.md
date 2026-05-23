@@ -100,15 +100,15 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 ## 8. `bootstrap` discovery and hash-aware re-run
 
 - [ ] In a repo with 50+ markdown files (>200k chars), run `finddocs` to preview discovery. The output is one `+ <relpath>` line per surviving file; confirm the count matches your expectation given `.kbignore`.
-- [ ] Run `bootstrap --from <subset>` against 3–5 docs. Inspect `bootstrap-state.json` — each processed doc has an entry with `content_sha256` and `produced_nodes`.
+- [ ] Run `bootstrap --from <subset>` against 3-5 docs. Inspect `bootstrap-state.json`. Each processed doc has an entry with `content_sha256` and `produced_nodes`.
 - [ ] Re-run `bootstrap --from <subset>`. The skill should report that every doc was hash-skipped.
 - [ ] Edit one file. Re-run. Only that file is reprocessed.
 
 ## 9. Single-author skill sessions (no cross-process lock)
 
-Curate and bootstrap no longer take a `state.json` lock — they are single-author by design.
+Curate and bootstrap no longer take a `state.json` lock. They are single-author by design.
 
-- [ ] Run two `curate` launchers in parallel against the same repo (`&` in a shell). Both run to completion; neither errors out with "locked". After both finish, run `index rebuild` and `doctor` — `state.json` and session-log frontmatter both parse cleanly (Zod validation passes), even though one writer's session-stamp updates may have silently lost to the other.
+- [ ] Run two `curate` launchers in parallel against the same repo (`&` in a shell). Both run to completion; neither errors out with "locked". After both finish, run `index rebuild` and `doctor`. `state.json` and session-log frontmatter both parse cleanly (Zod validation passes), even though one writer's session-stamp updates may have silently lost to the other.
 - [ ] Worst case is some sessions reprocess on the next `curate` run. Confirm: re-run `curate`, verify the unstamped sessions get processed.
 - [ ] The proposal-drain hook still takes its own `proposal-drain` lock (independent surface). Trigger two `SessionStart` events in quick succession against the same repo; the second drain skips while the first holds the lock and reclaims it after the 30-min TTL on the next run.
 

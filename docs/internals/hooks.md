@@ -20,7 +20,7 @@ The two `SessionStart` entries are independent; a failure in one doesn't block t
 
 ## Recursion guard
 
-All three hooks exit immediately if `KB_BUILDER_INTERNAL=1` is set. Two surfaces propagate this var onto the harness child they exec: the `proposal-drain` hook (when it spawns its `claude -p` extractor) and the CLI launchers (`bootstrap`, `curate`, `node add` — they exec `<harness> -p "/kb-<name>"`). Without the guard, the spawned session would fire its own SessionStart hooks and recurse. If you wrap the `claude` CLI, propagate `KB_BUILDER_INTERNAL=1` only into intentionally-internal subprocesses.
+All three hooks exit immediately if `KB_BUILDER_INTERNAL=1` is set. Two surfaces propagate this var onto the harness child they exec: the `proposal-drain` hook (when it spawns its `claude -p` extractor) and the CLI launchers (`bootstrap`, `curate`, `node add`, which exec `<harness> -p "/kb-<name>"`). Without the guard, the spawned session would fire its own SessionStart hooks and recurse. If you wrap the `claude` CLI, propagate `KB_BUILDER_INTERNAL=1` only into intentionally-internal subprocesses.
 
 ## `kb-capture.mjs` (capture)
 

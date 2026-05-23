@@ -42,7 +42,7 @@ Review the changes under `.ai/knowledge-base/nodes/` with `git diff`. They are i
 
 ## How a launcher invocation flows
 
-`bootstrap`, `curate`, and `node add` are thin **launchers**: they exec the active harness in `-p` mode against the matching slash-command. The LLM runs in that host harness session — the same model, prompt cache, and tool surface you use interactively — and calls back into deterministic CLI **primitives** (`finddocs`, `node write`, `curate-dedup`, `index rebuild`) for the things a prompt cannot reliably do (gitignore-aware discovery, atomic+validated writes, cross-batch dedup, index regeneration).
+`bootstrap`, `curate`, and `node add` are thin **launchers**: they exec the active harness in `-p` mode against the matching slash-command. The LLM runs in that host harness session, the same model, prompt cache, and tool surface you use interactively, and calls back into deterministic CLI **primitives** (`finddocs`, `node write`, `curate-dedup`, `index rebuild`) for the things a prompt cannot reliably do (gitignore-aware discovery, atomic+validated writes, cross-batch dedup, index regeneration).
 
 ```mermaid
 flowchart LR
@@ -55,7 +55,7 @@ flowchart LR
 
 One harness invocation per user invocation. The model the user actually configured is the model that does the work, and the cache the user has warmed up stays warm.
 
-Inside that single host session, `kb-bootstrap` and `kb-curate` may further fan their drafting work out across native host sub-agents (e.g. Claude Code's `Task` tool, Cursor's `Task`) when the harness exposes one — up to five concurrent agents per wave, each reading its own slice in an isolated context window and returning a structured draft to the host. `kb-add` uses the same delegation primitive for a single drafting pass to keep the host transcript clean. None of this changes the outer launcher model: `launchSkill` still execs the harness binary exactly once per user invocation. On harnesses without a native sub-agent primitive, the skills detect that at runtime and degrade to sequential inline drafting; the launcher contract is unchanged either way. See [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs) for the per-batch JSONL artefacts each path emits.
+Inside that single host session, `kb-bootstrap` and `kb-curate` may further fan their drafting work out across native host sub-agents (e.g. Claude Code's `Task` tool, Cursor's `Task`) when the harness exposes one, up to five concurrent agents per wave. Each agent reads its own slice in an isolated context window and returns a structured draft to the host. `kb-add` uses the same delegation primitive for a single drafting pass to keep the host transcript clean. None of this changes the outer launcher model: `launchSkill` still execs the harness binary exactly once per user invocation. On harnesses without a native sub-agent primitive, the skills detect that at runtime and degrade to sequential inline drafting; the launcher contract is unchanged either way. See [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs) for the per-batch JSONL artefacts each path emits.
 
 ## Storage & graph
 

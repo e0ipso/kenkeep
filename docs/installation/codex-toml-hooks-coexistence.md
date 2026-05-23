@@ -6,7 +6,7 @@ nav_order: 1
 
 # `.codex/config.toml` already has a `[hooks]` table
 
-`init --harnesses codex` writes its registration to `.codex/hooks.json`. If your repo already declares a `[hooks]` table in `.codex/config.toml`, the installer refuses to write — Codex treats both locations as authoritative, and a non-destructive TOML merge would lose your comments and ordering.
+`init --harnesses codex` writes its registration to `.codex/hooks.json`. If your repo already declares a `[hooks]` table in `.codex/config.toml`, the installer refuses to write. Codex treats both locations as authoritative, and a non-destructive TOML merge would lose your comments and ordering.
 
 **Fix.** Append our four entries to your existing `[hooks]` table, then delete `.codex/hooks.json` so there is one source of truth.
 

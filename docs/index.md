@@ -6,11 +6,11 @@ nav_order: 1
 
 # @e0ipso/ai-knowledge-base
 
-A **team-shared, git-native knowledge base** for AI coding sessions on [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs), and [OpenCode](https://opencode.ai/). Knowledge lives in your repo as plain markdown — not in a per-user database on one developer's laptop — so it propagates to teammates through `git pull` and is **reviewable like code** in PR diffs and commit history.
+A **team-shared, git-native knowledge base** for AI coding sessions on [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs), and [OpenCode](https://opencode.ai/). Knowledge lives in your repo as plain markdown, not in a per-user database on one developer's laptop, so it propagates to teammates through `git pull` and is **reviewable like code** in PR diffs and commit history.
 
 No daemons. No services. No external runtimes. Just Node + git.
 
-Your AI conversations produce a steady stream of project-specific knowledge — conventions, gotchas, named modules, decision rationale — and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
+Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
 
 ## Quick start
 
@@ -19,7 +19,7 @@ npx @e0ipso/ai-knowledge-base init --harnesses claude
 npx @e0ipso/ai-knowledge-base doctor
 ```
 
-Then code normally. When you want to turn captured material into knowledge nodes, run `/kb-curate` inside your harness session (also `/kb-add`, `/kb-bootstrap`). **Prefer the in-session skills** — they're context-aware and the only path that walks you through conflict resolution. The matching CLI commands (`npx @e0ipso/ai-knowledge-base curate`, etc.) exist for scripts and CI but skip the interactive parts. New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
+Then code normally. When you want to turn captured material into knowledge nodes, run `/kb-curate` inside your harness session (also `/kb-add`, `/kb-bootstrap`). **Prefer the in-session skills.** They're context-aware and the only path that walks you through conflict resolution. The matching CLI commands (`npx @e0ipso/ai-knowledge-base curate`, etc.) exist for scripts and CI but skip the interactive parts. New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
 
 ## Not what you're looking for?
 

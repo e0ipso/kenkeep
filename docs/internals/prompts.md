@@ -8,7 +8,7 @@ nav_order: 4
 
 The KB's LLM work runs in two places:
 
-1. The **proposal-drain hook** spawns a headless `claude -p` to convert each captured session log into a structured proposal. It loads its prompt from a local override path, falling back to the bundled template — edit the file under `.ai/knowledge-base/.config/prompts/proposal-extract.md` to customize, delete it to revert.
+1. The **proposal-drain hook** spawns a headless `claude -p` to convert each captured session log into a structured proposal. It loads its prompt from a local override path, falling back to the bundled template. Edit the file under `.ai/knowledge-base/.config/prompts/proposal-extract.md` to customize, delete it to revert.
 2. The **kb-bootstrap, kb-curate, and kb-add skills** run inside the host harness session (launched via `<harness> -p "/kb-<name>"` or invoked directly from a session). Their prompts live with the skill, not in a separate prompt file: edit `.claude/skills/kb-<name>/SKILL.md` (and the equivalent under `.codex/`, `.cursor/`, `.opencode/`) to customize.
 
 Bump the top-of-file `Version: N` comment on every behavior change; logs record the prompt content so historic decisions stay auditable.
@@ -16,7 +16,7 @@ Bump the top-of-file `Version: N` comment on every behavior change; logs record 
 ## Where each prompt lives
 
 - **`proposal-extract.md`** (v2 in the bundled template): drives the async proposal-drain hook to convert a redacted transcript into structured practice and map candidates. Spawned by `kb-proposal-drain` as a `claude -p` subprocess.
-- **`kb-curate/SKILL.md`**: the curate skill's canonical prompt. Reads pending session logs, drafts add/modify/contradict/drop actions in-session, hands the merged set to `curate-dedup`, walks contradictions with the user. There is no separate `curator.md` prompt file anymore — the curator logic that used to be spawned as a sub-agent is now the skill prompt.
+- **`kb-curate/SKILL.md`**: the curate skill's canonical prompt. Reads pending session logs, drafts add/modify/contradict/drop actions in-session, hands the merged set to `curate-dedup`, walks contradictions with the user. There is no separate `curator.md` prompt file anymore. The curator logic that used to be spawned as a sub-agent is now the skill prompt.
 - **`kb-bootstrap/SKILL.md`**: the bootstrap skill's canonical prompt. Enumerates source markdown via `finddocs`, drafts node bodies inline, persists via `node write`. There is no separate `bootstrap-incremental.md` prompt file anymore.
 - **`kb-add/SKILL.md`**: the manual-add skill's canonical prompt. Conversationally gathers fields, persists via `node write`.
 
@@ -31,7 +31,7 @@ The skill source under `src/templates-source/skills/kb-<name>/SKILL.md` is the s
 
 ## Pipeline overview
 
-The KB's prompts form the knowledge-acquisition pipeline. Two extractors emit candidate nodes — the **proposal extractor** (the `proposal-extract.md` prompt, spawned as a `claude -p` subprocess by the proposal-drain hook) for live sessions, and the **bootstrap skill** (`kb-bootstrap/SKILL.md`, running in the host harness session) for existing docs. The **curator skill** (`kb-curate/SKILL.md`, also running in the host harness session) decides what becomes a file on disk. The diagram below shows the gates, filters, and decisions inside each prompt.
+The KB's prompts form the knowledge-acquisition pipeline. Two extractors emit candidate nodes: the **proposal extractor** (the `proposal-extract.md` prompt, spawned as a `claude -p` subprocess by the proposal-drain hook) for live sessions, and the **bootstrap skill** (`kb-bootstrap/SKILL.md`, running in the host harness session) for existing docs. The **curator skill** (`kb-curate/SKILL.md`, also running in the host harness session) decides what becomes a file on disk. The diagram below shows the gates, filters, and decisions inside each prompt.
 
 ```mermaid
 flowchart TB
@@ -197,7 +197,7 @@ The skill applies actions via the deterministic `curate-dedup` and `node write` 
 
 ### Verifying
 
-1. `npm test` — curate-dedup tests assert that add/modify proposals survive to the output JSON, contradict actions become conflict files under `conflicts/`, and slug-collision-after-resolution lands in the failure report.
+1. `npm test`: curate-dedup tests assert that add/modify proposals survive to the output JSON, contradict actions become conflict files under `conflicts/`, and slug-collision-after-resolution lands in the failure report.
 2. Inspect the harness session transcript for the final proposal JSON the skill piped to `curate-dedup`.
 
 ### Anti-patterns
@@ -211,15 +211,15 @@ The skill applies actions via the deterministic `curate-dedup` and `node write` 
 
 ## Bootstrap skill prompt
 
-Controls what the kb-bootstrap skill treats as candidates from your source docs. Runs in the host harness session — there is no separate `bootstrap-incremental.md` prompt file (deleted in the launcher refactor).
+Controls what the kb-bootstrap skill treats as candidates from your source docs. Runs in the host harness session. There is no separate `bootstrap-incremental.md` prompt file (deleted in the launcher refactor).
 
 ### Skill behavior
 
-1. **Discovery** — call `finddocs --from <scope> --with-hashes` to enumerate candidate markdown.
-2. **Per-doc loop** — for each surviving doc, `Read` it, decide whether it carries durable knowledge (skipping auto-generated reference, licenses, generic framework knowledge, aspirational TODOs), draft practice and map candidates inline, and persist via `node write --source-doc <relpath> --source-hash <sha256>` (which folds the hash into `bootstrap-state.json` in the same atomic transaction).
-3. **Hash-aware skip** — before reading a doc, compare its `finddocs --with-hashes` digest against `bootstrap-state.json`. Skip on hit.
-4. **Finalize** — call `index rebuild` to regenerate `INDEX.md` and `GRAPH.md`.
-5. **Rules** — never invent facts, quote rationale verbatim, never overwrite an existing node.
+1. **Discovery**: call `finddocs --from <scope> --with-hashes` to enumerate candidate markdown.
+2. **Per-doc loop**: for each surviving doc, `Read` it, decide whether it carries durable knowledge (skipping auto-generated reference, licenses, generic framework knowledge, aspirational TODOs), draft practice and map candidates inline, and persist via `node write --source-doc <relpath> --source-hash <sha256>` (which folds the hash into `bootstrap-state.json` in the same atomic transaction).
+3. **Hash-aware skip**: before reading a doc, compare its `finddocs --with-hashes` digest against `bootstrap-state.json`. Skip on hit.
+4. **Finalize**: call `index rebuild` to regenerate `INDEX.md` and `GRAPH.md`.
+5. **Rules**: never invent facts, quote rationale verbatim, never overwrite an existing node.
 
 ### Calibration loop
 
@@ -234,7 +234,7 @@ Controls what the kb-bootstrap skill treats as candidates from your source docs.
 
 The proposal-drain hook still writes a stream-JSON trace per run; curate and bootstrap no longer do (their work is now part of the host harness session transcript, captured wherever the user already captures that).
 
-### Proposal — `_logs/proposal/<session-id>__<ts>.jsonl`
+### Proposal: `_logs/proposal/<session-id>__<ts>.jsonl`
 
 | Line type | What it is |
 |---|---|
@@ -245,20 +245,20 @@ The proposal-drain hook still writes a stream-JSON trace per run; curate and boo
 
 Common failures:
 
-- **No final result** — `claude` was killed or timed out. Check timestamps. The drain writes `proposal_status: failed` and does not retry on its own; these failure modes do not heal on retry.
-- **Schema mismatch** — model emitted extra prose or skipped a field. Inspect `result` text; tune the prompt if consistent.
+- **No final result**: `claude` was killed or timed out. Check timestamps. The drain writes `proposal_status: failed` and does not retry on its own; these failure modes do not heal on retry.
+- **Schema mismatch**: model emitted extra prose or skipped a field. Inspect `result` text; tune the prompt if consistent.
 
 To force re-extraction of a `failed` entry: set `proposal_status: pending` in the session log and clear `proposal_error`. The next drain sweep will pick it up.
 
 ### Curate / bootstrap
 
-Curate and bootstrap no longer write `_logs/curator/*.jsonl` or `_logs/bootstrap-incremental/*.jsonl` — the work runs in the host harness session, and the harness's own transcript captures the reasoning. To inspect what the curate skill did on a given run, look at the host session's transcript (or, for the `curate-dedup` primitive's output, pass `--output <path>` to capture the surviving-actions JSON).
+Curate and bootstrap no longer write `_logs/curator/*.jsonl` or `_logs/bootstrap-incremental/*.jsonl`. The work runs in the host harness session, and the harness's own transcript captures the reasoning. To inspect what the curate skill did on a given run, look at the host session's transcript (or, for the `curate-dedup` primitive's output, pass `--output <path>` to capture the surviving-actions JSON).
 
 Common curate / bootstrap issues:
 
-- **`nodesWritten: 0` despite a non-empty batch** — check the host session transcript for skill-reported failures (slug collision, `modify_missing_target`, or `add_collision`).
-- **Conflict not surfacing in `/kb-curate`** — check `.ai/knowledge-base/conflicts/` for a file with `status: pending`. The skill walks from there.
-- **Duplicates after dedup** — `curate-dedup` keeps the higher-confidence action per `proposed_node.id`. Duplicates mean inconsistent slugification produced different ids.
+- **`nodesWritten: 0` despite a non-empty batch**: check the host session transcript for skill-reported failures (slug collision, `modify_missing_target`, or `add_collision`).
+- **Conflict not surfacing in `/kb-curate`**: check `.ai/knowledge-base/conflicts/` for a file with `status: pending`. The skill walks from there.
+- **Duplicates after dedup**: `curate-dedup` keeps the higher-confidence action per `proposed_node.id`. Duplicates mean inconsistent slugification produced different ids.
 
 To re-run a single batch: clear `curator_processed_at` and `curator_run_id` from the affected session log and re-run `curate`.
 

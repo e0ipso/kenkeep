@@ -17,7 +17,7 @@ Start with `npx @e0ipso/ai-knowledge-base doctor --verbose`.
 
 ## A hook seems to be silently doing nothing
 
-Check `<kb-root>/_logs/hook-errors-YYYY-MM-DD.log` for the most recent day. Each line is a JSON object recording one swallowed hook failure — either a parse error (the harness sent malformed JSON) or an uncaught throw inside the hook — with the hook name, phase, and error message. The file is dated; rotation is implicit. Hooks always exit 0 by design, so this log is the primary breadcrumb when a hook appears to do nothing.
+Check `<kb-root>/_logs/hook-errors-YYYY-MM-DD.log` for the most recent day. Each line is a JSON object recording one swallowed hook failure, either a parse error (the harness sent malformed JSON) or an uncaught throw inside the hook, with the hook name, phase, and error message. The file is dated; rotation is implicit. Hooks always exit 0 by design, so this log is the primary breadcrumb when a hook appears to do nothing.
 
 ## Captured sessions never get extracted
 
@@ -25,7 +25,7 @@ Session logs are stuck pending.
 
 - Background extraction runs at the start of the **next** Claude Code session. Open a new one.
 - Make sure `claude` is on PATH in the shell that runs the hook.
-- A stale `proposal-drain` lock can block extraction. Check `.ai/knowledge-base/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually. (Curate and bootstrap no longer hold a state lock — they run in a single host session, single-author by design.)
+- A stale `proposal-drain` lock can block extraction. Check `.ai/knowledge-base/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually. (Curate and bootstrap no longer hold a state lock. They run in a single host session, single-author by design.)
 
 ## `curate` says "no pending sessions"
 
@@ -85,11 +85,11 @@ The command was renamed: `bootstrap-incremental` → `bootstrap`. The old name i
 
 The alias is removed in the release after next. Update any scripts, CI workflows, and shell aliases that hardcode the old name. The flags (`--from <scope>`) match the new command.
 
-## `bootstrap` now uses more context — what changed
+## `bootstrap` now uses more context: what changed
 
 Previously, `bootstrap-incremental` spawned a fresh `claude -p` sub-agent per batch, so the host harness session paid almost no context cost. The current architecture runs the bootstrap skill **inside the host harness session**, so every candidate doc the skill reads counts against the host session's context window.
 
-For small repos this is invisible. For large doc trees (a monorepo with hundreds of markdown files) this can force a host-side compaction mid-run, or — in extreme cases — exhaust the model's effective window.
+For small repos this is invisible. For large doc trees (a monorepo with hundreds of markdown files) this can force a host-side compaction mid-run, or in extreme cases exhaust the model's effective window.
 
 Remediation, in order of preference:
 
@@ -97,11 +97,11 @@ Remediation, in order of preference:
 2. **Tighten `.kbignore`.** Add entries to deny large vendored or generated markdown subtrees. Run `finddocs` to preview what the new ignore list lets through.
 3. **Run multiple smaller scopes one at a time** instead of one repo-wide pass.
 
-The single-host-session model is intentional. Drafting now fans out to harness-native sub-agents inside that same session when the active harness exposes a Task-style primitive (see [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs)), which frees the host context from reading each candidate doc itself — but the outer launcher remains a single harness exec, and the deleted CLI-side `BootstrapRunner` / `CuratorRunner` subprocess fan-out is not coming back. See [Daily use → Host-context cost on large doc trees](daily-use.md#host-context-cost-on-large-doc-trees) and the changelog for the rationale.
+The single-host-session model is intentional. Drafting now fans out to harness-native sub-agents inside that same session when the active harness exposes a Task-style primitive (see [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs)), which frees the host context from reading each candidate doc itself. The outer launcher remains a single harness exec, and the deleted CLI-side `BootstrapRunner` / `CuratorRunner` subprocess fan-out is not coming back. See [Daily use → Host-context cost on large doc trees](daily-use.md#host-context-cost-on-large-doc-trees) and the changelog for the rationale.
 
-## Bootstrap is still sequential — why?
+## Bootstrap is still sequential: why?
 
-Per-harness support for native host sub-agents varies: **Claude Code** and **Cursor** ship a documented in-session `Task` tool and run the parallel path by default; **Codex** supports subagent dispatch at the workflow level (the exact in-LLM tool surface depends on your runtime); **opencode** is treated as a conservative fallback because its headless `run --format json` mode does not affirm Task-dispatch in current vendor docs. The `kb-bootstrap` and `kb-curate` skills probe their own tool surface at the start of each run and **silently degrade to inline sequential drafting** when no dispatch primitive is detected — this is by design, never an error, so a sequential run on an unsupported harness looks identical to a healthy parallel run from the outside.
+Per-harness support for native host sub-agents varies: **Claude Code** and **Cursor** ship a documented in-session `Task` tool and run the parallel path by default; **Codex** supports subagent dispatch at the workflow level (the exact in-LLM tool surface depends on your runtime); **opencode** is treated as a conservative fallback because its headless `run --format json` mode does not affirm Task-dispatch in current vendor docs. The `kb-bootstrap` and `kb-curate` skills probe their own tool surface at the start of each run and **silently degrade to inline sequential drafting** when no dispatch primitive is detected. This is by design, never an error, so a sequential run on an unsupported harness looks identical to a healthy parallel run from the outside.
 
 To confirm which path actually ran, inspect the per-batch artefacts:
 
@@ -109,7 +109,7 @@ To confirm which path actually ran, inspect the per-batch artefacts:
 ls .ai/knowledge-base/_logs/bootstrap/
 ```
 
-You'll see one `<runId>__<batchN>.jsonl` per batch in either mode (the JSONL contract is the cross-harness lowest-common-denominator trace). The accompanying `<runId>__<batchN>.draft.json` files are only written by the parallel path — if they are missing while `.jsonl` files exist, the inline fallback ran. Same convention under `_logs/curator/` and `_logs/kb-add/`.
+You'll see one `<runId>__<batchN>.jsonl` per batch in either mode (the JSONL contract is the cross-harness lowest-common-denominator trace). The accompanying `<runId>__<batchN>.draft.json` files are only written by the parallel path. If they are missing while `.jsonl` files exist, the inline fallback ran. Same convention under `_logs/curator/` and `_logs/kb-add/`.
 
 
 

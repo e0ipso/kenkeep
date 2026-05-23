@@ -9,7 +9,7 @@ After install, the only thing you do by hand is **curate**, **review**, and **co
 
 ## Skills and CLI
 
-Every workflow has both an in-session **skill** and a **CLI** form. The CLI form is a **launcher**: it execs your active harness against the matching slash-command (`claude -p "/kb-curate"`, `codex …`, etc.). The LLM call happens once, inside the host harness session — the same model, prompt cache, and tools you already use interactively.
+Every workflow has both an in-session **skill** and a **CLI** form. The CLI form is a **launcher**: it execs your active harness against the matching slash-command (`claude -p "/kb-curate"`, `codex …`, etc.). The LLM call happens once, inside the host harness session, the same model, prompt cache, and tools you already use interactively.
 
 - **`/kb-add` ≡ `node add`.** The skill conversationally gathers fields, checks INDEX for overlap, and persists via the `node write` primitive. The CLI launcher execs the same skill.
 - **`/kb-curate` ≡ `curate`.** The skill reads pending session logs, drafts curator proposals in-session, hands the merged set to the deterministic `curate-dedup` primitive, then runs `index rebuild`. Inside an interactive session the skill also walks each `contradict` conflict with the `y/n/s/k` prompt; that walkthrough still happens when you invoke via the CLI launcher (since the launcher just opens a host session).
@@ -19,7 +19,7 @@ Use the slash-commands when you're already in a harness session (no extra proces
 
 ### Parallel drafting and per-batch logs
 
-When the active harness exposes a native sub-agent / task primitive (currently Claude Code and Cursor are confirmed; Codex works at the workflow level; opencode falls back conservatively), `kb-bootstrap` and `kb-curate` fan their drafting work out across up to five host sub-agents per orchestrator wave. Each agent reads its own slice in an isolated context, drafts JSON, and writes a tmpfile that the host collects and persists through the same `node write` / `curate-dedup` primitives as before. On harnesses without a native dispatch primitive, the skills silently fall back to sequential inline drafting — same behaviour you've shipped with since the launcher refactor. `kb-add` uses the same delegation mechanism but only for **context isolation** (a single sub-agent drafts the one node so the host transcript stays clean) — there is no throughput gain there because there is only ever one unit of work.
+When the active harness exposes a native sub-agent / task primitive (currently Claude Code and Cursor are confirmed; Codex works at the workflow level; opencode falls back conservatively), `kb-bootstrap` and `kb-curate` fan their drafting work out across up to five host sub-agents per orchestrator wave. Each agent reads its own slice in an isolated context, drafts JSON, and writes a tmpfile that the host collects and persists through the same `node write` / `curate-dedup` primitives as before. On harnesses without a native dispatch primitive, the skills silently fall back to sequential inline drafting, same behaviour you've shipped with since the launcher refactor. `kb-add` uses the same delegation mechanism but only for **context isolation** (a single sub-agent drafts the one node so the host transcript stays clean). There is no throughput gain there because there is only ever one unit of work.
 
 Each run drops a lowest-common-denominator JSONL trace under `.ai/knowledge-base/_logs/`, with one file per batch (or one per run for `kb-add`):
 
@@ -29,13 +29,13 @@ Each run drops a lowest-common-denominator JSONL trace under `.ai/knowledge-base
 .ai/knowledge-base/_logs/kb-add/<runId>.jsonl
 ```
 
-These are gitignored along with everything else under `_logs/` — they are per-user diagnostic state, not something to commit. Use them to confirm whether the parallel or the inline-fallback path ran on your harness.
+These are gitignored along with everything else under `_logs/`. They are per-user diagnostic state, not something to commit. Use them to confirm whether the parallel or the inline-fallback path ran on your harness.
 
 **Do not run `kb-bootstrap` and `kb-curate` simultaneously against the same repo.** The two skills touch overlapping state files and there is no cross-skill lock; concurrent invocations may interleave in surprising ways.
 
 ### Host-context cost on large doc trees
 
-Because the LLM now runs inside the host harness session, the bootstrap skill reads every candidate doc into **that** session's context window — the cost that used to be paid by ephemeral sub-agents now lands on the user's host session. On a small repo this is invisible; on a monorepo with hundreds of markdown files it may force a host-side compaction mid-run.
+Because the LLM now runs inside the host harness session, the bootstrap skill reads every candidate doc into **that** session's context window. The cost that used to be paid by ephemeral sub-agents now lands on the user's host session. On a small repo this is invisible; on a monorepo with hundreds of markdown files it may force a host-side compaction mid-run.
 
 Two levers, in order of preference:
 
@@ -46,7 +46,7 @@ If neither is enough, run `bootstrap` against narrower scopes one at a time.
 
 ### No concurrent invocations of `curate` (or `bootstrap`)
 
-Skill sessions are **single-author by design**. There is no cross-process lock on `state.json`, `bootstrap-state.json`, or session-log frontmatter stamps. The atomic tmp+rename writes inside `curate-dedup` and `node write` mean a crash never leaves a partially-written file — but if you run two `curate` launchers from two shells simultaneously, the second writer's state-mark update can silently lose to the first, leaving some sessions unmarked. They'll reprocess on the next run (no data loss), but you've wasted the work.
+Skill sessions are **single-author by design**. There is no cross-process lock on `state.json`, `bootstrap-state.json`, or session-log frontmatter stamps. The atomic tmp+rename writes inside `curate-dedup` and `node write` mean a crash never leaves a partially-written file. But if you run two `curate` launchers from two shells simultaneously, the second writer's state-mark update can silently lose to the first, leaving some sessions unmarked. They'll reprocess on the next run (no data loss), but you've wasted the work.
 
 The rule: **run one `curate` (or `bootstrap`) at a time per repo**. Coordinate by hand if multiple developers are running it on the same workspace.
 
@@ -99,10 +99,10 @@ Accept this proposal? [Y/n/s/k] (default: Y)
 
 | Key | Action |
 |---|---|
-| `y` | Accept — rewrite the node with the proposed body, then `git restore` the conflict file. |
-| `n` | Reject — `git restore` the conflict file; node unchanged. |
-| `s` | Skip — leave the conflict file pending; it re-surfaces next pass. |
-| `k` | Keep — `git commit` the conflict file as a historical record; node unchanged. |
+| `y` | Accept: rewrite the node with the proposed body, then `git restore` the conflict file. |
+| `n` | Reject: `git restore` the conflict file; node unchanged. |
+| `s` | Skip: leave the conflict file pending; it re-surfaces next pass. |
+| `k` | Keep: `git commit` the conflict file as a historical record; node unchanged. |
 
 Defaults are heuristic per conflict (small diffs default `y`, rewrites `n`, otherwise `s`). Long forms (`yes`, `skip`) and uppercase work; anything else is re-prompted.
 
@@ -116,9 +116,9 @@ Review with `git diff nodes/`. Accept with `git commit` (the pre-commit hook reg
 
 ## Seed from existing docs
 
-`/kb-bootstrap [path]` in-session, or `npx @e0ipso/ai-knowledge-base bootstrap --from docs/` from a shell — same skill either way. Hash-aware (only reprocesses docs whose SHA-256 changed since the last run). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
+`/kb-bootstrap [path]` in-session, or `npx @e0ipso/ai-knowledge-base bootstrap --from docs/` from a shell. Same skill either way. Hash-aware (only reprocesses docs whose SHA-256 changed since the last run). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
 
-If you have scripts or CI invocations still calling `bootstrap-incremental`, they keep working as a deprecation alias for one release. Update them to `bootstrap` — the alias is removed in the release after next.
+If you have scripts or CI invocations still calling `bootstrap-incremental`, they keep working as a deprecation alias for one release. Update them to `bootstrap`. The alias is removed in the release after next.
 
 ## CI
 

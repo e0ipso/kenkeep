@@ -46,7 +46,7 @@ npx @e0ipso/ai-knowledge-base curate
 
 Execs `<harness> -p "/kb-curate"`. The kb-curate skill reads pending session logs in `captured_at` order, drafts curator proposals in-session, pipes the merged proposal set to `curate-dedup` for the deterministic dedup + conflict-id + stamp transaction, then runs `index rebuild`.
 
-Do not run two `curate` invocations against the same repo concurrently — there is no cross-process lock, and the second invocation's `state.json`/session-stamp updates may silently lose to the first. See [Daily use → Curate](daily-use.md#curate).
+Do not run two `curate` invocations against the same repo concurrently. There is no cross-process lock, and the second invocation's `state.json`/session-stamp updates may silently lose to the first. See [Daily use → Curate](daily-use.md#curate).
 
 ### `node add`
 
@@ -111,7 +111,7 @@ Options:
   --source-hash <sha256>  sha256 hex digest of --source-doc; requires --source-doc
 ```
 
-`--source-doc` and `--source-hash` must be passed together. When both are present, the same atomic transaction that writes the node also folds an entry into `bootstrap-state.json`'s per-file hash map — this is how the bootstrap skill marks a source doc as processed without a separate state-mark step.
+`--source-doc` and `--source-hash` must be passed together. When both are present, the same atomic transaction that writes the node also folds an entry into `bootstrap-state.json`'s per-file hash map. This is how the bootstrap skill marks a source doc as processed without a separate state-mark step.
 
 Slug collisions are resolved by `ensureUniqueId` (`<id>-2`, `<id>-3`, …). The final id is printed to stdout for the caller to record.
 
@@ -130,7 +130,7 @@ Exit codes: `0` on success, non-zero on Zod validation failure, slug-collision-a
 
 ### `curate-dedup [--input <path>]`
 
-Deterministic curator-dedup primitive: validates a proposals JSON (from `--input <path>` or stdin against `CuratorOutputSchema`), dedups, mints `${runId}-${n}` conflict ids, writes conflict files under `conflicts/`, and stamps consumed session logs with `curator_processed_at` / `curator_run_id`. Pure Node — no LLM.
+Deterministic curator-dedup primitive: validates a proposals JSON (from `--input <path>` or stdin against `CuratorOutputSchema`), dedups, mints `${runId}-${n}` conflict ids, writes conflict files under `conflicts/`, and stamps consumed session logs with `curator_processed_at` / `curator_run_id`. Pure Node, no LLM.
 
 ```
 Usage: ai-knowledge-base curate-dedup [options]
@@ -173,7 +173,7 @@ First-time setup. Writes the KB scaffold, per-harness hooks/skills, and a manage
 
 Deletes `_logs/**/*.jsonl` older than `logsRetentionDays` (default 30).
 
-## Project settings — `.ai/knowledge-base/config.yaml`
+## Project settings: `.ai/knowledge-base/config.yaml`
 
 Committed, strict (unknown keys are a hard error):
 
@@ -195,7 +195,7 @@ proposalModel: { name: haiku, effort: low }
 
 `name` ∈ `haiku | sonnet | opus`. `effort` ∈ `low | medium | high | xhigh | max`. Both sub-keys are required when the object is present. Omit the object to use the user's `claude` CLI default.
 
-`curatorModel` and `bootstrapModel` no longer apply — the LLM for curate and bootstrap now runs in the host harness session under whatever model the user has selected for their session, not a separately-spawned subprocess.
+`curatorModel` and `bootstrapModel` no longer apply. The LLM for curate and bootstrap now runs in the host harness session under whatever model the user has selected for their session, not a separately-spawned subprocess.
 
 ## Skills
 
@@ -209,4 +209,4 @@ The launchers above are the recommended entry points for headless / CI use. From
 
 Skills and launchers run the same logic. The slash-command path keeps the work inside your existing harness context (no extra process spawn); the launcher path is meant for shell / CI use.
 
-Skill authors writing their own KB skills should not hardcode `--harness` — see [Internals → Adapters](internals/architecture.md#adapter-interface) for the detect-harness recipe.
+Skill authors writing their own KB skills should not hardcode `--harness`. See [Internals → Adapters](internals/architecture.md#adapter-interface) for the detect-harness recipe.

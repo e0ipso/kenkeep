@@ -10,7 +10,7 @@ nav_order: 3
 - Node.js 22+
 - One of the supported AI harnesses on PATH: [Claude Code](https://docs.claude.com/en/docs/claude-code/getting-started), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs) (agent CLI), or [OpenCode](https://opencode.ai/).
 
-No API key required — `init` spawns the harness's own headless driver (`claude -p`, `codex exec`, `agent -p`, or `opencode run`) and inherits whatever auth that CLI already uses. A `package.json` at the repo root is **not** required.
+No API key required. `init` spawns the harness's own headless driver (`claude -p`, `codex exec`, `agent -p`, or `opencode run`) and inherits whatever auth that CLI already uses. A `package.json` at the repo root is **not** required.
 
 ## Install
 
@@ -25,7 +25,7 @@ npx @e0ipso/ai-knowledge-base --harness <id> doctor
 
 `init` creates:
 
-- `.ai/knowledge-base/` — KB scaffold (nodes, INDEX, GRAPH, state, config, prompt overrides). Shared across harnesses.
+- `.ai/knowledge-base/`: KB scaffold (nodes, INDEX, GRAPH, state, config, prompt overrides). Shared across harnesses.
 - One harness-specific hook + skills directory (`.claude/`, `.codex/` + `.agents/skills/`, `.cursor/`, or `.opencode/`).
 - A managed block in `.gitignore` for runtime state.
 
@@ -33,14 +33,14 @@ npx @e0ipso/ai-knowledge-base --harness <id> doctor
 
 ## Per-harness notes
 
-The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_VERSION`). **Codex and OpenCode export no in-session env var**, so when invoking from outside a session — or from inside a Codex/OpenCode session — pass `--harness <id>` explicitly, or set `cliDefaultHarness` in `.ai/knowledge-base/config.yaml`.
+The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_VERSION`). **Codex and OpenCode export no in-session env var**, so when invoking from outside a session, or from inside a Codex/OpenCode session, pass `--harness <id>` explicitly, or set `cliDefaultHarness` in `.ai/knowledge-base/config.yaml`.
 
 | Harness | Capture events | Notable |
 |---|---|---|
-| Claude | `Stop`, `SessionEnd`, `PreCompact` | — |
-| Codex | `Stop` only | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write — see [coexistence](installation/codex-toml-hooks-coexistence.md). |
-| Cursor | `stop`, `sessionEnd`, `preCompact` | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter — you'd double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
-| OpenCode | `session.idle` only | No `additionalContext` channel — the session-start hook writes INDEX to `.opencode/AGENTS.md`; reference that file from your primary `AGENTS.md`. |
+| Claude | `Stop`, `SessionEnd`, `PreCompact` | (none) |
+| Codex | `Stop` only | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write. See [coexistence](installation/codex-toml-hooks-coexistence.md). |
+| Cursor | `stop`, `sessionEnd`, `preCompact` | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter, or you'll double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
+| OpenCode | `session.idle` only | No `additionalContext` channel. The session-start hook writes INDEX to `.opencode/AGENTS.md`; reference that file from your primary `AGENTS.md`. |
 
 If your harness isn't listed above, this tool doesn't support it yet.
 
@@ -103,7 +103,7 @@ Add `.husky/commit-msg` with `npx --no -- commitlint --edit "$1"`.
 npx @e0ipso/ai-knowledge-base bootstrap --from docs/   # CLI launcher, execs `<harness> -p "/kb-bootstrap --from docs/"`
 ```
 
-Surveys your markdown, splits into `practice` and `map` nodes, writes under `nodes/`. Hash-aware: only reprocesses docs whose SHA-256 changed since the last run. Existing nodes are never overwritten. Review the written files — accept by leaving them in place, reject by deleting them. Don't run `bootstrap` in CI — it launches the host harness and the LLM-driven work needs human review.
+Surveys your markdown, splits into `practice` and `map` nodes, writes under `nodes/`. Hash-aware: only reprocesses docs whose SHA-256 changed since the last run. Existing nodes are never overwritten. Review the written files: accept by leaving them in place, reject by deleting them. Don't run `bootstrap` in CI. It launches the host harness and the LLM-driven work needs human review.
 
 ## Upgrading
 

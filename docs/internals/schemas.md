@@ -223,7 +223,7 @@ Lifecycle:
 - **First run**: file is created with `docs: {}`.
 - **Hash hit**: doc is skipped; `last_processed_at` is not updated.
 - **Hash miss**: doc is read by the kb-bootstrap skill. On success, the kb-bootstrap skill calls `node write --source-doc <relpath> --source-hash <sha256>` which folds the entry into this file as part of the same atomic write. On failure, no entry is added so a re-run retries.
-- **Preview discovery without writing**: run `finddocs [--from <scope>] [--with-hashes]` — read-only, never touches `bootstrap-state.json`.
+- **Preview discovery without writing**: run `finddocs [--from <scope>] [--with-hashes]`. Read-only, never touches `bootstrap-state.json`.
 - **Force re-bootstrap**: delete the file.
 
 A malformed file is treated as missing. Validated by `BootstrapStateSchema`. Gitignored.

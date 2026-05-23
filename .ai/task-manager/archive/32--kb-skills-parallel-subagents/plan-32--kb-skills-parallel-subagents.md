@@ -327,3 +327,54 @@ After Phase 1: run `npm run lint`, `npm run typecheck`, `npm test`. Commit with 
 ### Execution Summary
 - Total Phases: 2
 - Total Tasks: 5
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-23
+
+### Results
+
+All five tasks across two phases shipped on branch `feature/32--kb-skills-parallel-subagents`:
+
+| Commit | Subject | Touches |
+| --- | --- | --- |
+| `a7e7e17` | chore(task-manager): add plan 32 (KB parallel) | plan + tasks scaffolding |
+| `46b09e7` | feat(kb-bootstrap): parallel sub-agent draft | bootstrap SKILL.md (also swept curate edits) |
+| `3eaca59` | feat(kb-add): delegate draft to sub-agent | kb-add SKILL.md + task 04 status |
+| `60843ae` | feat(node-write): lock bootstrap RMW (plan 32) | node-write.ts + node-write.test.ts + task 01 status |
+| `22273b9` | docs: cover parallel sub-agents (plan 32) | daily-use, how-it-works, troubleshooting, CHANGELOG, task 05 status |
+| `8310ba5` | docs: dedup Unreleased + reconcile plan-31 | CHANGELOG cleanup + blueprint status flips |
+
+Concrete deliverables:
+
+- `src/commands/node-write.ts` wraps `updateBootstrapState` with `proper-lockfile` (with a per-call `retries` policy so concurrent callers serialise rather than fast-fail with `ELOCKED`) when both `--source-doc` and `--source-hash` are passed. Lock target is lazy-created with an empty state placeholder so first-ever writes work.
+- `tests/commands/node-write.test.ts` gained a `serialises concurrent --source-doc writers via proper-lockfile` test that forks two `runNodeWriteCommand` calls in `Promise.all` with distinct slugs/source-docs and asserts both `docs.<X>` and `docs.<Y>` entries land in `bootstrap-state.json` with their hashes and `produced_nodes` entries.
+- `src/templates-source/skills/kb-bootstrap/SKILL.md` (276 lines, Version 3): Step 6 now contains a probe + ≤5-per-wave parallel host sub-agent dispatch + JSON tmpfile collector + byte-equivalent inline fallback, with `_logs/bootstrap/<runId>__<batchN>.jsonl` per-batch trace.
+- `src/templates-source/skills/kb-curate/SKILL.md` (440 lines, Version 3): Step 2 reshaped around ≤5-per-wave per-batch sub-agent dispatch; `runId` minted upfront; collector concatenates batch action arrays into the single `$PROPOSALS` tmpfile; `curate-dedup` still runs exactly once across all batches; `_logs/curator/<runId>__<batchN>.jsonl` trace.
+- `src/templates-source/skills/kb-add/SKILL.md` (127 lines, Version 3): single-sub-agent delegation block for context isolation; host (never sub-agent) invokes `node write`; falls back to inline drafting on schema-validation failure.
+- All three canonical SKILL.md files are vendor-neutral in their new dispatch blocks (zero new `Task`/`subagent_type`/harness-name literals; remaining hits confined to the pre-existing harness-resolver block and `--harness "$HARNESS"` invocations).
+- `docs/daily-use.md`, `docs/how-it-works.md`, `docs/troubleshooting.md`, `CHANGELOG.md` updated to reflect the restored parallelism and the `_logs/` artefacts. CLI-surface unchanged is stated explicitly.
+
+Validation gate results:
+- `npm run typecheck`: ✅
+- `npm run lint`: ✅
+- `npm test`: ✅ 413/413 tests pass
+- Self Validation Step 3 (lock-correctness test): ✅ 8/8 tests in `node-write.test.ts`
+- Self Validation Step 5 (one canonical SKILL.md per skill; no harness branching): ✅ `find` reports 3, `grep` for `case.*<harness>` empty
+- Self Validation Step 6 (`node write --help` byte-equivalent to plan-31): ✅ — confirmed by diffing the `nodeGroup.command('write')` block against `a39748e:src/cli.ts`
+- Self Validation Step 8 (no regressions): ✅ — same 413/413
+
+### Noteworthy Events
+
+- **Phase 1 git-staging interference between parallel agents.** All four Phase 1 agents shared the same working tree (no per-agent worktree isolation). Each agent's final `git add -A && git commit` therefore swept up sibling edits that hadn't yet been committed by their owning agents. Net result on tree is correct, but commit attribution is mixed: `46b09e7 feat(kb-bootstrap)` actually carries both bootstrap and curate SKILL.md edits, and Task 03's intended `feat(kb-curate)` commit collapsed to "nothing to commit" because the work had already been swept. Content shipped correctly; history is just less tidy than it could be. **Follow-up**: future plans that fan out across parallel sub-agents on file-disjoint targets should run each agent with `isolation: "worktree"` to keep commits clean.
+- **Pre-commit hook flake during Task 01.** Two of Task 01's pre-commit hook runs failed on unrelated `index-rebuild` and `curate-dedup` tests that passed deterministically in isolation and on a third commit attempt. No code change was needed to resolve. Not investigated further.
+- **`STATE_LOCK_OPTIONS` does not configure retries.** The shared `STATE_LOCK_OPTIONS` constant in `src/lib/state.ts` only sets `{ stale, realpath }` — proper for the `proposal-drain` single-drainer contract where contention should fast-fail to `ELOCKED`. Reusing it verbatim inside `node write` would have made the concurrent-callers test fail (second caller `ELOCKED`s instead of waiting). Task 01 added a per-call `retries: { retries: 10, minTimeout: 25, maxTimeout: 200, factor: 1.5 }` at the `node write` call site, leaving `STATE_LOCK_OPTIONS` untouched. This is a small departure from the literal "reuse `STATE_LOCK_OPTIONS`" wording in the task spec, motivated by the contradiction between the spec's acceptance criterion ("both calls return exit code 0") and `proposal-drain`'s opposite intent.
+- **CHANGELOG had two `## Unreleased` headings post-Task-05.** The pre-existing accumulated plan-31 `## Unreleased` block was preserved by Task 05 (correctly — those entries haven't shipped) but a new `## Unreleased` heading was added at the top instead of merging. Post-execution cleanup commit `8310ba5` deduped to one heading and also softened a plan-31 BREAKING-CHANGES bullet that asserted parallel sub-agents were "not coming back" — plan 32 explicitly restored them via host-native (not CLI-side) sub-agents, so the assertion is now false. The cleanup also updated the BootstrapRunner-removal bullet to mention the proper-lockfile restoration internally.
+
+### Necessary follow-ups
+
+1. **End-to-end Self Validation steps 1, 2, 4, 7.** These require running `ai-knowledge-base bootstrap`, `curate`, and `node add` against a fixture project with ≥ 6 markdown docs and ≥ 11 pending session files, on each of `claude`, `cursor`, `codex`, `opencode` to confirm the parallel-path / fallback-path / per-batch-log / context-isolation evidence in the wild. These steps cannot be executed inside the host Claude Code session that ran this plan (it would recurse), so they are deferred to a follow-up validation pass owned by the maintainer.
+2. **Verify Codex and opencode in-loop dispatch primitives.** Plan §Background flagged both as "research follow-up" for the in-LLM tool name (Codex) and the headless dispatch story (opencode). Implementation-time verification was not done in this run — the probe-and-fallback design absorbs the unknown by definition, but the per-harness daily-use guidance in `docs/troubleshooting.md` should be updated with empirical findings after step 1's follow-up.
+3. **Consider per-agent worktree isolation for future fan-out plans.** See Noteworthy Events §1. Add this as a tasking pattern for `/tasks:execute-blueprint` rather than as a code change.
+4. **Re-check `practice-recursion-guard-kb-builder-internal` KB node.** Plan called for a passive recheck post-implementation to confirm `KB_BUILDER_INTERNAL` semantics are unchanged. Not done in this run; quick visual confirmation suggested it is unrelated to host sub-agent dispatch (it gates hook recursion only).

@@ -1,11 +1,11 @@
 ---
 name: kb-add
-description: Capture a knowledge-base node manually from the current session. Writes a new node directly under `.ai/knowledge-base/nodes/<kind>/`. The reviewer accepts via `git commit` and rejects via `git restore`. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
+description: Capture a knowledge-base node manually from the current session. Writes a new node directly under `.ai/knowledge-base/nodes/<kind>/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
 # kb-add
 
-Capture one piece of knowledge into the project KB. The CLI writes the file and regenerates the index; the user reviews with `git diff`.
+Capture one piece of knowledge into the project KB. The CLI writes the file and regenerates the index; the user reviews the written file on disk.
 
 Ask the user for seven values (do not invent any): **kind** (`practice` or `map`), **title** (≤ 80 chars), **summary** (≤ 140 chars), **tags** (comma-separated), **body** (full markdown; for practice include the rationale), **relates_to** (comma-separated node ids, may be empty), **confidence** (`high`/`medium`/`low`, default `high`).
 
@@ -13,7 +13,7 @@ Before invoking, skim `.ai/knowledge-base/INDEX.md` (already in context) for an 
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kb-detect-harness.mjs` on first invocation):
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kb-detect-harness.mjs` on first invocation):
 
 ```bash
 if [ ! -f /tmp/kb-detect-harness.mjs ]; then
@@ -23,10 +23,10 @@ cat << 'EOF' > /tmp/kb-detect-harness.mjs
 // Mirrors src/harnesses/detect.ts resolveWithHint priority.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'opencode'];
+const REGISTERED = ['claude', 'codex', 'cursor', 'opencode'];
 const ENV_DETECTORS = [
+  { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
   { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-  { env: 'CLAUDE_PROJECT_DIR', value: '*nonempty*', harness: 'claude' },
 ];
 function findHint(argv) {
   for (let i = 0; i < argv.length; i++) {
@@ -35,6 +35,7 @@ function findHint(argv) {
   return undefined;
 }
 function detectFromEnv(env) {
+  if (env.CLAUDECODE === '1') return 'claude';
   for (const d of ENV_DETECTORS) {
     if (d.value === '*nonempty*') {
       if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
@@ -83,4 +84,4 @@ npx @e0ipso/ai-knowledge-base node add --harness "$HARNESS" \
 EOF
 ```
 
-`--body @-` reads stdin so multi-line markdown does not need escaping. The CLI fails loud on a slug collision; pick a more specific title if it complains. After it returns, give the user the printed path and remind them to review with `git diff`.
+`--body @-` reads stdin so multi-line markdown does not need escaping. The CLI fails loud on a slug collision; pick a more specific title if it complains. After it returns, give the user the printed path and remind them to review the file.

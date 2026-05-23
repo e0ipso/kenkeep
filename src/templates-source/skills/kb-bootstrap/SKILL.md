@@ -1,6 +1,6 @@
 ---
 name: kb-bootstrap
-description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/knowledge-base/nodes/`. Supervised by the user, who reviews each node with `git diff` before committing. Use when the user wants to seed an empty knowledge base from the project's existing docs.
+description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/knowledge-base/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
 # kb-bootstrap
@@ -9,7 +9,7 @@ You are doing a one-time bootstrap of this project's knowledge base from its exi
 
 ## Your task
 
-Survey the project's existing markdown documentation, extract candidate knowledge nodes, and write them as new node files directly under `nodes/`. The user reviews everything with `git diff` and accepts or rejects each node with `git commit` or `git restore <path>`. You will work judgmentally, exploring, sampling, following cross-references, not exhaustively. This is a one-pass operation, supervised.
+Survey the project's existing markdown documentation, extract candidate knowledge nodes, and write them as new node files directly under `nodes/`. The user reviews each written file and accepts by leaving it in place or rejects by deleting it. You will work judgmentally, exploring, sampling, following cross-references, not exhaustively. This is a one-pass operation, supervised.
 
 ## Inputs
 
@@ -150,13 +150,13 @@ summary: "≤140 char summary"
 <Body in markdown, 1 to 4 short paragraphs.>
 ```
 
-Default `confidence: medium` for bootstrap content. Existing docs may be stale or aspirational; the reviewer needs to assess each one with `git diff`. Use `confidence: high` only when the doc explicitly states the rule with rationale and the doc looks actively maintained.
+Default `confidence: medium` for bootstrap content. Existing docs may be stale or aspirational; the reviewer needs to assess each file before accepting it. Use `confidence: high` only when the doc explicitly states the rule with rationale and the doc looks actively maintained.
 
 If a candidate is sourced from multiple docs (you found the same convention discussed in two places), list all of them in `derived_from` and produce a single node, not duplicates.
 
 ### 6. Refresh INDEX.md and GRAPH.md
 
-After writing nodes, run `npx @e0ipso/ai-knowledge-base index rebuild --harness "$HARNESS"` so the indices reflect the new nodes before the user reviews `git diff nodes/`.
+After writing nodes, run `npx @e0ipso/ai-knowledge-base index rebuild --harness "$HARNESS"` so the indices reflect the new nodes before the user reviews them.
 
 ### 7. Report back
 
@@ -170,7 +170,7 @@ When you're done, summarize for the user:
 - Any docs that looked stale or contradictory that the user should double-check.
 - Confirmation that `INDEX.md` and `GRAPH.md` were refreshed.
 
-Then tell the user to review with `git diff nodes/`, accept individual files with `git add nodes/<kind>/<file>.md && git commit`, and reject the rest with `git restore nodes/<kind>/<file>.md`.
+Then tell the user to review the written files, accept by leaving them in place, and reject by deleting them (`rm nodes/<kind>/<file>.md`).
 
 ## Constraints
 

@@ -8,216 +8,67 @@ nav_order: 3
 ## Prerequisites
 
 - Node.js 22+
-- One of the supported AI harnesses:
-  - [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/getting-started), or
-  - [OpenAI Codex CLI](https://developers.openai.com/codex/cli/), or
-  - [Cursor](https://cursor.com/docs) (agent CLI on PATH), or
-  - [OpenCode CLI](https://opencode.ai/)
+- One of the supported AI harnesses on PATH: [Claude Code](https://docs.claude.com/en/docs/claude-code/getting-started), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs) (agent CLI), or [OpenCode](https://opencode.ai/).
 
-No API key required for any of these. The tool spawns the harness's own headless driver (`claude -p`, `codex exec`, `agent -p`, or `opencode run`) and inherits whatever auth that CLI already uses. A `package.json` is no longer required at the repo root; `init` does not patch your project manifest.
+No API key required — `init` spawns the harness's own headless driver (`claude -p`, `codex exec`, `agent -p`, or `opencode run`) and inherits whatever auth that CLI already uses. A `package.json` at the repo root is **not** required.
 
-## Claude Code
+## Install
 
-In the root of your repository:
+In your repo root:
 
 ```sh
-npx @e0ipso/ai-knowledge-base init --harnesses claude
-npx @e0ipso/ai-knowledge-base doctor
+npx @e0ipso/ai-knowledge-base init --harnesses <id>
+npx @e0ipso/ai-knowledge-base --harness <id> doctor
 ```
 
-This creates / updates:
+`<id>` is one of `claude`, `codex`, `cursor`, `opencode`. Pass a comma-separated list to install several at once.
 
-- `.ai/knowledge-base/`: your knowledge base scaffold (nodes, INDEX, GRAPH, state, config, prompt overrides).
-- `.claude/`: hooks and skills used by Claude Code.
-- A managed block in `.gitignore` for the runtime state files (`_sessions/`, `_logs/`, `state.json`, `bootstrap-state.json`).
+`init` creates:
 
-`init` does **not** install husky, lint-staged, secretlint, commitlint, or any other commit-time tooling. If you want those, wire them up yourself (see [Optional: commit-time hardening](#optional-commit-time-hardening) below).
+- `.ai/knowledge-base/` — KB scaffold (nodes, INDEX, GRAPH, state, config, prompt overrides). Shared across harnesses.
+- One harness-specific hook + skills directory (`.claude/`, `.codex/` + `.agents/skills/`, `.cursor/`, or `.opencode/`).
+- A managed block in `.gitignore` for runtime state.
 
-The Claude adapter wires capture on three lifecycle events: `Stop`, `SessionEnd`, and `PreCompact`.
+`init` does **not** install husky, lint-staged, secretlint as devDeps, or commitlint. See [Optional: commit-time hardening](#optional-commit-time-hardening) below if you want them.
 
-### Verify
+## Per-harness notes
 
-`npx @e0ipso/ai-knowledge-base doctor` checks your Node version, that `claude` is on PATH, that the Claude hooks are registered, that the installed-version marker is present, and that INDEX is fresh. Exits 0 when clean.
+The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_VERSION`). **Codex and OpenCode export no in-session env var**, so when invoking from outside a session — or from inside a Codex/OpenCode session — pass `--harness <id>` explicitly, or set `cliDefaultHarness` in `.ai/knowledge-base/config.yaml`.
 
-## Codex CLI
+| Harness | Capture events | Notable |
+|---|---|---|
+| Claude | `Stop`, `SessionEnd`, `PreCompact` | — |
+| Codex | `Stop` only | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write — see [coexistence](installation/codex-toml-hooks-coexistence.md). |
+| Cursor | `stop`, `sessionEnd`, `preCompact` | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter — you'd double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
+| OpenCode | `session.idle` only | No `additionalContext` channel — the session-start hook writes INDEX to `.opencode/AGENTS.md`; reference that file from your primary `AGENTS.md`. |
 
-In the root of your repository:
+If your harness isn't listed above, this tool doesn't support it yet.
 
-```sh
-npx @e0ipso/ai-knowledge-base init --harnesses codex
-npx @e0ipso/ai-knowledge-base --harness codex doctor
-```
+### Claude permission shortcut
 
-This creates / updates:
-
-- `.ai/knowledge-base/`: your knowledge base scaffold (same layout as the Claude install).
-- `.codex/hooks.json`: the Codex hook registration file; entries we own are tagged by command prefix and refreshed on `init --upgrade`. User-authored entries in the same file are preserved.
-- `.codex/hooks/`: the hook scripts (`kb-capture.mjs`, `kb-session-start.mjs`, `kb-proposal-drain.mjs`, `kb-lint-tick.mjs`).
-- `.agents/skills/`: the `kb-add`, `kb-bootstrap`, and `kb-curate` skills. Codex reads skills from this shared location instead of a harness-specific subdirectory.
-- A managed block in `.gitignore` for the runtime state files.
-
-If your `.codex/config.toml` already defines its own `[hooks]` table, `init` refuses to write `.codex/hooks.json` and points you at [`codex-toml-hooks-coexistence.md`](installation/codex-toml-hooks-coexistence.md) for the manual merge procedure. We do not auto-merge because round-tripping TOML loses comments and whitespace.
-
-### The `--harness <id>` flag
-
-Every CLI subcommand accepts a global `--harness <id>` flag (`claude`, `codex`, `cursor`, or `opencode`). Inside an active Claude session the detector picks Claude automatically via `CLAUDECODE=1`; inside Cursor, `CURSOR_VERSION` resolves to `cursor`. Codex and OpenCode export no in-session env var, so when running outside an active session or from inside a Codex/OpenCode session you must pass `--harness` explicitly or set `cliDefaultHarness` in `.ai/knowledge-base/config.yaml`. Example:
-
-```sh
-npx @e0ipso/ai-knowledge-base --harness codex doctor
-npx @e0ipso/ai-knowledge-base --harness codex curate
-```
-
-### Capture-event gap
-
-Codex emits a `Stop` event at the end of every assistant turn but does not emit `SessionEnd` or `PreCompact`. The Codex adapter therefore wires capture and the lint tick to `Stop` only. The practical consequence: a single Codex session contributes one rolling capture (overwritten on each Stop) instead of one capture per session-end plus a pre-compaction safety net. Curation, conflict resolution, and review are unchanged.
-
-### Verify
-
-```sh
-npx @e0ipso/ai-knowledge-base --harness codex doctor
-```
-
-Checks your Node version, that `codex` is on PATH, that `.codex/hooks.json` is registered with our entries, and that INDEX is fresh.
-
-## Cursor
-
-In the root of your repository:
-
-```sh
-npx @e0ipso/ai-knowledge-base init --harnesses cursor
-npx @e0ipso/ai-knowledge-base --harness cursor doctor
-```
-
-This creates / updates:
-
-- `.ai/knowledge-base/`: your knowledge base scaffold (same layout as other harness installs).
-- `.cursor/hooks.json`: native Cursor hook registration (`"version": 1`, camelCase event keys). Entries we own are tagged by command path (`.cursor/hooks/kb-`) and refreshed on `init --upgrade`; user-authored entries are preserved.
-- `.cursor/hooks/`: the hook scripts (`kb-capture.cjs`, `kb-session-start.cjs`, `kb-proposal-drain.cjs`, `kb-lint-tick.cjs`).
-- `.cursor/skills/`: the `kb-add`, `kb-bootstrap`, and `kb-curate` skills (same bytes as other harnesses).
-- A managed block in `.gitignore` for the runtime state files.
-
-The Cursor adapter wires capture on `stop`, `sessionEnd`, and `preCompact` (full parity with Claude's three capture events). `sessionEnd` also runs the lint tick, matching Claude's SessionEnd cadence.
-
-### Transcript discovery
-
-Cursor hook stdin includes `transcript_path` when transcripts are enabled. The capture hook also honors `CURSOR_TRANSCRIPT_PATH` and falls back to globbing `~/.cursor/projects/*/agent-transcripts/**/*<conversation_id>*.jsonl` (newest match wins).
-
-### Third-party Claude hooks are not sufficient
-
-Cursor can load Claude Code hook entries from `.claude/settings.json` when **Third-party skills** is enabled in Cursor Settings, but that compatibility bridge does not provide KB parity: field names differ (`conversation_id` vs `session_id`), session-start stdout shape differs, transcripts use a different JSONL format, and headless curate requires `agent -p`. Use `init --harnesses cursor` for a dedicated install. If you migrate from a Claude-in-Cursor setup, remove KB hook entries from `.claude/settings.json` or disable third-party hook loading to avoid double capture.
-
-Repos with both `.claude/settings.json` KB hooks and `.cursor/hooks.json` KB hooks may double-fire unless you pick one harness at `init` time.
-
-### Env detection and plain-shell use
-
-Inside a Cursor agent session, `CURSOR_VERSION` resolves the harness to `cursor` even when Cursor aliases `CLAUDE_PROJECT_DIR`. Claude detection requires `CLAUDECODE=1` (not `CLAUDE_PROJECT_DIR` alone). From a plain shell with no harness env, pass `--harness cursor` or set `cliDefaultHarness: cursor` in `.ai/knowledge-base/config.yaml`.
-
-### sessionStart INDEX injection
-
-Cursor documents `sessionStart` hooks as fire-and-forget; `additional_context` from `kb-session-start` may not always block the agent loop. Cursor also reads project `AGENTS.md` as rules — if hook-based INDEX injection proves unreliable, reference INDEX content via `AGENTS.md` as a fallback (same mitigation pattern as OpenCode v1).
-
-### Verify
-
-```sh
-npx @e0ipso/ai-knowledge-base --harness cursor doctor
-```
-
-Checks your Node version, that `agent` (or `cursor agent`) is on PATH, that `.cursor/hooks.json` contains our entries, that hook scripts and skills are present, and that INDEX is fresh.
-
-## OpenCode CLI
-
-In the root of your repository:
-
-```sh
-npx @e0ipso/ai-knowledge-base init --harnesses opencode
-npx @e0ipso/ai-knowledge-base --harness opencode doctor
-```
-
-This creates / updates:
-
-- `.ai/knowledge-base/`: your knowledge base scaffold (same layout as the Claude install).
-- `.opencode/plugins/kb.mjs`: a small TS plugin shim that subscribes to the OpenCode runtime event bus and dispatches each event to a per-event Node script. Self-registering by virtue of its location: OpenCode auto-loads every plugin under `.opencode/plugins/` at startup.
-- `.opencode/kb-hooks/`: the per-event scripts (`kb-capture.mjs`, `kb-session-start.mjs`, `kb-proposal-drain.mjs`, `kb-lint-tick.mjs`). The plugin spawns these with stdin payloads matching the contract Claude and Codex use.
-- `.opencode/skills/`: the `kb-add`, `kb-bootstrap`, and `kb-curate` skills. The bytes are identical to the bytes Claude installs at `.claude/skills/` and Codex installs at `.agents/skills/` (see [Shared skill source](#shared-skill-source)).
-- A managed block in `.gitignore` for the runtime state files.
-
-### Transcript discovery
-
-OpenCode's hook payload does not carry a `transcript_path`. The capture hook reads `${XDG_DATA_HOME:-$HOME/.local/share}/opencode/storage/` on disk: it parses `session/<projectID>/<sessionID>.json`, walks `message/<sessionID>/*.json` ordered by `time.created`, and concatenates the text parts under `part/<messageID>/`. If the on-disk parse yields zero turns (e.g. because OpenCode has not finished flushing the session), the hook falls back to spawning `opencode export <sessionID>` (30-second timeout) and parses its JSON output through the same shape adapter.
-
-### Capture-event gap
-
-OpenCode's idiomatic events are `session.created` and `session.idle`. The OpenCode adapter wires capture and the lint tick to `session.idle` and the session-start payload to `session.created`. OpenCode has no v1 equivalent of Claude's `SessionStart` `additionalContext` stdout channel, so the session-start hook writes the current INDEX body to `.opencode/AGENTS.md`; users opt in by referencing that file from their primary `AGENTS.md`.
-
-### No in-session env detection
-
-OpenCode does not export an env var our detector can rely on, so the harness identity must be passed in. Either pass `--harness opencode` to every CLI invocation, set `cliDefaultHarness: opencode` in `.ai/knowledge-base/config.yaml` so plain-shell invocations resolve to OpenCode, or rely on the SKILL.md detect-harness recipe inside skills (the LLM author passes `--hint opencode` when materializing `/tmp/kb-detect-harness.mjs`).
-
-### Verify
-
-```sh
-npx @e0ipso/ai-knowledge-base --harness opencode doctor
-```
-
-Checks your Node version, that `opencode` is on PATH, that `.opencode/plugins/kb.mjs` carries our package marker, that all four `.opencode/kb-hooks/*.mjs` scripts are present, and that the shared skills are installed at `.opencode/skills/`.
-
-## Shared skill source
-
-All four harnesses install the same `kb-add`, `kb-bootstrap`, and `kb-curate` SKILL.md bytes under their respective native skills directories (`.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.opencode/skills/`). The skill body resolves the active `--harness` value at runtime via a tiny `/tmp/kb-detect-harness.mjs` helper that the SKILL.md body materializes from a heredoc on first invocation. The LLM author substitutes its own best-guess id for the `<hint>` placeholder; the script validates the hint against the registered ids and walks the env / `cliDefaultHarness` chain on misses.
-
-### Claude permission story
-
-The shared SKILL.md drops the per-harness `allowed-tools` frontmatter (the field is Claude-specific and would otherwise require per-install rewriting). Claude users wanting the prior pre-approval ergonomics can add the line to `.claude/settings.json`:
+The shared SKILL.md does not carry per-tool `allowed-tools` frontmatter. To pre-approve every CLI subcommand under Claude, add to `.claude/settings.json`:
 
 ```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx @e0ipso/ai-knowledge-base:*)"
-    ]
-  }
-}
+{ "permissions": { "allow": ["Bash(npx @e0ipso/ai-knowledge-base:*)"] } }
 ```
-
-That covers every CLI subcommand (`curate`, `bootstrap-incremental`, `node add`, `index rebuild`, ...) and grants the equivalent permissions without needing the per-skill frontmatter.
 
 ## Optional: commit-time hardening
 
-The package only handles capture-time redaction (the `kb-capture.mjs` hook runs secretlint internally before writing a session log). It does not install any commit-time defense. The two hardening pieces teams most often add by hand:
+`kb-capture.mjs` redacts secrets in captured transcripts via secretlint. It does **not** protect commits. The two pieces teams most often add by hand:
 
-### Commit-time secret scanner (secretlint)
-
-Cheapest path: run it in CI on every push.
-
-```yaml
-# .github/workflows/secret-scan.yml
-name: secret-scan
-on: [pull_request, push]
-jobs:
-  secretlint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-      - run: npx secretlint "**/*"
-```
-
-To run it locally before each commit instead:
+### Secret scanning on commit
 
 ```sh
 npm install -D husky lint-staged secretlint @secretlint/secretlint-rule-preset-recommend
 npx husky init
 ```
 
-Then write `.secretlintrc.json`:
-
+`.secretlintrc.json`:
 ```json
 { "rules": [ { "id": "@secretlint/secretlint-rule-preset-recommend" } ] }
 ```
 
-And `.lintstagedrc.cjs`:
-
+`.lintstagedrc.cjs`:
 ```js
 module.exports = {
   '*': ['secretlint'],
@@ -225,68 +76,41 @@ module.exports = {
 };
 ```
 
-Replace the contents of `.husky/pre-commit` with `npx lint-staged`. The `index rebuild --stage` step is what keeps `INDEX.md`/`GRAPH.md` in lockstep with committed nodes; it is a no-op when the tree is already up to date.
+Replace `.husky/pre-commit` with `npx lint-staged`. The `index rebuild --stage` step keeps `INDEX.md`/`GRAPH.md` in lockstep with committed nodes (no-op when already current).
 
-### Commit message linting (commitlint)
+Cheaper alternative: run `npx secretlint "**/*"` in CI on every push instead of locally.
 
-Useful if your team enforces [Conventional Commits](https://www.conventionalcommits.org/).
+### Conventional Commits (commitlint)
 
 ```sh
 npm install -D @commitlint/cli @commitlint/config-conventional
 ```
 
-Write `commitlint.config.cjs`:
-
+`commitlint.config.cjs`:
 ```js
 module.exports = { extends: ['@commitlint/config-conventional'] };
 ```
 
-With husky already initialized, add `.husky/commit-msg` containing:
-
-```sh
-npx --no -- commitlint --edit "$1"
-```
-
-This repo's own `commitlint.config.cjs` adds project-specific rules (subject length caps, allowed types, a custom `no-ai-generated` rule); copy and trim as needed for your project.
+Add `.husky/commit-msg` with `npx --no -- commitlint --edit "$1"`.
 
 ## Seed from existing docs
 
-If you're installing into a repo that already has READMEs, ADRs, or module docs, you can seed the knowledge base from them in one of two ways.
-
-### Supervised, from a Claude Code session
-
 ```
-/kb-bootstrap                      # scans docs/ and root *.md
-/kb-bootstrap docs/architecture    # scope to a path
+/kb-bootstrap [path]           # in-session, supervised
 ```
-
-The `kb-bootstrap` skill surveys your markdown, splits content into `practice` and `map` nodes, and writes them directly under `.ai/knowledge-base/nodes/`. It is judgmental, not exhaustive: it samples, follows cross-references, and stops to ask you when scope is unclear. Existing nodes are never overwritten; collisions are skipped and reported. Review with `git diff nodes/` and commit the ones you want.
-
-Use this for the first pass. You stay in the loop and can correct it in flight.
-
-### Headless, hash-aware re-runs
 
 ```sh
-npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/
+npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/   # headless, hash-aware
 ```
 
-This spawns `claude -p` under the hood, chunks the candidate docs in batches of 20, and writes nodes deterministically. It records each doc's SHA-256 in `.ai/knowledge-base/.state/bootstrap-state.json`, so re-runs only reprocess docs that changed. Same conservative collision behavior as the skill.
-
-Useful options:
-
-- `--include <glob>` / `--exclude <glob>`: scope which markdown to consider.
-- `--dry-run`: list what would be processed without calling the model.
-
-Do not run `bootstrap-incremental` in CI. It spawns the model and produces changes that still need human review.
+Surveys your markdown, splits into `practice` and `map` nodes, writes under `nodes/`. Existing nodes are never overwritten. Review the written files — accept by leaving them in place, reject by deleting them. Don't run `bootstrap-incremental` in CI — it spawns the model and produces changes that need human review.
 
 ## Upgrading
 
-When a new version of the package ships:
-
 ```sh
 npm install --save-dev @e0ipso/ai-knowledge-base@latest
-npx @e0ipso/ai-knowledge-base init --harnesses claude --upgrade
-npx @e0ipso/ai-knowledge-base doctor
+npx @e0ipso/ai-knowledge-base init --harnesses <id> --upgrade
+npx @e0ipso/ai-knowledge-base --harness <id> doctor
 ```
 
-`--upgrade` refreshes hooks, skills, and bundled prompts but preserves your project config and any local prompt overrides. Add `--dry-run` to preview.
+`--upgrade` refreshes hooks, skills, and bundled prompts; preserves your `config.yaml` and local prompt overrides.

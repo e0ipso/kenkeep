@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:ddc2436269df14174603523f21d326fae7de275ec1e134c77ffcda9207a8d9aa'
-node_count: 45
+nodes_hash: 'sha256:5da38f291c8e1b2eaf19b9f1265d0b6c6fa551c178908dd067b9193ee9395cdd'
+node_count: 44
 ---
 # KB Graph
 
-Total nodes: 45
+Total nodes: 44
 
 ## map-ai-knowledge-base-package
 
@@ -333,14 +333,6 @@ Total nodes: 45
 - **tags:** adapter, events, harness
 - **relates_to:** map-harness-adapter, map-claude-harness, map-codex-harness, map-opencode-harness
 - **derived_from:** CONTRIBUTING.md, docs/internals/architecture.md
-
-## practice-pre-commit-stages-index-graph
-
-- **kind:** practice
-- **title:** Pre-commit regenerates and stages INDEX.md and GRAPH.md
-- **tags:** pre-commit, index, graph, lint-staged
-- **relates_to:** map-index-md, map-graph-md
-- **derived_from:** docs/installation.md, docs/how-it-works.md, docs/cli-reference.md
 
 ## practice-recursion-guard-kb-builder-internal
 

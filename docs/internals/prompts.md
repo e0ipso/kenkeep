@@ -185,10 +185,10 @@ The wrapper applies actions directly:
 
 - `add` writes `nodes/<kind>/<id>.md`. If the file already exists, the wrapper records an `add_collision` failure and writes nothing.
 - `modify` overwrites `nodes/<kind>/<target_node_id>.md`. If the target file doesn't exist, the wrapper records a `modify_missing_target` failure.
-- `contradict` writes nothing - the wrapper records the conflict in `.ai/knowledge-base/.state/pending-conflicts.json` for the kb-curate skill to surface to the user in-session.
+- `contradict` writes nothing to `nodes/`; the wrapper records the conflict as `.ai/knowledge-base/conflicts/<id>.md` (with `status: pending`) for the kb-curate skill to surface in-session.
 - `drop` is a no-op.
 
-`suggested_resolution` is ignored by the wrapper (always emit `null`); resolution happens via the kb-curate skill walking `pending-conflicts.json` with the user.
+`suggested_resolution` is ignored by the wrapper (always emit `null`); resolution happens via the kb-curate skill walking the `conflicts/` files with the user.
 
 ### Verifying
 
@@ -262,7 +262,7 @@ Common issues:
 - **`nodesWritten: 0` despite a non-empty batch** - check the final `result` for `is_error: true`, then check `failures` and `conflicts` in the curate output: every action either writes, fails, conflicts, or drops.
 - **Fenced JSON** - `runHeadlessClaude` parses the trimmed final result with `JSON.parse` directly; the curator prompt forbids fences, so a fenced or pre-amble-laden response fails parsing and is reported.
 - **Duplicates after dedup** - cross-batch dedup keeps the higher-confidence action per `proposed_node.id`. Duplicates mean inconsistent slugification produced different ids.
-- **Conflict not surfacing in `/kb-curate`** - verify `.ai/knowledge-base/.state/pending-conflicts.json` exists and contains the entry. The skill reads from there.
+- **Conflict not surfacing in `/kb-curate`** - check `.ai/knowledge-base/conflicts/` for a file with `status: pending`. The skill reads from there.
 
 To re-run a single batch (no first-class command): clear `curator_processed_at` and `curator_run_id` from the affected session log and re-run `curate`.
 

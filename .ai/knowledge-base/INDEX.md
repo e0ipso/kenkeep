@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:ddc2436269df14174603523f21d326fae7de275ec1e134c77ffcda9207a8d9aa'
-node_count: 45
+nodes_hash: 'sha256:5da38f291c8e1b2eaf19b9f1265d0b6c6fa551c178908dd067b9193ee9395cdd'
+node_count: 44
 ---
 # KB Index
 
-_45 nodes • ~16419 estimated tokens_
+_44 nodes • ~16001 estimated tokens_
 
 
 ## Conventions (how we build)
@@ -19,7 +19,6 @@ _45 nodes • ~16419 estimated tokens_
 - **Don't translate event names across harness adapters** [`nodes/practice/practice-no-event-translation-across-adapters.md`] #adapter #events #harness
 - **Local prompt overrides fall back to bundled templates** [`nodes/practice/practice-local-prompt-overrides-fall-back-to-bundled.md`] #prompts #customization #override
 - **Pass --harness explicitly outside an active harness session** [`nodes/practice/practice-explicit-harness-flag-outside-claude.md`] #harness #cli #codex #cursor #opencode
-- **Pre-commit regenerates and stages INDEX.md and GRAPH.md** [`nodes/practice/practice-pre-commit-stages-index-graph.md`] #pre-commit #index #graph #lint-staged
 - **Adapters never reach into each other's directories** [`nodes/practice/practice-adapters-never-cross-directories.md`] #adapter #architecture #isolation
 - **Bump the prompt's Version comment on every behavior change** [`nodes/practice/practice-bump-prompt-version-comment.md`] #prompts #versioning #audit
 - **Conventional Commits drive semantic-release** [`nodes/practice/practice-conventional-commits-and-release.md`] #git #release #conventional-commits
@@ -32,13 +31,13 @@ _45 nodes • ~16419 estimated tokens_
 
 ## Components (what exists)
 - **Harness adapter** [`nodes/map/map-harness-adapter.md`] #harness #adapter #claude #codex #cursor #opencode #architecture
-- **INDEX.md** [`nodes/map/map-index-md.md`] #index #deterministic #sessionstart
 - **bootstrap-incremental (CLI)** [`nodes/map/map-bootstrap-incremental-command.md`] #cli #bootstrap #deterministic
 - **curate (CLI command + /kb-curate skill)** [`nodes/map/map-curate-command.md`] #cli #curate #skill
-- **GRAPH.md** [`nodes/map/map-graph-md.md`] #graph #deterministic
+- **INDEX.md** [`nodes/map/map-index-md.md`] #index #deterministic #sessionstart
 - **kb-proposal-drain.mjs (extraction hook)** [`nodes/map/map-proposal-drain-hook.md`] #hooks #extraction #llm #async
 - **/kb-bootstrap skill** [`nodes/map/map-kb-bootstrap-skill.md`] #skill #bootstrap #agent
 - **Curator action (add / modify / contradict / drop)** [`nodes/map/map-curator-action.md`] #schema #curator #action
+- **GRAPH.md** [`nodes/map/map-graph-md.md`] #graph #deterministic
 - **Node frontmatter schema** [`nodes/map/map-node-frontmatter.md`] #schema #frontmatter #nodes
 - **Conflict files (conflicts/<run-id>-<n>.md)** [`nodes/map/map-conflict-files.md`] #conflicts #curator #schema
 - **kb-capture.mjs (capture hook)** [`nodes/map/map-capture-hook.md`] #hooks #capture #secretlint #redaction
@@ -64,7 +63,7 @@ _45 nodes • ~16419 estimated tokens_
 - **#harness (7):** Harness adapter, Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Don't translate event names across harness adapters, Pass --harness explicitly outside an active harness session
 - **#bootstrap (6):** bootstrap-incremental (CLI), /kb-bootstrap skill, .state/bootstrap-state.json (per-doc hash cache), Bootstrap never overwrites existing nodes, Bootstrap is supervised and judgmental, not exhaustive, Default bootstrap nodes to confidence: medium
 - **#curator (4):** Curator action (add / modify / contradict / drop), Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions, Curator drops non-productive and change-oriented candidates
-- **#deterministic (4):** INDEX.md, bootstrap-incremental (CLI), GRAPH.md, nodes_hash algorithm
+- **#deterministic (4):** bootstrap-incremental (CLI), INDEX.md, GRAPH.md, nodes_hash algorithm
 - **#nodes (4):** Node frontmatter schema, nodes/ directory and the two kinds, Bootstrap never overwrites existing nodes, Node naming: id, filename, and kind must agree
 - **#state (4):** .state/bootstrap-state.json (per-doc hash cache), Session log (_sessions/*.md), .ai/knowledge-base/ directory layout, .state/state.json (lock + nudge state)
 - **#adapter (3):** Harness adapter, Don't translate event names across harness adapters, Adapters never reach into each other's directories
@@ -72,7 +71,6 @@ _45 nodes • ~16419 estimated tokens_
 - **#cli (3):** bootstrap-incremental (CLI), curate (CLI command + /kb-curate skill), Pass --harness explicitly outside an active harness session
 - **#codex (3):** Harness adapter, Codex CLI harness adapter, Pass --harness explicitly outside an active harness session
 - **#cursor (3):** Harness adapter, Cursor harness adapter, Pass --harness explicitly outside an active harness session
-- **#index (3):** INDEX.md, kb-session-start.mjs (consume hook), Pre-commit regenerates and stages INDEX.md and GRAPH.md
 - **#opencode (3):** Harness adapter, OpenCode harness adapter, Pass --harness explicitly outside an active harness session
 - **#prompts (3):** Local prompt overrides fall back to bundled templates, Bump the prompt's Version comment on every behavior change, Curator drops non-productive and change-oriented candidates
 - **#architecture (2):** Harness adapter, Adapters never reach into each other's directories
@@ -81,8 +79,8 @@ _45 nodes • ~16419 estimated tokens_
 - **#conflicts (2):** Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions
 - **#frontmatter (2):** Node frontmatter schema, nodes/ directory and the two kinds
 - **#git (2):** Conventional Commits drive semantic-release, Review node changes via git
-- **#graph (2):** GRAPH.md, Pre-commit regenerates and stages INDEX.md and GRAPH.md
 - **#hash (2):** .state/bootstrap-state.json (per-doc hash cache), nodes_hash algorithm
+- **#index (2):** INDEX.md, kb-session-start.mjs (consume hook)
 - **#llm (2):** kb-proposal-drain.mjs (extraction hook), Don't run curate or bootstrap-incremental in CI
 - **#redaction (2):** kb-capture.mjs (capture hook), Capture runs secretlint and aborts on loader failure
 - **#secretlint (2):** kb-capture.mjs (capture hook), Capture runs secretlint and aborts on loader failure
@@ -109,6 +107,7 @@ _45 nodes • ~16419 estimated tokens_
 - **#env (1):** Set KB_BUILDER_INTERNAL=1 on every claude -p child
 - **#events (1):** Don't translate event names across harness adapters
 - **#extraction (1):** kb-proposal-drain.mjs (extraction hook)
+- **#graph (1):** GRAPH.md
 - **#human-in-the-loop (1):** Curator never auto-resolves contradictions
 - **#indexing (1):** Determinism contract for INDEX/GRAPH generation
 - **#init (1):** init does not install husky/lint-staged/secretlint/commitlint
@@ -116,7 +115,6 @@ _45 nodes • ~16419 estimated tokens_
 - **#isolation (1):** Adapters never reach into each other's directories
 - **#layout (1):** .ai/knowledge-base/ directory layout
 - **#lint (1):** Node naming: id, filename, and kind must agree
-- **#lint-staged (1):** Pre-commit regenerates and stages INDEX.md and GRAPH.md
 - **#lock (1):** .state/state.json (lock + nudge state)
 - **#map (1):** nodes/ directory and the two kinds
 - **#model (1):** config.yaml (project settings)
@@ -127,7 +125,6 @@ _45 nodes • ~16419 estimated tokens_
 - **#package (1):** @e0ipso/ai-knowledge-base npm package
 - **#plugin (1):** OpenCode harness adapter
 - **#practice (1):** nodes/ directory and the two kinds
-- **#pre-commit (1):** Pre-commit regenerates and stages INDEX.md and GRAPH.md
 - **#proposal (1):** Proposal candidate schema
 - **#recursion (1):** Set KB_BUILDER_INTERNAL=1 on every claude -p child
 - **#release (1):** Conventional Commits drive semantic-release

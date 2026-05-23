@@ -87,7 +87,7 @@ Capture the curator's stdout: it logs the headline numbers (`Curator finished: N
 After the curator returns, IF `conflicts == 0` AND `failures.length == 0`, print exactly one line and stop. Skip every step below:
 
 ```
-Curated <nodes_written> nodes; <drops> dropped; no conflicts. Review with: git diff .ai/knowledge-base/
+Curated <nodes_written> nodes; <drops> dropped; no conflicts. Review the written files under .ai/knowledge-base/nodes/.
 ```
 
 Otherwise, tell the user the curator's headline numbers (nodes written, drops, batches, run id). If the curator reported any failures (`add_collision` or `modify_missing_target`), surface each one verbatim with its `reason` and `detail` so the user knows what needs manual cleanup. Then proceed to step 3.
@@ -154,20 +154,20 @@ Parse the reply with these rules:
 
 Map the chosen reply to actions:
 
-- `y` (Accept proposal): rewrite `nodes/<proposed_kind>/<target_node_id>.md` with the proposed body and frontmatter, then tell the user to `git restore .ai/knowledge-base/conflicts/<id>.md`. The user reviews the node change with `git diff` and commits.
-- `n` (Reject proposal): tell the user to `git restore .ai/knowledge-base/conflicts/<id>.md`. The existing node is unchanged.
+- `y` (Accept proposal): rewrite `nodes/<proposed_kind>/<target_node_id>.md` with the proposed body and frontmatter, then delete `.ai/knowledge-base/conflicts/<id>.md`.
+- `n` (Reject proposal): delete `.ai/knowledge-base/conflicts/<id>.md`. The existing node is unchanged.
 - `s` (Skip): leave the conflict file alone. It re-surfaces on the next curate pass with `status: pending` intact. Do not edit or delete the file.
-- `k` (Keep as record): tell the user to `git commit` the conflict file. The existing node is unchanged. Use this rarely — it preserves the disagreement as a historical record for later review.
+- `k` (Keep as record): leave the conflict file on disk as a historical record for later review. The existing node is unchanged. Use this rarely.
 
 After every conflict in a group is decided, move to the next group.
 
 ## 4. Hand off
 
-Tell the user to review the changed nodes and conflict files with `git diff .ai/knowledge-base/` and commit when they're satisfied. The curator already regenerated `INDEX.md`/`GRAPH.md` at end-of-run; if the user has a pre-commit hook wired up (see the installation docs), `npx @e0ipso/ai-knowledge-base index rebuild --harness "$HARNESS" --stage` keeps them aligned on subsequent hand edits.
+Tell the user to review the changed nodes and conflict files under `.ai/knowledge-base/`. The curator already regenerated `INDEX.md`/`GRAPH.md` at end-of-run.
 
 ## Constraints
 
-- The curator wrapper writes directly to `nodes/`. Conflict resolution edits `nodes/` only when the user accepts a proposal (`y`); the conflict files themselves are reviewed via `git diff` and accepted with `git commit` (`k`) or discarded with `git restore` (`y` or `n`).
+- The curator wrapper writes directly to `nodes/`. Conflict resolution edits `nodes/` only when the user accepts a proposal (`y`); conflict files are deleted on `y` or `n`, left on disk on `s` or `k`.
 - The reply contract is strictly `y`/`n`/`s`/`k` (or their long forms / empty for default). Do not accept paraphrased prose as an answer — re-prompt instead.
 - If the curate command reports `locked`, do not retry; explain that another curate run is in progress.
 - If no session logs are pending, the command still regenerates INDEX/GRAPH; that's expected, not an error.

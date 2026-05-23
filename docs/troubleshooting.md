@@ -12,7 +12,7 @@ Start with `npx @e0ipso/ai-knowledge-base doctor --verbose`.
 `.ai/knowledge-base/_sessions/` stays empty.
 
 - **Hooks aren't registered.** Check `.claude/settings.json` for the KB hook entries. Re-run `init --upgrade` if missing.
-- **secretlint isn't installed.** Capture refuses to write when the secret scanner can't load. Run `npm install` (the project's devDeps include `secretlint` and the recommended preset after `init`).
+- **secretlint failed to load.** Capture refuses to write when the bundled secret scanner can't initialize. Re-install `@e0ipso/ai-knowledge-base` and confirm `node -e "import('@secretlint/core')"` resolves.
 - **A wrapper script around `claude` leaked the internal flag** (`KB_BUILDER_INTERNAL=1`) into a normal session.
 
 ## A hook seems to be silently doing nothing
@@ -73,9 +73,7 @@ The curator writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`. Review
 
 ## Resolving curator contradictions
 
-The curator never overwrites a node it conflicts with. Conflicts land in `.ai/knowledge-base/.state/pending-conflicts.json` and surface in `npx @e0ipso/ai-knowledge-base status`. Run `/kb-curate` and the skill will walk each entry with you (existing node side-by-side with the new claim) and let you choose: Replace (delete the existing node file and write the proposed one) or Reject (do nothing). The skill applies your decision and removes the entry from the file.
-
-If you'd rather resolve manually: read `pending-conflicts.json`, edit (or delete) the relevant node yourself, then remove the entry from the JSON array.
+Each contradiction lands as a markdown file under `.ai/knowledge-base/conflicts/<id>.md` with `status: pending`; the existing node is never overwritten. Run `/kb-curate` and the skill walks each one with the `y`/`n`/`s`/`k` prompt (see [Daily use → Conflict walkthrough](daily-use.md#conflict-walkthrough)). To resolve by hand, edit the target node yourself and `git restore` (or `git commit`) the conflict file.
 
 ## When all else fails
 

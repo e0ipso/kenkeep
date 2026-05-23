@@ -97,7 +97,21 @@ Remediation, in order of preference:
 2. **Tighten `.kbignore`.** Add entries to deny large vendored or generated markdown subtrees. Run `finddocs` to preview what the new ignore list lets through.
 3. **Run multiple smaller scopes one at a time** instead of one repo-wide pass.
 
-The single-host-session model is intentional and is not coming back to a parallel-sub-agent architecture — see [Daily use → Host-context cost on large doc trees](daily-use.md#host-context-cost-on-large-doc-trees) and the changelog for the rationale.
+The single-host-session model is intentional. Drafting now fans out to harness-native sub-agents inside that same session when the active harness exposes a Task-style primitive (see [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs)), which frees the host context from reading each candidate doc itself — but the outer launcher remains a single harness exec, and the deleted CLI-side `BootstrapRunner` / `CuratorRunner` subprocess fan-out is not coming back. See [Daily use → Host-context cost on large doc trees](daily-use.md#host-context-cost-on-large-doc-trees) and the changelog for the rationale.
+
+## Bootstrap is still sequential — why?
+
+Per-harness support for native host sub-agents varies: **Claude Code** and **Cursor** ship a documented in-session `Task` tool and run the parallel path by default; **Codex** supports subagent dispatch at the workflow level (the exact in-LLM tool surface depends on your runtime); **opencode** is treated as a conservative fallback because its headless `run --format json` mode does not affirm Task-dispatch in current vendor docs. The `kb-bootstrap` and `kb-curate` skills probe their own tool surface at the start of each run and **silently degrade to inline sequential drafting** when no dispatch primitive is detected — this is by design, never an error, so a sequential run on an unsupported harness looks identical to a healthy parallel run from the outside.
+
+To confirm which path actually ran, inspect the per-batch artefacts:
+
+```sh
+ls .ai/knowledge-base/_logs/bootstrap/
+```
+
+You'll see one `<runId>__<batchN>.jsonl` per batch in either mode (the JSONL contract is the cross-harness lowest-common-denominator trace). The accompanying `<runId>__<batchN>.draft.json` files are only written by the parallel path — if they are missing while `.jsonl` files exist, the inline fallback ran. Same convention under `_logs/curator/` and `_logs/kb-add/`.
+
+
 
 ## When all else fails
 

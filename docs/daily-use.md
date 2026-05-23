@@ -17,6 +17,22 @@ Every workflow has both an in-session **skill** and a **CLI** form. The CLI form
 
 Use the slash-commands when you're already in a harness session (no extra process spawn). Use the launchers from a shell or CI script.
 
+### Parallel drafting and per-batch logs
+
+When the active harness exposes a native sub-agent / task primitive (currently Claude Code and Cursor are confirmed; Codex works at the workflow level; opencode falls back conservatively), `kb-bootstrap` and `kb-curate` fan their drafting work out across up to five host sub-agents per orchestrator wave. Each agent reads its own slice in an isolated context, drafts JSON, and writes a tmpfile that the host collects and persists through the same `node write` / `curate-dedup` primitives as before. On harnesses without a native dispatch primitive, the skills silently fall back to sequential inline drafting — same behaviour you've shipped with since the launcher refactor. `kb-add` uses the same delegation mechanism but only for **context isolation** (a single sub-agent drafts the one node so the host transcript stays clean) — there is no throughput gain there because there is only ever one unit of work.
+
+Each run drops a lowest-common-denominator JSONL trace under `.ai/knowledge-base/_logs/`, with one file per batch (or one per run for `kb-add`):
+
+```
+.ai/knowledge-base/_logs/bootstrap/<runId>__<batchN>.jsonl
+.ai/knowledge-base/_logs/curator/<runId>__<batchN>.jsonl
+.ai/knowledge-base/_logs/kb-add/<runId>.jsonl
+```
+
+These are gitignored along with everything else under `_logs/` — they are per-user diagnostic state, not something to commit. Use them to confirm whether the parallel or the inline-fallback path ran on your harness.
+
+**Do not run `kb-bootstrap` and `kb-curate` simultaneously against the same repo.** The two skills touch overlapping state files and there is no cross-skill lock; concurrent invocations may interleave in surprising ways.
+
 ### Host-context cost on large doc trees
 
 Because the LLM now runs inside the host harness session, the bootstrap skill reads every candidate doc into **that** session's context window — the cost that used to be paid by ephemeral sub-agents now lands on the user's host session. On a small repo this is invisible; on a monorepo with hundreds of markdown files it may force a host-side compaction mid-run.

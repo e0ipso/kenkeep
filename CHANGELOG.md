@@ -1,3 +1,19 @@
+## Unreleased
+
+### Changed
+
+* **`kb-bootstrap` and `kb-curate` now fan their drafting out across native host sub-agents** (up to 5 per orchestrator wave) on harnesses that expose a Task-style dispatch primitive (Claude Code, Cursor confirmed; Codex at the workflow level; opencode falls back conservatively). Harnesses without a native primitive silently degrade to the shipped sequential inline drafting path — no error, no warning, identical output.
+* **`kb-add` now delegates its single drafting pass to one host sub-agent for context isolation** (not throughput), so the host transcript shows only the final summary and the accept/reject prompt rather than the agent's intermediate deliberation.
+* **New per-batch JSONL artefacts** under `.ai/knowledge-base/_logs/{bootstrap,curator,kb-add}/` — one `<runId>__<batchN>.jsonl` per batch (one `<runId>.jsonl` for `kb-add`), append-only, gitignored. These are the cross-harness lowest-common-denominator trace; the matching `<runId>__<batchN>.draft.json` is only present when the parallel path ran. See [Daily use → Parallel drafting and per-batch logs](docs/daily-use.md#parallel-drafting-and-per-batch-logs) and [Troubleshooting → Bootstrap is still sequential — why?](docs/troubleshooting.md#bootstrap-is-still-sequential--why).
+
+### Internal
+
+* `node write` wraps its `bootstrap-state.json` read-modify-write in a short-lived `proper-lockfile` lock when invoked with both `--source-doc` and `--source-hash`, so concurrent persistence from parallel host sub-agents cannot drop hash-map entries. `proper-lockfile` was already a production dependency (used by `kb-proposal-drain`); no new dependencies added.
+
+### Unchanged — CLI surface
+
+* **The CLI surface is unchanged.** No flags added or removed, no positional arguments changed, no stdout contracts altered on `bootstrap`, `curate`, `node add`, or `node write`. The lock inside `node write` is internal; the help text, argument shape, and on-success/on-failure output match the plan-31 shipped form byte-for-byte. Callers that do not pass `--source-doc` / `--source-hash` take no lock at all.
+
 ## [0.17.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.16.0...v0.17.0) (2026-05-23)
 
 ### Features

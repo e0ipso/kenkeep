@@ -1,3 +1,10 @@
+## [0.17.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.16.0...v0.17.0) (2026-05-23)
+
+### Features
+
+* **bootstrap:** introduce .kbignore foundations ([16427ff](https://github.com/e0ipso/ai-knowledge-base/commit/16427ff85c6f75bedd764fc9182d5b4589a5c475))
+* **cli:** kbignore-only scope for bootstrap ([ea4f37c](https://github.com/e0ipso/ai-knowledge-base/commit/ea4f37c5bca7cc8f1502365a1cbb9a56fc4a12f9))
+
 ## [0.16.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.15.0...v0.16.0) (2026-05-22)
 
 ### Features

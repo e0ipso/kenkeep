@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:5da38f291c8e1b2eaf19b9f1265d0b6c6fa551c178908dd067b9193ee9395cdd'
+nodes_hash: 'sha256:26c0952a78d500aad8b474a215f7a9915a4b3032abaf3ede417f8f2ccda7171f'
 node_count: 44
 ---
 # KB Index
 
-_44 nodes • ~16001 estimated tokens_
+_44 nodes • ~16155 estimated tokens_
 
 
 ## Conventions (how we build)
-- **Set KB_BUILDER_INTERNAL=1 on every claude -p child** [`nodes/practice/practice-recursion-guard-kb-builder-internal.md`] #recursion #hooks #env
+- **CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child** [`nodes/practice/practice-recursion-guard-kb-builder-internal.md`] #recursion #hooks #env
 - **Bootstrap never overwrites existing nodes** [`nodes/practice/practice-bootstrap-never-overwrites-existing-nodes.md`] #bootstrap #nodes #safety
 - **Capture runs secretlint and aborts on loader failure** [`nodes/practice/practice-capture-runs-secretlint-with-redaction.md`] #secretlint #capture #security #redaction
 - **Curator never auto-resolves contradictions** [`nodes/practice/practice-curator-never-auto-resolves-contradictions.md`] #curator #conflicts #human-in-the-loop
@@ -59,7 +59,7 @@ _44 nodes • ~16001 estimated tokens_
 ## By topic
 
 - **#schema (9):** Curator action (add / modify / contradict / drop), Node frontmatter schema, Conflict files (conflicts/<run-id>-<n>.md), .state/bootstrap-state.json (per-doc hash cache), nodes/ directory and the two kinds, Session log (_sessions/*.md), Proposal candidate schema, .state/state.json (lock + nudge state), Strict schema-version bump policy: no migrators
-- **#hooks (8):** kb-proposal-drain.mjs (extraction hook), kb-capture.mjs (capture hook), kb-session-start.mjs (consume hook), Set KB_BUILDER_INTERNAL=1 on every claude -p child, Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter
+- **#hooks (8):** kb-proposal-drain.mjs (extraction hook), kb-capture.mjs (capture hook), CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child, kb-session-start.mjs (consume hook), Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter
 - **#harness (7):** Harness adapter, Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Don't translate event names across harness adapters, Pass --harness explicitly outside an active harness session
 - **#bootstrap (6):** bootstrap-incremental (CLI), /kb-bootstrap skill, .state/bootstrap-state.json (per-doc hash cache), Bootstrap never overwrites existing nodes, Bootstrap is supervised and judgmental, not exhaustive, Default bootstrap nodes to confidence: medium
 - **#curator (4):** Curator action (add / modify / contradict / drop), Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions, Curator drops non-productive and change-oriented candidates
@@ -104,7 +104,7 @@ _44 nodes • ~16001 estimated tokens_
 - **#customization (1):** Local prompt overrides fall back to bundled templates
 - **#determinism (1):** Determinism contract for INDEX/GRAPH generation
 - **#directory (1):** .ai/knowledge-base/ directory layout
-- **#env (1):** Set KB_BUILDER_INTERNAL=1 on every claude -p child
+- **#env (1):** CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child
 - **#events (1):** Don't translate event names across harness adapters
 - **#extraction (1):** kb-proposal-drain.mjs (extraction hook)
 - **#graph (1):** GRAPH.md
@@ -126,7 +126,7 @@ _44 nodes • ~16001 estimated tokens_
 - **#plugin (1):** OpenCode harness adapter
 - **#practice (1):** nodes/ directory and the two kinds
 - **#proposal (1):** Proposal candidate schema
-- **#recursion (1):** Set KB_BUILDER_INTERNAL=1 on every claude -p child
+- **#recursion (1):** CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child
 - **#release (1):** Conventional Commits drive semantic-release
 - **#review (1):** Review node changes via git
 - **#safety (1):** Bootstrap never overwrites existing nodes

@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:5da38f291c8e1b2eaf19b9f1265d0b6c6fa551c178908dd067b9193ee9395cdd'
+nodes_hash: 'sha256:26c0952a78d500aad8b474a215f7a9915a4b3032abaf3ede417f8f2ccda7171f'
 node_count: 44
 ---
 # KB Graph
@@ -337,7 +337,7 @@ Total nodes: 44
 ## practice-recursion-guard-kb-builder-internal
 
 - **kind:** practice
-- **title:** Set KB_BUILDER_INTERNAL=1 on every claude -p child
+- **title:** CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child
 - **tags:** recursion, hooks, env
 - **relates_to:** map-capture-hook, map-proposal-drain-hook, map-session-start-hook
 - **derived_from:** docs/internals/hooks.md, docs/troubleshooting.md

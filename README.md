@@ -26,24 +26,22 @@ If your repo already has READMEs, ADRs, and module docs, seed the KB from them. 
 # Step 1 — generate the .kbignore stub (idempotent; never overwrites).
 npx @e0ipso/ai-knowledge-base init
 
-# Step 2a — kick off the supervised initial pass from inside a Claude Code session:
+# Step 2a — kick off the initial pass from inside a Claude Code session:
 /kb-bootstrap
 
-# Step 2b — later, after adding more docs, run the incremental scan:
-npx @e0ipso/ai-knowledge-base bootstrap-incremental
+# Step 2b — later, after adding more docs, re-run from a shell:
+npx @e0ipso/ai-knowledge-base bootstrap
 ```
+
+The CLI `bootstrap` command is a thin launcher: it execs `<harness> -p "/kb-bootstrap"`, so the LLM work runs in your host harness session with the same model and prompt cache you use interactively. There is no separate sub-agent fan-out.
 
 ### Scoping the scan with `.kbignore`
 
-`bootstrap-incremental` always walks the repo root. To limit which files are surveyed, edit `.kbignore` at the repo root. It uses [gitignore-style syntax](https://git-scm.com/docs/gitignore) (patterns are repo-root-relative, `!` re-includes, trailing `/` matches directories, `**` matches any number of segments) and is committed alongside your code so the scope is shared with the team. `init` writes a stub on first run that already excludes harness instruction directories (skills, commands, hooks, plugins) so they don't pollute the KB. Harness memory ingestion (e.g. `CLAUDE.md`) bypasses `.kbignore` and is unaffected.
+`bootstrap` walks the repo root by default; pass `--from <subdir>` to narrow the walk. To exclude files from the scan, edit `.kbignore` at the repo root. It uses [gitignore-style syntax](https://git-scm.com/docs/gitignore) (patterns are repo-root-relative, `!` re-includes, trailing `/` matches directories, `**` matches any number of segments) and is committed alongside your code so the scope is shared with the team. `init` writes a stub on first run that already excludes harness instruction directories (skills, commands, hooks, plugins) so they don't pollute the KB. Harness memory ingestion (e.g. `CLAUDE.md`) bypasses `.kbignore` and is unaffected.
 
 ### Running in CI
 
-`bootstrap-incremental` prompts for confirmation on a TTY. In CI (or any non-interactive shell), pass `--yes` to skip the prompt; without it the command exits non-zero with a hint to re-run with `--yes`. That said, `bootstrap-incremental` is LLM-driven and human-supervised — most teams should run it locally, not on every CI build.
-
-```sh
-npx @e0ipso/ai-knowledge-base bootstrap-incremental --yes
-```
+`bootstrap` launches the host harness, which is LLM-driven and human-supervised — most teams should run it locally, not on every CI build. Use the deterministic primitives (`finddocs`, `index rebuild`, `lint`, `doctor`) in CI instead.
 
 ### Migrating from `--from` / `--include` / `--exclude`
 
@@ -77,7 +75,7 @@ Two cooperating pieces. The **builder tool** (this npm package) installs hooks u
 - **PR-reviewable.** Every new knowledge entry is a markdown file in a commit. Reviewers see additions in `git diff`, comment in PRs, and reject with `git restore` — the same workflow as code.
 - **No daemons, no external services.** No background worker, no local HTTP port, no vector DB, no second runtime. Just Node and git. Works in airgapped environments and behind corporate proxies without extra plumbing.
 - **Lintable, named-node graph.** Nodes have stable ids and structured `relates_to` / `depends_on` edges. `npx @e0ipso/ai-knowledge-base lint` catches dangling references, naming drift, tag near-duplicates, and orphans before review.
-- **Ingests harness auto-memory.** `bootstrap-incremental` and `curate` also pull in the host harness's persisted memory files (Claude Code today; other adapters as they ship the feature) — distilled facts the user already curated outside the repo land alongside the markdown survey, behind the same secretlint and human review.
+- **Ingests harness auto-memory.** `bootstrap` and `curate` also pull in the host harness's persisted memory files (Claude Code today; other adapters as they ship the feature) — distilled facts the user already curated outside the repo land alongside the markdown survey, behind the same secretlint and human review.
 - **Plain markdown outlives the tool.** If this package disappears tomorrow, you still have a tree of human-readable markdown files in your repo. Nothing is locked inside a database file or vector index format.
 
 **Pick the one that matches your situation**

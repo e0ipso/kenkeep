@@ -270,9 +270,9 @@ No circular dependencies.
 **Parallel Tasks:**
 - ✔️ Task 006: Delete `BootstrapRunner`, `CuratorRunner`, `proper-lockfile`, and obsolete tests (depends on: 005)
 
-### Phase 5: Documentation
+### ✅ Phase 5: Documentation
 **Parallel Tasks:**
-- Task 007: Update docs, KB convention node, and changelog (depends on: 005, 006)
+- ✔️ Task 007: Update docs, KB convention node, and changelog (depends on: 005, 006)
 
 ### Post-phase Actions
 None beyond the standard `POST_PHASE.md` validation gates between phases.

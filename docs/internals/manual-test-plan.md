@@ -97,19 +97,20 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 - [ ] Walk `git diff nodes/` (or use a tool like [self-review](https://github.com/e0ipso/self-review)). `git commit` the ones you want; `git restore <path>` the rest.
 - [ ] No node carries a literal secret or stale TODO from the source docs.
 
-## 8. `bootstrap-incremental` chunking
+## 8. `bootstrap` discovery and hash-aware re-run
 
-- [ ] In a repo with 50+ markdown files (>200k chars), run `--dry-run`. Reported batch count matches `ceil(files / 20)`.
-- [ ] Run without `--dry-run`. Inspect `bootstrap-state.json`.
-- [ ] Re-run. Output: 0 files to process.
+- [ ] In a repo with 50+ markdown files (>200k chars), run `finddocs` to preview discovery. The output is one `+ <relpath>` line per surviving file; confirm the count matches your expectation given `.kbignore`.
+- [ ] Run `bootstrap --from <subset>` against 3–5 docs. Inspect `bootstrap-state.json` — each processed doc has an entry with `content_sha256` and `produced_nodes`.
+- [ ] Re-run `bootstrap --from <subset>`. The skill should report that every doc was hash-skipped.
 - [ ] Edit one file. Re-run. Only that file is reprocessed.
 
-## 9. Concurrent locking
+## 9. Single-author skill sessions (no cross-process lock)
 
-- [ ] `curate` running in one terminal. Start `curate` in a second. Second exits with "locked by curator (pid ...)".
-- [ ] Same with `bootstrap-incremental` against itself.
-- [ ] Cross-pipeline: `curate` and `bootstrap-incremental` do **not** block each other (distinct lock names).
-- [ ] Stale-lock recovery: edit `state.json` to set `acquired_at` 31 minutes ago. Next `curate` reclaims and proceeds.
+Curate and bootstrap no longer take a `state.json` lock — they are single-author by design.
+
+- [ ] Run two `curate` launchers in parallel against the same repo (`&` in a shell). Both run to completion; neither errors out with "locked". After both finish, run `index rebuild` and `doctor` — `state.json` and session-log frontmatter both parse cleanly (Zod validation passes), even though one writer's session-stamp updates may have silently lost to the other.
+- [ ] Worst case is some sessions reprocess on the next `curate` run. Confirm: re-run `curate`, verify the unstamped sessions get processed.
+- [ ] The proposal-drain hook still takes its own `proposal-drain` lock (independent surface). Trigger two `SessionStart` events in quick succession against the same repo; the second drain skips while the first holds the lock and reclaims it after the 30-min TTL on the next run.
 
 ## 10. Settings file
 

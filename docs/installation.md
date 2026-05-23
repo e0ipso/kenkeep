@@ -96,14 +96,14 @@ Add `.husky/commit-msg` with `npx --no -- commitlint --edit "$1"`.
 ## Seed from existing docs
 
 ```
-/kb-bootstrap [path]           # in-session, supervised
+/kb-bootstrap [path]           # in-session
 ```
 
 ```sh
-npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/   # headless, hash-aware
+npx @e0ipso/ai-knowledge-base bootstrap --from docs/   # CLI launcher, execs `<harness> -p "/kb-bootstrap --from docs/"`
 ```
 
-Surveys your markdown, splits into `practice` and `map` nodes, writes under `nodes/`. Existing nodes are never overwritten. Review the written files — accept by leaving them in place, reject by deleting them. Don't run `bootstrap-incremental` in CI — it spawns the model and produces changes that need human review.
+Surveys your markdown, splits into `practice` and `map` nodes, writes under `nodes/`. Hash-aware: only reprocesses docs whose SHA-256 changed since the last run. Existing nodes are never overwritten. Review the written files — accept by leaving them in place, reject by deleting them. Don't run `bootstrap` in CI — it launches the host harness and the LLM-driven work needs human review.
 
 ## Upgrading
 

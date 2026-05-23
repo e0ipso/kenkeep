@@ -9,13 +9,30 @@ After install, the only thing you do by hand is **curate**, **review**, and **co
 
 ## Skills and CLI
 
-Every workflow has both an in-session **skill** and a **CLI** form. **Prefer the skills** — they do strictly more than the bare CLI:
+Every workflow has both an in-session **skill** and a **CLI** form. The CLI form is a **launcher**: it execs your active harness against the matching slash-command (`claude -p "/kb-curate"`, `codex …`, etc.). The LLM call happens once, inside the host harness session — the same model, prompt cache, and tools you already use interactively.
 
-- **`/kb-add` ≈ `node add`.** The skill is a conversational wrapper that gathers fields, checks INDEX for overlap, pushes back on bad candidates, then invokes the CLI. Same write either way.
-- **`/kb-curate` ⊃ `curate`.** The CLI runs the curator and writes `add`/`modify` to `nodes/`, but `contradict` actions land as pending files under `conflicts/` and *stop there*. **The skill is what walks each conflict with the `y/n/s/k` prompt and applies your choice.** Run the bare CLI from a script and you'll have to resolve conflicts by hand.
-- **`/kb-bootstrap` ≠ `bootstrap-incremental`.** These are different mechanisms with the same goal. The skill is agent-driven, supervised, sampling. The CLI is headless, hash-aware, exhaustive (spawns its own `claude -p`). Use the skill for the first pass; use the CLI for incremental re-runs after editing docs.
+- **`/kb-add` ≡ `node add`.** The skill conversationally gathers fields, checks INDEX for overlap, and persists via the `node write` primitive. The CLI launcher execs the same skill.
+- **`/kb-curate` ≡ `curate`.** The skill reads pending session logs, drafts curator proposals in-session, hands the merged set to the deterministic `curate-dedup` primitive, then runs `index rebuild`. Inside an interactive session the skill also walks each `contradict` conflict with the `y/n/s/k` prompt; that walkthrough still happens when you invoke via the CLI launcher (since the launcher just opens a host session).
+- **`/kb-bootstrap` ≡ `bootstrap`.** The skill enumerates candidate docs via the `finddocs` primitive, reads them with the host's `Read` tool, drafts node bodies inline, and persists via `node write`. Same flow either entry point.
 
-The CLI forms exist for CI, scripts, plain-shell use, and headless re-runs. The rest of this page leads with the skill form and notes when the CLI differs.
+Use the slash-commands when you're already in a harness session (no extra process spawn). Use the launchers from a shell or CI script.
+
+### Host-context cost on large doc trees
+
+Because the LLM now runs inside the host harness session, the bootstrap skill reads every candidate doc into **that** session's context window — the cost that used to be paid by ephemeral sub-agents now lands on the user's host session. On a small repo this is invisible; on a monorepo with hundreds of markdown files it may force a host-side compaction mid-run.
+
+Two levers, in order of preference:
+
+1. **Scope with `--from <subdir>`.** `bootstrap --from docs/` (or any other subtree) limits the walk root and dramatically reduces context use.
+2. **Tighten `.kbignore`.** Add entries to deny large generated or vendored markdown subtrees that don't carry curated knowledge.
+
+If neither is enough, run `bootstrap` against narrower scopes one at a time.
+
+### No concurrent invocations of `curate` (or `bootstrap`)
+
+Skill sessions are **single-author by design**. There is no cross-process lock on `state.json`, `bootstrap-state.json`, or session-log frontmatter stamps. The atomic tmp+rename writes inside `curate-dedup` and `node write` mean a crash never leaves a partially-written file — but if you run two `curate` launchers from two shells simultaneously, the second writer's state-mark update can silently lose to the first, leaving some sessions unmarked. They'll reprocess on the next run (no data loss), but you've wasted the work.
+
+The rule: **run one `curate` (or `bootstrap`) at a time per repo**. Coordinate by hand if multiple developers are running it on the same workspace.
 
 ## The loop
 
@@ -83,7 +100,9 @@ Review with `git diff nodes/`. Accept with `git commit` (the pre-commit hook reg
 
 ## Seed from existing docs
 
-`/kb-bootstrap [path]` in-session (supervised) or `npx @e0ipso/ai-knowledge-base bootstrap-incremental --from docs/` headless (hash-aware, only reprocesses changed docs). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
+`/kb-bootstrap [path]` in-session, or `npx @e0ipso/ai-knowledge-base bootstrap --from docs/` from a shell — same skill either way. Hash-aware (only reprocesses docs whose SHA-256 changed since the last run). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
+
+If you have scripts or CI invocations still calling `bootstrap-incremental`, they keep working as a deprecation alias for one release. Update them to `bootstrap` — the alias is removed in the release after next.
 
 ## CI
 

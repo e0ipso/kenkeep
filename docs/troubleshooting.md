@@ -25,7 +25,7 @@ Session logs are stuck pending.
 
 - Background extraction runs at the start of the **next** Claude Code session. Open a new one.
 - Make sure `claude` is on PATH in the shell that runs the hook.
-- A stale lock can block extraction. Check `.ai/knowledge-base/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually.
+- A stale `proposal-drain` lock can block extraction. Check `.ai/knowledge-base/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually. (Curate and bootstrap no longer hold a state lock — they run in a single host session, single-author by design.)
 
 ## `curate` says "no pending sessions"
 
@@ -74,6 +74,30 @@ The curator writes directly to `.ai/knowledge-base/nodes/<kind>/<id>.md`. Review
 ## Resolving curator contradictions
 
 Each contradiction lands as a markdown file under `.ai/knowledge-base/conflicts/<id>.md` with `status: pending`; the existing node is never overwritten. Run `/kb-curate` and the skill walks each one with the `y`/`n`/`s`/`k` prompt (see [Daily use → Conflict walkthrough](daily-use.md#conflict-walkthrough)). To resolve by hand, edit the target node yourself and `git restore` (or `git commit`) the conflict file.
+
+## `bootstrap-incremental: command not found` or "deprecated" warning
+
+The command was renamed: `bootstrap-incremental` → `bootstrap`. The old name is registered as a deprecation alias for one release and prints a stderr notice on every invocation:
+
+```
+[deprecated] Alias for `bootstrap`; will be removed in the next release. Use `ai-knowledge-base bootstrap` instead.
+```
+
+The alias is removed in the release after next. Update any scripts, CI workflows, and shell aliases that hardcode the old name. The flags (`--from <scope>`) match the new command.
+
+## `bootstrap` now uses more context — what changed
+
+Previously, `bootstrap-incremental` spawned a fresh `claude -p` sub-agent per batch, so the host harness session paid almost no context cost. The current architecture runs the bootstrap skill **inside the host harness session**, so every candidate doc the skill reads counts against the host session's context window.
+
+For small repos this is invisible. For large doc trees (a monorepo with hundreds of markdown files) this can force a host-side compaction mid-run, or — in extreme cases — exhaust the model's effective window.
+
+Remediation, in order of preference:
+
+1. **Scope the run with `--from <subdir>`.** `npx @e0ipso/ai-knowledge-base bootstrap --from docs/` limits the walk to that subtree.
+2. **Tighten `.kbignore`.** Add entries to deny large vendored or generated markdown subtrees. Run `finddocs` to preview what the new ignore list lets through.
+3. **Run multiple smaller scopes one at a time** instead of one repo-wide pass.
+
+The single-host-session model is intentional and is not coming back to a parallel-sub-agent architecture — see [Daily use → Host-context cost on large doc trees](daily-use.md#host-context-cost-on-large-doc-trees) and the changelog for the rationale.
 
 ## When all else fails
 

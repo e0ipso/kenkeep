@@ -28,17 +28,32 @@ Per-harness wiring details (which events fire, where hooks live) are in [Install
 
 ## 2. Curate (mostly automatic)
 
-When captured candidates accumulate, the system nudges you in the next session. You confirm (or run `/kb-curate` directly), and the curator runs autonomously as a `claude -p` subprocess: it reads pending candidates, compares them to existing nodes, and applies its decisions directly to `.ai/knowledge-base/nodes/`:
+When captured candidates accumulate, the system nudges you in the next session. You confirm (or run `/kb-curate` directly), and the curate skill runs **in the host harness session**: it reads pending candidates with the host's `Read` tool, drafts curator proposals in-session, and hands the merged proposal set to the deterministic `curate-dedup` primitive (a pure-Node helper that mints conflict ids, writes conflict files, and stamps consumed session logs atomically). Decisions land directly under `.ai/knowledge-base/nodes/`:
 
-- **Additions**: write a new node file.
-- **Modifications**: overwrite an existing node file.
-- **Contradictions**: record each conflict as `.ai/knowledge-base/conflicts/<id>.md` with `status: pending` and write nothing to `nodes/`. The `/kb-curate` skill reads those files after the curator exits and walks each one with you in-session, grouping by `target_node_id`. You reply with a single character: `y` to accept the proposal, `n` to reject it, `s` to defer to the next pass, or `k` to keep the conflict file as a historical record.
+- **Additions**: write a new node file via the `node write` primitive.
+- **Modifications**: overwrite an existing node file via `node write`.
+- **Contradictions**: `curate-dedup` records each conflict as `.ai/knowledge-base/conflicts/<id>.md` with `status: pending` and writes nothing to `nodes/`. Inside an interactive session, `/kb-curate` then walks each conflict with you, grouping by `target_node_id`. You reply with a single character: `y` to accept the proposal, `n` to reject it, `s` to defer to the next pass, or `k` to keep the conflict file as a historical record.
 
-As part of the same run, the curator regenerates `INDEX.md` and `GRAPH.md` deterministically (no LLM) so the index reflects the current `nodes/` tree.
+The skill finishes with `index rebuild`, so `INDEX.md` and `GRAPH.md` always reflect the current `nodes/` tree.
 
 ## 3. Review (you decide)
 
 Review the changes under `.ai/knowledge-base/nodes/` with `git diff`. They are important; they may affect how the agent behaves in every future session. Tools like [self-review](https://github.com/e0ipso/self-review) work too. Accept with `git commit`, reject with `git restore <path>`. The lint-staged pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit so the index never drifts from the committed nodes.
+
+## How a launcher invocation flows
+
+`bootstrap`, `curate`, and `node add` are thin **launchers**: they exec the active harness in `-p` mode against the matching slash-command. The LLM runs in that host harness session — the same model, prompt cache, and tool surface you use interactively — and calls back into deterministic CLI **primitives** (`finddocs`, `node write`, `curate-dedup`, `index rebuild`) for the things a prompt cannot reliably do (gitignore-aware discovery, atomic+validated writes, cross-batch dedup, index regeneration).
+
+```mermaid
+flowchart LR
+    U[User] --> Launch[CLI launcher<br/>bootstrap / curate / node add]
+    Launch -->|"&lt;harness&gt; -p '/kb-…'"| HostB[Host harness session<br/>with skill]
+    U -->|or invoke skill directly| HostB
+    HostB --> Prim[Primitives<br/>finddocs · node write<br/>curate-dedup · index rebuild]
+    Prim --> FS2[(node files +<br/>state.json)]
+```
+
+One harness invocation per user invocation. No nested sub-agent fan-out, so the model the user actually configured is the model that does the work, and the cache the user has warmed up stays warm.
 
 ## Storage & graph
 

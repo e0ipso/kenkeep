@@ -213,7 +213,7 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
 | Field | Meaning |
 |---|---|
 | `last_full_bootstrap_at` | Last `/kb-bootstrap` run. Never set by the CLI. |
-| `last_incremental_at` | Last `bootstrap-incremental` non-dry-run that processed ≥1 doc. |
+| `last_incremental_at` | Last `bootstrap` run (via the launcher or the kb-bootstrap skill) that processed ≥1 doc. Field name retained from the pre-rename era for backward compatibility. |
 | `docs[].content_sha256` | SHA-256 of file contents at processing time. |
 | `docs[].last_processed_at` | Timestamp of last processing. Not updated on hash hits. |
 | `docs[].produced_nodes` | `<kind>/<filename>.md` paths (relative to `nodes/`) written from this doc. Informational. |
@@ -222,8 +222,8 @@ Lifecycle:
 
 - **First run**: file is created with `docs: {}`.
 - **Hash hit**: doc is skipped; `last_processed_at` is not updated.
-- **Hash miss**: doc is queued. On success, the entry is overwritten. On failure, the entry is left untouched so a re-run retries.
-- **`--dry-run`**: file is read, never written.
+- **Hash miss**: doc is read by the kb-bootstrap skill. On success, the kb-bootstrap skill calls `node write --source-doc <relpath> --source-hash <sha256>` which folds the entry into this file as part of the same atomic write. On failure, no entry is added so a re-run retries.
+- **Preview discovery without writing**: run `finddocs [--from <scope>] [--with-hashes]` — read-only, never touches `bootstrap-state.json`.
 - **Force re-bootstrap**: delete the file.
 
 A malformed file is treated as missing. Validated by `BootstrapStateSchema`. Gitignored.

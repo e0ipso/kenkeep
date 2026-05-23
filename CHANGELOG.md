@@ -253,7 +253,26 @@ removed.
 
 ## Unreleased
 
+### BREAKING CHANGES
+
+* **`bootstrap-incremental` is now a deprecation alias for `bootstrap` and will be removed in the release after next.** The command was renamed; the alias prints a stderr deprecation notice on every invocation and accepts the same `--from <scope>` flag. Update scripts and CI invocations to call `bootstrap` directly.
+* **Architecture: `bootstrap` and `curate` now run the LLM in the host harness session via a slash-command** (`/kb-bootstrap`, `/kb-curate`). The CLI commands are thin launchers that exec `<harness> -p "/kb-<name>"`; there is no more per-batch sub-process fan-out. The LLM call happens once, in the host harness session, with the user's own model and prompt cache. `node add` follows the same launcher pattern.
+* **Headless throughput regression — deliberate.** A single host session is sequential by construction; the previous parallel-sub-agent batching is gone and is not coming back. Users with very large bootstraps should narrow with `--from <subdir>` or tighten `.kbignore`. See [Daily use → Host-context cost on large doc trees](docs/daily-use.md#host-context-cost-on-large-doc-trees) and [Troubleshooting → bootstrap now uses more context](docs/troubleshooting.md#bootstrap-now-uses-more-context--what-changed).
+
+### Added
+
+* **`finddocs [--from <scope>] [--with-hashes]`** — deterministic primitive that enumerates candidate markdown files for the KB, applying `.gitignore`, `.kbignore`, and the built-in static-skip list. Emits one `+ <relpath>` line per survivor; with `--with-hashes`, appends a tab-separated SHA-256 digest so callers can compare against `bootstrap-state.json`. Read-only, no LLM.
+* **`node write <kind> <slug> [flags]`** — headless primitive that atomically writes a single node to `nodes/<kind>/<id>.md` with Zod-validated frontmatter and slug-collision resolution. Body read from stdin or `--from <path>`. When both `--source-doc <relpath>` and `--source-hash <sha256>` are passed, the same atomic transaction folds the entry into `bootstrap-state.json`'s per-file hash map (no separate state-mark step).
+* **`curate-dedup [--input <path>]`** — deterministic primitive that validates a proposals JSON against `CuratorOutputSchema`, dedups, mints `${runId}-${n}` conflict ids, writes conflict files under `conflicts/`, and stamps consumed session logs with `curator_processed_at` / `curator_run_id`. Pure Node, atomic; replaces the dedup pass that used to live inside `CuratorRunner`.
+
 ### Removed
+
+* **`@inquirer/prompts` dependency** — the `node add` interactive prompts are gone; the kb-add skill now collects fields conversationally in the host harness session and persists via `node write`.
+* **`--timeout <ms>` flag on `curate`** — the curate command is now a launcher that execs the host harness; harness-side timeouts apply, not a CLI-level timeout.
+* **`--dry-run`, `--yes`, and `--timeout <ms>` flags on `bootstrap`** — the bootstrap command is now a launcher. To preview discovery without writing, use `finddocs [--from <scope>]`. Confirmation gating happens in the host harness UI.
+* **Flag-driven interactive `node add` prompts** — `--kind`, `--title`, `--summary`, `--body`, `--tags`, `--relates-to`, `--confidence`, `--yes` on `node add` are gone (they migrated to the `node write` primitive for headless use, and to the kb-add skill for interactive use).
+* **Internal runner-embedded prompt files** — `src/templates-source/prompts/bootstrap-incremental.md` and `src/templates-source/prompts/curator.md`. Each skill's canonical prompt now lives at `src/templates-source/skills/kb-<name>/SKILL.md` and runs in the host harness session. The proposal-drain hook's prompt (`proposal-extract.md`) is unchanged.
+* **`BootstrapRunner` and `CuratorRunner` classes**, their `runHeadless` paths, and the `proper-lockfile` cross-process state lock. Skill sessions are single-author; atomic tmp+rename writes inside `node write` and `curate-dedup` provide the durability guarantees the lock used to provide. Running two `curate` invocations against the same repo concurrently is documented as unsupported (the second writer's state-mark may silently lose; see [Daily use → No concurrent invocations](docs/daily-use.md#no-concurrent-invocations-of-curate-or-bootstrap)).
 
 * **BREAKING** `--from`, `--include`, and `--exclude` flags on `bootstrap-incremental`. The scan now always walks the repo root and is scoped exclusively by `.kbignore` at the repo root. Rewrite old invocations using the migration table in the [README](README.md#migrating-from---from----include----exclude).
 * **BREAKING** automatic injection of `harnessInstructionSkipPatterns` into the bootstrap walk. The same surface (every registered adapter's `skillsDir`, `commandsDir`, `hooksDir`, `pluginsDir`) is now expressed as uncommented entries in the default `.kbignore` stub written by `init`. The `harnessInstructionSkipPatterns` symbol is removed from `src/`; embedders that imported it must read `.kbignore` instead.

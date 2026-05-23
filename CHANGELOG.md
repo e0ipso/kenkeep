@@ -14,6 +14,13 @@
 
 * **The CLI surface is unchanged.** No flags added or removed, no positional arguments changed, no stdout contracts altered on `bootstrap`, `curate`, `node add`, or `node write`. The lock inside `node write` is internal; the help text, argument shape, and on-success/on-failure output match the plan-31 shipped form byte-for-byte. Callers that do not pass `--source-doc` / `--source-hash` take no lock at all.
 
+## [0.18.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.17.0...v0.18.0) (2026-05-23)
+
+### Features
+
+* **cli:** add three deterministic KB primitives ([d1a76b9](https://github.com/e0ipso/ai-knowledge-base/commit/d1a76b97954eecd23ed8748fc4668631df4a090b))
+* **hooks:** add emoji lifecycle feedback ([9809823](https://github.com/e0ipso/ai-knowledge-base/commit/98098232da73e8be42a89459c65eb26aa7e7603f))
+* **skills:** drive bootstrap, curate, and add in host ([e196d9c](https://github.com/e0ipso/ai-knowledge-base/commit/e196d9c60d4de035f1af5dd7dae952a16c39572f))
 ## [0.17.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.16.0...v0.17.0) (2026-05-23)
 
 ### Features

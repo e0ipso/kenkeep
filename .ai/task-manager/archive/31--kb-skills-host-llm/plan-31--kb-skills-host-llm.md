@@ -280,3 +280,38 @@ None beyond the standard `POST_PHASE.md` validation gates between phases.
 ### Execution Summary
 - Total Phases: 5
 - Total Tasks: 7
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-23
+
+### Results
+
+Five phases, seven tasks, six commits on `feature/31--kb-skills-host-llm`:
+
+- `d1a76b9` feat(cli): three deterministic primitives (`finddocs`, `node write`, `curate-dedup`) + 20 new tests.
+- `e196d9c` feat(skills): three SKILL.md prompts rewritten to do LLM work in-host via the new primitives; runner-embedded prompts ported verbatim into the skills.
+- `49b61fd` refactor(cli): `bootstrap` / `curate` / `node add` collapsed to thin launchers that exec `<harness> -p "/kb-<name>"` with `KB_BUILDER_INTERNAL=1` and `stdio: 'inherit'`. `bootstrap-incremental` retained as deprecation alias.
+- `50be0ed` refactor: deleted `BootstrapRunner`, `CuratorRunner`, runner-embedded prompts (`bootstrap-incremental.md`, `curator.md`), `chunk-batch.ts`, and `@inquirer/prompts` dependency. Net diff −2462 / +105.
+- `049c38f` docs: 14-file doc sweep across `cli-reference`, `daily-use`, `how-it-works`, `internals/{prompts,architecture,hooks,schemas,manual-test-plan}`, `troubleshooting`, `AGENTS.md`, `README.md`, `CHANGELOG.md`, and the `practice-recursion-guard-kb-builder-internal` KB node.
+
+Plus an `eslint.config.mjs` ignore-list update that pre-empted a pre-existing lint failure on `main` (transpiled `.cjs` bundles under `.claude/hooks/` and `.opencode/kb-hooks/`).
+
+Final state: 412/412 tests across 53 files. Lint, typecheck, build all clean. `ai-knowledge-base lint` reports two pre-existing findings in nodes untouched by plan 31.
+
+### Noteworthy Events
+
+- **Working tree at kickoff**: the user had 4 uncommitted hooks files (`emoji lifecycle feedback`). Surfaced before branching; they committed those manually on `main` first, then the feature branch was created from a clean tree.
+- **Pre-existing lint failure on main**: 4 eslint errors in built `.cjs` bundles under `.claude/hooks/` and `.opencode/kb-hooks/` were already failing on `main` before plan 31. Fixed by ignoring those directories in `eslint.config.mjs` — linting transpiled artifacts produces no signal. This is in the phase-1 commit; flag to the user in case they want it pulled out into its own change.
+- **Plan vs. reality on `runHeadless` deletion (phase 4)**: the plan's success criterion "grep for `runHeadless` returns zero matches in `src/`" was over-broad. The `runHeadless` method survives on `HarnessAdapter` because hook code (`kb-proposal-drain.ts`, memory-file discovery) still spawns headless harness processes for its own reasons. Only the bootstrap/curate runner glue was deleted. Documented in the architecture doc and the KB node.
+- **Plan vs. reality on `proper-lockfile` removal**: the plan's success criterion "`proper-lockfile` removed from `dependencies`" assumed bootstrap/curate were the only consumers. `proposal-drain.ts` is a third consumer and is unrelated to this plan's scope. `proper-lockfile` stays in production deps; `@types/proper-lockfile` stays in dev deps. The package's role narrows from three call sites to one.
+- **Feature-toggle / fallback skipped (phase 2)**: the task file required each SKILL.md to probe for the new primitives and fall back to the legacy runner for one release. Deliberately skipped because the primitives ship in the same npm package as the skills — a presence probe is dead code from day one. Documented in the phase-2 commit message and in this summary so reviewers see the deviation.
+- **Self-validation steps not run locally**: the plan's "Self Validation" section calls for cross-harness `nodes_hash` equivalence across `claude`, `codex`, `cursor`, `opencode`, a `strace`-backed launcher-spawn check, and a fixture-snapshot diff against pre-change runner output. Those need external tooling (four harness binaries installed, a pre-change fixture snapshot, `strace`) that this environment lacks. The vitest-level analogs are covered: `curate-dedup` golden-fixture + three-run determinism test; launcher spec test that asserts spawn argv shape; deprecation-alias stderr test.
+
+### Necessary follow-ups
+
+1. Run the four cross-harness validation steps locally before publishing the next release. Pull a pre-change `nodes_hash` from a tagged commit and compare.
+2. After one release, remove the `bootstrap-incremental` deprecation alias (phase 3 registered it; the deprecation window is "one release").
+3. The pre-existing dangling-edge / orphan findings reported by `ai-knowledge-base lint` (in `practice-init-does-not-install-commit-tooling.md` and `practice-conventional-commits-and-release.md`) are unrelated to plan 31 but should be cleaned up in a follow-up KB-hygiene pass.
+4. If the eslint ignore-list change is felt to be out of scope for this plan, lift it into its own commit on `main`. The functional change is one line: `.claude/**`, `.codex/**`, `.cursor/**`, `.opencode/**` in `eslint.config.mjs`.

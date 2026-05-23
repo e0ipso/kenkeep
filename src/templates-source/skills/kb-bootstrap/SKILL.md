@@ -3,7 +3,7 @@ name: kb-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/knowledge-base/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 3 -->
 
 # kb-bootstrap
 
@@ -149,13 +149,72 @@ When a piece of content has both aspects (e.g. "Use bravo_analytics.dispatcher, 
 - General programming knowledge that's not project-specific (Drupal/React/Django basics).
 - Aspirational TODOs and "we should eventually" content.
 
-### 6. Draft each node body inline, then persist via `node write`
+### 6. Draft each node body, then persist via `node write`
 
-For each candidate, draft the node body in this session. Choose a kind (`practice` | `map`), a short slug derived from the title (lowercase, hyphenated, ASCII), 1–5 short lowercase tags, an imperative-or-noun title ≤80 chars, a summary ≤140 chars, and a body of 1–4 short paragraphs.
+For each candidate, the drafted node has: a kind (`practice` | `map`), a short slug derived from the title (lowercase, hyphenated, ASCII), 1–5 short lowercase tags, an imperative-or-noun title ≤80 chars, a summary ≤140 chars, and a body of 1–4 short paragraphs.
 
 **Confidence calibration.** Default `confidence: medium` for bootstrap content. Existing docs may be stale or aspirational; the reviewer needs to assess each file before accepting it. Use `confidence: high` only when the doc explicitly states the rule with rationale and the doc looks actively maintained. Use `confidence: low` when the rule is implicit, the doc is marked draft/deprecated/legacy, or the content is ambiguous.
 
-Persist via `node write`, piping the body on stdin and folding the per-file hash-map update into the same invocation:
+#### Pick the drafting path (probe + fallback)
+
+Before drafting anything, mint a run id and prepare the per-batch log directory — both paths use them:
+
+```bash
+RUN_ID=$(uuidgen 2>/dev/null || date -u +"bootstrap-%Y%m%dT%H%M%SZ")
+mkdir -p .ai/knowledge-base/_logs/bootstrap
+LOG_DIR="$(pwd)/.ai/knowledge-base/_logs/bootstrap"
+```
+
+Now probe your own tool surface: **if your runtime exposes a sub-agent / task dispatch primitive that runs in a separate context window and returns a structured result, use the parallel path below; otherwise use the inline fallback path that follows it.** Recursion into yourself, or shelling out to another instance of your own CLI in `-p`-style headless mode, does **not** count — that is not genuine delegation and you must take the fallback in that case.
+
+Probe and fallback live in the same section so you never enter a half-state: if at any moment you are unsure whether the dispatch primitive exists on your tool surface, take the fallback.
+
+#### Parallel path — orchestrator + sub-agent dispatch + collector
+
+This path dispatches the drafting of one candidate doc per sub-agent and reaps the JSON drafts at the end. The unit of parallelism is **one candidate doc**.
+
+**Concurrency cap: ≤5 sub-agents per orchestrator turn.** If your filtered working set has N > 5 docs, issue them in waves of up to 5: dispatch wave 1, await all results in the collector, dispatch wave 2, and so on. The reference runtime tops out near ~10 concurrent agents; holding the cap at 5 leaves headroom for the orchestrator's own tool calls and bounds rate-limit risk.
+
+**Orchestrator turn — for each batch (numbered `<batchN>` starting at 1):**
+
+1. Compute the predetermined absolute draft path for this batch: `${LOG_DIR}/${RUN_ID}__<batchN>.draft.json`. The path must be absolute — sub-agents may not share your cwd.
+2. Append an "issued" line to the per-batch JSONL log before delegating:
+
+   ```bash
+   printf '{"ts":"%s","event":"issued","runId":"%s","batchN":%d,"doc":"%s","hash":"%s"}\n' \
+     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RUN_ID" <batchN> "<relpath>" "<sha256>" \
+     >> "${LOG_DIR}/${RUN_ID}__<batchN>.jsonl"
+   ```
+
+3. Delegate the drafting of this one doc to a sub-agent with focused instructions:
+
+   > You are drafting knowledge-base node candidates for ONE source doc.
+   > - Read the doc at relative path `<relpath>` (content sha256 `<sha256>`) in full.
+   > - Decide whether it warrants 0, 1, or more nodes. Use the same practice/map rules as Step 5 of the parent skill.
+   > - For each chosen node, produce exactly these keys: `{kind, slug, title, summary, tags[], confidence, body}`. Do not include `id` or YAML frontmatter — the host stamps both.
+   > - Write the array as JSON (and nothing else) to the absolute path `<DRAFT_PATH>`. Zero nodes is a valid result; in that case write `[]`.
+   > - On success, return only the absolute draft path.
+
+Issue up to 5 delegations in the same orchestrator turn (one per doc in the current wave), each with its own `<batchN>` and `<DRAFT_PATH>`.
+
+**Collector turn — after every dispatched agent in the wave has returned:**
+
+For each batch's draft file:
+
+1. Read the file. Parse as JSON. The expected shape is an array of objects with keys `kind`, `slug`, `title`, `summary`, `tags` (array), `confidence` (`high`|`medium`|`low`), and `body`.
+2. On parse error or schema mismatch, append an `event:"invalid"` line to that batch's `.jsonl`, surface to the user **"batch <batchN> produced invalid output, skipped"**, and continue with the next batch. Never abort the whole run.
+3. For each validated draft in the array, persist via `node write` (see "Persist via `node write`" below), passing the originating doc's `--source-doc` and `--source-hash`. The CLI primitive uses a short-lived file lock around its `bootstrap-state.json` update, so back-to-back invocations from a single collector loop are safe.
+4. After processing the batch, append an `event:"validated"` line with the count of nodes written and the resolved ids.
+
+If a wave has more docs queued behind it, issue the next wave only after the current wave's collector turn finishes.
+
+#### Inline fallback path
+
+If the probe says no dispatch primitive exists, draft each candidate's node body inline in this session — same vocabulary (`kind`, `slug`, `title`, `summary`, `tags`, `confidence`, `body`) — and persist each one via `node write` immediately after drafting. Still write the per-batch JSONL log (one batch per doc): append an `event:"issued"` line before drafting and an `event:"validated"` line after the `node write` returns, so the artefact shape is identical across paths.
+
+#### Persist via `node write`
+
+Both paths funnel each surviving draft through the same persistence primitive, piping the body on stdin and folding the per-file hash-map update into the same invocation:
 
 ```bash
 npx --yes @e0ipso/ai-knowledge-base@latest node write <kind> <slug> \

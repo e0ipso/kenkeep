@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { text as readStdinText } from 'node:stream/consumers';
+import lockfile from 'proper-lockfile';
 import { readBootstrapState, writeBootstrapState } from '../lib/bootstrap.js';
 import { log } from '../lib/log.js';
 import {
@@ -10,6 +11,7 @@ import {
   writeNodeFile,
 } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
+import { STATE_LOCK_OPTIONS } from '../lib/state.js';
 import {
   ConfidenceSchema,
   NodeFrontmatterSchema,
@@ -146,7 +148,7 @@ export async function runNodeWriteCommand(
     //    fails after step 1 succeeded, the node is on disk without a
     //    state entry — next bootstrap recomputes (safe).
     if (hasDoc && hasHash) {
-      updateBootstrapState({
+      await updateBootstrapState({
         paths,
         sourceDoc: sourceDoc!,
         sourceHash: sourceHash!,
@@ -171,29 +173,46 @@ interface UpdateBootstrapStateArgs {
   nodeId: string;
 }
 
-function updateBootstrapState(args: UpdateBootstrapStateArgs): void {
+async function updateBootstrapState(args: UpdateBootstrapStateArgs): Promise<void> {
   const file = join(args.paths.stateDir, 'bootstrap-state.json');
-  const current = readBootstrapState(file);
-  const existing = current.docs[args.sourceDoc];
-  const producedNodes = existing
-    ? Array.from(new Set([...existing.produced_nodes, args.nodeId]))
-    : [args.nodeId];
-  const next: BootstrapState = {
-    schema_version: 1,
-    ...(current.last_full_bootstrap_at !== undefined
-      ? { last_full_bootstrap_at: current.last_full_bootstrap_at }
-      : {}),
-    last_incremental_at: new Date().toISOString(),
-    docs: {
-      ...current.docs,
-      [args.sourceDoc]: {
-        content_sha256: args.sourceHash,
-        last_processed_at: new Date().toISOString(),
-        produced_nodes: producedNodes,
+  // `proper-lockfile` requires the target to exist. Lazy-create an empty
+  // placeholder before acquiring the lock so the first concurrent writer
+  // has something to lock against.
+  if (!existsSync(file)) {
+    writeBootstrapState(file, { schema_version: 1, docs: {} });
+  }
+  // Retry on contention so concurrent host sub-agents serialise on the
+  // RMW rather than failing fast (cf. proposal-drain, which intentionally
+  // bails on ELOCKED for the single-drainer contract).
+  const release = await lockfile.lock(file, {
+    ...STATE_LOCK_OPTIONS,
+    retries: { retries: 10, minTimeout: 25, maxTimeout: 200, factor: 1.5 },
+  });
+  try {
+    const current = readBootstrapState(file);
+    const existing = current.docs[args.sourceDoc];
+    const producedNodes = existing
+      ? Array.from(new Set([...existing.produced_nodes, args.nodeId]))
+      : [args.nodeId];
+    const next: BootstrapState = {
+      schema_version: 1,
+      ...(current.last_full_bootstrap_at !== undefined
+        ? { last_full_bootstrap_at: current.last_full_bootstrap_at }
+        : {}),
+      last_incremental_at: new Date().toISOString(),
+      docs: {
+        ...current.docs,
+        [args.sourceDoc]: {
+          content_sha256: args.sourceHash,
+          last_processed_at: new Date().toISOString(),
+          produced_nodes: producedNodes,
+        },
       },
-    },
-  };
-  writeBootstrapState(file, next);
+    };
+    writeBootstrapState(file, next);
+  } finally {
+    await release();
+  }
 }
 
 async function readBody(fromPath: string | undefined, deps: NodeWriteDeps): Promise<string> {

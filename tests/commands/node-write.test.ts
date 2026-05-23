@@ -222,6 +222,53 @@ describe('node write primitive', () => {
     expect(readdirSync(join(cwd, '.ai/knowledge-base/nodes/practice'))).toEqual([]);
   });
 
+  it('serialises concurrent --source-doc writers via proper-lockfile', async () => {
+    const out1 = capturingStdout();
+    const out2 = capturingStdout();
+    const [code1, code2] = await Promise.all([
+      runNodeWriteCommand(
+        {
+          kind: 'practice',
+          slug: 'use-foo',
+          flags: {
+            title: 'Use Foo',
+            summary: 'sum1',
+            tags: 'a',
+            confidence: 'high',
+            sourceDoc: 'docs/foo.md',
+            sourceHash: 'a'.repeat(64),
+          },
+        },
+        { readStdin: async () => 'body 1', isTTY: () => false, writeStdout: out1.write }
+      ),
+      runNodeWriteCommand(
+        {
+          kind: 'practice',
+          slug: 'use-bar',
+          flags: {
+            title: 'Use Bar',
+            summary: 'sum2',
+            tags: 'b',
+            confidence: 'high',
+            sourceDoc: 'docs/bar.md',
+            sourceHash: 'b'.repeat(64),
+          },
+        },
+        { readStdin: async () => 'body 2', isTTY: () => false, writeStdout: out2.write }
+      ),
+    ]);
+    expect(code1).toBe(0);
+    expect(code2).toBe(0);
+    const stateFile = join(cwd, '.ai/knowledge-base/.state/bootstrap-state.json');
+    const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
+      docs: Record<string, { content_sha256: string; produced_nodes: string[] }>;
+    };
+    expect(state.docs['docs/foo.md']?.content_sha256).toBe('a'.repeat(64));
+    expect(state.docs['docs/bar.md']?.content_sha256).toBe('b'.repeat(64));
+    expect(state.docs['docs/foo.md']?.produced_nodes).toContain('practice-use-foo');
+    expect(state.docs['docs/bar.md']?.produced_nodes).toContain('practice-use-bar');
+  });
+
   it('errors when only --source-hash is passed (no --source-doc); no writes', async () => {
     const out = capturingStdout();
     const code = await runNodeWriteCommand(

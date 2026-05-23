@@ -3,7 +3,7 @@ name: kb-add
 description: Capture a knowledge-base node manually from the current session. Writes a new node directly under `.ai/knowledge-base/nodes/<kind>/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 3 -->
 
 # kb-add
 
@@ -79,7 +79,37 @@ HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
 
 ## Capture the node
 
-Derive a slug from the title (lowercase, hyphen-separated, ASCII; e.g. `Use the bravo analytics dispatcher` → `use-the-bravo-analytics-dispatcher`). Then invoke `node write` with the body on stdin:
+### Probe + optional sub-agent delegation (context isolation)
+
+Before drafting inline, check whether your runtime exposes a primitive for delegating focused work to a sub-agent in an isolated context (a "dispatch primitive"). This is a single-unit delegation: there is no parallelism — the point is to keep the host transcript free of the agent's intermediate deliberation so the user sees only the final summary and accept/reject prompt.
+
+If a dispatch primitive is available:
+
+1. Mint a `runId` and prepare the log/draft directory:
+
+   ```bash
+   RUN_ID=$(uuidgen 2>/dev/null || date -u +"add-%Y%m%dT%H%M%SZ")
+   mkdir -p .ai/knowledge-base/_logs/kb-add
+   DRAFT_PATH="$(pwd)/.ai/knowledge-base/_logs/kb-add/${RUN_ID}__1.draft.json"
+   LOG_PATH="$(pwd)/.ai/knowledge-base/_logs/kb-add/${RUN_ID}.jsonl"
+   printf '%s\n' "{\"event\":\"delegating\",\"runId\":\"${RUN_ID}\",\"draftPath\":\"${DRAFT_PATH}\"}" >> "$LOG_PATH"
+   ```
+
+2. Tell the user, in one line, before delegating: "Drafting this node in a sub-agent for context isolation; the agent's full reasoning is in `.ai/knowledge-base/_logs/kb-add/<runId>.jsonl` if you want it." Substitute the actual `runId`.
+
+3. Delegate the drafting of the node body to ONE sub-agent with instructions equivalent to:
+
+   > You are refining ONE knowledge-base node body for the user. Inputs are: `kind=<kind>`, `title=<title>`, `summary=<summary>`, `tags=<tags>`, `relates_to=<relates_to>`, `confidence=<confidence>`, `body-draft=<body>`. Refine the body to 1–4 short paragraphs in present tense, project-specific. Do not invent rationale; if the user did not provide it, omit it. Keep title within 80 chars and summary within 140 chars; refine only for clarity. Derive `slug` from the title (lowercase, hyphen-separated, ASCII). Write the refined node as JSON to the absolute path `<DRAFT_PATH>` with these exact keys: `kind`, `slug`, `title`, `summary`, `tags`, `confidence`, `relates_to`, `body`. Return the path on success.
+
+4. After the sub-agent returns, the host (never the sub-agent) reads `$DRAFT_PATH`, validates the JSON (must parse, contain the eight keys above, respect the length caps), then itself invokes `node write` from this same session. Append one JSONL line: `{"event":"drafted",...}` on success or `{"event":"draft-invalid","reason":"..."}` on failure.
+
+5. On validation failure, do **not** abort. Fall back to the inline drafting path below on this same invocation; the user-visible summary is unchanged either way.
+
+If no dispatch primitive is available, skip directly to the inline drafting path below — this is today's shipped behaviour and is preserved byte-equivalent.
+
+### Inline drafting + `node write` (default and fallback)
+
+Derive a slug from the title (lowercase, hyphen-separated, ASCII; e.g. `Use the bravo analytics dispatcher` → `use-the-bravo-analytics-dispatcher`). Then invoke `node write` with the body on stdin (when the delegation path produced a valid draft, use its `slug` and refined `body`; otherwise draft inline from the seven user-provided values):
 
 ```bash
 npx --yes @e0ipso/ai-knowledge-base@latest node write <kind> <slug> \

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
-import { runBootstrapIncrementalCommand } from './commands/bootstrap-incremental.js';
-import { runCurateCommand } from './commands/curate.js';
+import { runBootstrapLauncher } from './commands/bootstrap.js';
+import { runCurateLauncher } from './commands/curate.js';
 import { runCurateDedupCommand } from './commands/curate-dedup.js';
 import { runDoctor } from './commands/doctor.js';
 import { runFindDocsCommand } from './commands/finddocs.js';
@@ -8,11 +8,10 @@ import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
 import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
-import { runNodeAdd } from './commands/node-add.js';
+import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
 import { runStatus } from './commands/status.js';
 import { listHarnessIds } from './harnesses/registry.js';
-import { intArg } from './lib/cli-args.js';
 import { log } from './lib/log.js';
 import { packageVersion } from './lib/version.js';
 
@@ -82,14 +81,14 @@ async function main(): Promise<void> {
 
   program
     .command('curate')
-    .description('Run the curator non-interactively over pending session logs.')
-    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', intArg('--timeout'))
-    .action(async (opts: { timeout?: number }) => {
-      const code = await runCurateCommand({
-        ...(opts.timeout !== undefined ? { timeoutMs: opts.timeout } : {}),
-        ...(getHarnessFlag() !== undefined ? { harness: getHarnessFlag() } : {}),
-      });
-      process.exit(code);
+    .description(
+      'Launch the kb-curate skill in the active harness (execs `<harness> -p "/kb-curate"`).'
+    )
+    .action(() => {
+      const launchOpts: Parameters<typeof runCurateLauncher>[0] = {};
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
+      runCurateLauncher(launchOpts);
     });
 
   program
@@ -125,66 +124,58 @@ async function main(): Promise<void> {
     );
 
   program
+    .command('bootstrap')
+    .description(
+      'Launch the kb-bootstrap skill in the active harness (execs `<harness> -p "/kb-bootstrap …"`). Scope is controlled by .kbignore plus an optional --from <scope>.'
+    )
+    .option(
+      '--from <scope>',
+      'narrow discovery to a subdirectory of the repo root (path relative to repo root)'
+    )
+    .action((opts: { from?: string }) => {
+      const launchOpts: Parameters<typeof runBootstrapLauncher>[0] = {};
+      if (opts.from !== undefined) launchOpts.from = opts.from;
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
+      runBootstrapLauncher(launchOpts);
+    });
+
+  // Deprecation alias for one release. Same behavior as `bootstrap`, but
+  // writes a stderr notice pointing at the new name. Help text mentions
+  // `[deprecated]` so users running `bootstrap-incremental --help`
+  // discover the rename.
+  program
     .command('bootstrap-incremental')
     .description(
-      'Incrementally bootstrap the KB from markdown docs in this repo; scope is controlled by .kbignore.'
+      '[deprecated] Alias for `bootstrap`; will be removed in the next release. Use `ai-knowledge-base bootstrap` instead.'
     )
-    .option('--dry-run', 'report what would be processed without invoking the LLM', false)
-    .option('-y, --yes', 'skip the pre-run confirmation prompt', false)
-    .option('--timeout <ms>', 'per-batch subprocess timeout (default 120000)', intArg('--timeout'))
-    .action(
-      async (opts: {
-        dryRun: boolean;
-        yes: boolean;
-        timeout?: number;
-      }) => {
-        const code = await runBootstrapIncrementalCommand({
-          dryRun: opts.dryRun,
-          yes: opts.yes,
-          ...(opts.timeout !== undefined ? { timeoutMs: opts.timeout } : {}),
-          ...(getHarnessFlag() !== undefined ? { harness: getHarnessFlag() } : {}),
-        });
-        process.exit(code);
-      }
-    );
+    .option(
+      '--from <scope>',
+      'narrow discovery to a subdirectory of the repo root (path relative to repo root)'
+    )
+    .action((opts: { from?: string }) => {
+      process.stderr.write(
+        "[deprecated] use 'ai-knowledge-base bootstrap' instead of 'bootstrap-incremental'\n"
+      );
+      const launchOpts: Parameters<typeof runBootstrapLauncher>[0] = {};
+      if (opts.from !== undefined) launchOpts.from = opts.from;
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
+      runBootstrapLauncher(launchOpts);
+    });
 
   const nodeGroup = program.command('node').description('Manage knowledge-base nodes.');
   nodeGroup
     .command('add')
     .description(
-      'Draft a new node; writes directly to nodes/<kind>/<id>.md. Flag-driven when --kind/--title/--summary/--body are supplied (use --body @- to read body from stdin); prompts for any missing fields unless --yes is set.'
+      'Launch the kb-add skill in the active harness (execs `<harness> -p "/kb-add"`). The skill collects kind/title/summary/body/tags interactively and persists via the `node write` primitive.'
     )
-    .option('--kind <kind>', 'node kind: practice or map')
-    .option('--title <title>', 'short title (≤ 80 chars)')
-    .option('--summary <summary>', 'one-line summary (≤ 140 chars)')
-    .option('--tags <list>', 'comma-separated tags')
-    .option('--body <text>', 'body markdown, or "@-" to read from stdin')
-    .option('--relates-to <list>', 'comma-separated node ids')
-    .option('--confidence <level>', 'low, medium, or high')
-    .option('--yes', 'skip prompts; error if required fields are missing', false)
-    .action(
-      async (opts: {
-        kind?: string;
-        title?: string;
-        summary?: string;
-        tags?: string;
-        body?: string;
-        relatesTo?: string;
-        confidence?: string;
-        yes: boolean;
-      }) => {
-        const flags: Parameters<typeof runNodeAdd>[0] = { yes: opts.yes };
-        if (opts.kind !== undefined) flags.kind = opts.kind;
-        if (opts.title !== undefined) flags.title = opts.title;
-        if (opts.summary !== undefined) flags.summary = opts.summary;
-        if (opts.tags !== undefined) flags.tags = opts.tags;
-        if (opts.body !== undefined) flags.body = opts.body;
-        if (opts.relatesTo !== undefined) flags.relatesTo = opts.relatesTo;
-        if (opts.confidence !== undefined) flags.confidence = opts.confidence;
-        const code = await runNodeAdd(flags);
-        process.exit(code);
-      }
-    );
+    .action(() => {
+      const launchOpts: Parameters<typeof runNodeAddLauncher>[0] = {};
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
+      runNodeAddLauncher(launchOpts);
+    });
   nodeGroup
     .command('write')
     .description(

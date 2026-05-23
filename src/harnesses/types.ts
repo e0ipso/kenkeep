@@ -110,6 +110,15 @@ export interface HarnessAdapter {
   /** Stable id used in `--harnesses` and stamped into `installed-version`. */
   readonly id: string;
 
+  /**
+   * Name of the executable the CLI launcher commands (`bootstrap`,
+   * `curate`, `node add`) should `spawn` to dispatch a slash-command into
+   * this harness via its non-interactive (`-p "/kb-…"`) entrypoint. Looked
+   * up on `PATH`. Examples: `claude`, `codex`, `agent` (Cursor),
+   * `opencode`.
+   */
+  readonly launchBinary: string;
+
   /** Hook lifecycle declarations this adapter actually registers. */
   readonly hooks: readonly HookSpec[];
 

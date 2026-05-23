@@ -2,7 +2,7 @@
 id: 5
 group: "cli-launchers"
 dependencies: [4]
-status: "pending"
+status: "completed"
 created: 2026-05-23
 skills:
   - typescript

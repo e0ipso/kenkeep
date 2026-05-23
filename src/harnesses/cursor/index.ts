@@ -31,6 +31,7 @@ function cursorPaths(root: string): HarnessPaths {
 
 export const cursorAdapter: HarnessAdapter = {
   id: 'cursor',
+  launchBinary: 'agent',
   hooks: cursorHookSpecs,
   paths: cursorPaths,
   install: opts => installCursor(opts),

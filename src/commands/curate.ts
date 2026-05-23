@@ -1,143 +1,24 @@
-import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import {
-  curatorLogFile,
-  runCurate,
-  type CuratorRunner,
-  type PendingSession,
-} from '../lib/curate.js';
-import { resolveActiveHarness } from '../harnesses/detect.js';
-import type { HeadlessRunOptions } from '../harnesses/types.js';
-import { log } from '../lib/log.js';
-import { discoverHarnessMemoryFiles } from '../lib/memory-files.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
-import { resolveSettings } from '../lib/settings.js';
+import { launchSkill } from '../lib/launch-skill.js';
 
-export interface CurateCommandOptions {
-  timeoutMs?: number | undefined;
+export interface CurateLauncherOptions {
   harness?: string | undefined;
 }
 
-export async function runCurateCommand(opts: CurateCommandOptions = {}): Promise<number> {
-  const root = findRepoRoot();
-  const paths = repoPaths(root);
-
-  if (!existsSync(paths.installedVersionFile)) {
-    log.error(
-      'ai-knowledge-base is not initialized in this repo. Run `npx @e0ipso/ai-knowledge-base init --harnesses claude`.'
-    );
-    return 1;
-  }
-
-  const promptTemplate = loadCuratorPrompt(paths.promptsDir);
-  if (!promptTemplate) {
-    log.error('Curator prompt template not found.');
-    return 1;
-  }
-
-  const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-  const harness = resolveActiveHarness({
-    ...(opts.harness !== undefined ? { flag: opts.harness } : {}),
-    ...(settings.cliDefaultHarness !== undefined ? { cliDefault: settings.cliDefaultHarness } : {}),
-  });
-  const runner: CuratorRunner = (prompt, stdin, schema, runnerOpts) =>
-    harness.runHeadless(prompt, stdin, schema, runnerOpts as HeadlessRunOptions);
-
-  log.info(`Curating pending session logs with the ${harness.id} harness…`);
-
-  const memory = await discoverHarnessMemoryFiles({ adapter: harness, paths });
-  if (memory.curateCandidates.length > 0) {
-    log.info(
-      `Including ${memory.curateCandidates.length} harness memory file(s) in the curator input set.`
-    );
-  }
-
-  const now = new Date();
-  const logFile = curatorLogFile(paths.logsDir, randomUUID(), now);
-  log.plain(`  curator log: ${logFile}`);
-  log.plain(`  follow live: tail -f ${logFile}`);
-
-  const harnessOpts = harness.buildHarnessOpts(settings, 'curator');
-  const baseOpts = {
-    paths,
-    promptTemplate,
-    runner,
-    logFile,
-    harnessOpts,
-    memoryCandidates: memory.curateCandidates,
-    onBatchStart: ({
-      index,
-      total,
-      batch,
-    }: {
-      index: number;
-      total: number;
-      batch: PendingSession[];
-    }) => {
-      const candidates = batch.reduce(
-        (sum, s) => sum + s.practiceCandidates.length + s.mapCandidates.length,
-        0
-      );
-      log.info(
-        `Batch ${index + 1}/${total}: ${batch.length} session(s), ${candidates} candidate(s)`
-      );
-    },
-    onBatchEnd: ({ index, durationMs }: { index: number; total: number; durationMs: number }) => {
-      log.success(`Batch ${index + 1} finished in ${Math.round(durationMs / 1000)}s`);
-    },
+/**
+ * Thin launcher for the `kb-curate` skill: resolves the active harness,
+ * then execs `<harness-binary> -p "/kb-curate"` with
+ * `KB_BUILDER_INTERNAL=1` on the child env and stdio inherited.
+ *
+ * The deterministic dedup pass lives in the `curate-dedup` primitive;
+ * the model work itself lives in the in-host skill prompt. This command
+ * is intentionally argument-less today — any future passthrough flags
+ * should be wired here.
+ */
+export function runCurateLauncher(opts: CurateLauncherOptions = {}): void {
+  const launchOpts: Parameters<typeof launchSkill>[0] = {
+    skill: 'kb-curate',
+    passedArgs: '',
   };
-  const commitRunId = randomUUID();
-  let result;
-  try {
-    result = await runCurate({
-      ...baseOpts,
-      ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
-    });
-  } catch (err) {
-    await memory.commit(commitRunId, false);
-    throw err;
-  }
-  // `no-pending` and `locked` runs intentionally do not persist anything;
-  // the ledger is only updated on a completed run so unprocessed memory
-  // files are retried on the next invocation.
-  await memory.commit(commitRunId, result.status === 'completed');
-
-  switch (result.status) {
-    case 'locked':
-      log.warn(`Curator is locked: ${result.reason ?? 'another run holds the lock'}.`);
-      return 0;
-    case 'no-pending':
-      log.success('No pending session logs. INDEX and GRAPH regenerated.');
-      return 0;
-    case 'completed':
-      log.success(
-        `Curator finished: ${result.nodesWritten} node(s) written, ${result.drops} drop(s) over ${result.batches} batch(es).`
-      );
-      log.plain(`Run id: ${result.runId}`);
-      if (result.failures.length > 0) {
-        log.warn(`${result.failures.length} action(s) failed:`);
-        for (const f of result.failures) log.plain(`  ! [${f.reason}] ${f.detail}`);
-      }
-      if (result.conflicts > 0) {
-        log.warn(
-          `${result.conflicts} conflict(s) need resolution in .ai/knowledge-base/conflicts/.`
-        );
-        log.plain('  Run `/kb-curate` to resolve interactively, or for each file:');
-        log.plain('    accept → edit the target node, then `git restore` the conflict file');
-        log.plain('    reject → `git restore` the conflict file');
-        log.plain('    keep as record → `git commit` the conflict file');
-        log.plain('  Unresolved conflicts re-surface on the next curate run.');
-      }
-      log.plain('Review changed files with `git diff nodes/` before committing.');
-      return 0;
-  }
-}
-
-function loadCuratorPrompt(promptsDir: string): string | null {
-  const local = join(promptsDir, 'curator.md');
-  if (existsSync(local)) return readFileSync(local, 'utf8');
-  const fallback = join(packageTemplatesDir(), 'prompts', 'curator.md');
-  if (existsSync(fallback)) return readFileSync(fallback, 'utf8');
-  return null;
+  if (opts.harness !== undefined) launchOpts.harness = opts.harness;
+  launchSkill(launchOpts);
 }

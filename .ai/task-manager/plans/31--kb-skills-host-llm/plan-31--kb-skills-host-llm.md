@@ -262,9 +262,9 @@ No circular dependencies.
 **Parallel Tasks:**
 - ✔️ Task 004: Rewrite `kb-bootstrap`, `kb-curate`, `kb-add` skills (depends on: 001, 002, 003)
 
-### Phase 3: CLI becomes launchers
+### ✅ Phase 3: CLI becomes launchers
 **Parallel Tasks:**
-- Task 005: Convert `bootstrap` / `curate` / `node add` to launchers and rename `bootstrap-incremental` (depends on: 004)
+- ✔️ Task 005: Convert `bootstrap` / `curate` / `node add` to launchers and rename `bootstrap-incremental` (depends on: 004)
 
 ### Phase 4: Cleanup
 **Parallel Tasks:**

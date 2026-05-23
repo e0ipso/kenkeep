@@ -86,6 +86,7 @@ async function claudeListMemoryFiles(opts: { timeoutMs?: number } = {}): Promise
 
 export const claudeAdapter: HarnessAdapter = {
   id: 'claude',
+  launchBinary: 'claude',
   hooks: CLAUDE_HOOK_SPECS,
   paths: claudePaths,
   install: opts => installClaude(opts),

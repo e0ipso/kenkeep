@@ -80,13 +80,11 @@ describe('kb-proposal-drain hook (spawned)', () => {
     expect(after.data['proposal_status']).toBe('pending');
   });
 
-  it('returns early for Claude sessions and defers extraction to /kb-curate', async () => {
-    const file = seedSession(sandbox, 'deferred');
+  it('returns early in Claude sessions without processing pending logs', async () => {
+    const file = seedSession(sandbox, 'pending-only');
     const hookResult = await runHook(sandbox, { cwd: sandbox });
     expect(hookResult.exitCode).toBe(0);
-    expect(hookResult.stderr).toContain(
-      'skipping proposal drain — Claude sessions defer extraction to /kb-curate'
-    );
+    expect(hookResult.stderr).not.toContain('Draining queue');
 
     const after = matter(readFileSync(join(sandbox, '.ai/knowledge-base/_sessions', file), 'utf8'));
     expect(after.data['proposal_status']).toBe('pending');
@@ -97,7 +95,7 @@ describe('kb-proposal-drain hook (spawned)', () => {
     const cursorHookPath = join(repoRoot, 'dist/hooks/cursor/kb-proposal-drain.cjs');
     expect(existsSync(cursorHookPath)).toBe(true);
 
-    const file = seedSession(sandbox, 'cursor-deferred');
+    const file = seedSession(sandbox, 'cursor-pending');
     // Keep node and `which` on PATH but exclude harness CLIs like `agent`.
     const nodeBin = dirname(process.execPath);
     const pathForHook = `${nodeBin}:/usr/bin`;
@@ -122,7 +120,7 @@ describe('kb-proposal-drain hook (spawned)', () => {
     });
 
     expect(hookResult.exitCode).toBe(0);
-    expect(hookResult.stderr).toContain('agent not found on PATH');
+    expect(hookResult.stderr).not.toContain('Draining queue');
     const after = matter(readFileSync(join(sandbox, '.ai/knowledge-base/_sessions', file), 'utf8'));
     expect(after.data['proposal_status']).toBe('pending');
   });

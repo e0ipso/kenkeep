@@ -23,9 +23,6 @@ async function main(): Promise<void> {
   try {
     execFileSync('which', ['opencode'], { stdio: 'ignore' });
   } catch {
-    process.stderr.write(
-      `${PACKAGE_TAG} opencode not found on PATH; deferring extraction to /kb-curate\n`
-    );
     return;
   }
 

@@ -1,9 +1,8 @@
 /**
  * SessionStart hook (async) for the Claude Code adapter.
  *
- * Tier 1 gate: Claude sessions defer proposal extraction to /kb-curate
- * (inline extraction in the user's interactive session). The hook returns
- * early without spawning a headless `claude -p` child.
+ * No-op in interactive Claude sessions — proposal extraction runs inline
+ * during `/kb-curate` instead of spawning a headless `claude -p` child.
  *
  * Configured in `.claude/settings.json` with `"async": true` so its stdout
  * does not flow back into the parent session.
@@ -11,18 +10,11 @@
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
 
-const PACKAGE_TAG = '[ai-knowledge-base]';
-
 async function main(): Promise<void> {
   // Recursion guard: the drain itself spawns `claude -p`, which fires
   // SessionStart again inside the child. KB_BUILDER_INTERNAL=1 is set on
   // every child by runHeadlessClaude.
   if (process.env['KB_BUILDER_INTERNAL'] === '1') return;
-
-  // Tier 1 gate: Claude sessions defer extraction to /kb-curate.
-  process.stderr.write(
-    `${PACKAGE_TAG} skipping proposal drain — Claude sessions defer extraction to /kb-curate\n`
-  );
 }
 
 void main().catch((err: unknown) => {

@@ -21,9 +21,6 @@ async function main(): Promise<void> {
   try {
     execFileSync('which', ['agent'], { stdio: 'ignore' });
   } catch {
-    process.stderr.write(
-      `${PACKAGE_TAG} agent not found on PATH; deferring extraction to /kb-curate\n`
-    );
     return;
   }
 

@@ -1,5 +1,5 @@
 {
-  "name": "OpenCode Sandbox",
+  "name": "AI Knowledge Base",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {

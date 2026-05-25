@@ -4807,7 +4807,7 @@ var require_rc_config_loader = __commonJS({
       const extensions = Object.keys(loaderByExt);
       while (extensions.length) {
         const ext = extensions.shift();
-        const configLocation = join9(parts, configFileName + ext);
+        const configLocation = join8(parts, configFileName + ext);
         if (!fs_1.default.existsSync(configLocation)) {
           continue;
         }
@@ -4836,7 +4836,7 @@ var require_rc_config_loader = __commonJS({
         }
       }
       if (packageJSON) {
-        const pkgJSONLoc = join9(parts, "package.json");
+        const pkgJSONLoc = join8(parts, "package.json");
         if (fs_1.default.existsSync(pkgJSONLoc)) {
           const pkgJSON = json5_1.default.parse(readFile(pkgJSONLoc));
           if (pkgJSON[packageJSONFieldName]) {
@@ -4855,7 +4855,7 @@ var require_rc_config_loader = __commonJS({
     function splitPath(x) {
       return path_1.default.resolve(x || "").split(path_1.default.sep);
     }
-    function join9(parts, filename) {
+    function join8(parts, filename) {
       return path_1.default.resolve(parts.join(path_1.default.sep) + path_1.default.sep, filename);
     }
     function loadJSConfigFile(filePath, suppress) {
@@ -13239,12 +13239,11 @@ var init_module4 = __esm({
   }
 });
 
-// src/harnesses/opencode/hooks/kb-capture.ts
+// src/harnesses/cursor/hooks/kb-capture.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
-var import_node_fs9 = require("fs");
-var import_node_os2 = require("os");
-var import_node_path8 = require("path");
+var import_node_fs8 = require("fs");
+var import_node_os = require("os");
+var import_node_path7 = require("path");
 
 // src/lib/capture.ts
 init_cjs_shims();
@@ -20402,77 +20401,65 @@ function repoPaths(root2) {
   };
 }
 
-// src/harnesses/opencode/transcript.ts
+// src/harnesses/cursor/session-id.ts
 init_cjs_shims();
-var import_node_fs8 = require("fs");
-var import_node_os = require("os");
-var import_node_path7 = require("path");
-function defaultOpenCodeStorageDir(env = process.env) {
-  const explicit = env["OPENCODE_STORAGE_DIR"];
-  if (explicit && explicit.length > 0) return explicit;
-  const xdg = env["XDG_DATA_HOME"];
-  const base = xdg && xdg.length > 0 ? xdg : (0, import_node_path7.join)((0, import_node_os.homedir)(), ".local", "share");
-  return (0, import_node_path7.join)(base, "opencode", "storage");
+var import_node_crypto2 = require("crypto");
+var UUID_V4_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function normalizeCursorConversationId(conversationId) {
+  if (UUID_V4_RE2.test(conversationId)) return conversationId.toLowerCase();
+  const hash = (0, import_node_crypto2.createHash)("sha256").update(`cursor:${conversationId}`).digest("hex");
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
-function parseOpenCodeTranscript(storageDir, sessionID) {
+
+// src/harnesses/cursor/transcript.ts
+init_cjs_shims();
+function extractText(line2) {
+  const blocks = line2.message?.content;
+  if (!Array.isArray(blocks)) return "";
+  return blocks.filter((b) => !!b && typeof b === "object").map((b) => typeof b.text === "string" ? b.text : "").filter((s) => s.length > 0).join("\n");
+}
+function lineRole(line2) {
+  const role = line2.role ?? line2.message?.role;
+  if (role === "user") return "user";
+  if (role === "assistant") return "assistant";
+  if (line2.type === "user") return "user";
+  if (line2.type === "assistant") return "assistant";
+  return null;
+}
+function parseCursorTranscript(text) {
   const out = { interleaved: [] };
-  const sessionRoot = (0, import_node_path7.join)(storageDir, "session");
-  const messageRoot = (0, import_node_path7.join)(storageDir, "message", sessionID);
-  if (!(0, import_node_fs8.existsSync)(messageRoot)) return out;
-  let sessionFile = null;
-  if ((0, import_node_fs8.existsSync)(sessionRoot)) {
-    for (const project of (0, import_node_fs8.readdirSync)(sessionRoot)) {
-      const candidate = (0, import_node_path7.join)(sessionRoot, project, `${sessionID}.json`);
-      if ((0, import_node_fs8.existsSync)(candidate)) {
-        try {
-          sessionFile = JSON.parse((0, import_node_fs8.readFileSync)(candidate, "utf8"));
-        } catch {
-          sessionFile = null;
-        }
-        break;
-      }
-    }
-  }
-  void sessionFile;
-  const messageFiles = (0, import_node_fs8.readdirSync)(messageRoot).filter((name) => name.endsWith(".json")).map((name) => {
-    const full = (0, import_node_path7.join)(messageRoot, name);
-    let content;
+  for (const rawLine of text.split("\n")) {
+    const line2 = rawLine.trim();
+    if (line2.length === 0) continue;
+    let parsed;
     try {
-      content = JSON.parse((0, import_node_fs8.readFileSync)(full, "utf8"));
-    } catch {
-      content = {};
+      parsed = JSON.parse(line2);
+    } catch (err) {
+      console.warn(
+        `parseCursorTranscript: skipping malformed JSONL line: ${err.message}`
+      );
+      continue;
     }
-    return { name, content };
-  }).sort((a, b) => (a.content.time?.created ?? 0) - (b.content.time?.created ?? 0));
-  const partRoot = (0, import_node_path7.join)(storageDir, "part");
-  for (const { content: message } of messageFiles) {
-    if (!message.id || message.role !== "user" && message.role !== "assistant") continue;
-    const partDir = (0, import_node_path7.join)(partRoot, message.id);
-    if (!(0, import_node_fs8.existsSync)(partDir)) continue;
-    const parts = (0, import_node_fs8.readdirSync)(partDir).filter((name) => name.endsWith(".json")).map((name) => {
-      const full = (0, import_node_path7.join)(partDir, name);
-      let content;
-      try {
-        content = JSON.parse((0, import_node_fs8.readFileSync)(full, "utf8"));
-      } catch {
-        content = {};
-      }
-      return { name, content };
-    }).sort((a, b) => a.name.localeCompare(b.name));
-    const text = parts.filter((p) => p.content.type === "text" && typeof p.content.text === "string").map((p) => p.content.text).filter((s) => s.length > 0).join("\n");
-    if (!text) continue;
-    out.interleaved.push({
-      role: message.role === "user" ? "user" : "agent",
-      text
-    });
+    const role = lineRole(parsed);
+    const turnText = extractText(parsed);
+    if (!role || !turnText) continue;
+    if (role === "user") {
+      out.interleaved.push({ role: "user", text: turnText });
+    } else {
+      out.interleaved.push({ role: "agent", text: turnText });
+    }
   }
   return out;
 }
 
-// src/harnesses/opencode/hooks/kb-capture.ts
+// src/harnesses/cursor/hooks/kb-capture.ts
 var HARD_DEADLINE_MS = 1e3;
-var EXPORT_TIMEOUT_MS = 3e4;
 var PACKAGE_TAG = "[ai-knowledge-base]";
+var CURSOR_EVENT_TO_HOOK = {
+  stop: "Stop",
+  sessionEnd: "SessionEnd",
+  preCompact: "PreCompact"
+};
 async function main() {
   if (process.env["KB_BUILDER_INTERNAL"] === "1") return;
   const deadline = setTimeout(() => process.exit(0), HARD_DEADLINE_MS);
@@ -20484,35 +20471,34 @@ async function main() {
     payload = JSON.parse(raw);
   } catch (err) {
     const paths2 = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("opencode:kb-capture", "parse", err, paths2.logsDir);
+    appendHookDiagnostic("cursor:kb-capture", "parse", err, paths2.logsDir);
     return;
   }
-  const startCwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : process.cwd();
+  const workspaceRoots = payload["workspace_roots"];
+  const startCwd = Array.isArray(workspaceRoots) && typeof workspaceRoots[0] === "string" && workspaceRoots[0].length > 0 ? workspaceRoots[0] : process.cwd();
   const root2 = findRepoRoot(startCwd);
   const paths = repoPaths(root2);
+  if (!(0, import_node_fs8.existsSync)(paths.kbDir)) return;
   try {
-    const sessionId = assertValidSessionId(payload["session_id"]);
-    const storageDir = defaultOpenCodeStorageDir();
-    let transcript = parseOpenCodeTranscript(storageDir, sessionId);
-    if (transcript.interleaved.length === 0) {
-      const fromExport = exportFallback(sessionId);
-      if (fromExport) transcript = fromExport;
+    const conversationId = typeof payload["conversation_id"] === "string" ? payload["conversation_id"] : "";
+    if (!conversationId) return;
+    const sessionId = assertValidSessionId(normalizeCursorConversationId(conversationId));
+    let transcriptPath = typeof payload["transcript_path"] === "string" && payload["transcript_path"].length > 0 ? payload["transcript_path"] : process.env["CURSOR_TRANSCRIPT_PATH"];
+    if (!transcriptPath || !(0, import_node_fs8.existsSync)(transcriptPath)) {
+      const fallback = locateTranscriptByConversationId(conversationId);
+      if (fallback !== null) transcriptPath = fallback;
     }
-    if (transcript.interleaved.length === 0) return;
-    const tmpRoot = (0, import_node_fs9.mkdtempSync)((0, import_node_path8.join)((0, import_node_os2.tmpdir)(), "kb-opencode-"));
-    const transcriptFile = (0, import_node_path8.join)(tmpRoot, "transcript.json");
-    (0, import_node_fs9.writeFileSync)(transcriptFile, JSON.stringify(transcript));
-    const parser = (text) => JSON.parse(text);
+    const hookEvent = typeof payload["hook_event_name"] === "string" ? CURSOR_EVENT_TO_HOOK[payload["hook_event_name"]] ?? payload["hook_event_name"] : void 0;
     const input = {
       session_id: sessionId,
-      transcript_path: transcriptFile,
-      hook_event_name: "Stop",
-      ...typeof payload["cwd"] === "string" ? { cwd: payload["cwd"] } : {}
+      ...transcriptPath ? { transcript_path: transcriptPath } : {},
+      ...hookEvent ? { hook_event_name: hookEvent } : {},
+      cwd: startCwd
     };
     process.stderr.write("\u{1F4F8} Capture: Saving session transcript\u2026\n");
     const result = await captureSession(input, {
       sessionsDir: paths.sessionsDir,
-      parseTranscript: parser
+      parseTranscript: parseCursorTranscript
     });
     if (result.status === "secret-scan-blocked") {
       process.stderr.write(
@@ -20529,41 +20515,43 @@ async function main() {
     );
   }
 }
-function exportFallback(sessionId) {
-  try {
-    (0, import_node_child_process.execFileSync)("opencode", ["--version"], { timeout: 5e3, stdio: "ignore" });
-  } catch {
-    return null;
+function locateTranscriptByConversationId(conversationId) {
+  const projectsRoot = (0, import_node_path7.join)((0, import_node_os.homedir)(), ".cursor", "projects");
+  if (!(0, import_node_fs8.existsSync)(projectsRoot)) return null;
+  let newest = null;
+  for (const projectDir of (0, import_node_fs8.readdirSync)(projectsRoot)) {
+    const transcriptsDir = (0, import_node_path7.join)(projectsRoot, projectDir, "agent-transcripts");
+    if (!(0, import_node_fs8.existsSync)(transcriptsDir)) continue;
+    newest = findNewestMatching(transcriptsDir, conversationId, newest);
   }
-  const run = (0, import_node_child_process.spawnSync)("opencode", ["export", sessionId], {
-    timeout: EXPORT_TIMEOUT_MS,
-    encoding: "utf8"
-  });
-  if (run.status !== 0 || !run.stdout) return null;
-  let exported;
-  try {
-    exported = JSON.parse(run.stdout);
-  } catch {
-    return null;
-  }
-  return shapeExportedTranscript(exported);
+  return newest?.path ?? null;
 }
-function shapeExportedTranscript(json2) {
-  const out = { interleaved: [] };
-  if (!json2 || typeof json2 !== "object") return out;
-  const session = json2;
-  if (!Array.isArray(session.messages)) return out;
-  const sorted = [...session.messages].sort(
-    (a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0)
-  );
-  for (const message of sorted) {
-    if (message.role !== "user" && message.role !== "assistant") continue;
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    const text = parts.filter((p) => p.type === "text" && typeof p.text === "string").map((p) => p.text).filter((s) => s.length > 0).join("\n");
-    if (!text) continue;
-    out.interleaved.push({ role: message.role === "user" ? "user" : "agent", text });
+function findNewestMatching(dir, conversationId, current) {
+  let newest = current;
+  let entries;
+  try {
+    entries = (0, import_node_fs8.readdirSync)(dir);
+  } catch {
+    return newest;
   }
-  return out;
+  for (const name of entries) {
+    const full = (0, import_node_path7.join)(dir, name);
+    let st;
+    try {
+      st = (0, import_node_fs8.statSync)(full);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      newest = findNewestMatching(full, conversationId, newest);
+      continue;
+    }
+    if (!name.includes(conversationId) || !name.endsWith(".jsonl")) continue;
+    if (!newest || st.mtimeMs > newest.mtime) {
+      newest = { path: full, mtime: st.mtimeMs };
+    }
+  }
+  return newest;
 }
 function readStdin() {
   return new Promise((resolve2) => {
@@ -20583,7 +20571,7 @@ function readStdin() {
 void main().catch((err) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("opencode:kb-capture", "uncaught", err, paths.logsDir);
+    appendHookDiagnostic("cursor:kb-capture", "uncaught", err, paths.logsDir);
   } catch {
   }
   process.exit(0);

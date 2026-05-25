@@ -20474,7 +20474,10 @@ async function main() {
 `
       );
     } else {
-      process.stderr.write("\u{1F4BE} Capture: Session transcript saved.\n");
+      process.stdout.write(
+        `${JSON.stringify({ systemMessage: "\u{1F4BE} Capture: Session transcript saved." })}
+`
+      );
     }
   } catch (err) {
     process.stderr.write(

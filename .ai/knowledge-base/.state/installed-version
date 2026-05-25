@@ -1,9 +1,11 @@
 {
   "schema_version": 1,
   "package": "@e0ipso/ai-knowledge-base",
-  "version": "0.19.0",
-  "installed_at": "2026-05-23T20:59:03.919Z",
+  "version": "0.22.0",
+  "installed_at": "2026-05-25T21:20:59.508Z",
   "harnesses": [
-    "claude"
+    "claude",
+    "cursor",
+    "opencode"
   ]
 }

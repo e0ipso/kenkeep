@@ -3567,7 +3567,7 @@ var require_gray_matter = __commonJS({
   }
 });
 
-// src/harnesses/claude/hooks/kb-session-start.ts
+// src/harnesses/cursor/hooks/kb-session-start.ts
 init_cjs_shims();
 var import_node_fs7 = require("fs");
 var import_node_path8 = require("path");
@@ -10761,7 +10761,7 @@ function loadFile(file) {
   return result.data;
 }
 
-// src/harnesses/claude/hooks/kb-session-start.ts
+// src/harnesses/cursor/hooks/kb-session-start.ts
 var PACKAGE_TAG = "[ai-knowledge-base]";
 var HARD_DEADLINE_MS = 1e3;
 async function main() {
@@ -10775,11 +10775,12 @@ async function main() {
       input = JSON.parse(raw);
     } catch (err) {
       const paths2 = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic("claude:kb-session-start", "parse", err, paths2.logsDir);
+      appendHookDiagnostic("cursor:kb-session-start", "parse", err, paths2.logsDir);
       input = {};
     }
   }
-  const startCwd = typeof input.cwd === "string" && input.cwd.length > 0 ? input.cwd : process.cwd();
+  const roots = input.workspace_roots;
+  const startCwd = Array.isArray(roots) && typeof roots[0] === "string" && roots[0].length > 0 ? roots[0] : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
   if (!(0, import_node_fs7.existsSync)(paths.installedVersionFile)) return;
@@ -10794,17 +10795,19 @@ async function main() {
       lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold
     });
-    const statusLine = result.nudged ? `\u{1F6A8} KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kb-curate` : `\u{1F4CB} KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
-    process.stdout.write(
-      `${JSON.stringify({
-        systemMessage: statusLine,
-        hookSpecificOutput: {
-          hookEventName: "SessionStart",
-          additionalContext: result.additionalContext
-        }
-      })}
+    process.stdout.write(JSON.stringify({ additional_context: result.additionalContext }));
+    if (result.nudged) {
+      process.stderr.write(
+        `\u{1F6A8} KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kb-curate
 `
-    );
+      );
+    } else {
+      process.stderr.write(
+        `\u{1F4CB} KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)
+`
+      );
+    }
+    process.stderr.write("\u{1F9E0} Index: Knowledge base loaded.\n");
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}
@@ -10830,7 +10833,7 @@ function readStdin() {
 void main().catch((err) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("claude:kb-session-start", "uncaught", err, paths.logsDir);
+    appendHookDiagnostic("cursor:kb-session-start", "uncaught", err, paths.logsDir);
   } catch {
   }
   process.exit(0);

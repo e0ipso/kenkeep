@@ -3,7 +3,7 @@ name: kb-curate
 description: Curate pending session logs into knowledge-base nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the ai-knowledge-base primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 5 -->
 
 # kb-curate
 
@@ -73,6 +73,36 @@ HARNESS=$(node /tmp/kb-detect-harness.mjs --hint <hint>)
 
 `$HARNESS` is not consumed by `curate-dedup` or `node write`, but `index rebuild` requires it.
 
+## 0. Extract proposals from pending session logs
+
+For each session log with `proposal_status: pending`, extract proposals inline in this session before curation begins.
+
+1. **List pending session logs.** Use `Glob` (or `ls`) to list `.ai/knowledge-base/_sessions/*.md`. For each file, `Read` its frontmatter and filter for `proposal_status: pending`. Sort by `captured_at` ascending.
+
+2. **Short-circuit.** If none are pending, proceed to Step 1 with no message.
+
+3. **Load the extraction prompt.** Read `.ai/knowledge-base/.config/prompts/proposal-extract.md` first (per-repo override). If that file does not exist, read the bundled package template at `templates/prompts/proposal-extract.md` (relative to the installed npm package). Follow the prompt's extraction rules — do not embed a copy here.
+
+4. **Process each pending log sequentially** (in `captured_at` order). Failure on one log does not abort the rest:
+   a. Read the file in full.
+   b. Extract the transcript section (content between `## Transcript` and `## Proposal`).
+   c. Apply the extraction rules from the prompt to produce a JSON object matching `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has `{ kind, tags, title, summary, body, confidence }`.
+   d. Pipe the JSON into the CLI primitive:
+
+      ```bash
+      echo '<json>' | npx @e0ipso/ai-knowledge-base@latest session-log update-proposals <path> --status done
+      ```
+
+   e. On failure (malformed output, schema violation, or CLI error), call:
+
+      ```bash
+      npx @e0ipso/ai-knowledge-base@latest session-log update-proposals <path> --status failed --error "<message>"
+      ```
+
+5. **Report summary** when at least one log was processed: `Extracted proposals from N session(s) (M failed).` (replace N and M with actual counts).
+
+6. **Proceed** to Step 1.
+
 ## 1. Enumerate pending session logs
 
 Use `Glob` (or `ls`) to list `.ai/knowledge-base/sessions/*.md`. For each file, `Read` its frontmatter and keep only those whose:
@@ -90,9 +120,84 @@ No pending session logs to curate. Nothing to do.
 
 ## 2. Read sessions in batches of ≤10 and draft curator actions
 
-The cost of giving you too much context at once is bad output quality, so batch the work. Process up to **10 sessions per batch**.
+The cost of giving you too much context at once is bad output quality, so batch the work. Process up to **10 sessions per batch**. Partition the sorted pending sessions into consecutive batches of ≤10 (preserving `captured_at` order). Number the batches `1..N`.
 
-For each batch:
+Mint the run id once, up-front — both the per-batch tmpfiles and Step 3's proposals file reuse it:
+
+```bash
+RUN_ID=$(uuidgen 2>/dev/null || date -u +"curate-%Y%m%dT%H%M%SZ")
+mkdir -p .ai/knowledge-base/_logs/curator
+```
+
+### Choose path: parallel sub-agent dispatch vs. inline sequential
+
+Probe your own tool surface. If your runtime exposes a primitive that delegates work to a sub-agent / task running in a separate context window, take the **parallel path**. Otherwise, take the **inline path**. Do not invent a primitive that does not exist — if your only "delegation" option is recursion into yourself or shelling out to a host binary in `-p` mode, that does **not** count, and you take the inline path.
+
+The probe and the fallback are the same decision: make it once here, before issuing any batch, so you cannot end up in a half-state.
+
+#### Parallel path (preferred when available)
+
+For each batch `N` of ≤10 sessions, dispatch one sub-agent. Cap concurrency at **5 sub-agents per orchestrator turn**: if `N > 5`, issue the first 5 in one assistant turn, await all results, then issue the next wave. Rationale: the reference runtime documents a ~10 concurrent ceiling; staying at 5 leaves headroom for the host's own tool calls and bounds rate-limit risk.
+
+Before dispatching batch `N`, append one JSON line to `.ai/knowledge-base/_logs/curator/${RUN_ID}__${N}.jsonl`:
+
+```bash
+N=1  # batch index
+DRAFT_PATH="$(pwd)/.ai/knowledge-base/_logs/curator/${RUN_ID}__${N}.draft.json"
+echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"issued\",\"runId\":\"${RUN_ID}\",\"batchN\":${N},\"sessions\":<count>}" \
+  >> .ai/knowledge-base/_logs/curator/${RUN_ID}__${N}.jsonl
+```
+
+`DRAFT_PATH` is **absolute** — sub-agents run in their own contexts and may not share the host's cwd.
+
+Each sub-agent receives instructions like the following (inline the rule restatement so the sub-agent does not need to re-read this file):
+
+> You are drafting curator actions for ONE batch of pending session logs.
+> - The batch contains these session files at absolute paths: `<list>`.
+> - Read every file in full. Each session's frontmatter `proposals:` block has `practice: [...]` and `map: [...]` arrays whose entries are `{ kind, tags, title, summary, body, confidence }`.
+> - For each candidate (in array order), decide one action and build a `CuratorAction` object. Use `candidate_origin = "<session_id>:<practice|map>:<index>"` (zero-based).
+> - Action rules (full headings in the parent skill's "Action rules" subsection; the one-line restatement below is sufficient for batch drafting):
+>     - **add**: candidate is genuinely new; no existing node already covers its scope. `target_node_id: null`.
+>     - **modify**: an existing node covers the same scope and the candidate refines it without negating it; verify `target_node_id` exists on disk first; rewrite the merged body in present-tense end-state (no "previously…" prose).
+>     - **contradict**: candidate directly negates an existing valid node (both cannot be true at the same scope); set `target_node_id` to the tightest-scope match.
+>     - **drop**: near-rephrasing, low-signal, general programming knowledge, change-oriented framing, or non-productive provenance signals; `target_node_id: null`, `proposed_node: null`.
+> - Hard constraints: never cross the practice/map boundary; `proposed_node` keys are exactly `title|kind|tags|summary|body|confidence|relates_to` (any other key will be rejected downstream).
+> - Write the actions as a JSON array (top-level) to the absolute path `<DRAFT_PATH>`. The file must contain exactly the JSON array, nothing else.
+> - Return the path on success.
+
+After every sub-agent returns, the **collector turn** runs entirely in the orchestrator's context:
+
+1. For each batch `N`, read its draft file and parse it as JSON.
+2. If parsing fails OR the result is not an array OR any element has unknown keys in `proposed_node` (the schema requires exactly `title|kind|tags|summary|body|confidence|relates_to`), surface to the user: `batch N produced invalid output, skipped`, append a `{"event":"invalid", ...}` line to that batch's `.jsonl`, and continue. **Never abort the run** — partial progress across surviving batches is more valuable than re-running everything.
+3. For each valid batch, append a `{"event":"validated","count":<n>}` line to its `.jsonl`, then concatenate its actions into a single in-memory array.
+4. Mint `$PROPOSALS` now (Step 3's `mktemp` is shared between paths — on the parallel path, do it here, then skip the re-mint in Step 3) and write the concatenated array to it so the rest of the skill is unchanged. A concise idiom:
+
+   ```bash
+   PROPOSALS=$(mktemp -t kb-curate-proposals.XXXXXX.json)
+   PROPOSALS="$PROPOSALS" RUN_ID="$RUN_ID" node -e "
+     const fs = require('fs'), path = require('path');
+     const dir = '.ai/knowledge-base/_logs/curator';
+     const prefix = process.env.RUN_ID + '__';
+     const files = fs.readdirSync(dir).filter(f => f.startsWith(prefix) && f.endsWith('.draft.json'));
+     const all = [];
+     for (const f of files) {
+       try {
+         const arr = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+         if (Array.isArray(arr)) all.push(...arr);
+         else process.stderr.write('batch ' + f + ' invalid: not an array\n');
+       } catch (e) { process.stderr.write('batch ' + f + ' invalid: ' + e.message + '\n'); }
+     }
+     fs.writeFileSync(process.env.PROPOSALS, JSON.stringify(all));
+   "
+   ```
+
+   Any equivalent concatenation idiom is fine; the contract is `$PROPOSALS` contains the JSON array of all surviving batches' actions, ready for Step 4.
+
+The single `curate-dedup` call in Step 4 then runs once across every surviving batch's actions — identical to today.
+
+#### Inline path (fallback)
+
+If no sub-agent dispatch primitive is available, draft sequentially in this session — the shipped behaviour. For each batch:
 
 1. `Read` every session file in the batch in full.
 2. Each session's frontmatter `proposals:` block contains `practice: [...]` and `map: [...]` arrays. Each entry has `{ kind, tags, title, summary, body, confidence }`.
@@ -207,17 +312,18 @@ The `proposed_node` object (for add/modify/contradict) has **exactly** these key
 
 Any other key in `proposed_node` will be rejected by the dedup primitive's schema validation.
 
-## 3. Mint a run id and write the proposals tmpfile
+## 3. Write the proposals tmpfile
 
-Pick a `runId` (use a UUID via `uuidgen`, or a compact timestamp like `curate-$(date -u +%Y%m%dT%H%M%SZ)`):
+`$RUN_ID` was minted at the top of Step 2 and is reused here. Mint `$SURVIVORS`, and `$PROPOSALS` if Step 2's collector did not already mint and populate it:
 
 ```bash
-RUN_ID=$(uuidgen 2>/dev/null || date -u +"curate-%Y%m%dT%H%M%SZ")
-PROPOSALS=$(mktemp -t kb-curate-proposals.XXXXXX.json)
 SURVIVORS=$(mktemp -t kb-curate-survivors.XXXXXX.json)
+# Only run the next two lines if you came through the inline path:
+PROPOSALS=$(mktemp -t kb-curate-proposals.XXXXXX.json)
+# Then Write your accumulated actions array (JSON array, top-level) to $PROPOSALS.
 ```
 
-`Write` your accumulated actions array (a JSON array, top-level) to `$PROPOSALS`. The array must validate against `CuratorOutputSchema` (an array of `CuratorAction`).
+If you came through the **parallel path**, `$PROPOSALS` already contains the concatenated actions array — skip ahead to Step 4. If you came through the **inline path**, `Write` your accumulated actions array (a JSON array, top-level) to `$PROPOSALS` now. Either way, the array must validate against `CuratorOutputSchema` (an array of `CuratorAction`).
 
 ## 4. Dedup and stamp via the primitive
 

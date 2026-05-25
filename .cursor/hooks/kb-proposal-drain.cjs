@@ -407,7 +407,7 @@ var require_mark = __commonJS({
       this.column = column;
     }
     Mark.prototype.getSnippet = function getSnippet(indent, maxLength) {
-      var head, start, tail2, end, snippet2;
+      var head, start, tail, end, snippet2;
       if (!this.buffer) return null;
       indent = indent || 4;
       maxLength = maxLength || 75;
@@ -421,18 +421,18 @@ var require_mark = __commonJS({
           break;
         }
       }
-      tail2 = "";
+      tail = "";
       end = this.position;
       while (end < this.buffer.length && "\0\r\n\x85\u2028\u2029".indexOf(this.buffer.charAt(end)) === -1) {
         end += 1;
         if (end - this.position > maxLength / 2 - 1) {
-          tail2 = " ... ";
+          tail = " ... ";
           end -= 5;
           break;
         }
       }
       snippet2 = this.buffer.slice(start, end);
-      return common3.repeat(" ", indent) + head + snippet2 + tail2 + "\n" + common3.repeat(" ", indent + this.position - start + head.length) + "^";
+      return common3.repeat(" ", indent) + head + snippet2 + tail + "\n" + common3.repeat(" ", indent + this.position - start + head.length) + "^";
     };
     Mark.prototype.toString = function toString3(compact) {
       var snippet2, where = "";
@@ -1135,7 +1135,7 @@ var require_binary = __commonJS({
       return result;
     }
     function representYamlBinary2(object) {
-      var result = "", bits = 0, idx, tail2, max = object.length, map2 = BASE64_MAP2;
+      var result = "", bits = 0, idx, tail, max = object.length, map2 = BASE64_MAP2;
       for (idx = 0; idx < max; idx++) {
         if (idx % 3 === 0 && idx) {
           result += map2[bits >> 18 & 63];
@@ -1145,18 +1145,18 @@ var require_binary = __commonJS({
         }
         bits = (bits << 8) + object[idx];
       }
-      tail2 = max % 3;
-      if (tail2 === 0) {
+      tail = max % 3;
+      if (tail === 0) {
         result += map2[bits >> 18 & 63];
         result += map2[bits >> 12 & 63];
         result += map2[bits >> 6 & 63];
         result += map2[bits & 63];
-      } else if (tail2 === 2) {
+      } else if (tail === 2) {
         result += map2[bits >> 10 & 63];
         result += map2[bits >> 4 & 63];
         result += map2[bits << 2 & 63];
         result += map2[64];
-      } else if (tail2 === 1) {
+      } else if (tail === 1) {
         result += map2[bits >> 2 & 63];
         result += map2[bits << 4 & 63];
         result += map2[64];
@@ -1343,18 +1343,18 @@ var require_regexp = __commonJS({
     function resolveJavascriptRegExp(data) {
       if (data === null) return false;
       if (data.length === 0) return false;
-      var regexp = data, tail2 = /\/([gim]*)$/.exec(data), modifiers = "";
+      var regexp = data, tail = /\/([gim]*)$/.exec(data), modifiers = "";
       if (regexp[0] === "/") {
-        if (tail2) modifiers = tail2[1];
+        if (tail) modifiers = tail[1];
         if (modifiers.length > 3) return false;
         if (regexp[regexp.length - modifiers.length - 1] !== "/") return false;
       }
       return true;
     }
     function constructJavascriptRegExp(data) {
-      var regexp = data, tail2 = /\/([gim]*)$/.exec(data), modifiers = "";
+      var regexp = data, tail = /\/([gim]*)$/.exec(data), modifiers = "";
       if (regexp[0] === "/") {
-        if (tail2) modifiers = tail2[1];
+        if (tail) modifiers = tail[1];
         regexp = regexp.slice(1, regexp.length - modifiers.length - 1);
       }
       return new RegExp(regexp, modifiers);
@@ -5784,7 +5784,7 @@ var require_split2 = __commonJS({
   }
 });
 
-// src/harnesses/opencode/hooks/kb-proposal-drain.ts
+// src/harnesses/cursor/hooks/kb-proposal-drain.ts
 init_cjs_shims();
 var import_node_child_process6 = require("child_process");
 var import_node_fs12 = require("fs");
@@ -5938,18 +5938,18 @@ YAMLException$1.prototype.toString = function toString(compact) {
 var exception = YAMLException$1;
 function getLine(buffer, lineStart, lineEnd, position, maxLineLength) {
   var head = "";
-  var tail2 = "";
+  var tail = "";
   var maxHalfLength = Math.floor(maxLineLength / 2) - 1;
   if (position - lineStart > maxHalfLength) {
     head = " ... ";
     lineStart = position - maxHalfLength + head.length;
   }
   if (lineEnd - position > maxHalfLength) {
-    tail2 = " ...";
-    lineEnd = position + maxHalfLength - tail2.length;
+    tail = " ...";
+    lineEnd = position + maxHalfLength - tail.length;
   }
   return {
-    str: head + buffer.slice(lineStart, lineEnd).replace(/\t/g, "\u2192") + tail2,
+    str: head + buffer.slice(lineStart, lineEnd).replace(/\t/g, "\u2192") + tail,
     pos: position - lineStart + head.length
     // relative position
   };
@@ -6525,7 +6525,7 @@ function constructYamlBinary(data) {
   return new Uint8Array(result);
 }
 function representYamlBinary(object) {
-  var result = "", bits = 0, idx, tail2, max = object.length, map2 = BASE64_MAP;
+  var result = "", bits = 0, idx, tail, max = object.length, map2 = BASE64_MAP;
   for (idx = 0; idx < max; idx++) {
     if (idx % 3 === 0 && idx) {
       result += map2[bits >> 18 & 63];
@@ -6535,18 +6535,18 @@ function representYamlBinary(object) {
     }
     bits = (bits << 8) + object[idx];
   }
-  tail2 = max % 3;
-  if (tail2 === 0) {
+  tail = max % 3;
+  if (tail === 0) {
     result += map2[bits >> 18 & 63];
     result += map2[bits >> 12 & 63];
     result += map2[bits >> 6 & 63];
     result += map2[bits & 63];
-  } else if (tail2 === 2) {
+  } else if (tail === 2) {
     result += map2[bits >> 10 & 63];
     result += map2[bits >> 4 & 63];
     result += map2[bits << 2 & 63];
     result += map2[64];
-  } else if (tail2 === 1) {
+  } else if (tail === 1) {
     result += map2[bits >> 2 & 63];
     result += map2[bits << 4 & 63];
     result += map2[64];
@@ -12928,7 +12928,7 @@ function updateProposalBody(content, patch) {
   );
 }
 
-// src/harnesses/opencode/headless.ts
+// src/harnesses/cursor/headless.ts
 init_cjs_shims();
 
 // node_modules/execa/index.js
@@ -19907,7 +19907,7 @@ var {
   getCancelSignal: getCancelSignal2
 } = getIpcExport();
 
-// src/harnesses/opencode/headless.ts
+// src/harnesses/cursor/headless.ts
 var import_node_fs11 = require("fs");
 var import_node_path11 = require("path");
 var import_split22 = __toESM(require_split2(), 1);
@@ -19976,11 +19976,11 @@ function findBalancedEnd(text, start) {
   return -1;
 }
 
-// src/harnesses/opencode/opts.ts
+// src/harnesses/cursor/opts.ts
 init_cjs_shims();
-var OpenCodeHarnessOptsSchema = external_exports.object({
+var CursorHarnessOptsSchema = external_exports.object({
   model: external_exports.string().min(1).optional(),
-  agent: external_exports.string().min(1).optional()
+  agentCli: external_exports.string().min(1).optional()
 }).strict();
 function pickModelChoice(settings, role) {
   switch (role) {
@@ -19992,25 +19992,31 @@ function pickModelChoice(settings, role) {
       return settings.bootstrapModel;
   }
 }
-function buildOpenCodeHarnessOpts(settings, role) {
+function buildCursorHarnessOpts(settings, role) {
   const choice = pickModelChoice(settings, role);
-  if (!choice || choice.harness !== "opencode") return {};
-  const out = {};
-  if (choice.model !== void 0) out["model"] = choice.model;
-  if (choice.agent !== void 0) out["agent"] = choice.agent;
+  if (!choice || choice.harness !== "cursor") return {};
+  const out = { model: choice.model };
   return out;
 }
 
-// src/harnesses/opencode/headless.ts
+// src/harnesses/cursor/headless.ts
 var DEFAULT_TIMEOUT_MS2 = 6e4;
-async function runHeadlessOpenCode(promptBody, stdin, schema2, opts = {}) {
+var PROMPT_STDIN_THRESHOLD = 64 * 1024;
+async function runHeadlessCursor(promptBody, stdin, schema2, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS2;
-  const harnessOpts = OpenCodeHarnessOptsSchema.parse(opts.harnessOpts ?? {});
-  const cli = opts.opencodeCli ?? "opencode";
-  const args = ["run", "--format", "json"];
+  const harnessOpts = CursorHarnessOptsSchema.parse(opts.harnessOpts ?? {});
+  const agentCli = harnessOpts.agentCli ?? "agent";
+  const usePromptStdin = stdin.length > 0 || Buffer.byteLength(promptBody, "utf8") > PROMPT_STDIN_THRESHOLD;
+  const args = ["-p", "--output-format", "json"];
   if (harnessOpts.model) args.push("--model", harnessOpts.model);
-  if (harnessOpts.agent) args.push("--agent", harnessOpts.agent);
-  args.push(promptBody);
+  let childStdin;
+  if (usePromptStdin) {
+    args.push("-");
+    childStdin = stdin.length > 0 ? stdin : promptBody;
+  } else {
+    args.push(promptBody);
+    childStdin = "";
+  }
   const env = {
     ...opts.env ?? process.env,
     KB_BUILDER_INTERNAL: "1"
@@ -20020,11 +20026,10 @@ async function runHeadlessOpenCode(promptBody, stdin, schema2, opts = {}) {
     (0, import_node_fs11.mkdirSync)((0, import_node_path11.dirname)(opts.logFile), { recursive: true });
     logStream = (0, import_node_fs11.createWriteStream)(opts.logFile, { encoding: "utf8", flags: "a" });
   }
-  let currentAssistantMessageId;
-  let accumulatedText = "";
+  let lastResultText;
   const stderrChunks = [];
-  const proc = execa(cli, args, {
-    input: stdin,
+  const proc = execa(agentCli, args, {
+    input: childStdin,
     env,
     timeout: timeoutMs,
     stdin: "pipe",
@@ -20057,20 +20062,8 @@ async function runHeadlessOpenCode(promptBody, stdin, schema2, opts = {}) {
     } catch {
       return;
     }
-    if (parsed.type === "session.created") {
-      currentAssistantMessageId = void 0;
-      accumulatedText = "";
-    }
-    if (parsed.type === "message.part.updated") {
-      const messageId = parsed.properties?.messageID;
-      const part = parsed.properties?.part;
-      if (messageId && part && part.type === "text" && typeof part.text === "string") {
-        if (messageId !== currentAssistantMessageId) {
-          currentAssistantMessageId = messageId;
-          accumulatedText = "";
-        }
-        accumulatedText += part.text;
-      }
+    if (parsed.type === "result" && typeof parsed.result === "string") {
+      lastResultText = parsed.result;
     }
     if (opts.onMessage) opts.onMessage(parsed);
   });
@@ -20088,49 +20081,43 @@ async function runHeadlessOpenCode(promptBody, stdin, schema2, opts = {}) {
     }
   }
   if (runResult.timedOut) {
-    throw new Error(
-      `opencode subprocess timed out after ${timeoutMs}ms; accumulated text: ${truncate(accumulatedText, 200)}`
-    );
+    throw new Error(`${agentCli} subprocess timed out after ${timeoutMs}ms`);
   }
   if (runResult.failed || runResult.exitCode !== void 0 && runResult.exitCode !== 0) {
-    const stderrTail = tail(stderrChunks.join(""), 2e3);
+    const stderrTail = tailString(stderrChunks.join(""), 2e3);
     const suffix = stderrTail ? `: ${stderrTail}` : "";
     throw new Error(
-      `opencode subprocess failed (exit code ${String(runResult.exitCode ?? "unknown")})${suffix}`
+      `${agentCli} subprocess failed (exit code ${String(runResult.exitCode ?? "unknown")})${suffix}`
     );
   }
-  if (accumulatedText.length === 0) {
-    throw new Error("opencode subprocess produced no assistant text");
+  if (typeof lastResultText !== "string") {
+    throw new Error(`${agentCli} subprocess produced no result event`);
   }
   let parsedJson;
   try {
-    parsedJson = JSON.parse(extractJsonPayload(accumulatedText));
+    parsedJson = JSON.parse(extractJsonPayload(lastResultText));
   } catch (parseError) {
     throw new Error(
-      `Could not parse opencode output as JSON: ${truncate(accumulatedText, 200)} (${parseError instanceof Error ? parseError.message : String(parseError)})`
+      `curator output was not valid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. See ${opts.logFile ?? "log"} for the full transcript.`
     );
   }
   const validated = schema2.safeParse(parsedJson);
   if (!validated.success) {
-    throw new Error(`opencode output did not match schema: ${validated.error.message}`);
+    throw new Error(`proposal output did not match schema: ${validated.error.message}`);
   }
   return validated.data;
 }
-function tail(s, maxChars) {
+function tailString(s, maxChars) {
   if (s.length <= maxChars) return s.trim();
   return s.slice(s.length - maxChars).trim();
 }
-function truncate(s, maxChars) {
-  if (s.length <= maxChars) return s;
-  return `${s.slice(0, maxChars)}...`;
-}
 
-// src/harnesses/opencode/hooks/kb-proposal-drain.ts
+// src/harnesses/cursor/hooks/kb-proposal-drain.ts
 var PACKAGE_TAG = "[ai-knowledge-base]";
 async function main() {
   if (process.env["KB_BUILDER_INTERNAL"] === "1") return;
   try {
-    (0, import_node_child_process6.execFileSync)("which", ["opencode"], { stdio: "ignore" });
+    (0, import_node_child_process6.execFileSync)("which", ["agent"], { stdio: "ignore" });
   } catch {
     return;
   }
@@ -20141,11 +20128,12 @@ async function main() {
       input = JSON.parse(raw);
     } catch (err) {
       const paths2 = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic("opencode:kb-proposal-drain", "parse", err, paths2.logsDir);
+      appendHookDiagnostic("cursor:kb-proposal-drain", "parse", err, paths2.logsDir);
       input = {};
     }
   }
-  const startCwd = typeof input.cwd === "string" && input.cwd.length > 0 ? input.cwd : process.cwd();
+  const roots = input.workspace_roots;
+  const startCwd = Array.isArray(roots) && typeof roots[0] === "string" && roots[0].length > 0 ? roots[0] : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
   if (!(0, import_node_fs12.existsSync)(paths.installedVersionFile)) return;
@@ -20155,7 +20143,7 @@ async function main() {
 `);
     return;
   }
-  const runner = async (prompt, stdin, schema2, opts) => runHeadlessOpenCode(prompt, stdin, schema2, opts);
+  const runner = async (prompt, stdin, schema2, opts) => runHeadlessCursor(prompt, stdin, schema2, opts);
   try {
     process.stderr.write("\u{1F504} Proposals: Draining queue\u2026\n");
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
@@ -20163,7 +20151,7 @@ async function main() {
       paths,
       promptTemplate,
       runner,
-      harnessOpts: buildOpenCodeHarnessOpts(settings, "proposal")
+      harnessOpts: buildCursorHarnessOpts(settings, "proposal")
     });
     if (summary.status === "locked") {
       process.stderr.write("\u{1F512} Proposals: Drain already in progress.\n");
@@ -20209,7 +20197,7 @@ function readStdin() {
 void main().catch((err) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("opencode:kb-proposal-drain", "uncaught", err, paths.logsDir);
+    appendHookDiagnostic("cursor:kb-proposal-drain", "uncaught", err, paths.logsDir);
   } catch {
   }
   process.exit(0);

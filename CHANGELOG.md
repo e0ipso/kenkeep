@@ -1,3 +1,15 @@
+## [0.24.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.23.0...v0.24.0) (2026-05-25)
+
+### ⚠ BREAKING CHANGES
+
+* session log frontmatter no longer
+includes `secret_scan_status`. Existing logs with that
+field will fail schema validation.
+
+### Features
+
+* remove secretlint integration ([9943721](https://github.com/e0ipso/ai-knowledge-base/commit/994372106c857686191cc48ab2bb90084aa68a51))
+
 ## [0.23.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.22.0...v0.23.0) (2026-05-25)
 
 ### Features

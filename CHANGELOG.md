@@ -1,3 +1,9 @@
+## [0.21.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.20.0...v0.21.0) (2026-05-25)
+
+### Features
+
+* always show KB queue counts at start ([47f971e](https://github.com/e0ipso/ai-knowledge-base/commit/47f971eda98872c671c8fe9cd40b4e77e79a0b9f))
+
 ## [0.20.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.19.1...v0.20.0) (2026-05-24)
 
 ### Features

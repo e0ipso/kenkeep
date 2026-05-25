@@ -70,7 +70,11 @@ async function main(): Promise<void> {
     );
     if (result.nudged) {
       process.stderr.write(
-        `⚠️  ${result.pendingSessions} pending session log(s) -- run /kb-curate to process them.\n`
+        `🔔 KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kb-curate\n`
+      );
+    } else {
+      process.stderr.write(
+        `📋 KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)\n`
       );
     }
     process.stderr.write('🧠 Index: Knowledge base loaded.\n');

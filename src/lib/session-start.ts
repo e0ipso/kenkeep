@@ -33,6 +33,8 @@ export interface SessionStartResult {
   indexStale: boolean;
   /** Number of pending session logs (proposal done, not curated). */
   pendingSessions: number;
+  /** Total candidate proposals across pending sessions. */
+  candidateCount: number;
 }
 
 /**
@@ -130,6 +132,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     indexMissing: missing,
     indexStale,
     pendingSessions: pending,
+    candidateCount: summary.candidateCount,
   };
 }
 

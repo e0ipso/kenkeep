@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:aba1971cb536ef1eef3e995701483802bfccf9e493afc9139db1b63fe61270ab'
-node_count: 45
+nodes_hash: 'sha256:b8ce3cf7074e2b8fd17821a77f05ba5a4a730c17da3f7a53be294aefb2c29634'
+node_count: 46
 ---
 # KB Graph
 
-Total nodes: 45
+Total nodes: 46
 
 ## map-ai-knowledge-base-package
 
@@ -110,6 +110,12 @@ Total nodes: 45
 - **tags:** harness, adapter, claude, codex, cursor, opencode, architecture
 - **relates_to:** map-claude-harness, map-codex-harness, map-cursor-harness-adapter, map-opencode-harness, practice-explicit-harness-flag-outside-claude
 - **derived_from:** README.md, docs/installation.md, docs/internals/architecture.md, CONTRIBUTING.md
+
+## map-hook-build-pipeline-ts-to-cjs
+
+- **kind:** map
+- **title:** Hook build pipeline: TS sources to deployed .cjs bundles
+- **tags:** build, hooks, tsup, templates, cjs
 
 ## map-index-md
 

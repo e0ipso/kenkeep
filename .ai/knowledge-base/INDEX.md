@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:aba1971cb536ef1eef3e995701483802bfccf9e493afc9139db1b63fe61270ab'
-node_count: 45
+nodes_hash: 'sha256:b8ce3cf7074e2b8fd17821a77f05ba5a4a730c17da3f7a53be294aefb2c29634'
+node_count: 46
 ---
 # KB Index
 
-_45 nodes • ~16372 estimated tokens_
+_46 nodes • ~16792 estimated tokens_
 
 
 ## Conventions (how we build)
@@ -56,11 +56,12 @@ _45 nodes • ~16372 estimated tokens_
 - **Proposal candidate schema** [`nodes/map/map-proposal-candidate-schema.md`] #schema #proposal #candidate
 - **.state/state.json (lock + nudge state)** [`nodes/map/map-state-file.md`] #state #lock #schema
 - **@e0ipso/ai-knowledge-base npm package** [`nodes/map/map-ai-knowledge-base-package.md`] #overview #package #npm
+- **Hook build pipeline: TS sources to deployed .cjs bundles** [`nodes/map/map-hook-build-pipeline-ts-to-cjs.md`] #build #hooks #tsup #templates #cjs
 
 ## By topic
 
+- **#hooks (9):** kb-proposal-drain.mjs (extraction hook), kb-capture.mjs (capture hook), CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child, kb-session-start.mjs (consume hook), Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Hook build pipeline: TS sources to deployed .cjs bundles
 - **#schema (9):** Curator action (add / modify / contradict / drop), Node frontmatter schema, Conflict files (conflicts/<run-id>-<n>.md), .state/bootstrap-state.json (per-doc hash cache), nodes/ directory and the two kinds, Session log (_sessions/*.md), Proposal candidate schema, .state/state.json (lock + nudge state), Strict schema-version bump policy: no migrators
-- **#hooks (8):** kb-proposal-drain.mjs (extraction hook), kb-capture.mjs (capture hook), CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child, kb-session-start.mjs (consume hook), Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter
 - **#harness (7):** Harness adapter, Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Don't translate event names across harness adapters, Pass --harness explicitly outside an active harness session
 - **#bootstrap (6):** bootstrap-incremental (CLI), /kb-bootstrap skill, .state/bootstrap-state.json (per-doc hash cache), Bootstrap never overwrites existing nodes, Bootstrap is supervised and judgmental, not exhaustive, Default bootstrap nodes to confidence: medium
 - **#curator (4):** Curator action (add / modify / contradict / drop), Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions, Curator drops non-productive and change-oriented candidates
@@ -96,8 +97,10 @@ _45 nodes • ~16372 estimated tokens_
 - **#async (1):** kb-proposal-drain.mjs (extraction hook)
 - **#audit (1):** Bump the prompt's Version comment on every behavior change
 - **#breaking-change (1):** Strict schema-version bump policy: no migrators
+- **#build (1):** Hook build pipeline: TS sources to deployed .cjs bundles
 - **#candidate (1):** Proposal candidate schema
 - **#ci (1):** Don't run curate or bootstrap-incremental in CI
+- **#cjs (1):** Hook build pipeline: TS sources to deployed .cjs bundles
 - **#confidence (1):** Default bootstrap nodes to confidence: medium
 - **#config (1):** config.yaml (project settings)
 - **#consume (1):** kb-session-start.mjs (consume hook)
@@ -140,5 +143,7 @@ _45 nodes • ~16372 estimated tokens_
 - **#sha256 (1):** nodes_hash algorithm
 - **#style (1):** No em dashes anywhere in the project
 - **#supervision (1):** Bootstrap is supervised and judgmental, not exhaustive
+- **#templates (1):** Hook build pipeline: TS sources to deployed .cjs bundles
 - **#testing (1):** Determinism contract for INDEX/GRAPH generation
+- **#tsup (1):** Hook build pipeline: TS sources to deployed .cjs bundles
 - **#writing (1):** No em dashes anywhere in the project

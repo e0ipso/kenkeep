@@ -1,17 +1,16 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:b8ce3cf7074e2b8fd17821a77f05ba5a4a730c17da3f7a53be294aefb2c29634'
-node_count: 46
+nodes_hash: 'sha256:f762a78a1f9840316a01d667da41c1662bb9a8af091495a854e5f127c109f78b'
+node_count: 45
 ---
 # KB Index
 
-_46 nodes • ~16792 estimated tokens_
+_45 nodes • ~16332 estimated tokens_
 
 
 ## Conventions (how we build)
 - **CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child** [`nodes/practice/practice-recursion-guard-kb-builder-internal.md`] #recursion #hooks #env
 - **Bootstrap never overwrites existing nodes** [`nodes/practice/practice-bootstrap-never-overwrites-existing-nodes.md`] #bootstrap #nodes #safety
-- **Capture runs secretlint and aborts on loader failure** [`nodes/practice/practice-capture-runs-secretlint-with-redaction.md`] #secretlint #capture #security #redaction
 - **Curator never auto-resolves contradictions** [`nodes/practice/practice-curator-never-auto-resolves-contradictions.md`] #curator #conflicts #human-in-the-loop
 - **Bootstrap is supervised and judgmental, not exhaustive** [`nodes/practice/practice-bootstrap-is-supervised-and-judgmental.md`] #bootstrap #supervision #sampling
 - **Determinism contract for INDEX/GRAPH generation** [`nodes/practice/practice-determinism-contract.md`] #determinism #indexing #testing
@@ -41,9 +40,9 @@ _46 nodes • ~16792 estimated tokens_
 - **GRAPH.md** [`nodes/map/map-graph-md.md`] #graph #deterministic
 - **Node frontmatter schema** [`nodes/map/map-node-frontmatter.md`] #schema #frontmatter #nodes
 - **Conflict files (conflicts/<run-id>-<n>.md)** [`nodes/map/map-conflict-files.md`] #conflicts #curator #schema
-- **kb-capture.mjs (capture hook)** [`nodes/map/map-capture-hook.md`] #hooks #capture #secretlint #redaction
 - **.state/bootstrap-state.json (per-doc hash cache)** [`nodes/map/map-bootstrap-state-file.md`] #bootstrap #hash #state #schema
 - **config.yaml (project settings)** [`nodes/map/map-config-yaml.md`] #config #settings #model
+- **kb-capture.mjs (capture hook)** [`nodes/map/map-capture-hook.md`] #hooks #capture
 - **kb-session-start.mjs (consume hook)** [`nodes/map/map-session-start-hook.md`] #hooks #consume #sessionstart #index
 - **nodes/ directory and the two kinds** [`nodes/map/map-nodes-directory.md`] #nodes #practice #map #frontmatter #schema
 - **Session log (_sessions/*.md)** [`nodes/map/map-session-log.md`] #session #capture #state #schema
@@ -60,7 +59,7 @@ _46 nodes • ~16792 estimated tokens_
 
 ## By topic
 
-- **#hooks (9):** kb-proposal-drain.mjs (extraction hook), kb-capture.mjs (capture hook), CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child, kb-session-start.mjs (consume hook), Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Hook build pipeline: TS sources to deployed .cjs bundles
+- **#hooks (9):** kb-proposal-drain.mjs (extraction hook), CLI launchers must set KB_BUILDER_INTERNAL=1 on the harness child, kb-capture.mjs (capture hook), kb-session-start.mjs (consume hook), Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Hook build pipeline: TS sources to deployed .cjs bundles
 - **#schema (9):** Curator action (add / modify / contradict / drop), Node frontmatter schema, Conflict files (conflicts/<run-id>-<n>.md), .state/bootstrap-state.json (per-doc hash cache), nodes/ directory and the two kinds, Session log (_sessions/*.md), Proposal candidate schema, .state/state.json (lock + nudge state), Strict schema-version bump policy: no migrators
 - **#harness (7):** Harness adapter, Claude Code harness adapter, Codex CLI harness adapter, Cursor harness adapter, OpenCode harness adapter, Don't translate event names across harness adapters, Pass --harness explicitly outside an active harness session
 - **#bootstrap (6):** bootstrap-incremental (CLI), /kb-bootstrap skill, .state/bootstrap-state.json (per-doc hash cache), Bootstrap never overwrites existing nodes, Bootstrap is supervised and judgmental, not exhaustive, Default bootstrap nodes to confidence: medium
@@ -69,7 +68,6 @@ _46 nodes • ~16792 estimated tokens_
 - **#nodes (4):** Node frontmatter schema, nodes/ directory and the two kinds, Bootstrap never overwrites existing nodes, Node naming: id, filename, and kind must agree
 - **#state (4):** .state/bootstrap-state.json (per-doc hash cache), Session log (_sessions/*.md), .ai/knowledge-base/ directory layout, .state/state.json (lock + nudge state)
 - **#adapter (3):** Harness adapter, Don't translate event names across harness adapters, Adapters never reach into each other's directories
-- **#capture (3):** kb-capture.mjs (capture hook), Session log (_sessions/*.md), Capture runs secretlint and aborts on loader failure
 - **#cli (3):** bootstrap-incremental (CLI), curate (CLI command + /kb-curate skill), Pass --harness explicitly outside an active harness session
 - **#codex (3):** Harness adapter, Codex CLI harness adapter, Pass --harness explicitly outside an active harness session
 - **#cursor (3):** Harness adapter, Cursor harness adapter, Pass --harness explicitly outside an active harness session
@@ -77,6 +75,7 @@ _46 nodes • ~16792 estimated tokens_
 - **#prompts (3):** Local prompt overrides fall back to bundled templates, Bump the prompt's Version comment on every behavior change, Curator drops non-productive and change-oriented candidates
 - **#architecture (2):** Harness adapter, Adapters never reach into each other's directories
 - **#calibration (2):** Curator drops non-productive and change-oriented candidates, Default bootstrap nodes to confidence: medium
+- **#capture (2):** kb-capture.mjs (capture hook), Session log (_sessions/*.md)
 - **#claude (2):** Harness adapter, Claude Code harness adapter
 - **#conflicts (2):** Conflict files (conflicts/<run-id>-<n>.md), Curator never auto-resolves contradictions
 - **#frontmatter (2):** Node frontmatter schema, nodes/ directory and the two kinds
@@ -84,8 +83,6 @@ _46 nodes • ~16792 estimated tokens_
 - **#hash (2):** .state/bootstrap-state.json (per-doc hash cache), nodes_hash algorithm
 - **#index (2):** INDEX.md, kb-session-start.mjs (consume hook)
 - **#llm (2):** kb-proposal-drain.mjs (extraction hook), Don't run curate or bootstrap-incremental in CI
-- **#redaction (2):** kb-capture.mjs (capture hook), Capture runs secretlint and aborts on loader failure
-- **#secretlint (2):** kb-capture.mjs (capture hook), Capture runs secretlint and aborts on loader failure
 - **#sessionstart (2):** INDEX.md, kb-session-start.mjs (consume hook)
 - **#skill (2):** curate (CLI command + /kb-curate skill), /kb-bootstrap skill
 - **#versioning (2):** Bump the prompt's Version comment on every behavior change, Strict schema-version bump policy: no migrators
@@ -137,7 +134,6 @@ _46 nodes • ~16792 estimated tokens_
 - **#safety (1):** Bootstrap never overwrites existing nodes
 - **#sampling (1):** Bootstrap is supervised and judgmental, not exhaustive
 - **#scope (1):** init does not install husky/lint-staged/secretlint/commitlint
-- **#security (1):** Capture runs secretlint and aborts on loader failure
 - **#session (1):** Session log (_sessions/*.md)
 - **#settings (1):** config.yaml (project settings)
 - **#sha256 (1):** nodes_hash algorithm

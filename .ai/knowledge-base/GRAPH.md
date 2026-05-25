@@ -1,11 +1,11 @@
 ---
 schema_version: 1
-nodes_hash: 'sha256:b8ce3cf7074e2b8fd17821a77f05ba5a4a730c17da3f7a53be294aefb2c29634'
-node_count: 46
+nodes_hash: 'sha256:f762a78a1f9840316a01d667da41c1662bb9a8af091495a854e5f127c109f78b'
+node_count: 45
 ---
 # KB Graph
 
-Total nodes: 46
+Total nodes: 45
 
 ## map-ai-knowledge-base-package
 
@@ -35,8 +35,8 @@ Total nodes: 46
 
 - **kind:** map
 - **title:** kb-capture.mjs (capture hook)
-- **tags:** hooks, capture, secretlint, redaction
-- **relates_to:** map-session-log, practice-capture-runs-secretlint-with-redaction, practice-recursion-guard-kb-builder-internal
+- **tags:** hooks, capture
+- **relates_to:** map-session-log, practice-recursion-guard-kb-builder-internal
 - **derived_from:** docs/internals/hooks.md, docs/internals/architecture.md
 
 ## map-claude-harness
@@ -245,14 +245,6 @@ Total nodes: 46
 - **relates_to:** practice-local-prompt-overrides-fall-back-to-bundled
 - **derived_from:** docs/internals/prompts.md, docs/troubleshooting.md, CONTRIBUTING.md
 
-## practice-capture-runs-secretlint-with-redaction
-
-- **kind:** practice
-- **title:** Capture runs secretlint and aborts on loader failure
-- **tags:** secretlint, capture, security, redaction
-- **relates_to:** map-capture-hook
-- **derived_from:** docs/internals/hooks.md, docs/installation.md, CONTRIBUTING.md
-
 ## practice-confidence-default-medium-bootstrap
 
 - **kind:** practice
@@ -313,7 +305,6 @@ Total nodes: 46
 - **kind:** practice
 - **title:** init does not install husky/lint-staged/secretlint/commitlint
 - **tags:** init, install, scope
-- **relates_to:** practice-capture-runs-secretlint-with-redaction, practice-pre-commit-stages-index-graph
 - **derived_from:** docs/installation.md, docs/cli-reference.md
 
 ## practice-lint-naming-rules

@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 
   program
     .command('doctor')
-    .description('Verify hook installation, secret-scan availability, and schema validity.')
+    .description('Verify hook installation and schema validity.')
     .option('-v, --verbose', 'show extra diagnostics', false)
     .action(async (opts: { verbose: boolean }) => {
       const code = await runDoctor({ ...opts, harness: program.opts().harness });

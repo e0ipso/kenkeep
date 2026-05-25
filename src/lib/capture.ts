@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import type { SecretScanResult, SecretScanner } from './secret-scan.js';
-import { scanAndRedact } from './secret-scan.js';
 import type { CaptureTrigger } from './schemas.js';
 import {
   buildSessionLogFilename,
@@ -26,12 +24,11 @@ export interface HookInput {
   cwd?: string;
 }
 
-export type CaptureStatus = 'written' | 'no-content' | 'no-transcript' | 'secret-scan-blocked';
+export type CaptureStatus = 'written' | 'no-content' | 'no-transcript';
 
 export interface CaptureResult {
   status: CaptureStatus;
   sessionLogPath?: string;
-  secretScanStatus?: SecretScanResult['status'];
   error?: string;
 }
 
@@ -39,8 +36,6 @@ export interface CaptureContext {
   sessionsDir: string;
   parseTranscript: TranscriptParser;
   now?: () => Date;
-  scan?: SecretScanner;
-  scanTimeoutMs?: number;
 }
 
 const HOOK_EVENT_TO_TRIGGER: Record<string, CaptureTrigger> = {
@@ -78,16 +73,6 @@ export async function captureSession(
 
   const hash = `sha256:${createHash('sha256').update(slice).digest('hex')}`;
 
-  const scan = ctx.scan ?? ((text: string) => scanAndRedact(text, ctx.scanTimeoutMs ?? 1000));
-  const scanResult = await scan(slice);
-  if (scanResult.status === 'blocked') {
-    return {
-      status: 'secret-scan-blocked',
-      secretScanStatus: 'blocked',
-      ...(scanResult.error !== undefined ? { error: scanResult.error } : {}),
-    };
-  }
-
   const capturedAt = (ctx.now?.() ?? new Date()).toISOString();
   const sessionId = input.session_id;
   // Stop fires per-turn, so a multi-turn session would otherwise produce one
@@ -117,8 +102,7 @@ export async function captureSession(
     capturedBy: trigger,
     capturedAt,
     transcriptHash: hash,
-    secretScanStatus: scanResult.status,
-    body: scanResult.status === 'redacted' ? scanResult.redactedText : slice,
+    body: slice,
     ...(isCursory
       ? {
           proposalStatus: 'skipped' as const,
@@ -133,6 +117,5 @@ export async function captureSession(
   return {
     status: 'written',
     sessionLogPath,
-    secretScanStatus: scanResult.status,
   };
 }

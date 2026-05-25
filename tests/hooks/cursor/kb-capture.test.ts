@@ -74,7 +74,7 @@ describe('cursor kb-capture hook (spawned)', () => {
     expect(readdirSessions(sandbox)).toHaveLength(0);
   });
 
-  it('writes a session log from transcript_path when secretlint finds nothing', async () => {
+  it('writes a session log from transcript_path', async () => {
     const transcriptPath = join(sandbox, 'fixture.jsonl');
     writeFileSync(
       transcriptPath,

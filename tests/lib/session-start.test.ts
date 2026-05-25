@@ -59,7 +59,6 @@ function seedSession(
     proposal_completed_at: capturedAt,
     proposal_error: null,
     proposal_log: null,
-    secret_scan_status: 'clean',
     proposals: { practice, map },
   };
   if (processed) fm['curator_processed_at'] = '2026-05-11T11:00:00Z';

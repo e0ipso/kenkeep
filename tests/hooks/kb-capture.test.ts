@@ -100,7 +100,7 @@ describe('kb-capture hook (spawned)', () => {
     expect(sessionLogs(sandbox)).toHaveLength(0);
   });
 
-  it('writes a session log when secretlint finds no secrets', async () => {
+  it('writes a session log on successful capture', async () => {
     const transcript = join(sandbox, 't.jsonl');
     writeTranscript(transcript);
 

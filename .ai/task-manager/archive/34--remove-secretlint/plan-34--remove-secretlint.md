@@ -178,3 +178,53 @@ Files modified:
 - The `secretlint` package remains available on npm for any end-user who wants to add it to their own pre-commit hooks. This plan only removes it from the ai-knowledge-base library itself.
 - The session log frontmatter field removal is intentionally breaking. Since the feature was never functional in production (every invocation was blocked), there are no valid historical logs to preserve.
 - After this change, the bundled `.cjs` hook files will shrink by ~5000+ lines, improving load time and reducing the attack surface of the distributed artifacts.
+
+## Execution Blueprint
+
+### Dependency Diagram
+
+```mermaid
+graph TD
+    001[Task 01: Remove secretlint source and deps] --> 002[Task 02: Update tests]
+    001 --> 003[Task 03: Update KB and documentation]
+```
+
+**Validation Gates:**
+- Reference: `/config/hooks/POST_PHASE.md`
+
+### Phase 1: Source Removal ✅
+**Parallel Tasks:**
+- ✔️ Task 01: Remove secretlint from source, hooks, and dependencies
+
+### Phase 2: Verification and Documentation ✅
+**Parallel Tasks:**
+- ✔️ Task 02: Update tests after secretlint removal (depends on: 01)
+- ✔️ Task 03: Update KB nodes and project documentation (depends on: 01)
+
+### Post-phase Actions
+- Run `npm run build && npm test && npm run typecheck && npm run lint`
+- Smoke-test capture hook manually and confirm a session log is written
+- Verify `grep -r "secretlint" dist/ templates/` returns zero matches
+- Verify `npm ls @secretlint/core` shows the package is not installed
+
+### Execution Summary
+- Total Phases: 2
+- Total Tasks: 3
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-25
+
+### Results
+Removed the built-in secretlint integration entirely. Capture and memory ingestion now write content directly without scanning. Deleted `src/lib/secret-scan.ts`, four `@secretlint/*` dependencies, `.secretlintrc.json`, and the obsolete KB practice node. Hook bundles shrank from ~5000+ lines of inlined secretlint to lean zod/js-yaml-only bundles. All 403 tests pass (3 doctor tests fail in this environment due to Node 20 vs required Node 22, unrelated to this change).
+
+### Noteworthy Events
+- Skill helper scripts (`find-task-manager-root.cjs`, `validate-plan-blueprint.cjs`) were not present under `.claude/skills/`; execution proceeded manually from plan artifacts.
+- Removed a dangling `relates_to` edge to non-existent `practice-pre-commit-stages-index-graph` while updating KB nodes.
+- Capture hook smoke test confirmed session logs are written successfully after removal.
+
+### Necessary follow-ups
+- Run `npx @e0ipso/ai-knowledge-base init --upgrade` in dogfood repos to refresh installed hook templates.
+- Consider updating `docs/` references to secretlint capture behavior in a follow-up (plan scoped KB nodes + AGENTS.md + README only).
+

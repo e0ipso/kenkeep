@@ -1,14 +1,13 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dump } from 'js-yaml';
-import type { CaptureTrigger, SecretScanStatus } from './schemas.js';
+import type { CaptureTrigger } from './schemas.js';
 
 export interface SessionLogInput {
   sessionId: string;
   capturedBy: CaptureTrigger;
   capturedAt: string;
   transcriptHash: string;
-  secretScanStatus: SecretScanStatus;
   body: string;
   proposalStatus?: 'pending' | 'skipped';
   proposalError?: string | null;
@@ -29,7 +28,6 @@ export function renderSessionLog(input: SessionLogInput): string {
     proposal_completed_at: proposalCompletedAt,
     proposal_error: proposalError,
     proposal_log: null,
-    secret_scan_status: input.secretScanStatus,
     proposals: { practice: [], map: [] },
   };
   const yaml = dump(frontmatter, { lineWidth: -1, noRefs: true, sortKeys: false });

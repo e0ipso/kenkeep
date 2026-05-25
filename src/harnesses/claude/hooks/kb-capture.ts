@@ -1,7 +1,7 @@
 /**
  * Stop / SessionEnd / PreCompact hook for the Claude Code adapter.
  *
- * Runs the deterministic transcript capture pipeline: secret-scan redact,
+ * Runs the deterministic transcript capture pipeline: parse transcript,
  * write session log, append to queue. Must complete within 1 second on any
  * trigger; if the wall-clock deadline elapses, exits silently to avoid
  * blocking session shutdown.
@@ -56,19 +56,13 @@ async function main(): Promise<void> {
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
     process.stderr.write('📸 Capture: Saving session transcript…\n');
-    const result = await captureSession(input, {
+    await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseTranscriptJsonl,
     });
-    if (result.status === 'secret-scan-blocked') {
-      process.stderr.write(
-        `${PACKAGE_TAG} secret scan blocked transcript capture: ${result.error ?? 'unknown error'}\n`
-      );
-    } else {
-      process.stdout.write(
-        `${JSON.stringify({ systemMessage: '💾 Capture: Session transcript saved.' })}\n`
-      );
-    }
+    process.stdout.write(
+      `${JSON.stringify({ systemMessage: '💾 Capture: Session transcript saved.' })}\n`
+    );
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

@@ -72,17 +72,11 @@ async function main(): Promise<void> {
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
     process.stderr.write('📸 Capture: Saving session transcript…\n');
-    const result = await captureSession(input, {
+    await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parser,
     });
-    if (result.status === 'secret-scan-blocked') {
-      process.stderr.write(
-        `${PACKAGE_TAG} secret scan blocked transcript capture: ${result.error ?? 'unknown error'}\n`
-      );
-    } else {
-      process.stderr.write('💾 Capture: Session transcript saved.\n');
-    }
+    process.stderr.write('💾 Capture: Session transcript saved.\n');
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

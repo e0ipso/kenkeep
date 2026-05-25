@@ -3,9 +3,6 @@ import { z } from 'zod';
 export const CaptureTriggerSchema = z.enum(['stop', 'session_end', 'pre_compact', 'manual']);
 export type CaptureTrigger = z.infer<typeof CaptureTriggerSchema>;
 
-export const SecretScanStatusSchema = z.enum(['clean', 'redacted', 'blocked', 'skipped']);
-export type SecretScanStatus = z.infer<typeof SecretScanStatusSchema>;
-
 export const ProposalStatusSchema = z.enum(['pending', 'done', 'failed']);
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
 
@@ -19,7 +16,6 @@ export const SessionLogFrontmatterSchema = z.object({
   proposal_completed_at: z.string().nullable(),
   proposal_error: z.string().nullable(),
   proposal_log: z.string().nullable(),
-  secret_scan_status: SecretScanStatusSchema,
   proposals: z.object({
     practice: z.array(z.unknown()),
     map: z.array(z.unknown()),

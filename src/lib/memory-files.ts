@@ -8,7 +8,6 @@ import { atomicWriteJson } from './fs-atomic.js';
 import { log } from './log.js';
 import { MemoryLedgerSchema, type MemoryLedger } from './schemas.js';
 import type { RepoPaths } from './paths.js';
-import { scanAndRedact } from './secret-scan.js';
 import type { HarnessAdapter } from '../harnesses/types.js';
 
 /**
@@ -73,8 +72,6 @@ export interface CurateMemoryCandidate {
 export interface MemoryDiscoveryContext {
   adapter: HarnessAdapter;
   paths: RepoPaths;
-  /** Optional override used by tests to swap the secret scanner. */
-  scanText?: (text: string) => Promise<{ status: string; redactedText: string }>;
 }
 
 export interface MemoryDiscoveryResult {
@@ -113,8 +110,7 @@ export function loadMemoryLedger(paths: RepoPaths): MemoryLedger {
 
 /**
  * Asks the active adapter for its auto-memory files, reads + hashes each,
- * consults the per-user ledger to skip unchanged entries, runs remaining
- * content through secretlint redaction, and returns:
+ * consults the per-user ledger to skip unchanged entries, and returns:
  *
  *   - `bootstrapCandidates`: `DocCandidateFile`-shaped entries the bootstrap
  *     pipeline interleaves with markdown candidates. `relPath` is the synthetic
@@ -135,7 +131,6 @@ export async function discoverHarnessMemoryFiles(
   const pendingUpdates = new Map<string, string>();
   const bootstrapCandidates: DocCandidateFile[] = [];
   const curateCandidates: CurateMemoryCandidate[] = [];
-  const scanner = ctx.scanText ?? scanAndRedact;
 
   for (const iri of iris) {
     if (seen.has(iri)) continue;
@@ -167,24 +162,19 @@ export async function discoverHarnessMemoryFiles(
     const sha256 = createHash('sha256').update(buf).digest('hex');
     if (ledger.entries[iri]?.sha256 === sha256) continue;
 
-    const scan = await scanner(buf.toString('utf8'));
-    if (scan.status === 'blocked') {
-      log.error(`secretlint blocked memory file ${iri}; omitting.`);
-      continue;
-    }
-
+    const content = buf.toString('utf8');
     pendingUpdates.set(iri, sha256);
     bootstrapCandidates.push({
       relPath: `memory://${basename(absPath)}`,
       absPath,
       sha256,
-      content: scan.redactedText,
+      content,
     });
     curateCandidates.push({
       source: 'harness-memory',
       iri,
       sha256,
-      content: scan.redactedText,
+      content,
     });
   }
 

@@ -62,7 +62,6 @@ function seedSession(
     proposal_completed_at: capturedAt,
     proposal_error: null,
     proposal_log: `_logs/proposal/${sessionId}.jsonl`,
-    secret_scan_status: 'clean',
     proposals: { practice, map },
   };
   const body = matter.stringify('## Proposal\n', fm);
@@ -124,7 +123,6 @@ describe('listPendingSessions', () => {
       proposal_completed_at: null,
       proposal_error: null,
       proposal_log: null,
-      secret_scan_status: 'clean',
       proposals: { practice: [], map: [] },
     };
     writeFileSync(join(harness.sessionsDir, 'session-pending.md'), matter.stringify('# x', fm));

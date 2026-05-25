@@ -148,7 +148,7 @@ describe('init', () => {
     expect(existsSync(join(sandbox, '.opencode/kb-hooks/kb-capture.cjs'))).toBe(true);
   });
 
-  it('succeeds in a repo without a package.json and produces no husky/secretlint artefacts', async () => {
+  it('succeeds in a repo without a package.json and produces no husky artefacts', async () => {
     expect(existsSync(join(sandbox, 'package.json'))).toBe(false);
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
@@ -158,7 +158,6 @@ describe('init', () => {
     expect(existsSync(join(sandbox, '.claude'))).toBe(true);
 
     expect(existsSync(join(sandbox, '.husky'))).toBe(false);
-    expect(existsSync(join(sandbox, '.secretlintrc.json'))).toBe(false);
     expect(existsSync(join(sandbox, '.lintstagedrc.cjs'))).toBe(false);
     expect(existsSync(join(sandbox, 'package.json'))).toBe(false);
   });

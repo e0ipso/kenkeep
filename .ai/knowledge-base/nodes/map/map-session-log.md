@@ -32,7 +32,6 @@ proposal_status: pending | done | failed | skipped
 proposal_completed_at: <ISO> | null
 proposal_error: <string> | null
 proposal_log: _logs/proposal/<id>__<ts>.jsonl | null
-secret_scan_status: clean | redacted | blocked | skipped
 topics: [string, ...]
 proposals:
   practice: [<ProposalCandidate>, ...]
@@ -43,6 +42,6 @@ curator_run_id: <UUID>
 
 Lifecycle:
 
-1. `kb-capture.mjs` writes the file with `proposal_status: pending` and the redacted transcript slice.
+1. `kb-capture.mjs` writes the file with `proposal_status: pending` and the transcript slice.
 2. `kb-proposal-drain.mjs` (next `SessionStart`, async) processes pending entries, populates `proposals.{practice,map}` and `topics`, and sets `proposal_status: done` (or `failed` with `proposal_error`).
 3. `curate` reads `done` logs, applies actions to `nodes/`, sets `curator_processed_at` and `curator_run_id`.

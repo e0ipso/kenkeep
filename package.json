@@ -55,8 +55,7 @@
     "security:fix": "npm audit fix",
     "security:fix-force": "npm audit fix --force",
     "prepublishOnly": "npm run build",
-    "prepare": "husky",
-    "secretlint": "secretlint --secretlintignore .gitignore \"**/*\""
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": [
@@ -65,15 +64,9 @@
     ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"
-    ],
-    "*": [
-      "secretlint"
     ]
   },
   "dependencies": {
-    "@secretlint/config-loader": "^13.0.0",
-    "@secretlint/core": "^13.0.0",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.0",
     "commander": "^13.0.0",
     "execa": "^9.5.2",
     "gray-matter": "^4.0.3",
@@ -82,7 +75,6 @@
     "picocolors": "^1.1.1",
     "picomatch": "^4.0.4",
     "proper-lockfile": "^4.1.2",
-    "secretlint": "^13.0.0",
     "smol-toml": "^1.6.1",
     "split2": "^4.2.0",
     "zod": "^3.24.1"
@@ -90,7 +82,6 @@
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -109,7 +100,6 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
     "prettier": "^3.4.2",
-    "secretlint": "^13.0.0",
     "semantic-release": "^25.0.2",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3",

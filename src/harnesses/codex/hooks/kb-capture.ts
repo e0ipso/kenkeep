@@ -4,7 +4,7 @@
  * Codex's hook payload does not carry a `transcript_path`; instead the CLI
  * writes rollout JSONL files under `${CODEX_HOME ?? ~/.codex}/sessions/
  * YYYY/MM/DD/rollout-*-<session_id>.jsonl`. This script locates the rollout,
- * runs it through the shared capture pipeline (parse, secret-scan, write
+ * runs it through the shared capture pipeline (parse, write
  * session log), and exits 0 unconditionally so a stalled lookup never blocks
  * the Codex Stop event.
  */
@@ -61,17 +61,11 @@ async function main(): Promise<void> {
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
     process.stderr.write('📸 Capture: Saving session transcript…\n');
-    const result = await captureSession(input, {
+    await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseCodexTranscript,
     });
-    if (result.status === 'secret-scan-blocked') {
-      process.stderr.write(
-        `${PACKAGE_TAG} secret scan blocked transcript capture: ${result.error ?? 'unknown error'}\n`
-      );
-    } else {
-      process.stderr.write('💾 Capture: Session transcript saved.\n');
-    }
+    process.stderr.write('💾 Capture: Session transcript saved.\n');
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

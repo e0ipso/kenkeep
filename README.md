@@ -75,7 +75,7 @@ Two cooperating pieces. The **builder tool** (this npm package) installs hooks u
 - **PR-reviewable.** Every new knowledge entry is a markdown file in a commit. Reviewers see additions in `git diff`, comment in PRs, and reject with `git restore` — the same workflow as code.
 - **No daemons, no external services.** No background worker, no local HTTP port, no vector DB, no second runtime. Just Node and git. Works in airgapped environments and behind corporate proxies without extra plumbing.
 - **Lintable, named-node graph.** Nodes have stable ids and structured `relates_to` / `depends_on` edges. `npx @e0ipso/ai-knowledge-base lint` catches dangling references, naming drift, tag near-duplicates, and orphans before review.
-- **Ingests harness auto-memory.** `bootstrap` and `curate` also pull in the host harness's persisted memory files (Claude Code today; other adapters as they ship the feature) — distilled facts the user already curated outside the repo land alongside the markdown survey, behind the same secretlint and human review.
+- **Ingests harness auto-memory.** `bootstrap` and `curate` also pull in the host harness's persisted memory files (Claude Code today; other adapters as they ship the feature) — distilled facts the user already curated outside the repo land alongside the markdown survey, subject to human review.
 - **Plain markdown outlives the tool.** If this package disappears tomorrow, you still have a tree of human-readable markdown files in your repo. Nothing is locked inside a database file or vector index format.
 
 **Pick the one that matches your situation**

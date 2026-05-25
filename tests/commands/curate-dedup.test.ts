@@ -60,7 +60,6 @@ function seedPendingSession(sessionsDir: string, sessionId: string, capturedAt: 
     proposal_completed_at: capturedAt,
     proposal_error: null,
     proposal_log: `_logs/proposal/${sessionId}.jsonl`,
-    secret_scan_status: 'clean',
     proposals: { practice: [], map: [] },
   };
   const body = matter.stringify('## Proposal\n', fm);
@@ -204,7 +203,6 @@ describe('runCurateDedupCommand (session stamps)', () => {
       proposal_completed_at: null,
       proposal_error: null,
       proposal_log: null,
-      secret_scan_status: 'clean',
       proposals: { practice: [], map: [] },
     };
     writeFileSync(

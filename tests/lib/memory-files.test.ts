@@ -34,27 +34,6 @@ function stubAdapter(iris: string[]): HarnessAdapter {
   } as unknown as HarnessAdapter;
 }
 
-function passThroughScanner(): (
-  text: string
-) => Promise<{ status: string; redactedText: string }> {
-  return async text => ({ status: 'clean', redactedText: text });
-}
-
-function blockingScanner(): (
-  text: string
-) => Promise<{ status: string; redactedText: string }> {
-  return async () => ({ status: 'blocked', redactedText: '' });
-}
-
-function redactingScanner(): (
-  text: string
-) => Promise<{ status: string; redactedText: string }> {
-  return async text => ({
-    status: 'redacted',
-    redactedText: text.replace(/ghp_[A-Za-z0-9]+/g, '[REDACTED:github-token]'),
-  });
-}
-
 describe('discoverHarnessMemoryFiles', () => {
   let box: Sandbox;
   beforeEach(() => {
@@ -68,7 +47,6 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toEqual([]);
     expect(result.curateCandidates).toEqual([]);
@@ -79,11 +57,9 @@ describe('discoverHarnessMemoryFiles', () => {
   it('skips files whose sha256 matches the ledger (unchanged) and reprocesses on hash change', async () => {
     const iri = writeMemoryFile(box, 'memory_a.md', 'original body\n');
 
-    // First run: ingests + writes ledger entry on success.
     let result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toHaveLength(1);
     await result.commit('run-1', true);
@@ -91,21 +67,17 @@ describe('discoverHarnessMemoryFiles', () => {
     const firstSha = firstLedger.entries[iri].sha256;
     expect(typeof firstSha).toBe('string');
 
-    // Second run, unchanged content: zero candidates.
     result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toEqual([]);
     expect(result.curateCandidates).toEqual([]);
 
-    // Third run, body modified: re-emits and updates ledger sha.
     writeFileSync(join(box.memoryDir, 'memory_a.md'), 'updated body\n', 'utf8');
     result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toHaveLength(1);
     await result.commit('run-3', true);
@@ -119,11 +91,9 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([missing]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toEqual([]);
     await result.commit('run-1', true);
-    // No ledger entry should be written for files we never saw.
     expect(() => readFileSync(box.paths.memoryLedgerFile, 'utf8')).toThrow();
   });
 
@@ -132,37 +102,21 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri, iri, iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toHaveLength(1);
     expect(result.curateCandidates).toHaveLength(1);
   });
 
-  it('omits secretlint-blocked files and does not record them in the ledger', async () => {
-    const iri = writeMemoryFile(box, 'memory_dirty.md', 'contains sensitive secret\n');
+  it('passes file content through as-is', async () => {
+    const body = 'contains sensitive secret\n';
+    const iri = writeMemoryFile(box, 'memory_dirty.md', body);
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: blockingScanner(),
-    });
-    expect(result.bootstrapCandidates).toEqual([]);
-    expect(result.curateCandidates).toEqual([]);
-    await result.commit('run-1', true);
-    expect(() => readFileSync(box.paths.memoryLedgerFile, 'utf8')).toThrow();
-  });
-
-  it('passes secretlint-redacted content downstream (no raw secret)', async () => {
-    const fakeToken = 'ghp_FAKETOKENVALUE0000000000';
-    const iri = writeMemoryFile(box, 'memory_token.md', `note: ${fakeToken} (rotate me)\n`);
-    const result = await discoverHarnessMemoryFiles({
-      adapter: stubAdapter([iri]),
-      paths: box.paths,
-      scanText: redactingScanner(),
     });
     expect(result.bootstrapCandidates).toHaveLength(1);
-    expect(result.bootstrapCandidates[0]!.content).not.toContain(fakeToken);
-    expect(result.bootstrapCandidates[0]!.content).toContain('[REDACTED:github-token]');
-    expect(result.curateCandidates[0]!.content).toContain('[REDACTED:github-token]');
+    expect(result.bootstrapCandidates[0]!.content).toBe(body);
+    expect(result.curateCandidates[0]!.content).toBe(body);
   });
 
   it('treats a malformed ledger as empty and overwrites it on the next successful commit', async () => {
@@ -171,7 +125,6 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toHaveLength(1);
     await result.commit('run-1', true);
@@ -185,7 +138,6 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toHaveLength(1);
     await result.commit('run-1', false);
@@ -197,7 +149,6 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([iri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates[0]!.relPath).toBe('memory://user_role.md');
     expect(result.curateCandidates[0]!.source).toBe('harness-memory');
@@ -209,7 +160,6 @@ describe('discoverHarnessMemoryFiles', () => {
     const result = await discoverHarnessMemoryFiles({
       adapter: stubAdapter([httpIri]),
       paths: box.paths,
-      scanText: passThroughScanner(),
     });
     expect(result.bootstrapCandidates).toEqual([]);
   });

@@ -122,7 +122,7 @@ describe('codex kb-capture hook (spawned)', () => {
     expect(sessionLogs(sandbox)).toHaveLength(0);
   });
 
-  it('writes a session log from the dated rollout when secretlint finds nothing', async () => {
+  it('writes a session log from the dated rollout', async () => {
     const dir = todayUtcDir(codexHome);
     writeRollout(join(dir, `rollout-2026-05-15T10-00-00-${HOOK_SESS}.jsonl`), HOOK_SESS);
 
@@ -142,7 +142,6 @@ describe('codex kb-capture hook (spawned)', () => {
     expect(log).toContain(`session_id: ${HOOK_SESS}`);
     expect(log).toContain('captured_by: stop');
     expect(log).toMatch(/transcript_hash: sha256:[0-9a-f]{64}/);
-    expect(log).toContain('secret_scan_status: clean');
   });
 
   it('exits 0 when no rollout matches the session_id', async () => {

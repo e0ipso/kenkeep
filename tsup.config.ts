@@ -94,7 +94,7 @@ const configs = [
     // Hooks ship as compiled, self-contained .cjs files. The .cjs
     // extension forces CommonJS regardless of the consumer's
     // package.json `type` field. CJS is the natural format here
-    // because the bundled runtime deps (zod, js-yaml, @secretlint/*,
+    // because the bundled runtime deps (zod, js-yaml,
     // proper-lockfile, etc.) are CJS-native and call `require()`
     // internally; bundling them into an ESM `.mjs` would require a
     // `createRequire` shim to satisfy those calls. `noExternal`

@@ -1,10 +1,12 @@
 import matter from 'gray-matter';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ZodSchema } from 'zod';
 import { ProposalOutputSchema } from './schemas.js';
 import lockfile from 'proper-lockfile';
-import { packageTemplatesDir, type RepoPaths } from './paths.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths, type RepoPaths } from './paths.js';
+import { resolveSettings, type EffectiveSettings } from './settings.js';
 import { STATE_LOCK_OPTIONS } from './state.js';
 import { compactStamp } from './time.js';
 
@@ -255,4 +257,57 @@ export function loadProposalPrompt(promptsDir: string): string | null {
   const bundled = join(packageTemplatesDir(), 'prompts/proposal-extract.md');
   if (existsSync(bundled)) return readFileSync(bundled, 'utf8');
   return null;
+}
+
+export interface ProposalDrainOpts {
+  binaryName: string;
+  startCwd: string;
+  runner: ProposalRunner;
+  buildHarnessOpts: (settings: EffectiveSettings) => Record<string, unknown>;
+  harnessTag: string;
+}
+
+export async function runProposalDrain(opts: ProposalDrainOpts): Promise<void> {
+  const PACKAGE_TAG = '[ai-knowledge-base]';
+  try {
+    execFileSync('which', [opts.binaryName], { stdio: 'ignore' });
+  } catch {
+    return;
+  }
+
+  const root = findRepoRoot(opts.startCwd);
+  const paths = repoPaths(root);
+  if (!existsSync(paths.installedVersionFile)) return;
+
+  const promptTemplate = loadProposalPrompt(paths.promptsDir);
+  if (!promptTemplate) {
+    process.stderr.write(`${PACKAGE_TAG} proposal prompt template not found; skipping drain\n`);
+    return;
+  }
+
+  try {
+    process.stderr.write('🔄 KB Proposals: Draining queue…\n');
+    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
+    const summary = await drainProposalQueue({
+      paths,
+      promptTemplate,
+      runner: opts.runner,
+      harnessOpts: opts.buildHarnessOpts(settings),
+    });
+    if (summary.status === 'locked') {
+      process.stderr.write('🔒 KB Proposals: Drain already in progress.\n');
+      return;
+    }
+    const failed = summary.processed.filter(p => p.status === 'failed');
+    if (failed.length > 0) {
+      process.stderr.write(
+        `${PACKAGE_TAG} proposal drain: ${failed.length} session(s) failed; see _logs/proposal/\n`
+      );
+    }
+    process.stderr.write('📬 KB Proposals: Queue drained.\n');
+  } catch (err) {
+    process.stderr.write(
+      `${PACKAGE_TAG} proposal drain error: ${err instanceof Error ? err.message : String(err)}\n`
+    );
+  }
 }

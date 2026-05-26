@@ -3,15 +3,10 @@
  *
  * Increments a session counter on every fire; runs lint every N sessions.
  */
-import { existsSync } from 'node:fs';
 import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
-import { runLint } from '../../../lib/lint.js';
-import { lintStateFile, readLintState, writeLintState } from '../../../lib/lint-state.js';
+import { runLintTick } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { resolveSettings } from '../../../lib/settings.js';
 import { readStdin } from '../../../lib/stdin.js';
-
-const PACKAGE_TAG = '[ai-knowledge-base]';
 
 async function main(): Promise<void> {
   if (process.env['KB_BUILDER_INTERNAL'] === '1') return;
@@ -32,37 +27,7 @@ async function main(): Promise<void> {
     Array.isArray(roots) && typeof roots[0] === 'string' && roots[0].length > 0
       ? (roots[0] as string)
       : process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
-  if (!existsSync(paths.installedVersionFile)) return;
-
-  try {
-    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-    const stateFile = lintStateFile(paths.stateDir);
-    const state = readLintState(stateFile);
-    const threshold = settings.lintEveryNSessions;
-    const nextCount = state.sessions_since_last_lint + 1;
-
-    if (nextCount < threshold) {
-      writeLintState(stateFile, { ...state, sessions_since_last_lint: nextCount });
-      return;
-    }
-
-    process.stderr.write('🔍 KB Lint: Running knowledge base lint…\n');
-    const result = runLint({ nodesDir: paths.nodesDir });
-    writeLintState(stateFile, {
-      schema_version: 1,
-      sessions_since_last_lint: 0,
-      last_lint_at: new Date().toISOString(),
-      last_errors: result.errors.length,
-      last_findings: result.findings.length,
-    });
-    process.stderr.write('🧹 KB Lint: Knowledge base lint complete.\n');
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} lint tick error: ${err instanceof Error ? err.message : String(err)}\n`
-    );
-  }
+  await runLintTick(startCwd, 'cursor:kb-lint-tick');
 }
 
 

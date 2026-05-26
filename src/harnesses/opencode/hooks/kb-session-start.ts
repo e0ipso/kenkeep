@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
-import { buildSessionStartContext } from '../../../lib/session-start.js';
+import { buildNudgeContent, buildSessionStartContext } from '../../../lib/session-start.js';
 import { lintStateFile } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { resolveSettings } from '../../../lib/settings.js';
@@ -60,35 +60,11 @@ async function main(): Promise<void> {
       lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold,
     });
-    const statusLine = result.nudged
-      ? `🚨 KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kb-curate`
-      : `📋 KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
-    let content = statusLine + '\n\n' + result.additionalContext;
-    if (result.nudged) {
-      const box =
-        '┌──────────────────────────────────────┐\n' +
-        '│ 🚨 KB curation is overdue            │\n' +
-        '│ Run /kb-curate to process them.      │\n' +
-        '└──────────────────────────────────────┘\n' +
-        `${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
-      content +=
-        '\n> IMPORTANT: After completing your response, append the following block ' +
-        'verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> ' +
-        box.split('\n').join('\n> ') +
-        '\n> ```\n';
-    }
+    const { statusLine, content } = buildNudgeContent(result);
     const target = join(root, '.opencode', 'AGENTS.md');
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, `${AGENTS_HEADER}${content}`);
-    if (result.nudged) {
-      process.stderr.write(
-        `🚨 KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kb-curate\n`
-      );
-    } else {
-      process.stderr.write(
-        `📋 KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)\n`
-      );
-    }
+    process.stderr.write(`${statusLine}\n`);
     process.stderr.write('🧠 KB Index: Knowledge base loaded.\n');
   } catch (err) {
     process.stderr.write(

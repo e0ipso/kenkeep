@@ -236,3 +236,24 @@ export function countPendingSessions(sessionsDir: string): number {
   return summarizePendingSessions(sessionsDir).pending;
 }
 
+export function buildNudgeContent(result: SessionStartResult): { statusLine: string; content: string } {
+  const statusLine = result.nudged
+    ? `🚨 KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kb-curate`
+    : `📋 KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+  let content = statusLine + '\n\n' + result.additionalContext;
+  if (result.nudged) {
+    const box =
+      '┌──────────────────────────────────────┐\n' +
+      '│ 🚨 KB curation is overdue            │\n' +
+      '│ Run /kb-curate to process them.      │\n' +
+      '└──────────────────────────────────────┘\n' +
+      `${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
+    content +=
+      '\n> IMPORTANT: After completing your response, append the following block ' +
+      'verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> ' +
+      box.split('\n').join('\n> ') +
+      '\n> ```\n';
+  }
+  return { statusLine, content };
+}
+

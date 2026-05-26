@@ -127,19 +127,20 @@ export async function runHeadlessClaude<T>(
   opts: HeadlessRunOptions = {}
 ): Promise<T> {
   const finalResult = await runHeadlessClaudeRaw(promptBody, stdin, opts);
+  const role = opts.role ?? 'headless';
 
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(extractJsonPayload(finalResult));
   } catch (parseError) {
     throw new Error(
-      `curator output was not valid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. See ${opts.logFile ?? 'log'} for the full transcript.`
+      `${role} output was not valid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. See ${opts.logFile ?? 'log'} for the full transcript.`
     );
   }
 
   const validated = schema.safeParse(parsedJson);
   if (!validated.success) {
-    throw new Error(`proposal output did not match schema: ${validated.error.message}`);
+    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
   }
   return validated.data;
 }

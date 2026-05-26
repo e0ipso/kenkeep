@@ -228,7 +228,7 @@ describe('runHeadlessClaude', () => {
     }
     expect(caught).not.toBeNull();
     const msg = caught!.message;
-    expect(msg).toMatch(/^curator output was not valid JSON:/);
+    expect(msg).toMatch(/^headless output was not valid JSON:/);
     expect(msg).toContain(logFile);
     expect(msg).toContain('for the full transcript.');
     expect(msg).not.toContain('\n');
@@ -242,7 +242,7 @@ describe('runHeadlessClaude', () => {
     } catch (err) {
       caught = err as Error;
     }
-    expect(caught?.message).toMatch(/^curator output was not valid JSON:/);
+    expect(caught?.message).toMatch(/^headless output was not valid JSON:/);
     expect(caught?.message).toContain('See log for the full transcript.');
   });
 
@@ -255,5 +255,25 @@ describe('runHeadlessClaude', () => {
       }),
     ]);
     await expect(runHeadlessClaude('p', '', Schema)).rejects.toThrow(/schema/);
+  });
+
+  it('uses the role option in JSON parse error messages', async () => {
+    mockExecaOnce([JSON.stringify({ type: 'result', is_error: false, result: '{"oops":' })]);
+    await expect(runHeadlessClaude('p', '', Schema, { role: 'curator' })).rejects.toThrow(
+      /^curator output was not valid JSON:/
+    );
+  });
+
+  it('uses the role option in schema validation error messages', async () => {
+    mockExecaOnce([
+      JSON.stringify({
+        type: 'result',
+        is_error: false,
+        result: JSON.stringify({ ok: 'yes please' }),
+      }),
+    ]);
+    await expect(
+      runHeadlessClaude('p', '', Schema, { role: 'proposal' })
+    ).rejects.toThrow(/^proposal output did not match schema:/);
   });
 });

@@ -29,10 +29,10 @@ describe('writeCursorHooksConfig', () => {
     const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
     expect(parsed.version).toBe(1);
     expect(parsed.hooks.stop).toEqual([
-      { command: 'node .cursor/hooks/kb-capture.cjs', timeout: 30 },
+      { command: 'node ./.cursor/hooks/kb-capture.cjs', timeout: 30 },
     ]);
     expect(parsed.hooks.sessionStart[0].command).toBe(
-      'node .cursor/hooks/kb-session-start.cjs'
+      'node ./.cursor/hooks/kb-session-start.cjs'
     );
   });
 
@@ -55,7 +55,7 @@ describe('writeCursorHooksConfig', () => {
     const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
     const commands = parsed.hooks.stop.map((e: { command: string }) => e.command);
     expect(commands).toContain('node ./scripts/user-stop.mjs');
-    expect(commands).toContain('node .cursor/hooks/kb-capture.cjs');
+    expect(commands).toContain('node ./.cursor/hooks/kb-capture.cjs');
   });
 
   it('scrubs previously-owned kb- hooks before rewriting', async () => {
@@ -81,7 +81,7 @@ describe('writeCursorHooksConfig', () => {
     const commands = parsed.hooks.stop.map((e: { command: string }) => e.command);
     expect(commands).not.toContain('node .cursor/hooks/kb-old-name.cjs');
     expect(commands).toContain('node ./scripts/user-stop.mjs');
-    expect(commands).toContain('node .cursor/hooks/kb-capture.cjs');
+    expect(commands).toContain('node ./.cursor/hooks/kb-capture.cjs');
   });
 
   it('readCursorHooks returns defaults when the file does not exist', () => {

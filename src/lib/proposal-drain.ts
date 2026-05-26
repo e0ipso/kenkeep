@@ -22,6 +22,7 @@ export type ProposalRunner = <T>(
     timeoutMs: number;
     logFile?: string;
     harnessOpts?: Record<string, unknown>;
+    role?: string;
   }
 ) => Promise<T>;
 
@@ -156,6 +157,7 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
     const out = await runner(prompt, '', ProposalOutputSchema, {
       timeoutMs,
       logFile,
+      role: 'proposal',
       ...(harnessOpts !== undefined ? { harnessOpts } : {}),
     });
     writeSessionLogFrontmatter(entry.file, parsed, {

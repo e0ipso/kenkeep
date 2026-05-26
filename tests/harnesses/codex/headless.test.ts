@@ -198,7 +198,7 @@ describe('runHeadlessCodex', () => {
       }),
     ]);
     await expect(runHeadlessCodex('p', '', Schema)).rejects.toThrow(
-      /curator output was not valid JSON/
+      /headless output was not valid JSON/
     );
   });
 

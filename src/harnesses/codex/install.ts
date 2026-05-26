@@ -51,15 +51,4 @@ export async function installCodex(opts: HarnessInstallOptions): Promise<void> {
   );
 }
 
-/**
- * Refreshes hook scripts and skills from the bundled templates without
- * touching `.codex/hooks.json`. The hook registration is rewritten by
- * `installCodex`, which the upgrade flow also calls.
- */
-export function refreshCodexTemplates(opts: HarnessInstallOptions): void {
-  const templates = join(opts.templatesDir, CODEX_TEMPLATE_SUBDIR);
-  const paths = codexPaths(opts.root);
-  copyTree(join(templates, 'hooks'), paths.hooksDir);
-  installSharedSkills(opts.templatesDir, paths.skillsDir);
-}
 

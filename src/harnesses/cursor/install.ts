@@ -36,6 +36,8 @@ export async function installCursor(opts: HarnessInstallOptions): Promise<void> 
     cursorHookSpecs.map(spec => ({
       event: spec.event,
       scriptPath: `.cursor/hooks/${spec.scriptPath}`,
+      ...(spec.async ? { async: true } : {}),
+      ...(spec.matcher ? { matcher: spec.matcher } : {}),
     }))
   );
 }

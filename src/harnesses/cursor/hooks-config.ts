@@ -70,7 +70,7 @@ function isOwnedCommand(command: string): boolean {
  */
 export async function writeCursorHooksConfig(
   repoRoot: string,
-  hooks: Array<{ event: HookEvent; scriptPath: string }>
+  hooks: Array<{ event: HookEvent; scriptPath: string; matcher?: string; async?: boolean }>
 ): Promise<void> {
   const paths = cursorHookConfigPaths(repoRoot);
   const existing = readCursorHooks(paths);
@@ -85,7 +85,7 @@ export async function writeCursorHooksConfig(
   for (const hook of hooks) {
     const list = (hookTable[hook.event] ??= []);
     list.push({
-      command: `node ${hook.scriptPath}`,
+      command: `node ./${hook.scriptPath}`,
       timeout: DEFAULT_HOOK_TIMEOUT_SECONDS,
     });
   }

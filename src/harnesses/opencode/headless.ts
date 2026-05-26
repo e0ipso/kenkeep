@@ -166,18 +166,19 @@ export async function runHeadlessOpenCode<T>(
     throw new Error('opencode subprocess produced no assistant text');
   }
 
+  const role = opts.role ?? 'headless';
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(extractJsonPayload(accumulatedText));
   } catch (parseError) {
     throw new Error(
-      `Could not parse opencode output as JSON: ${truncate(accumulatedText, 200)} (${parseError instanceof Error ? parseError.message : String(parseError)})`
+      `${role} output was not valid JSON: ${truncate(accumulatedText, 200)} (${parseError instanceof Error ? parseError.message : String(parseError)})`
     );
   }
 
   const validated = schema.safeParse(parsedJson);
   if (!validated.success) {
-    throw new Error(`opencode output did not match schema: ${validated.error.message}`);
+    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
   }
   return validated.data;
 }

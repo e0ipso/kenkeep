@@ -144,7 +144,7 @@ describe('runHeadlessOpenCode', () => {
       JSON.stringify({ type: 'session.idle' }),
     ]);
     await expect(runHeadlessOpenCode('hello', '', Schema)).rejects.toThrow(
-      /Could not parse opencode output as JSON/
+      /headless output was not valid JSON/
     );
   });
 

@@ -41,6 +41,12 @@ export interface HeadlessRunOptions {
   env?: NodeJS.ProcessEnv;
   onMessage?: (msg: HeadlessStreamMessage) => void;
   harnessOpts?: Record<string, unknown>;
+  /**
+   * Human-readable role label used in error messages (e.g. `'curator'`,
+   * `'proposal'`, `'bootstrap'`). When omitted each adapter falls back to
+   * a sensible default (typically `'headless'`).
+   */
+  role?: string;
 }
 
 export interface HeadlessStreamMessage {

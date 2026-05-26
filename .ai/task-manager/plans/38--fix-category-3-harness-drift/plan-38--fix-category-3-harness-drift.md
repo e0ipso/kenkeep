@@ -201,11 +201,11 @@ graph TD
 
 All tasks are independent — no inter-task dependencies.
 
-### Phase 1: Fix All Harness Drift Bugs
+### ✅ Phase 1: Fix All Harness Drift Bugs
 **Parallel Tasks:**
-- Task 1: Fix Cursor hook registration (async/matcher spreads) and command path (./prefix)
-- Task 2: Parameterize role name in headless error messages across all 4 adapters
-- Task 3: Remove dead refreshCodexTemplates export and add console.warn to transcript parsers
+- ✔️ Task 1: Fix Cursor hook registration (async/matcher spreads) and command path (./prefix)
+- ✔️ Task 2: Parameterize role name in headless error messages across all 4 adapters
+- ✔️ Task 3: Remove dead refreshCodexTemplates export and add console.warn to transcript parsers
 
 ### Post-phase Actions
 - Run full test suite (`npx vitest run`) to confirm no regressions
@@ -214,3 +214,24 @@ All tasks are independent — no inter-task dependencies.
 ### Execution Summary
 - Total Phases: 1
 - Total Tasks: 3
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-05-26
+
+### Results
+All 5 Category 3 harness drift bugs fixed across 18 files (source + tests):
+- Cursor `install.ts` now spreads `async` and `matcher` from hook specs
+- All 4 headless adapters parameterize the role name in error messages via `opts.role`
+- Cursor `hooks-config.ts` uses `node ./` prefix matching Codex
+- Dead `refreshCodexTemplates` export removed from Codex `install.ts`
+- Claude and OpenCode transcript parsers now log `console.warn` on malformed lines
+
+### Noteworthy Events
+- Task 2 agent chose to add `role?: string` to the shared `HeadlessRunOptions` type rather than adding a positional parameter to each function — this is a cleaner design that keeps all 4 adapter signatures stable. Default is `'headless'`; `proposal-drain.ts` passes `'proposal'`.
+- Two new tests were added for the role parameterization (custom role in error messages), bringing the total from 409 to 411 tests.
+- The `writeCursorHooksConfig` function signature was also updated to accept `matcher?` and `async?` optional fields, ensuring the type system enforces the newly-spread fields.
+
+### Necessary follow-ups
+None identified. All self-validation checks pass, all 411 tests pass, no dead code or tech debt remains.

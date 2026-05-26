@@ -52,7 +52,10 @@ async function main(): Promise<void> {
       lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold,
     });
-    let context = result.additionalContext;
+    const statusLine = result.nudged
+      ? `🚨 KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kb-curate`
+      : `📋 KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+    let context = statusLine + '\n\n' + result.additionalContext;
     if (result.nudged) {
       const box =
         '┌──────────────────────────────────────┐\n' +

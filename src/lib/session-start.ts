@@ -6,7 +6,7 @@ import { readLintState } from './lint-state.js';
 import { IndexFrontmatterSchema, SessionLogFrontmatterSchema } from './schemas.js';
 import { readState, writeState } from './state.js';
 
-export const DEFAULT_NUDGE_THRESHOLD = 5;
+export const DEFAULT_NUDGE_THRESHOLD = 20;
 export const DEFAULT_STALE_DAYS = 7;
 
 export interface SessionStartContext {

@@ -377,6 +377,45 @@ describe('init', () => {
     expect(readFileSync(kbignore, 'utf8')).toContain('.claude/skills/');
   });
 
+  it('injects KB index pointer into AGENTS.md on fresh init', async () => {
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(result.exitCode).toBe(0);
+
+    const agents = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('<!-- >>> @e0ipso/ai-knowledge-base:kb-index >>> -->');
+    expect(agents).toContain('.ai/knowledge-base/INDEX.md');
+    expect(agents).toContain('<!-- <<< @e0ipso/ai-knowledge-base:kb-index <<< -->');
+  });
+
+  it('appends KB index pointer to an existing AGENTS.md without duplicating', async () => {
+    writeFileSync(join(sandbox, 'AGENTS.md'), '# My Project\n\nSome description.\n');
+
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const first = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
+    expect(first).toContain('# My Project');
+    expect(first).toContain('.ai/knowledge-base/INDEX.md');
+
+    // Upgrade should not duplicate the block.
+    await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    const second = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
+    const occurrences =
+      second.match(/<!-- >>> @e0ipso\/ai-knowledge-base:kb-index >>> -->/g) ?? [];
+    expect(occurrences.length).toBe(1);
+    expect(second).toContain('# My Project');
+  });
+
+  it('does not accumulate extra newlines in AGENTS.md on repeated upgrades', async () => {
+    writeFileSync(join(sandbox, 'AGENTS.md'), '# Project\n');
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const first = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
+
+    for (let i = 0; i < 5; i++) {
+      await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    }
+    const after = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
+    expect(after).toBe(first);
+  });
+
   it('does not overwrite an existing .kbignore on --upgrade', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const kbignore = join(sandbox, '.kbignore');

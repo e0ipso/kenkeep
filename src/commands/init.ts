@@ -21,6 +21,11 @@ interface InstalledVersion {
   harnesses: string[];
 }
 
+const AGENTS_BLOCK_START = '<!-- >>> @e0ipso/ai-knowledge-base:kb-index >>> -->';
+const AGENTS_BLOCK_END = '<!-- <<< @e0ipso/ai-knowledge-base:kb-index <<< -->';
+const AGENTS_POINTER =
+  'Curated project knowledge lives in [.ai/knowledge-base/INDEX.md](.ai/knowledge-base/INDEX.md). Consult it before designing a non-trivial change.';
+
 const GITIGNORE_BLOCK_START = '# >>> @e0ipso/ai-knowledge-base >>>';
 const GITIGNORE_BLOCK_END = '# <<< @e0ipso/ai-knowledge-base <<<';
 
@@ -77,8 +82,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
     copyTree(promptsSrc, paths.promptsDir);
   }
 
-  // 4. Update .gitignore.
+  // 4. Update .gitignore and AGENTS.md.
   updateGitignore(paths.gitignoreFile);
+  updateAgentsMd(join(root, 'AGENTS.md'));
 
   // 4b. Emit `.kbignore` stub. Never overwrites: user-edited scope is sacred.
   const kbignore = ensureKbignore(root);
@@ -156,6 +162,7 @@ async function runUpgrade(
   copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
   updateGitignore(paths.gitignoreFile);
+  updateAgentsMd(join(root, 'AGENTS.md'));
 
   const kbignore = ensureKbignore(root);
   if (kbignore.written) {
@@ -227,4 +234,26 @@ function buildBlock(): string {
 
 function ensureTrailingNewline(s: string): string {
   return s.endsWith('\n') ? s : `${s}\n`;
+}
+
+function updateAgentsMd(file: string): void {
+  const block = `${AGENTS_BLOCK_START}\n${AGENTS_POINTER}\n${AGENTS_BLOCK_END}`;
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
+
+  if (existing.includes(AGENTS_BLOCK_START)) {
+    const before = existing.slice(0, existing.indexOf(AGENTS_BLOCK_START));
+    const afterStart = existing.indexOf(AGENTS_BLOCK_END);
+    const afterRaw =
+      afterStart >= 0 ? existing.slice(afterStart + AGENTS_BLOCK_END.length) : '';
+    const after = afterRaw.startsWith('\n') ? afterRaw.slice(1) : afterRaw;
+    writeFileSync(file, ensureTrailingNewline(`${before}${block}\n${after}`));
+    return;
+  }
+
+  if (existing.length === 0) {
+    writeFileSync(file, `${block}\n`);
+    return;
+  }
+  const sep = existing.endsWith('\n') ? '' : '\n';
+  writeFileSync(file, `${existing}${sep}\n${block}\n`);
 }

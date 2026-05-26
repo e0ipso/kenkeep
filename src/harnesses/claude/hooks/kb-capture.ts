@@ -55,13 +55,13 @@ async function main(): Promise<void> {
         : {}),
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
-    process.stderr.write('📸 Capture: Saving session transcript…\n');
+    process.stderr.write('📸 KB Capture: Saving session transcript…\n');
     await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseTranscriptJsonl,
     });
     process.stdout.write(
-      `${JSON.stringify({ systemMessage: '💾 Capture: Session transcript saved.' })}\n`
+      `${JSON.stringify({ systemMessage: '💾 KB Capture: Session transcript saved.' })}\n`
     );
   } catch (err) {
     process.stderr.write(

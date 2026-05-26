@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     runHeadlessCursor(prompt, stdin, schema, opts);
 
   try {
-    process.stderr.write('🔄 Proposals: Draining queue…\n');
+    process.stderr.write('🔄 KB Proposals: Draining queue…\n');
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const summary = await drainProposalQueue({
       paths,
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
       harnessOpts: buildCursorHarnessOpts(settings, 'proposal'),
     });
     if (summary.status === 'locked') {
-      process.stderr.write('🔒 Proposals: Drain already in progress.\n');
+      process.stderr.write('🔒 KB Proposals: Drain already in progress.\n');
       return;
     }
     const failed = summary.processed.filter(p => p.status === 'failed');
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
         `${PACKAGE_TAG} proposal drain: ${failed.length} session(s) failed; see _logs/proposal/\n`
       );
     }
-    process.stderr.write('📬 Proposals: Queue drained.\n');
+    process.stderr.write('📬 KB Proposals: Queue drained.\n');
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} proposal drain error: ${err instanceof Error ? err.message : String(err)}\n`

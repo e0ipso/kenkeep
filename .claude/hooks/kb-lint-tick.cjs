@@ -7661,7 +7661,6 @@ var NEVER = INVALID;
 // src/lib/schemas.ts
 init_cjs_shims();
 var CaptureTriggerSchema = external_exports.enum(["stop", "session_end", "pre_compact", "manual"]);
-var SecretScanStatusSchema = external_exports.enum(["clean", "redacted", "blocked", "skipped"]);
 var ProposalStatusSchema = external_exports.enum(["pending", "done", "failed"]);
 var SessionLogFrontmatterSchema = external_exports.object({
   schema_version: external_exports.literal(1),
@@ -7673,7 +7672,6 @@ var SessionLogFrontmatterSchema = external_exports.object({
   proposal_completed_at: external_exports.string().nullable(),
   proposal_error: external_exports.string().nullable(),
   proposal_log: external_exports.string().nullable(),
-  secret_scan_status: SecretScanStatusSchema,
   proposals: external_exports.object({
     practice: external_exports.array(external_exports.unknown()),
     map: external_exports.array(external_exports.unknown())
@@ -10804,7 +10802,7 @@ async function main() {
       writeLintState(stateFile, { ...state, sessions_since_last_lint: nextCount });
       return;
     }
-    process.stderr.write("\u{1F50D} Lint: Running knowledge base lint\u2026\n");
+    process.stderr.write("\u{1F50D} KB Lint: Running knowledge base lint\u2026\n");
     const result = runLint({ nodesDir: paths.nodesDir });
     writeLintState(stateFile, {
       schema_version: 1,
@@ -10813,7 +10811,7 @@ async function main() {
       last_errors: result.errors.length,
       last_findings: result.findings.length
     });
-    process.stderr.write("\u{1F9F9} Lint: Knowledge base lint complete.\n");
+    process.stderr.write("\u{1F9F9} KB Lint: Knowledge base lint complete.\n");
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} lint tick error: ${err instanceof Error ? err.message : String(err)}

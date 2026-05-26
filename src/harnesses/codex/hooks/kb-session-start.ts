@@ -41,7 +41,7 @@ async function main(): Promise<void> {
   if (!existsSync(paths.installedVersionFile)) return;
 
   try {
-    process.stderr.write('📖 Index: Loading knowledge base…\n');
+    process.stderr.write('📖 KB Index: Loading knowledge base…\n');
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const result = buildSessionStartContext({
       kbDir: paths.kbDir,
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
         `📋 KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)\n`
       );
     }
-    process.stderr.write('🧠 Index: Knowledge base loaded.\n');
+    process.stderr.write('🧠 KB Index: Knowledge base loaded.\n');
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`

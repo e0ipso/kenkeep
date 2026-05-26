@@ -7665,7 +7665,6 @@ var NEVER = INVALID;
 // src/lib/schemas.ts
 init_cjs_shims();
 var CaptureTriggerSchema = external_exports.enum(["stop", "session_end", "pre_compact", "manual"]);
-var SecretScanStatusSchema = external_exports.enum(["clean", "redacted", "blocked", "skipped"]);
 var ProposalStatusSchema = external_exports.enum(["pending", "done", "failed"]);
 var SessionLogFrontmatterSchema = external_exports.object({
   schema_version: external_exports.literal(1),
@@ -7677,7 +7676,6 @@ var SessionLogFrontmatterSchema = external_exports.object({
   proposal_completed_at: external_exports.string().nullable(),
   proposal_error: external_exports.string().nullable(),
   proposal_log: external_exports.string().nullable(),
-  secret_scan_status: SecretScanStatusSchema,
   proposals: external_exports.object({
     practice: external_exports.array(external_exports.unknown()),
     map: external_exports.array(external_exports.unknown())
@@ -10784,7 +10782,7 @@ async function main() {
   const paths = repoPaths(root);
   if (!(0, import_node_fs7.existsSync)(paths.installedVersionFile)) return;
   try {
-    process.stderr.write("\u{1F4D6} Index: Loading knowledge base\u2026\n");
+    process.stderr.write("\u{1F4D6} KB Index: Loading knowledge base\u2026\n");
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const result = buildSessionStartContext({
       kbDir: paths.kbDir,

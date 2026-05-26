@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   if (!existsSync(paths.installedVersionFile)) return;
 
   try {
-    process.stderr.write('📖 Index: Loading knowledge base…\n');
+    process.stderr.write('📖 KB Index: Loading knowledge base…\n');
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
     const result = buildSessionStartContext({
       kbDir: paths.kbDir,

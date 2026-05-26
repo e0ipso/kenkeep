@@ -1,3 +1,9 @@
+## [0.25.2](https://github.com/e0ipso/ai-knowledge-base/compare/v0.25.1...v0.25.2) (2026-05-26)
+
+### Bug Fixes
+
+* be cheaper ([68ef6a0](https://github.com/e0ipso/ai-knowledge-base/commit/68ef6a07af072f93c4e8a6ece7d0826b162246b6))
+
 ## [0.25.1](https://github.com/e0ipso/ai-knowledge-base/compare/v0.25.0...v0.25.1) (2026-05-26)
 
 ### Bug Fixes

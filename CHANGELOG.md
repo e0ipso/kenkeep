@@ -1,3 +1,9 @@
+## [0.26.3](https://github.com/e0ipso/ai-knowledge-base/compare/v0.26.2...v0.26.3) (2026-05-26)
+
+### Bug Fixes
+
+* resolve category 3 harness drift bugs ([039f4da](https://github.com/e0ipso/ai-knowledge-base/commit/039f4da39eacf16323201d998ab99b47066aa148))
+
 ## [0.26.2](https://github.com/e0ipso/ai-knowledge-base/compare/v0.26.1...v0.26.2) (2026-05-26)
 
 ## [0.26.1](https://github.com/e0ipso/ai-knowledge-base/compare/v0.26.0...v0.26.1) (2026-05-26)

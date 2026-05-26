@@ -1,3 +1,14 @@
+## [0.26.0](https://github.com/e0ipso/ai-knowledge-base/compare/v0.25.2...v0.26.0) (2026-05-26)
+
+### Features
+
+* inject KB index pointer into AGENTS.md during init/upgrade ([2452b7a](https://github.com/e0ipso/ai-knowledge-base/commit/2452b7a31dae810aacf743e1de57aa94d98d2ea3))
+
+### Bug Fixes
+
+* increase nudge threshold ([e6b5d32](https://github.com/e0ipso/ai-knowledge-base/commit/e6b5d326a0569e0f5bd91fc872b30e3400474f5a))
+* work towards harness parity ([732dce1](https://github.com/e0ipso/ai-knowledge-base/commit/732dce1d8454bbfcea49c9073798cddafb728dd4))
+
 ## [0.25.2](https://github.com/e0ipso/ai-knowledge-base/compare/v0.25.1...v0.25.2) (2026-05-26)
 
 ### Bug Fixes

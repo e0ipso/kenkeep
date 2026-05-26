@@ -268,7 +268,7 @@ describe('buildSessionStartContext', () => {
       `${DEFAULT_NUDGE_THRESHOLD} pending session log(s), ${DEFAULT_NUDGE_THRESHOLD * 2} candidate proposal(s), captured today`
     );
     expect(result.additionalContext).toContain(
-      'Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`)'
+      'Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.'
     );
   });
 

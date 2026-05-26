@@ -93,7 +93,8 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   if (shouldNudge) {
     const oldestPhrase =
       oldestAgeDays === 0 ? 'captured today' : `oldest pending: ${oldestAgeDays} day(s)`;
-    const copyPaste = 'Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`)';
+    const copyPaste =
+      'Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.';
     lines.push('');
     if (loud) {
       lines.push('> 🚨 KB curation queue is overdue');

@@ -66,6 +66,8 @@ SessionStart counts pending session logs and, once the queue is worth your atten
 
 ## Curate
 
+> **💡 Model cost tip.** Curation is a structured classification task — the prompts are explicit decision trees with inline examples, and the pipeline includes human review via `git commit`/`git restore` as a safety net. A mid-tier model at moderate effort is sufficient; higher-tier models produce marginally better output at significantly higher cost without meaningful quality improvement for this workload. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
+
 In a Claude Code session:
 
 ```
@@ -115,6 +117,8 @@ Review with `git diff nodes/`. Accept with `git commit` (the pre-commit hook reg
 `/kb-add` (in-session) or `npx @e0ipso/ai-knowledge-base node add` (shell) writes a node directly. Review with `git diff` and commit.
 
 ## Seed from existing docs
+
+> **💡 Model cost tip.** Bootstrap is cognitively simpler than curation — its input is structured documentation (not messy session transcripts), there is no session-disposition gate, and no conflict detection. The same mid-tier model recommendation applies, and arguably with even more room to go lower. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
 
 `/kb-bootstrap [path]` in-session, or `npx @e0ipso/ai-knowledge-base bootstrap --from docs/` from a shell. Same skill either way. Hash-aware (only reprocesses docs whose SHA-256 changed since the last run). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
 

@@ -10796,7 +10796,16 @@ async function main() {
       lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold
     });
-    process.stdout.write(JSON.stringify({ additional_context: result.additionalContext }));
+    let context = result.additionalContext;
+    if (result.nudged) {
+      const box = `\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502 \u{1F6A8} KB curation is overdue            \u2502
+\u2502 Run /kb-curate to process them.      \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
+      context += "\n> IMPORTANT: After completing your response, append the following block verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> " + box.split("\n").join("\n> ") + "\n> ```\n";
+    }
+    process.stdout.write(JSON.stringify({ additional_context: context }));
     if (result.nudged) {
       process.stderr.write(
         `\u{1F6A8} KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kb-curate

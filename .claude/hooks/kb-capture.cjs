@@ -7056,7 +7056,8 @@ function parseTranscriptJsonl(text) {
     let msg;
     try {
       msg = JSON.parse(line);
-    } catch {
+    } catch (err) {
+      console.warn(`parseClaudeTranscript: skipping malformed JSONL line: ${err.message}`);
       continue;
     }
     const role = msg.message?.role ?? msg.role ?? msg.type;

@@ -7069,7 +7069,8 @@ function parseOpenCodeTranscript(storageDir, sessionID) {
       if ((0, import_node_fs6.existsSync)(candidate)) {
         try {
           sessionFile = JSON.parse((0, import_node_fs6.readFileSync)(candidate, "utf8"));
-        } catch {
+        } catch (err) {
+          console.warn(`parseOpenCodeTranscript: skipping malformed JSON file: ${err.message}`);
           sessionFile = null;
         }
         break;
@@ -7082,7 +7083,8 @@ function parseOpenCodeTranscript(storageDir, sessionID) {
     let content;
     try {
       content = JSON.parse((0, import_node_fs6.readFileSync)(full, "utf8"));
-    } catch {
+    } catch (err) {
+      console.warn(`parseOpenCodeTranscript: skipping malformed JSON file: ${err.message}`);
       content = {};
     }
     return { name, content };
@@ -7097,7 +7099,8 @@ function parseOpenCodeTranscript(storageDir, sessionID) {
       let content;
       try {
         content = JSON.parse((0, import_node_fs6.readFileSync)(full, "utf8"));
-      } catch {
+      } catch (err) {
+        console.warn(`parseOpenCodeTranscript: skipping malformed JSON file: ${err.message}`);
         content = {};
       }
       return { name, content };

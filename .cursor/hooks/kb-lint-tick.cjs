@@ -3569,7 +3569,6 @@ var require_gray_matter = __commonJS({
 
 // src/harnesses/cursor/hooks/kb-lint-tick.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
 
 // src/lib/hook-diagnostic.ts
 init_cjs_shims();
@@ -3588,14 +3587,42 @@ function appendHookDiagnostic(hook, phase, error, logsDir) {
   }
 }
 
+// src/lib/lint-state.ts
+init_cjs_shims();
+var import_node_fs6 = require("fs");
+var import_node_path6 = require("path");
+
+// src/lib/fs-atomic.ts
+init_cjs_shims();
+var import_node_fs2 = require("fs");
+var import_node_path2 = require("path");
+function atomicWriteJson(file, data) {
+  (0, import_node_fs2.mkdirSync)((0, import_node_path2.dirname)(file), { recursive: true });
+  const tmp = `${file}.tmp`;
+  (0, import_node_fs2.writeFileSync)(tmp, `${JSON.stringify(data, null, 2)}
+`);
+  (0, import_node_fs2.renameSync)(tmp, file);
+}
+function readJsonValidated(file, schema2, fallback) {
+  if (!(0, import_node_fs2.existsSync)(file)) return fallback;
+  try {
+    const raw = JSON.parse((0, import_node_fs2.readFileSync)(file, "utf8"));
+    const parsed = schema2.safeParse(raw);
+    if (parsed.success) return parsed.data;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 // src/lib/lint.ts
 init_cjs_shims();
 
 // src/lib/nodes.ts
 init_cjs_shims();
 var import_node_crypto = require("crypto");
-var import_node_fs2 = require("fs");
-var import_node_path2 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_path3 = require("path");
 var import_gray_matter = __toESM(require_gray_matter(), 1);
 
 // node_modules/zod/index.js
@@ -7838,12 +7865,12 @@ function readAllNodes(nodesDir) {
   const out = [];
   const failures = [];
   for (const kind of KINDS) {
-    const dir = (0, import_node_path2.join)(nodesDir, kind);
-    if (!(0, import_node_fs2.existsSync)(dir)) continue;
-    for (const name of (0, import_node_fs2.readdirSync)(dir)) {
+    const dir = (0, import_node_path3.join)(nodesDir, kind);
+    if (!(0, import_node_fs3.existsSync)(dir)) continue;
+    for (const name of (0, import_node_fs3.readdirSync)(dir)) {
       if (!name.endsWith(".md")) continue;
-      const filePath = (0, import_node_path2.join)(dir, name);
-      const raw = (0, import_node_fs2.readFileSync)(filePath, "utf8");
+      const filePath = (0, import_node_path3.join)(dir, name);
+      const raw = (0, import_node_fs3.readFileSync)(filePath, "utf8");
       let parsed;
       try {
         parsed = (0, import_gray_matter.default)(raw);
@@ -8011,73 +8038,28 @@ function compareEntries(a, b) {
   return 0;
 }
 
-// src/lib/lint-state.ts
-init_cjs_shims();
-var import_node_path4 = require("path");
-
-// src/lib/fs-atomic.ts
-init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path3 = require("path");
-function atomicWriteJson(file, data) {
-  (0, import_node_fs3.mkdirSync)((0, import_node_path3.dirname)(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  (0, import_node_fs3.writeFileSync)(tmp, `${JSON.stringify(data, null, 2)}
-`);
-  (0, import_node_fs3.renameSync)(tmp, file);
-}
-function readJsonValidated(file, schema2, fallback) {
-  if (!(0, import_node_fs3.existsSync)(file)) return fallback;
-  try {
-    const raw = JSON.parse((0, import_node_fs3.readFileSync)(file, "utf8"));
-    const parsed = schema2.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    return fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-// src/lib/lint-state.ts
-var DEFAULT_LINT_STATE = {
-  schema_version: 1,
-  sessions_since_last_lint: 0,
-  last_lint_at: null,
-  last_errors: 0,
-  last_findings: 0
-};
-function lintStateFile(stateDir) {
-  return (0, import_node_path4.join)(stateDir, "lint-state.json");
-}
-function readLintState(file) {
-  return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
-}
-function writeLintState(file, state) {
-  atomicWriteJson(file, state);
-}
-
 // src/lib/paths.ts
 init_cjs_shims();
 var import_node_fs4 = require("fs");
-var import_node_path5 = require("path");
+var import_node_path4 = require("path");
 var import_node_url = require("url");
 function findRepoRoot(from = process.cwd()) {
-  let cur = (0, import_node_path5.resolve)(from);
+  let cur = (0, import_node_path4.resolve)(from);
   while (true) {
-    if ((0, import_node_fs4.existsSync)((0, import_node_path5.join)(cur, ".git")) || (0, import_node_fs4.existsSync)((0, import_node_path5.join)(cur, ".ai/knowledge-base/.state/installed-version"))) {
+    if ((0, import_node_fs4.existsSync)((0, import_node_path4.join)(cur, ".git")) || (0, import_node_fs4.existsSync)((0, import_node_path4.join)(cur, ".ai/knowledge-base/.state/installed-version"))) {
       return cur;
     }
-    const parent = (0, import_node_path5.dirname)(cur);
-    if (parent === cur) return (0, import_node_path5.resolve)(from);
+    const parent = (0, import_node_path4.dirname)(cur);
+    if (parent === cur) return (0, import_node_path4.resolve)(from);
     cur = parent;
   }
 }
 function repoPaths(root) {
-  const aiDir = (0, import_node_path5.join)(root, ".ai");
-  const kbDir = (0, import_node_path5.join)(aiDir, "knowledge-base");
-  const stateDir = (0, import_node_path5.join)(kbDir, ".state");
-  const configDir = (0, import_node_path5.join)(kbDir, ".config");
-  const promptsDir = (0, import_node_path5.join)(configDir, "prompts");
+  const aiDir = (0, import_node_path4.join)(root, ".ai");
+  const kbDir = (0, import_node_path4.join)(aiDir, "knowledge-base");
+  const stateDir = (0, import_node_path4.join)(kbDir, ".state");
+  const configDir = (0, import_node_path4.join)(kbDir, ".config");
+  const promptsDir = (0, import_node_path4.join)(configDir, "prompts");
   return {
     root,
     aiDir,
@@ -8085,21 +8067,21 @@ function repoPaths(root) {
     stateDir,
     configDir,
     promptsDir,
-    installedVersionFile: (0, import_node_path5.join)(stateDir, "installed-version"),
-    projectConfigFile: (0, import_node_path5.join)(kbDir, "config.yaml"),
-    sessionsDir: (0, import_node_path5.join)(kbDir, "_sessions"),
-    logsDir: (0, import_node_path5.join)(kbDir, "_logs"),
-    nodesDir: (0, import_node_path5.join)(kbDir, "nodes"),
-    conflictsDir: (0, import_node_path5.join)(kbDir, "conflicts"),
-    gitignoreFile: (0, import_node_path5.join)(root, ".gitignore"),
-    memoryLedgerFile: (0, import_node_path5.join)(stateDir, "memory-ledger.json")
+    installedVersionFile: (0, import_node_path4.join)(stateDir, "installed-version"),
+    projectConfigFile: (0, import_node_path4.join)(kbDir, "config.yaml"),
+    sessionsDir: (0, import_node_path4.join)(kbDir, "_sessions"),
+    logsDir: (0, import_node_path4.join)(kbDir, "_logs"),
+    nodesDir: (0, import_node_path4.join)(kbDir, "nodes"),
+    conflictsDir: (0, import_node_path4.join)(kbDir, "conflicts"),
+    gitignoreFile: (0, import_node_path4.join)(root, ".gitignore"),
+    memoryLedgerFile: (0, import_node_path4.join)(stateDir, "memory-ledger.json")
   };
 }
 
 // src/lib/settings.ts
 init_cjs_shims();
 var import_node_fs5 = require("fs");
-var import_node_path6 = require("path");
+var import_node_path5 = require("path");
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 init_cjs_shims();
@@ -10773,41 +10755,25 @@ function loadFile(file) {
   return result.data;
 }
 
-// src/lib/stdin.ts
-init_cjs_shims();
-function readStdin() {
-  return new Promise((resolve2) => {
-    if (process.stdin.isTTY) {
-      resolve2("");
-      return;
-    }
-    let data = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on("end", () => resolve2(data));
-    process.stdin.on("error", () => resolve2(""));
-  });
+// src/lib/lint-state.ts
+var DEFAULT_LINT_STATE = {
+  schema_version: 1,
+  sessions_since_last_lint: 0,
+  last_lint_at: null,
+  last_errors: 0,
+  last_findings: 0
+};
+function lintStateFile(stateDir) {
+  return (0, import_node_path6.join)(stateDir, "lint-state.json");
 }
-
-// src/harnesses/cursor/hooks/kb-lint-tick.ts
-var PACKAGE_TAG = "[ai-knowledge-base]";
-async function main() {
-  if (process.env["KB_BUILDER_INTERNAL"] === "1") return;
-  const raw = await readStdin();
-  let input = {};
-  if (raw.trim().length > 0) {
-    try {
-      input = JSON.parse(raw);
-    } catch (err) {
-      const paths2 = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic("cursor:kb-lint-tick", "parse", err, paths2.logsDir);
-      input = {};
-    }
-  }
-  const roots = input.workspace_roots;
-  const startCwd = Array.isArray(roots) && typeof roots[0] === "string" && roots[0].length > 0 ? roots[0] : process.cwd();
+function readLintState(file) {
+  return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
+}
+function writeLintState(file, state) {
+  atomicWriteJson(file, state);
+}
+async function runLintTick(startCwd, harnessTag) {
+  const PACKAGE_TAG = "[ai-knowledge-base]";
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
   if (!(0, import_node_fs6.existsSync)(paths.installedVersionFile)) return;
@@ -10833,10 +10799,47 @@ async function main() {
     process.stderr.write("\u{1F9F9} KB Lint: Knowledge base lint complete.\n");
   } catch (err) {
     process.stderr.write(
-      `${PACKAGE_TAG} lint tick error: ${err instanceof Error ? err.message : String(err)}
+      `${PACKAGE_TAG} lint tick error (${harnessTag}): ${err instanceof Error ? err.message : String(err)}
 `
     );
   }
+}
+
+// src/lib/stdin.ts
+init_cjs_shims();
+function readStdin() {
+  return new Promise((resolve2) => {
+    if (process.stdin.isTTY) {
+      resolve2("");
+      return;
+    }
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve2(data));
+    process.stdin.on("error", () => resolve2(""));
+  });
+}
+
+// src/harnesses/cursor/hooks/kb-lint-tick.ts
+async function main() {
+  if (process.env["KB_BUILDER_INTERNAL"] === "1") return;
+  const raw = await readStdin();
+  let input = {};
+  if (raw.trim().length > 0) {
+    try {
+      input = JSON.parse(raw);
+    } catch (err) {
+      const paths = repoPaths(findRepoRoot(process.cwd()));
+      appendHookDiagnostic("cursor:kb-lint-tick", "parse", err, paths.logsDir);
+      input = {};
+    }
+  }
+  const roots = input.workspace_roots;
+  const startCwd = Array.isArray(roots) && typeof roots[0] === "string" && roots[0].length > 0 ? roots[0] : process.cwd();
+  await runLintTick(startCwd, "cursor:kb-lint-tick");
 }
 void main().catch((err) => {
   try {

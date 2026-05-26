@@ -5786,8 +5786,6 @@ var require_split2 = __commonJS({
 
 // src/harnesses/opencode/hooks/kb-proposal-drain.ts
 init_cjs_shims();
-var import_node_child_process6 = require("child_process");
-var import_node_fs12 = require("fs");
 
 // src/lib/hook-diagnostic.ts
 init_cjs_shims();
@@ -5855,8 +5853,9 @@ function repoPaths(root) {
 // src/lib/proposal-drain.ts
 init_cjs_shims();
 var import_gray_matter = __toESM(require_gray_matter(), 1);
-var import_node_fs4 = require("fs");
-var import_node_path4 = require("path");
+var import_node_child_process = require("child_process");
+var import_node_fs5 = require("fs");
+var import_node_path5 = require("path");
 
 // src/lib/schemas.ts
 init_cjs_shims();
@@ -10089,178 +10088,10 @@ var MemoryLedgerSchema = external_exports.object({
 // src/lib/proposal-drain.ts
 var import_proper_lockfile = __toESM(require_proper_lockfile(), 1);
 
-// src/lib/state.ts
-init_cjs_shims();
-
-// src/lib/fs-atomic.ts
+// src/lib/settings.ts
 init_cjs_shims();
 var import_node_fs3 = require("fs");
 var import_node_path3 = require("path");
-
-// src/lib/state.ts
-var STATE_LOCK_OPTIONS = { stale: 30 * 60 * 1e3, realpath: false };
-
-// src/lib/time.ts
-init_cjs_shims();
-function compactStamp(d) {
-  const pad = (n2) => n2.toString().padStart(2, "0");
-  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-}
-
-// src/lib/proposal-drain.ts
-var DEFAULT_MAX_ENTRIES = Infinity;
-var DEFAULT_TIMEOUT_MS = 6e4;
-var MAX_PROPOSAL_ERROR_LEN = 500;
-var TRANSCRIPT_PLACEHOLDER = "[TRANSCRIPT PLACEHOLDER, substituted at runtime]";
-async function drainProposalQueue(ctx) {
-  const maxEntries = ctx.maxEntries ?? DEFAULT_MAX_ENTRIES;
-  const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const stateFile = (0, import_node_path4.join)(ctx.paths.stateDir, "state.json");
-  let release;
-  try {
-    release = await import_proper_lockfile.default.lock(stateFile, STATE_LOCK_OPTIONS);
-  } catch (err) {
-    if (err.code === "ELOCKED") {
-      return { status: "locked", processed: [], remaining: countPending(ctx.paths.sessionsDir) };
-    }
-    throw err;
-  }
-  const processed = [];
-  try {
-    const pending = listPending(ctx.paths.sessionsDir);
-    for (const entry of pending) {
-      if (processed.length >= maxEntries) break;
-      const result = await processSessionLog({
-        entry,
-        sessionsDir: ctx.paths.sessionsDir,
-        logsDir: ctx.paths.logsDir,
-        promptTemplate: ctx.promptTemplate,
-        runner: ctx.runner,
-        timeoutMs,
-        ...ctx.harnessOpts !== void 0 ? { harnessOpts: ctx.harnessOpts } : {}
-      });
-      processed.push(result);
-    }
-  } finally {
-    if (release !== void 0) await release();
-  }
-  const remaining = countPending(ctx.paths.sessionsDir);
-  return { status: "completed", processed, remaining };
-}
-function listPending(sessionsDir) {
-  if (!(0, import_node_fs4.existsSync)(sessionsDir)) return [];
-  const names = (0, import_node_fs4.readdirSync)(sessionsDir).filter((name) => name.endsWith(".md") && !name.startsWith(".")).sort();
-  const out = [];
-  for (const name of names) {
-    const file = (0, import_node_path4.join)(sessionsDir, name);
-    const data = readFrontmatter(file);
-    if (!data) continue;
-    if (data["proposal_status"] !== "pending") continue;
-    const sessionId = typeof data["session_id"] === "string" ? data["session_id"] : name;
-    out.push({ sessionId, file });
-  }
-  return out;
-}
-function countPending(sessionsDir) {
-  return listPending(sessionsDir).length;
-}
-function readFrontmatter(file) {
-  try {
-    const parsed = (0, import_gray_matter.default)((0, import_node_fs4.readFileSync)(file, "utf8"));
-    return parsed.data;
-  } catch {
-    return null;
-  }
-}
-async function processSessionLog(args) {
-  const { entry, sessionsDir, logsDir, promptTemplate, runner, timeoutMs, harnessOpts } = args;
-  const parsed = (0, import_gray_matter.default)((0, import_node_fs4.readFileSync)(entry.file, "utf8"));
-  const transcript = extractTranscript(parsed.content);
-  const prompt = buildProposalPrompt(promptTemplate, transcript);
-  const startedAt = /* @__PURE__ */ new Date();
-  const logFile = proposalLogPath(logsDir, entry.sessionId, startedAt);
-  try {
-    const out = await runner(prompt, "", ProposalOutputSchema, {
-      timeoutMs,
-      logFile,
-      ...harnessOpts !== void 0 ? { harnessOpts } : {}
-    });
-    writeSessionLogFrontmatter(entry.file, parsed, {
-      proposal_status: "done",
-      proposal_completed_at: (/* @__PURE__ */ new Date()).toISOString(),
-      proposal_error: null,
-      proposal_log: relativeLogPath(sessionsDir, logFile),
-      proposals: { practice: out.practice, map: out.map }
-    });
-    return { sessionId: entry.sessionId, status: "done", logFile };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const truncated = message.length > MAX_PROPOSAL_ERROR_LEN ? `${message.slice(0, MAX_PROPOSAL_ERROR_LEN)}...` : message;
-    writeSessionLogFrontmatter(entry.file, parsed, {
-      proposal_status: "failed",
-      proposal_completed_at: (/* @__PURE__ */ new Date()).toISOString(),
-      proposal_error: truncated,
-      proposal_log: relativeLogPath(sessionsDir, logFile)
-    });
-    return { sessionId: entry.sessionId, status: "failed", error: truncated, logFile };
-  }
-}
-function extractTranscript(body) {
-  const startMatch = body.match(/## Transcript\s*\n+/);
-  if (!startMatch || startMatch.index === void 0) return body.trim();
-  const start = startMatch.index + startMatch[0].length;
-  const rest = body.slice(start);
-  const endMatch = rest.match(/\n## Proposal/);
-  if (!endMatch) return rest.trim();
-  return rest.slice(0, endMatch.index).trim();
-}
-function buildProposalPrompt(template, transcript) {
-  if (!template.includes(TRANSCRIPT_PLACEHOLDER)) {
-    throw new Error(
-      `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
-    );
-  }
-  return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
-}
-function proposalLogPath(logsDir, sessionId, when) {
-  const stamp = compactStamp(when);
-  return (0, import_node_path4.join)(logsDir, "proposal", `${sessionId}__${stamp}.jsonl`);
-}
-function relativeLogPath(sessionsDir, logFile) {
-  const kbRoot = (0, import_node_path4.join)(sessionsDir, "..");
-  const rel = logFile.startsWith(kbRoot) ? logFile.slice(kbRoot.length).replace(/^[\\/]/, "") : logFile;
-  return rel;
-}
-function writeSessionLogFrontmatter(file, parsed, patch) {
-  const data = { ...parsed.data };
-  data["proposal_status"] = patch.proposal_status;
-  data["proposal_completed_at"] = patch.proposal_completed_at;
-  data["proposal_error"] = patch.proposal_error;
-  data["proposal_log"] = patch.proposal_log;
-  if (patch.proposals) data["proposals"] = patch.proposals;
-  const body = updateProposalBody(parsed.content, patch);
-  const serialized = import_gray_matter.default.stringify(body, data);
-  (0, import_node_fs4.writeFileSync)(file, serialized);
-}
-function updateProposalBody(content, patch) {
-  if (patch.proposal_status !== "done") return content;
-  return content.replace(
-    /\(populated by proposal worker\)/,
-    `_Extraction complete; see proposals in frontmatter._`
-  );
-}
-function loadProposalPrompt(promptsDir) {
-  const override = (0, import_node_path4.join)(promptsDir, "proposal-extract.md");
-  if ((0, import_node_fs4.existsSync)(override)) return (0, import_node_fs4.readFileSync)(override, "utf8");
-  const bundled = (0, import_node_path4.join)(packageTemplatesDir(), "prompts/proposal-extract.md");
-  if ((0, import_node_fs4.existsSync)(bundled)) return (0, import_node_fs4.readFileSync)(bundled, "utf8");
-  return null;
-}
-
-// src/lib/settings.ts
-init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path5 = require("path");
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 init_cjs_shims();
@@ -12919,8 +12750,8 @@ function applyOverrides(target, src) {
   if (src.cliDefaultHarness !== void 0) target.cliDefaultHarness = src.cliDefaultHarness;
 }
 function loadFile(file) {
-  if (!(0, import_node_fs5.existsSync)(file)) return null;
-  const raw = (0, import_node_fs5.readFileSync)(file, "utf8");
+  if (!(0, import_node_fs3.existsSync)(file)) return null;
+  const raw = (0, import_node_fs3.readFileSync)(file, "utf8");
   let parsed;
   try {
     parsed = jsYaml.load(raw);
@@ -12941,6 +12772,219 @@ function pickModelChoice(settings, role) {
       return settings.curatorModel;
     case "bootstrap":
       return settings.bootstrapModel;
+  }
+}
+
+// src/lib/state.ts
+init_cjs_shims();
+
+// src/lib/fs-atomic.ts
+init_cjs_shims();
+var import_node_fs4 = require("fs");
+var import_node_path4 = require("path");
+
+// src/lib/state.ts
+var STATE_LOCK_OPTIONS = { stale: 30 * 60 * 1e3, realpath: false };
+
+// src/lib/time.ts
+init_cjs_shims();
+function compactStamp(d) {
+  const pad = (n2) => n2.toString().padStart(2, "0");
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+}
+
+// src/lib/proposal-drain.ts
+var DEFAULT_MAX_ENTRIES = Infinity;
+var DEFAULT_TIMEOUT_MS = 6e4;
+var MAX_PROPOSAL_ERROR_LEN = 500;
+var TRANSCRIPT_PLACEHOLDER = "[TRANSCRIPT PLACEHOLDER, substituted at runtime]";
+async function drainProposalQueue(ctx) {
+  const maxEntries = ctx.maxEntries ?? DEFAULT_MAX_ENTRIES;
+  const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const stateFile = (0, import_node_path5.join)(ctx.paths.stateDir, "state.json");
+  let release;
+  try {
+    release = await import_proper_lockfile.default.lock(stateFile, STATE_LOCK_OPTIONS);
+  } catch (err) {
+    if (err.code === "ELOCKED") {
+      return { status: "locked", processed: [], remaining: countPending(ctx.paths.sessionsDir) };
+    }
+    throw err;
+  }
+  const processed = [];
+  try {
+    const pending = listPending(ctx.paths.sessionsDir);
+    for (const entry of pending) {
+      if (processed.length >= maxEntries) break;
+      const result = await processSessionLog({
+        entry,
+        sessionsDir: ctx.paths.sessionsDir,
+        logsDir: ctx.paths.logsDir,
+        promptTemplate: ctx.promptTemplate,
+        runner: ctx.runner,
+        timeoutMs,
+        ...ctx.harnessOpts !== void 0 ? { harnessOpts: ctx.harnessOpts } : {}
+      });
+      processed.push(result);
+    }
+  } finally {
+    if (release !== void 0) await release();
+  }
+  const remaining = countPending(ctx.paths.sessionsDir);
+  return { status: "completed", processed, remaining };
+}
+function listPending(sessionsDir) {
+  if (!(0, import_node_fs5.existsSync)(sessionsDir)) return [];
+  const names = (0, import_node_fs5.readdirSync)(sessionsDir).filter((name) => name.endsWith(".md") && !name.startsWith(".")).sort();
+  const out = [];
+  for (const name of names) {
+    const file = (0, import_node_path5.join)(sessionsDir, name);
+    const data = readFrontmatter(file);
+    if (!data) continue;
+    if (data["proposal_status"] !== "pending") continue;
+    const sessionId = typeof data["session_id"] === "string" ? data["session_id"] : name;
+    out.push({ sessionId, file });
+  }
+  return out;
+}
+function countPending(sessionsDir) {
+  return listPending(sessionsDir).length;
+}
+function readFrontmatter(file) {
+  try {
+    const parsed = (0, import_gray_matter.default)((0, import_node_fs5.readFileSync)(file, "utf8"));
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+async function processSessionLog(args) {
+  const { entry, sessionsDir, logsDir, promptTemplate, runner, timeoutMs, harnessOpts } = args;
+  const parsed = (0, import_gray_matter.default)((0, import_node_fs5.readFileSync)(entry.file, "utf8"));
+  const transcript = extractTranscript(parsed.content);
+  const prompt = buildProposalPrompt(promptTemplate, transcript);
+  const startedAt = /* @__PURE__ */ new Date();
+  const logFile = proposalLogPath(logsDir, entry.sessionId, startedAt);
+  try {
+    const out = await runner(prompt, "", ProposalOutputSchema, {
+      timeoutMs,
+      logFile,
+      role: "proposal",
+      ...harnessOpts !== void 0 ? { harnessOpts } : {}
+    });
+    writeSessionLogFrontmatter(entry.file, parsed, {
+      proposal_status: "done",
+      proposal_completed_at: (/* @__PURE__ */ new Date()).toISOString(),
+      proposal_error: null,
+      proposal_log: relativeLogPath(sessionsDir, logFile),
+      proposals: { practice: out.practice, map: out.map }
+    });
+    return { sessionId: entry.sessionId, status: "done", logFile };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const truncated = message.length > MAX_PROPOSAL_ERROR_LEN ? `${message.slice(0, MAX_PROPOSAL_ERROR_LEN)}...` : message;
+    writeSessionLogFrontmatter(entry.file, parsed, {
+      proposal_status: "failed",
+      proposal_completed_at: (/* @__PURE__ */ new Date()).toISOString(),
+      proposal_error: truncated,
+      proposal_log: relativeLogPath(sessionsDir, logFile)
+    });
+    return { sessionId: entry.sessionId, status: "failed", error: truncated, logFile };
+  }
+}
+function extractTranscript(body) {
+  const startMatch = body.match(/## Transcript\s*\n+/);
+  if (!startMatch || startMatch.index === void 0) return body.trim();
+  const start = startMatch.index + startMatch[0].length;
+  const rest = body.slice(start);
+  const endMatch = rest.match(/\n## Proposal/);
+  if (!endMatch) return rest.trim();
+  return rest.slice(0, endMatch.index).trim();
+}
+function buildProposalPrompt(template, transcript) {
+  if (!template.includes(TRANSCRIPT_PLACEHOLDER)) {
+    throw new Error(
+      `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
+    );
+  }
+  return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
+}
+function proposalLogPath(logsDir, sessionId, when) {
+  const stamp = compactStamp(when);
+  return (0, import_node_path5.join)(logsDir, "proposal", `${sessionId}__${stamp}.jsonl`);
+}
+function relativeLogPath(sessionsDir, logFile) {
+  const kbRoot = (0, import_node_path5.join)(sessionsDir, "..");
+  const rel = logFile.startsWith(kbRoot) ? logFile.slice(kbRoot.length).replace(/^[\\/]/, "") : logFile;
+  return rel;
+}
+function writeSessionLogFrontmatter(file, parsed, patch) {
+  const data = { ...parsed.data };
+  data["proposal_status"] = patch.proposal_status;
+  data["proposal_completed_at"] = patch.proposal_completed_at;
+  data["proposal_error"] = patch.proposal_error;
+  data["proposal_log"] = patch.proposal_log;
+  if (patch.proposals) data["proposals"] = patch.proposals;
+  const body = updateProposalBody(parsed.content, patch);
+  const serialized = import_gray_matter.default.stringify(body, data);
+  (0, import_node_fs5.writeFileSync)(file, serialized);
+}
+function updateProposalBody(content, patch) {
+  if (patch.proposal_status !== "done") return content;
+  return content.replace(
+    /\(populated by proposal worker\)/,
+    `_Extraction complete; see proposals in frontmatter._`
+  );
+}
+function loadProposalPrompt(promptsDir) {
+  const override = (0, import_node_path5.join)(promptsDir, "proposal-extract.md");
+  if ((0, import_node_fs5.existsSync)(override)) return (0, import_node_fs5.readFileSync)(override, "utf8");
+  const bundled = (0, import_node_path5.join)(packageTemplatesDir(), "prompts/proposal-extract.md");
+  if ((0, import_node_fs5.existsSync)(bundled)) return (0, import_node_fs5.readFileSync)(bundled, "utf8");
+  return null;
+}
+async function runProposalDrain(opts) {
+  const PACKAGE_TAG = "[ai-knowledge-base]";
+  try {
+    (0, import_node_child_process.execFileSync)("which", [opts.binaryName], { stdio: "ignore" });
+  } catch {
+    return;
+  }
+  const root = findRepoRoot(opts.startCwd);
+  const paths = repoPaths(root);
+  if (!(0, import_node_fs5.existsSync)(paths.installedVersionFile)) return;
+  const promptTemplate = loadProposalPrompt(paths.promptsDir);
+  if (!promptTemplate) {
+    process.stderr.write(`${PACKAGE_TAG} proposal prompt template not found; skipping drain
+`);
+    return;
+  }
+  try {
+    process.stderr.write("\u{1F504} KB Proposals: Draining queue\u2026\n");
+    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
+    const summary = await drainProposalQueue({
+      paths,
+      promptTemplate,
+      runner: opts.runner,
+      harnessOpts: opts.buildHarnessOpts(settings)
+    });
+    if (summary.status === "locked") {
+      process.stderr.write("\u{1F512} KB Proposals: Drain already in progress.\n");
+      return;
+    }
+    const failed = summary.processed.filter((p) => p.status === "failed");
+    if (failed.length > 0) {
+      process.stderr.write(
+        `${PACKAGE_TAG} proposal drain: ${failed.length} session(s) failed; see _logs/proposal/
+`
+      );
+    }
+    process.stderr.write("\u{1F4EC} KB Proposals: Queue drained.\n");
+  } catch (err) {
+    process.stderr.write(
+      `${PACKAGE_TAG} proposal drain error: ${err instanceof Error ? err.message : String(err)}
+`
+    );
   }
 }
 
@@ -13021,7 +13065,7 @@ var normalizeParameters = (rawFile, rawArguments = [], rawOptions = {}) => {
 
 // node_modules/execa/lib/methods/template.js
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 
 // node_modules/execa/lib/utils/uint-array.js
 init_cjs_shims();
@@ -13153,7 +13197,7 @@ var parseExpression = (expression) => {
   if (isPlainObject(expression) && ("stdout" in expression || "isMaxBuffer" in expression)) {
     return getSubprocessResult(expression);
   }
-  if (expression instanceof import_node_child_process.ChildProcess || Object.prototype.toString.call(expression) === "[object Promise]") {
+  if (expression instanceof import_node_child_process2.ChildProcess || Object.prototype.toString.call(expression) === "[object Promise]") {
     throw new TypeError("Unexpected subprocess in template expression. Please use ${await subprocess} instead of ${subprocess}.");
   }
   throw new TypeError(`Unexpected "${typeOfExpression}" in template expression`);
@@ -13173,7 +13217,7 @@ var getSubprocessResult = ({ stdout }) => {
 
 // node_modules/execa/lib/methods/main-sync.js
 init_cjs_shims();
-var import_node_child_process3 = require("child_process");
+var import_node_child_process4 = require("child_process");
 
 // node_modules/execa/lib/arguments/command.js
 init_cjs_shims();
@@ -13873,10 +13917,10 @@ function pathKey(options2 = {}) {
 // node_modules/unicorn-magic/node.js
 init_cjs_shims();
 var import_node_util4 = require("util");
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 var import_node_path6 = __toESM(require("path"), 1);
 var import_node_url3 = require("url");
-var execFileOriginal = (0, import_node_util4.promisify)(import_node_child_process2.execFile);
+var execFileOriginal = (0, import_node_util4.promisify)(import_node_child_process3.execFile);
 function toPath(urlOrPath) {
   return urlOrPath instanceof URL ? (0, import_node_url3.fileURLToPath)(urlOrPath) : urlOrPath;
 }
@@ -17675,7 +17719,7 @@ var runSubprocessSync = ({ file, commandArguments, options: options2, command, e
   try {
     addInputOptionsSync(fileDescriptors, options2);
     const normalizedOptions = normalizeSpawnSyncOptions(options2);
-    return (0, import_node_child_process3.spawnSync)(...concatenateShell(file, commandArguments, normalizedOptions));
+    return (0, import_node_child_process4.spawnSync)(...concatenateShell(file, commandArguments, normalizedOptions));
   } catch (error) {
     return makeEarlyError({
       error,
@@ -17719,7 +17763,7 @@ var getSyncResult = ({ error, exitCode, signal, timedOut, isMaxBuffer, stdio, al
 // node_modules/execa/lib/methods/main-async.js
 init_cjs_shims();
 var import_node_events14 = require("events");
-var import_node_child_process5 = require("child_process");
+var import_node_child_process6 = require("child_process");
 
 // node_modules/execa/lib/ipc/methods.js
 init_cjs_shims();
@@ -17902,11 +17946,11 @@ var getIpcMethods = (anyProcess, isSubprocess, ipc) => ({
 
 // node_modules/execa/lib/return/early-error.js
 init_cjs_shims();
-var import_node_child_process4 = require("child_process");
+var import_node_child_process5 = require("child_process");
 var import_node_stream2 = require("stream");
 var handleEarlyError = ({ error, command, escapedCommand, fileDescriptors, options: options2, startTime, verboseInfo }) => {
   cleanupCustomStreams(fileDescriptors);
-  const subprocess = new import_node_child_process4.ChildProcess();
+  const subprocess = new import_node_child_process5.ChildProcess();
   createDummyStreams(subprocess, fileDescriptors);
   Object.assign(subprocess, { readable, writable, duplex });
   const earlyError = makeEarlyError({
@@ -19711,7 +19755,7 @@ var handleAsyncOptions = ({ timeout, signal, ...options2 }) => {
 var spawnSubprocessAsync = ({ file, commandArguments, options: options2, startTime, verboseInfo, command, escapedCommand, fileDescriptors }) => {
   let subprocess;
   try {
-    subprocess = (0, import_node_child_process5.spawn)(...concatenateShell(file, commandArguments, options2));
+    subprocess = (0, import_node_child_process6.spawn)(...concatenateShell(file, commandArguments, options2));
   } catch (error) {
     return handleEarlyError({
       error,
@@ -20126,17 +20170,18 @@ async function runHeadlessOpenCode(promptBody, stdin, schema2, opts = {}) {
   if (accumulatedText.length === 0) {
     throw new Error("opencode subprocess produced no assistant text");
   }
+  const role = opts.role ?? "headless";
   let parsedJson;
   try {
     parsedJson = JSON.parse(extractJsonPayload(accumulatedText));
   } catch (parseError) {
     throw new Error(
-      `Could not parse opencode output as JSON: ${truncate(accumulatedText, 200)} (${parseError instanceof Error ? parseError.message : String(parseError)})`
+      `${role} output was not valid JSON: ${truncate(accumulatedText, 200)} (${parseError instanceof Error ? parseError.message : String(parseError)})`
     );
   }
   const validated = schema2.safeParse(parsedJson);
   if (!validated.success) {
-    throw new Error(`opencode output did not match schema: ${validated.error.message}`);
+    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
   }
   return validated.data;
 }
@@ -20150,63 +20195,27 @@ function truncate(s, maxChars) {
 }
 
 // src/harnesses/opencode/hooks/kb-proposal-drain.ts
-var PACKAGE_TAG = "[ai-knowledge-base]";
 async function main() {
   if (process.env["KB_BUILDER_INTERNAL"] === "1") return;
-  try {
-    (0, import_node_child_process6.execFileSync)("which", ["opencode"], { stdio: "ignore" });
-  } catch {
-    return;
-  }
   const raw = await readStdin();
   let input = {};
   if (raw.trim().length > 0) {
     try {
       input = JSON.parse(raw);
     } catch (err) {
-      const paths2 = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic("opencode:kb-proposal-drain", "parse", err, paths2.logsDir);
+      const paths = repoPaths(findRepoRoot(process.cwd()));
+      appendHookDiagnostic("opencode:kb-proposal-drain", "parse", err, paths.logsDir);
       input = {};
     }
   }
   const startCwd = typeof input.cwd === "string" && input.cwd.length > 0 ? input.cwd : process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
-  if (!(0, import_node_fs12.existsSync)(paths.installedVersionFile)) return;
-  const promptTemplate = loadProposalPrompt(paths.promptsDir);
-  if (!promptTemplate) {
-    process.stderr.write(`${PACKAGE_TAG} proposal prompt template not found; skipping drain
-`);
-    return;
-  }
-  const runner = async (prompt, stdin, schema2, opts) => runHeadlessOpenCode(prompt, stdin, schema2, opts);
-  try {
-    process.stderr.write("\u{1F504} KB Proposals: Draining queue\u2026\n");
-    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-    const summary = await drainProposalQueue({
-      paths,
-      promptTemplate,
-      runner,
-      harnessOpts: buildOpenCodeHarnessOpts(settings, "proposal")
-    });
-    if (summary.status === "locked") {
-      process.stderr.write("\u{1F512} KB Proposals: Drain already in progress.\n");
-      return;
-    }
-    const failed = summary.processed.filter((p) => p.status === "failed");
-    if (failed.length > 0) {
-      process.stderr.write(
-        `${PACKAGE_TAG} proposal drain: ${failed.length} session(s) failed; see _logs/proposal/
-`
-      );
-    }
-    process.stderr.write("\u{1F4EC} KB Proposals: Queue drained.\n");
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} proposal drain error: ${err instanceof Error ? err.message : String(err)}
-`
-    );
-  }
+  await runProposalDrain({
+    binaryName: "opencode",
+    startCwd,
+    runner: async (prompt, stdin, schema2, opts) => runHeadlessOpenCode(prompt, stdin, schema2, opts),
+    buildHarnessOpts: (settings) => buildOpenCodeHarnessOpts(settings, "proposal"),
+    harnessTag: "opencode:kb-proposal-drain"
+  });
 }
 void main().catch((err) => {
   try {

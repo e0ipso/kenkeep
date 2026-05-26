@@ -3569,7 +3569,7 @@ var require_gray_matter = __commonJS({
 
 // src/harnesses/opencode/hooks/kb-session-start.ts
 init_cjs_shims();
-var import_node_fs7 = require("fs");
+var import_node_fs8 = require("fs");
 var import_node_path8 = require("path");
 
 // src/lib/hook-diagnostic.ts
@@ -3591,8 +3591,8 @@ function appendHookDiagnostic(hook, phase, error, logsDir) {
 
 // src/lib/session-start.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path5 = require("path");
+var import_node_fs7 = require("fs");
+var import_node_path7 = require("path");
 var import_gray_matter2 = __toESM(require_gray_matter(), 1);
 
 // src/lib/nodes.ts
@@ -7853,7 +7853,8 @@ function walkMarkdown(rootDir, currentDir, out) {
 
 // src/lib/lint-state.ts
 init_cjs_shims();
-var import_node_path4 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path6 = require("path");
 
 // src/lib/fs-atomic.ts
 init_cjs_shims();
@@ -7878,195 +7879,31 @@ function readJsonValidated(file, schema2, fallback) {
   }
 }
 
-// src/lib/lint-state.ts
-var DEFAULT_LINT_STATE = {
-  schema_version: 1,
-  sessions_since_last_lint: 0,
-  last_lint_at: null,
-  last_errors: 0,
-  last_findings: 0
-};
-function lintStateFile(stateDir) {
-  return (0, import_node_path4.join)(stateDir, "lint-state.json");
-}
-function readLintState(file) {
-  return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
-}
-
-// src/lib/state.ts
+// src/lib/lint.ts
 init_cjs_shims();
-var STATE_LOCK_OPTIONS = { stale: 30 * 60 * 1e3, realpath: false };
-function readState(file) {
-  return readJsonValidated(file, StateFileSchema, { schema_version: 1 });
-}
-function writeState(file, state) {
-  atomicWriteJson(file, state);
-}
-
-// src/lib/session-start.ts
-var DEFAULT_NUDGE_THRESHOLD = 20;
-var DEFAULT_STALE_DAYS = 7;
-function buildSessionStartContext(ctx) {
-  const now = ctx.now ?? (() => /* @__PURE__ */ new Date());
-  const threshold = ctx.threshold ?? DEFAULT_NUDGE_THRESHOLD;
-  const staleDays = ctx.staleDays ?? DEFAULT_STALE_DAYS;
-  const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kbDir);
-  const liveHash = computeNodesHash(ctx.nodesDir);
-  const indexStale = !missing && frontmatterHash !== null && frontmatterHash !== liveHash;
-  const summary = summarizePendingSessions(ctx.sessionsDir);
-  const pending = summary.pending;
-  const state = readState(ctx.stateFile);
-  const nowDate = now();
-  const shouldNudge = pending >= threshold;
-  const oldestAgeDays = summary.oldestCapturedAt === null ? 0 : Math.max(
-    0,
-    Math.floor((nowDate.getTime() - summary.oldestCapturedAt.getTime()) / 864e5)
-  );
-  const loud = shouldNudge && (pending >= threshold && oldestAgeDays >= staleDays || pending >= 2 * threshold);
-  const lines = [];
-  lines.push(indexBody.trim());
-  lines.push("");
-  lines.push(
-    "> KB nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user."
-  );
-  lines.push("");
-  lines.push(
-    "> KB navigation: consult the index above first, then `grep -C 2 <term> nodes/` for candidate slugs (the `-C 2` context surfaces the `summary:` frontmatter line), and only open full node bodies for confirmed matches."
-  );
-  if (indexStale) {
-    lines.push("");
-    lines.push(
-      `> KB index is stale, run \`npx @e0ipso/ai-knowledge-base index rebuild\` to refresh (live hash differs from INDEX.md \`nodes_hash\`).`
-    );
-  }
-  if (shouldNudge) {
-    const oldestPhrase = oldestAgeDays === 0 ? "captured today" : `oldest pending: ${oldestAgeDays} day(s)`;
-    const copyPaste = "Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.";
-    lines.push("");
-    if (loud) {
-      lines.push("> \u{1F6A8} KB curation queue is overdue");
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    } else {
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    }
-  }
-  let lintNudged = false;
-  if (ctx.lintStateFile !== void 0) {
-    const lintState = readLintState(ctx.lintStateFile);
-    if (lintState.last_errors > 0 || lintState.last_findings > 0) {
-      lines.push("");
-      lines.push(
-        `> Last KB lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`npx @e0ipso/ai-knowledge-base lint --verbose\` for details.`
-      );
-      lintNudged = true;
-    }
-  }
-  if (shouldNudge) {
-    writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
-  }
-  return {
-    additionalContext: lines.join("\n") + "\n",
-    nudged: shouldNudge,
-    lintNudged,
-    indexMissing: missing,
-    indexStale,
-    pendingSessions: pending,
-    candidateCount: summary.candidateCount
-  };
-}
-function loadIndex(kbDir) {
-  const indexFile = `${kbDir.replace(/[\\/]$/, "")}/INDEX.md`;
-  if (!(0, import_node_fs4.existsSync)(indexFile)) {
-    return {
-      content: stubIndex(),
-      frontmatterHash: null,
-      missing: true
-    };
-  }
-  const raw = (0, import_node_fs4.readFileSync)(indexFile, "utf8");
-  const parsed = (0, import_gray_matter2.default)(raw);
-  const result = IndexFrontmatterSchema.safeParse(parsed.data);
-  const hash = result.success ? normalizeNodesHash(result.data.nodes_hash) : null;
-  return {
-    content: parsed.content.trimStart(),
-    frontmatterHash: hash,
-    missing: false
-  };
-}
-function stubIndex() {
-  return [
-    "# KB Index",
-    "",
-    "_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `npx @e0ipso/ai-knowledge-base node add` to seed it._"
-  ].join("\n");
-}
-function normalizeNodesHash(value) {
-  return value.startsWith("sha256:") ? value.slice(7) : value;
-}
-function summarizePendingSessions(sessionsDir) {
-  if (!(0, import_node_fs4.existsSync)(sessionsDir)) {
-    return { pending: 0, candidateCount: 0, oldestCapturedAt: null };
-  }
-  let pending = 0;
-  let candidateCount = 0;
-  let oldest = null;
-  for (const name of (0, import_node_fs4.readdirSync)(sessionsDir)) {
-    if (!name.endsWith(".md")) continue;
-    const file = (0, import_node_path5.join)(sessionsDir, name);
-    try {
-      const parsed = (0, import_gray_matter2.default)((0, import_node_fs4.readFileSync)(file, "utf8"));
-      const fm = SessionLogFrontmatterSchema.safeParse(parsed.data);
-      if (!fm.success) continue;
-      const status = fm.data.proposal_status;
-      if (status !== "pending" && status !== "done") continue;
-      const data = parsed.data;
-      if (typeof data.curator_processed_at === "string") continue;
-      pending += 1;
-      if (status === "done") {
-        const proposals = fm.data.proposals;
-        candidateCount += (proposals?.practice?.length ?? 0) + (proposals?.map?.length ?? 0);
-      }
-      const ms = Date.parse(fm.data.captured_at);
-      if (Number.isFinite(ms)) {
-        const captured = new Date(ms);
-        if (oldest === null || captured.getTime() < oldest.getTime()) {
-          oldest = captured;
-        }
-      }
-    } catch {
-    }
-  }
-  return { pending, candidateCount, oldestCapturedAt: oldest };
-}
 
 // src/lib/paths.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path4 = require("path");
 var import_node_url = require("url");
 function findRepoRoot(from = process.cwd()) {
-  let cur = (0, import_node_path6.resolve)(from);
+  let cur = (0, import_node_path4.resolve)(from);
   while (true) {
-    if ((0, import_node_fs5.existsSync)((0, import_node_path6.join)(cur, ".git")) || (0, import_node_fs5.existsSync)((0, import_node_path6.join)(cur, ".ai/knowledge-base/.state/installed-version"))) {
+    if ((0, import_node_fs4.existsSync)((0, import_node_path4.join)(cur, ".git")) || (0, import_node_fs4.existsSync)((0, import_node_path4.join)(cur, ".ai/knowledge-base/.state/installed-version"))) {
       return cur;
     }
-    const parent = (0, import_node_path6.dirname)(cur);
-    if (parent === cur) return (0, import_node_path6.resolve)(from);
+    const parent = (0, import_node_path4.dirname)(cur);
+    if (parent === cur) return (0, import_node_path4.resolve)(from);
     cur = parent;
   }
 }
 function repoPaths(root) {
-  const aiDir = (0, import_node_path6.join)(root, ".ai");
-  const kbDir = (0, import_node_path6.join)(aiDir, "knowledge-base");
-  const stateDir = (0, import_node_path6.join)(kbDir, ".state");
-  const configDir = (0, import_node_path6.join)(kbDir, ".config");
-  const promptsDir = (0, import_node_path6.join)(configDir, "prompts");
+  const aiDir = (0, import_node_path4.join)(root, ".ai");
+  const kbDir = (0, import_node_path4.join)(aiDir, "knowledge-base");
+  const stateDir = (0, import_node_path4.join)(kbDir, ".state");
+  const configDir = (0, import_node_path4.join)(kbDir, ".config");
+  const promptsDir = (0, import_node_path4.join)(configDir, "prompts");
   return {
     root,
     aiDir,
@@ -8074,21 +7911,21 @@ function repoPaths(root) {
     stateDir,
     configDir,
     promptsDir,
-    installedVersionFile: (0, import_node_path6.join)(stateDir, "installed-version"),
-    projectConfigFile: (0, import_node_path6.join)(kbDir, "config.yaml"),
-    sessionsDir: (0, import_node_path6.join)(kbDir, "_sessions"),
-    logsDir: (0, import_node_path6.join)(kbDir, "_logs"),
-    nodesDir: (0, import_node_path6.join)(kbDir, "nodes"),
-    conflictsDir: (0, import_node_path6.join)(kbDir, "conflicts"),
-    gitignoreFile: (0, import_node_path6.join)(root, ".gitignore"),
-    memoryLedgerFile: (0, import_node_path6.join)(stateDir, "memory-ledger.json")
+    installedVersionFile: (0, import_node_path4.join)(stateDir, "installed-version"),
+    projectConfigFile: (0, import_node_path4.join)(kbDir, "config.yaml"),
+    sessionsDir: (0, import_node_path4.join)(kbDir, "_sessions"),
+    logsDir: (0, import_node_path4.join)(kbDir, "_logs"),
+    nodesDir: (0, import_node_path4.join)(kbDir, "nodes"),
+    conflictsDir: (0, import_node_path4.join)(kbDir, "conflicts"),
+    gitignoreFile: (0, import_node_path4.join)(root, ".gitignore"),
+    memoryLedgerFile: (0, import_node_path4.join)(stateDir, "memory-ledger.json")
   };
 }
 
 // src/lib/settings.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path5 = require("path");
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 init_cjs_shims();
@@ -10747,8 +10584,8 @@ function applyOverrides(target, src) {
   if (src.cliDefaultHarness !== void 0) target.cliDefaultHarness = src.cliDefaultHarness;
 }
 function loadFile(file) {
-  if (!(0, import_node_fs6.existsSync)(file)) return null;
-  const raw = (0, import_node_fs6.readFileSync)(file, "utf8");
+  if (!(0, import_node_fs5.existsSync)(file)) return null;
+  const raw = (0, import_node_fs5.readFileSync)(file, "utf8");
   let parsed;
   try {
     parsed = jsYaml.load(raw);
@@ -10760,6 +10597,186 @@ function loadFile(file) {
     throw new Error(`settings file failed schema validation (${file}): ${result.error.message}`);
   }
   return result.data;
+}
+
+// src/lib/lint-state.ts
+var DEFAULT_LINT_STATE = {
+  schema_version: 1,
+  sessions_since_last_lint: 0,
+  last_lint_at: null,
+  last_errors: 0,
+  last_findings: 0
+};
+function lintStateFile(stateDir) {
+  return (0, import_node_path6.join)(stateDir, "lint-state.json");
+}
+function readLintState(file) {
+  return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
+}
+
+// src/lib/state.ts
+init_cjs_shims();
+var STATE_LOCK_OPTIONS = { stale: 30 * 60 * 1e3, realpath: false };
+function readState(file) {
+  return readJsonValidated(file, StateFileSchema, { schema_version: 1 });
+}
+function writeState(file, state) {
+  atomicWriteJson(file, state);
+}
+
+// src/lib/session-start.ts
+var DEFAULT_NUDGE_THRESHOLD = 20;
+var DEFAULT_STALE_DAYS = 7;
+function buildSessionStartContext(ctx) {
+  const now = ctx.now ?? (() => /* @__PURE__ */ new Date());
+  const threshold = ctx.threshold ?? DEFAULT_NUDGE_THRESHOLD;
+  const staleDays = ctx.staleDays ?? DEFAULT_STALE_DAYS;
+  const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kbDir);
+  const liveHash = computeNodesHash(ctx.nodesDir);
+  const indexStale = !missing && frontmatterHash !== null && frontmatterHash !== liveHash;
+  const summary = summarizePendingSessions(ctx.sessionsDir);
+  const pending = summary.pending;
+  const state = readState(ctx.stateFile);
+  const nowDate = now();
+  const shouldNudge = pending >= threshold;
+  const oldestAgeDays = summary.oldestCapturedAt === null ? 0 : Math.max(
+    0,
+    Math.floor((nowDate.getTime() - summary.oldestCapturedAt.getTime()) / 864e5)
+  );
+  const loud = shouldNudge && (pending >= threshold && oldestAgeDays >= staleDays || pending >= 2 * threshold);
+  const lines = [];
+  lines.push(indexBody.trim());
+  lines.push("");
+  lines.push(
+    "> KB nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user."
+  );
+  lines.push("");
+  lines.push(
+    "> KB navigation: consult the index above first, then `grep -C 2 <term> nodes/` for candidate slugs (the `-C 2` context surfaces the `summary:` frontmatter line), and only open full node bodies for confirmed matches."
+  );
+  if (indexStale) {
+    lines.push("");
+    lines.push(
+      `> KB index is stale, run \`npx @e0ipso/ai-knowledge-base index rebuild\` to refresh (live hash differs from INDEX.md \`nodes_hash\`).`
+    );
+  }
+  if (shouldNudge) {
+    const oldestPhrase = oldestAgeDays === 0 ? "captured today" : `oldest pending: ${oldestAgeDays} day(s)`;
+    const copyPaste = "Run `/kb-curate` (or `npx @e0ipso/ai-knowledge-base curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.";
+    lines.push("");
+    if (loud) {
+      lines.push("> \u{1F6A8} KB curation queue is overdue");
+      lines.push(
+        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
+      );
+      lines.push(`> ${copyPaste}`);
+    } else {
+      lines.push(
+        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
+      );
+      lines.push(`> ${copyPaste}`);
+    }
+  }
+  let lintNudged = false;
+  if (ctx.lintStateFile !== void 0) {
+    const lintState = readLintState(ctx.lintStateFile);
+    if (lintState.last_errors > 0 || lintState.last_findings > 0) {
+      lines.push("");
+      lines.push(
+        `> Last KB lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`npx @e0ipso/ai-knowledge-base lint --verbose\` for details.`
+      );
+      lintNudged = true;
+    }
+  }
+  if (shouldNudge) {
+    writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
+  }
+  return {
+    additionalContext: lines.join("\n") + "\n",
+    nudged: shouldNudge,
+    lintNudged,
+    indexMissing: missing,
+    indexStale,
+    pendingSessions: pending,
+    candidateCount: summary.candidateCount
+  };
+}
+function loadIndex(kbDir) {
+  const indexFile = `${kbDir.replace(/[\\/]$/, "")}/INDEX.md`;
+  if (!(0, import_node_fs7.existsSync)(indexFile)) {
+    return {
+      content: stubIndex(),
+      frontmatterHash: null,
+      missing: true
+    };
+  }
+  const raw = (0, import_node_fs7.readFileSync)(indexFile, "utf8");
+  const parsed = (0, import_gray_matter2.default)(raw);
+  const result = IndexFrontmatterSchema.safeParse(parsed.data);
+  const hash = result.success ? normalizeNodesHash(result.data.nodes_hash) : null;
+  return {
+    content: parsed.content.trimStart(),
+    frontmatterHash: hash,
+    missing: false
+  };
+}
+function stubIndex() {
+  return [
+    "# KB Index",
+    "",
+    "_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `npx @e0ipso/ai-knowledge-base node add` to seed it._"
+  ].join("\n");
+}
+function normalizeNodesHash(value) {
+  return value.startsWith("sha256:") ? value.slice(7) : value;
+}
+function summarizePendingSessions(sessionsDir) {
+  if (!(0, import_node_fs7.existsSync)(sessionsDir)) {
+    return { pending: 0, candidateCount: 0, oldestCapturedAt: null };
+  }
+  let pending = 0;
+  let candidateCount = 0;
+  let oldest = null;
+  for (const name of (0, import_node_fs7.readdirSync)(sessionsDir)) {
+    if (!name.endsWith(".md")) continue;
+    const file = (0, import_node_path7.join)(sessionsDir, name);
+    try {
+      const parsed = (0, import_gray_matter2.default)((0, import_node_fs7.readFileSync)(file, "utf8"));
+      const fm = SessionLogFrontmatterSchema.safeParse(parsed.data);
+      if (!fm.success) continue;
+      const status = fm.data.proposal_status;
+      if (status !== "pending" && status !== "done") continue;
+      const data = parsed.data;
+      if (typeof data.curator_processed_at === "string") continue;
+      pending += 1;
+      if (status === "done") {
+        const proposals = fm.data.proposals;
+        candidateCount += (proposals?.practice?.length ?? 0) + (proposals?.map?.length ?? 0);
+      }
+      const ms = Date.parse(fm.data.captured_at);
+      if (Number.isFinite(ms)) {
+        const captured = new Date(ms);
+        if (oldest === null || captured.getTime() < oldest.getTime()) {
+          oldest = captured;
+        }
+      }
+    } catch {
+    }
+  }
+  return { pending, candidateCount, oldestCapturedAt: oldest };
+}
+function buildNudgeContent(result) {
+  const statusLine = result.nudged ? `\u{1F6A8} KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kb-curate` : `\u{1F4CB} KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+  let content = statusLine + "\n\n" + result.additionalContext;
+  if (result.nudged) {
+    const box = `\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502 \u{1F6A8} KB curation is overdue            \u2502
+\u2502 Run /kb-curate to process them.      \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
+    content += "\n> IMPORTANT: After completing your response, append the following block verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> " + box.split("\n").join("\n> ") + "\n> ```\n";
+  }
+  return { statusLine, content };
 }
 
 // src/lib/stdin.ts
@@ -10803,7 +10820,7 @@ async function main() {
   const startCwd = typeof input.cwd === "string" && input.cwd.length > 0 ? input.cwd : process.cwd();
   const root = findRepoRoot(startCwd);
   const paths = repoPaths(root);
-  if (!(0, import_node_fs7.existsSync)(paths.installedVersionFile)) return;
+  if (!(0, import_node_fs8.existsSync)(paths.installedVersionFile)) return;
   try {
     process.stderr.write("\u{1F4D6} KB Index: Loading knowledge base\u2026\n");
     const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
@@ -10815,30 +10832,12 @@ async function main() {
       lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold
     });
-    const statusLine = result.nudged ? `\u{1F6A8} KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kb-curate` : `\u{1F4CB} KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
-    let content = statusLine + "\n\n" + result.additionalContext;
-    if (result.nudged) {
-      const box = `\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
-\u2502 \u{1F6A8} KB curation is overdue            \u2502
-\u2502 Run /kb-curate to process them.      \u2502
-\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
-${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
-      content += "\n> IMPORTANT: After completing your response, append the following block verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> " + box.split("\n").join("\n> ") + "\n> ```\n";
-    }
+    const { statusLine, content } = buildNudgeContent(result);
     const target = (0, import_node_path8.join)(root, ".opencode", "AGENTS.md");
-    (0, import_node_fs7.mkdirSync)((0, import_node_path8.dirname)(target), { recursive: true });
-    (0, import_node_fs7.writeFileSync)(target, `${AGENTS_HEADER}${content}`);
-    if (result.nudged) {
-      process.stderr.write(
-        `\u{1F6A8} KB curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kb-curate
-`
-      );
-    } else {
-      process.stderr.write(
-        `\u{1F4CB} KB queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)
-`
-      );
-    }
+    (0, import_node_fs8.mkdirSync)((0, import_node_path8.dirname)(target), { recursive: true });
+    (0, import_node_fs8.writeFileSync)(target, `${AGENTS_HEADER}${content}`);
+    process.stderr.write(`${statusLine}
+`);
     process.stderr.write("\u{1F9E0} KB Index: Knowledge base loaded.\n");
   } catch (err) {
     process.stderr.write(

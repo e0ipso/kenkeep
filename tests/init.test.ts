@@ -263,7 +263,7 @@ describe('init', () => {
       readFileSync(join(sandbox, '.ai/knowledge-base/config.yaml'), 'utf8')
     ) as Record<string, unknown>;
     expect(body['schema_version']).toBe(1);
-    expect(body['curationThreshold']).toBe(5);
+    expect(body['curationThreshold']).toBe(20);
     expect(body['logsRetentionDays']).toBe(30);
     expect(body['lintEveryNSessions']).toBe(50);
     expect(Object.keys(body).sort()).toEqual([

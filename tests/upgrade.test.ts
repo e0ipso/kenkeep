@@ -156,7 +156,7 @@ describe('init --upgrade', () => {
     expect(existsSync(configFile)).toBe(true);
     const body = yaml.load(readFileSync(configFile, 'utf8')) as Record<string, unknown>;
     expect(body.schema_version).toBe(1);
-    expect(body.curationThreshold).toBe(5);
+    expect(body.curationThreshold).toBe(20);
   });
 });
 

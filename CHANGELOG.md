@@ -1,3 +1,9 @@
+## [0.26.4](https://github.com/e0ipso/ai-knowledge-base/compare/v0.26.3...v0.26.4) (2026-06-03)
+
+### Bug Fixes
+
+* avoid editing projects .gitignore ([8dafb92](https://github.com/e0ipso/ai-knowledge-base/commit/8dafb927f6ed04d11d4cf9f9d8a168184466522d))
+
 ## [0.26.3](https://github.com/e0ipso/ai-knowledge-base/compare/v0.26.2...v0.26.3) (2026-05-26)
 
 ### Bug Fixes

@@ -1,5 +1,5 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { refreshClaudeTemplates } from '../harnesses/claude/install.js';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { copyTree } from '../lib/fs-atomic.js';
@@ -27,14 +27,11 @@ const AGENTS_BLOCK_END = '<!-- <<< @e0ipso/ai-knowledge-base:kb-index <<< -->';
 const AGENTS_POINTER =
   'Curated project knowledge lives in [.ai/knowledge-base/INDEX.md](.ai/knowledge-base/INDEX.md). Consult it before designing a non-trivial change.';
 
-const GITIGNORE_BLOCK_START = '# >>> @e0ipso/ai-knowledge-base >>>';
-const GITIGNORE_BLOCK_END = '# <<< @e0ipso/ai-knowledge-base <<<';
-
-const GITIGNORE_LINES = [
-  '.ai/knowledge-base/_sessions/',
-  '.ai/knowledge-base/_logs/',
-  '.ai/knowledge-base/.state/',
-  '!.ai/knowledge-base/.state/installed-version',
+const KB_GITIGNORE_LINES = [
+  '_sessions/',
+  '_logs/',
+  '.state/',
+  '!.state/installed-version',
 ];
 
 export async function runInit(opts: InitOptions): Promise<void> {
@@ -83,8 +80,9 @@ export async function runInit(opts: InitOptions): Promise<void> {
     copyTree(promptsSrc, paths.promptsDir);
   }
 
-  // 4. Update .gitignore and AGENTS.md.
-  updateGitignore(paths.gitignoreFile);
+  // 4. Write .ai/knowledge-base/.gitignore and update AGENTS.md. The project's
+  //    root .gitignore is intentionally untouched.
+  ensureKbGitignore(paths.kbGitignoreFile);
   updateAgentsMd(join(root, 'AGENTS.md'));
 
   // 4b. Emit `.kbignore` stub. Never overwrites: user-edited scope is sacred.
@@ -117,9 +115,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
       return `\`${rel}/\``;
     })
     .join(', ');
-  log.plain(
-    `  1. Review and commit \`.ai/knowledge-base/\`, ${harnessDirs}, and the updated \`.gitignore\`.`
-  );
+  log.plain(`  1. Review and commit \`.ai/knowledge-base/\` and ${harnessDirs}.`);
   log.plain('  2. Run `npx @e0ipso/ai-knowledge-base doctor` to verify the setup.');
 }
 
@@ -162,7 +158,7 @@ async function runUpgrade(
 
   copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
-  updateGitignore(paths.gitignoreFile);
+  ensureKbGitignore(paths.kbGitignoreFile);
   updateAgentsMd(join(root, 'AGENTS.md'));
 
   const kbignore = ensureKbignore(root);
@@ -208,24 +204,15 @@ function writeInstalledVersion(file: string, stateDir: string, harnesses: string
 }
 
 
-function updateGitignore(file: string): void {
-  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
-  if (existing.includes(GITIGNORE_BLOCK_START)) {
-    // Update in place: replace the managed block entirely.
-    const before = existing.slice(0, existing.indexOf(GITIGNORE_BLOCK_START));
-    const afterStart = existing.indexOf(GITIGNORE_BLOCK_END);
-    const afterRaw = afterStart >= 0 ? existing.slice(afterStart + GITIGNORE_BLOCK_END.length) : '';
-    const after = afterRaw.startsWith('\n') ? afterRaw.slice(1) : afterRaw;
-    const next = `${before}${buildBlock()}${after}`;
-    writeFileSync(file, ensureTrailingNewline(next));
-    return;
-  }
-  const sep = existing.length === 0 || existing.endsWith('\n') ? '' : '\n';
-  writeFileSync(file, `${existing}${sep}${buildBlock()}\n`);
-}
-
-function buildBlock(): string {
-  return `${GITIGNORE_BLOCK_START}\n${GITIGNORE_LINES.join('\n')}\n${GITIGNORE_BLOCK_END}\n`;
+/**
+ * Writes `.ai/knowledge-base/.gitignore` with the canonical entries if it
+ * doesn't already exist. Once written, the file is treated as user-owned —
+ * upgrades will not overwrite local edits.
+ */
+function ensureKbGitignore(file: string): void {
+  if (existsSync(file)) return;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${KB_GITIGNORE_LINES.join('\n')}\n`);
 }
 
 function ensureTrailingNewline(s: string): string {

@@ -43,7 +43,7 @@ describe('init', () => {
       '.ai/knowledge-base/.state/installed-version',
       '.ai/knowledge-base/.config/prompts/proposal-extract.md',
       '.ai/knowledge-base/config.yaml',
-      '.gitignore',
+      '.ai/knowledge-base/.gitignore',
     ];
 
     for (const rel of expected) {
@@ -69,33 +69,32 @@ describe('init', () => {
     expect(typeof installed.installed_at).toBe('string');
   });
 
-  it('appends an idempotent block to .gitignore', async () => {
-    writeFileSync(join(sandbox, '.gitignore'), 'node_modules\n');
+  it('writes .ai/knowledge-base/.gitignore and leaves the project .gitignore untouched', async () => {
+    const projectGitignore = join(sandbox, '.gitignore');
+    writeFileSync(projectGitignore, 'node_modules\n');
 
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const first = readFileSync(join(sandbox, '.gitignore'), 'utf8');
-    expect(first).toContain('node_modules');
-    expect(first).toContain('# >>> @e0ipso/ai-knowledge-base >>>');
-    expect(first).toContain('.ai/knowledge-base/_sessions/');
 
-    // Re-run with --upgrade; gitignore should not pick up duplicate blocks.
-    await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    const second = readFileSync(join(sandbox, '.gitignore'), 'utf8');
-    const occurrences = second.match(/>>> @e0ipso\/ai-knowledge-base >>>/g) ?? [];
-    expect(occurrences.length).toBe(1);
-    expect(second).toBe(first);
+    const kbGitignore = join(sandbox, '.ai/knowledge-base/.gitignore');
+    const kbBody = readFileSync(kbGitignore, 'utf8');
+    expect(kbBody).toContain('_sessions/');
+    expect(kbBody).toContain('_logs/');
+    expect(kbBody).toContain('.state/');
+    expect(kbBody).toContain('!.state/installed-version');
+
+    const projectBody = readFileSync(projectGitignore, 'utf8');
+    expect(projectBody).toBe('node_modules\n');
+    expect(projectBody).not.toContain('@e0ipso/ai-knowledge-base');
   });
 
-  it('does not accumulate extra newlines on repeated upgrades', async () => {
-    writeFileSync(join(sandbox, '.gitignore'), 'node_modules\n');
+  it('preserves a user-edited .ai/knowledge-base/.gitignore across --upgrade', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const first = readFileSync(join(sandbox, '.gitignore'), 'utf8');
+    const kbGitignore = join(sandbox, '.ai/knowledge-base/.gitignore');
+    writeFileSync(kbGitignore, '# user edited\nscratch/\n');
 
-    for (let i = 0; i < 5; i++) {
-      await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    }
-    const after = readFileSync(join(sandbox, '.gitignore'), 'utf8');
-    expect(after).toBe(first);
+    await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+
+    expect(readFileSync(kbGitignore, 'utf8')).toBe('# user edited\nscratch/\n');
   });
 
   it('refuses to overwrite when already initialized', async () => {

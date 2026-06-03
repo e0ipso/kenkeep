@@ -79,7 +79,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     },
     {
       name: '.gitignore lists ai-knowledge-base paths',
-      result: checkGitignore(paths.gitignoreFile),
+      result: checkGitignore(paths.kbGitignoreFile),
     },
     { name: '.kbignore present and non-empty', result: checkKbignore(join(root, '.kbignore')) },
     ...harnessChecks,
@@ -284,11 +284,11 @@ function checkSettings(file: string): CheckResult {
 }
 
 function checkGitignore(file: string): CheckResult {
-  if (!existsSync(file)) return warn('no .gitignore at repo root');
+  if (!existsSync(file)) return warn('no .gitignore inside .ai/knowledge-base/');
   const body = readFileSync(file, 'utf8');
-  return body.includes('.ai/knowledge-base/_sessions') && body.includes('.ai/knowledge-base/_logs')
-    ? ok('ai-knowledge-base block present')
-    : warn('missing entries for `.ai/knowledge-base/_sessions/` and/or `_logs/`');
+  return body.includes('_sessions/') && body.includes('_logs/')
+    ? ok('ai-knowledge-base entries present')
+    : warn('missing entries for `_sessions/` and/or `_logs/`');
 }
 
 const KBIGNORE_WARNING =

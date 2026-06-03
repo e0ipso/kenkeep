@@ -61,7 +61,11 @@ export interface RepoPaths {
    * `git diff` and committed or `git restore`d like any other tracked file.
    */
   conflictsDir: string;
-  gitignoreFile: string;
+  /**
+   * `.gitignore` shipped inside the knowledge-base directory. Init creates
+   * this so the project's root `.gitignore` is never touched.
+   */
+  kbGitignoreFile: string;
   /**
    * Per-user ledger of ingested harness auto-memory files
    * (`.ai/knowledge-base/.state/memory-ledger.json`). Lives under `.state/`
@@ -89,7 +93,7 @@ export function repoPaths(root: string): RepoPaths {
     logsDir: join(kbDir, '_logs'),
     nodesDir: join(kbDir, 'nodes'),
     conflictsDir: join(kbDir, 'conflicts'),
-    gitignoreFile: join(root, '.gitignore'),
+    kbGitignoreFile: join(kbDir, '.gitignore'),
     memoryLedgerFile: join(stateDir, 'memory-ledger.json'),
   };
 }

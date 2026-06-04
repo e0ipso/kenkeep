@@ -1,3 +1,9 @@
+## [0.27.0](https://github.com/e0ipso/kenkeep/compare/v0.26.4...v0.27.0) (2026-06-03)
+
+### Features
+
+* **kb:** capture only durable principles and facts ([6271106](https://github.com/e0ipso/kenkeep/commit/6271106b8e1a9a69638d64a12c511aab29d64475))
+
 ## [0.26.4](https://github.com/e0ipso/kenkeep/compare/v0.26.3...v0.26.4) (2026-06-03)
 
 ### Bug Fixes

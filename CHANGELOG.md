@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/e0ipso/kenkeep/compare/v1.0.0...v1.0.1) (2026-06-04)
+
+### Bug Fixes
+
+* trigger actions ([a01e69e](https://github.com/e0ipso/kenkeep/commit/a01e69e6cc6aee4a9e5cb331d481c5625bcb42fe))
+
 ## [0.27.0](https://github.com/e0ipso/kenkeep/compare/v0.26.4...v0.27.0) (2026-06-03)
 
 ### Features

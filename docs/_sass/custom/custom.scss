@@ -1,0 +1,220 @@
+// =====================================================================
+// kenkeep docs — visual polish layered on Just the Docs.
+// Imported LAST in the theme's chain, so these rules win over the defaults.
+// Colors reference the active scheme's Sass variables, so this single file
+// themes correctly in both the light and dark builds.
+// =====================================================================
+
+// ---- Display serif for headings (body stays Outfit, set in custom/setup) ----
+h1, h2, h3, h4, h5, h6,
+.text-alpha, .text-beta, .text-gamma, .text-delta, .text-epsilon {
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+h1, .text-alpha {
+  letter-spacing: -0.025em;
+}
+
+// ---- Brand wordmark: lowercase "kenkeep" in the sidebar ----
+// The site title is the lowercase brand mark in Outfit. (No throughline: unlike
+// strikethroo's wordmark there is no strike-through pun on this name.)
+.site-title.site-title {
+  font-family: "Outfit", system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  text-transform: lowercase;
+  color: $body-heading-color;
+}
+
+// ---- Sidebar / nav ----
+.side-bar {
+  border-right: 1px solid $border-color;
+}
+
+.nav-list .nav-list-item .nav-list-link:hover {
+  color: $link-color;
+}
+.nav-list .nav-list-item .nav-list-link.active {
+  color: $link-color;
+  font-weight: 600;
+}
+
+// ---- Links ----
+a {
+  text-underline-offset: 0.15em;
+}
+
+// ---- Soft, SPA-like rounding on surfaces ----
+div.highlighter-rouge,
+figure.highlight,
+pre.highlight,
+table {
+  border-radius: 0.5rem;
+}
+table {
+  overflow: hidden;
+}
+code {
+  border-radius: 0.25rem;
+}
+.btn,
+.search-input {
+  border-radius: 0.5rem;
+}
+
+// ---- Heading hierarchy ----
+// Each level must read unmistakably as a heading. JTD's defaults put h3–h6 at
+// (or below) body size, so they look like bold paragraphs. We use large size +
+// weight jumps and generous top margin, and below h4 a font/style SHIFT to a
+// tracked uppercase Outfit label — so even small subheadings can never be
+// mistaken for body text. Scoped to .main-content; sidebar/wordmark untouched.
+// IMPORTANT: Just the Docs ships every heading font-size with `!important`
+// (e.g. `h4 { font-size: 0.75rem !important }`) and styles h4–h6 as tiny
+// uppercase labels. Plain overrides are ignored, so font-size here MUST carry
+// `!important` too; our higher specificity (.main-content hN) then wins. We also
+// reset text-transform because JTD forces uppercase on h4.
+.main-content {
+  h1 {
+    font-size: 2.5rem !important;
+    line-height: 1.1;
+    font-weight: 600;
+    text-transform: none;
+  }
+  h2 {
+    font-size: 1.9rem !important;
+    line-height: 1.15;
+    font-weight: 600;
+    text-transform: none;
+    margin-top: 3rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid $border-color; // section divider
+  }
+  // h3 carries the accent color so it is unmistakably a different level
+  // from the ink h4 (size alone read as too similar in the serif face).
+  h3 {
+    font-size: 1.5rem !important;
+    line-height: 1.2;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    margin-top: 2.5rem;
+    color: $link-color;
+  }
+  h4 {
+    font-size: 1.2rem !important;
+    line-height: 1.3;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    margin-top: 2rem;
+    color: $body-heading-color;
+  }
+  // h5/h6 are too small to lean on size alone — keep them as a sans, tracked,
+  // uppercase label (accent color) so they still read clearly as headings.
+  h5 {
+    font-family: "Outfit", system-ui, sans-serif;
+    font-size: 0.8rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin-top: 1.8rem;
+    color: $link-color;
+  }
+  h6 {
+    font-family: "Outfit", system-ui, sans-serif;
+    font-size: 0.75rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin-top: 1.5rem;
+    color: $search-result-preview-color;
+  }
+}
+
+// ---- Content media: zoomable images + wide videos ----
+// Images sit in a link to the same asset (Markdown `[![alt](src)](src)`), so a
+// click opens the full-resolution file. Round + border them to match the code/
+// table surfaces above, and give the linked ones a zoom affordance.
+.main-content img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid $border-color;
+  border-radius: 0.5rem;
+}
+.main-content a:has(> img) {
+  display: inline-block;
+  border-bottom: 0;
+}
+.main-content a:has(> img) img {
+  cursor: zoom-in;
+  transition: border-color 0.15s ease;
+}
+.main-content a:has(> img):hover img {
+  border-color: $link-color;
+}
+
+// Videos read wider than the prose column. The compiled theme centers `.main`
+// (max-width 50rem) in the area right of the ~16.5rem sidebar, and
+// `.main-content-wrap` adds 2rem side padding at >= 50rem. We reclaim that
+// padding (so the video spans the full `.main`) and, on large screens, extend
+// symmetrically into the side gutters by a viewport-scaled amount that is
+// capped (8rem) and always keeps a 1rem inset -- clearly wider, never overflowing.
+.wide-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1.5rem 0;
+  border: 1px solid $border-color;
+  border-radius: 0.5rem;
+}
+@media (min-width: 50rem) {
+  .wide-video {
+    width: calc(100% + 4rem);
+    max-width: none;
+    margin-right: -2rem;
+    margin-left: -2rem;
+  }
+}
+@media (min-width: 66.5rem) {
+  .wide-video {
+    // Interpolated so Sass emits it verbatim instead of trying (and failing) to
+    // do vw/rem arithmetic at compile time. Resolves in the browser per viewport.
+    --bleed: #{"max(0rem, min(8rem, (100vw - 66.5rem) / 2 - 1rem))"};
+    width: calc(100% + 4rem + 2 * var(--bleed));
+    margin-right: calc(-2rem - var(--bleed));
+    margin-left: calc(-2rem - var(--bleed));
+  }
+}
+
+// ---- Theme toggle (markup in nav_footer_custom.html) ----
+.kk-theme {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid $border-color;
+}
+.kk-theme__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  font-family: "Outfit", system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: $body-text-color;
+  background-color: $base-button-color;
+  border: 1px solid $border-color;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.kk-theme__btn:hover {
+  color: $link-color;
+  border-color: $link-color;
+}
+.kk-theme__icon {
+  display: inline-flex;
+  line-height: 0;
+  font-size: 1rem;
+}

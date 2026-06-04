@@ -6,8 +6,9 @@ baseurl: '/kenkeep'
 # Just the Docs theme configuration
 remote_theme: just-the-docs/just-the-docs
 
-# Theme settings
-color_scheme: light
+# Theme settings — kenkeep brand schemes (see docs/_sass/color_schemes/).
+# Default load is the light scheme; the sidebar toggle swaps to kenkeep-dark.
+color_scheme: kenkeep
 search_enabled: true
 heading_anchors: true
 

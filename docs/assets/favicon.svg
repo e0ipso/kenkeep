@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- kenkeep compact mark: lowercase "k" on the brand cream tile (cream
+       background, ink glyph), with the design's faint inset border so the tile
+       stays visible on white. Colors are hex (oklch can't be assumed in favicon
+       rendering). Set as text rather than a path so it tracks the brand sans
+       fallback; no strike-through (unlike the strikethroo wordmark). -->
+  <rect width="100" height="100" rx="22" fill="#f7f3ec"/>
+  <rect x="0.5" y="0.5" width="99" height="99" rx="21.5" fill="none" stroke="#000000" stroke-opacity="0.08" stroke-width="1"/>
+  <text x="50" y="50" fill="#19110a"
+        font-family="'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif"
+        font-size="66" font-weight="600" letter-spacing="-2"
+        text-anchor="middle" dominant-baseline="central">k</text>
+</svg>

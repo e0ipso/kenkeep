@@ -359,11 +359,11 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 002: Scaffold the Copilot harness adapter module and register it (completed; added CopilotModelChoiceSchema to the config discriminated union; landed the deferred Task 1 heredoc allowlist edit here)
 
-### Phase 3: Copilot adapter internals
+### Phase 3: Copilot adapter internals ✅
 **Parallel Tasks:**
-- Task 003: Implement Copilot hooks-config writer, sentinel writer, and per-event hook scripts (depends on: 002)
-- Task 004: Implement the Copilot events.jsonl transcript parser (depends on: 002)
-- Task 005: Implement the Copilot headless runner using `copilot -p` (depends on: 002)
+- ✔️ Task 003: Implement Copilot hooks-config writer, sentinel writer, and per-event hook scripts (completed; hook scripts emit to `.copilot/kk-hooks/*.cjs` via a new `.kk-hooks-output` build marker generalizing the OpenCode kk-hooks rename; capture maps Copilot `sessionEnd`/`agentStop` onto the shared `session_end`/`stop` triggers)
+- ✔️ Task 004: Implement the Copilot events.jsonl transcript parser (completed; defensive type/role scan, chunk concatenation by parentId, truncated-line tolerance)
+- ✔️ Task 005: Implement the Copilot headless runner using `copilot -p` (completed; buffers final stdout and parses the embedded JSON via the shared `extractJsonPayload`)
 
 ### Phase 4: Docs and KB alignment
 **Parallel Tasks:**

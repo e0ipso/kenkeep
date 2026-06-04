@@ -2,7 +2,7 @@
 id: 3
 group: "copilot-adapter"
 dependencies: [2]
-status: "pending"
+status: "completed"
 created: 2026-05-15
 skills:
   - typescript

@@ -4,8 +4,9 @@
 // 1. Copies `src/templates-source/` (static markdown, settings, etc.) into `templates/`.
 // 2. Copies compiled hook scripts from `dist/hooks/<harness>/*.cjs` into
 //    `templates/<harness>/hooks/*.cjs` (or `templates/<harness>/kk-hooks/*.cjs`
-//    for adapters that also ship a plugin shim, to keep our dispatch tree
-//    separate from a runtime-reserved `hooks/` directory).
+//    for adapters that ship a plugin shim or carry a `.kk-hooks-output`
+//    marker, to keep our dispatch tree separate from a `hooks/` directory the
+//    host reserves or that holds the hook-config artifact).
 // 3. Copies compiled plugin modules from `dist/plugins/<harness>/*.mjs` into
 //    `templates/<harness>/plugins/*.mjs` for adapters that ship a plugin shim.
 //
@@ -34,15 +35,16 @@ mkdirSync(dest, { recursive: true });
 cpSync(src, dest, { recursive: true });
 console.log(`Copied ${src} -> ${dest}`);
 
-function hasPluginsDir(harnessId) {
-  return existsSync(join(harnessSrcRoot, harnessId, 'plugins'));
+function usesKkHooksOutput(harnessId) {
+  const adapterDir = join(harnessSrcRoot, harnessId);
+  return existsSync(join(adapterDir, 'plugins')) || existsSync(join(adapterDir, '.kk-hooks-output'));
 }
 
 if (existsSync(compiledHooksRoot)) {
   for (const harnessId of readdirSync(compiledHooksRoot)) {
     const harnessDir = join(compiledHooksRoot, harnessId);
     if (!statSync(harnessDir).isDirectory()) continue;
-    const dirName = hasPluginsDir(harnessId) ? 'kk-hooks' : 'hooks';
+    const dirName = usesKkHooksOutput(harnessId) ? 'kk-hooks' : 'hooks';
     const destHooksDir = resolve(dest, harnessId, dirName);
     mkdirSync(destHooksDir, { recursive: true });
     let copied = 0;

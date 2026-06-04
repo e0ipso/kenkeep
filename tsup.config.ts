@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig } from 'tsup';
 
@@ -9,11 +9,13 @@ import { defineConfig } from 'tsup';
  *
  *   1. **Per-event hook scripts** discovered at `src/harnesses/<id>/hooks/*.ts`.
  *      For adapters whose host runtime owns `<dir>/hooks/` (OpenCode reserves
- *      `.opencode/hooks/` for its own use), the output is renamed to
+ *      `.opencode/hooks/` for its own use; Copilot keeps the hook-config JSON
+ *      `kk.json` under `.copilot/hooks/`), the output is renamed to
  *      `kk-hooks/<name>.cjs` to keep the private dispatch tree separate. The
- *      rename is triggered by the presence of a sibling `plugins/` directory:
- *      that signals the adapter ships a plugin shim and needs `kk-hooks/`
- *      under its native root (see Plan 23 for the convention).
+ *      rename is triggered by the presence of a sibling `plugins/` directory
+ *      (the adapter ships a plugin shim, see Plan 23) or an explicit
+ *      `.kk-hooks-output` marker file (the adapter's `<dir>/hooks/` holds its
+ *      hook-config artifact rather than scripts).
  *   2. **Plugin modules** discovered at `src/harnesses/<id>/plugins/*.ts` and
  *      emitted to `dist/plugins/<id>/<name>.mjs` for the build-templates
  *      script to mirror into `templates/<id>/plugins/<name>.mjs`.
@@ -52,7 +54,8 @@ function discoverEntries(): DiscoveredEntries {
     const hooksDir = join(adapterDir, 'hooks');
     const pluginsDir = join(adapterDir, 'plugins');
     const hasPlugins = dirExists(pluginsDir);
-    if (hasPlugins) kkHooksOutputAdapters.add(id);
+    const hasKkHooksMarker = existsSync(join(adapterDir, '.kk-hooks-output'));
+    if (hasPlugins || hasKkHooksMarker) kkHooksOutputAdapters.add(id);
     if (dirExists(hooksDir)) {
       for (const name of readdirSync(hooksDir)) {
         if (!name.endsWith('.ts')) continue;

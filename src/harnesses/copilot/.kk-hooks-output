@@ -1,0 +1,4 @@
+Marker: this adapter ships per-event hook scripts that must be
+emitted to templates/<id>/kk-hooks/ rather than templates/<id>/hooks/,
+because <dir>/hooks/ holds the hook-config JSON artifact (kk.json),
+not the scripts.

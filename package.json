@@ -1,6 +1,6 @@
 {
   "name": "kenkeep",
-  "version": "0.27.0",
+  "version": "1.0.0",
   "description": "Builds and maintains a per-repo knowledge base from AI coding sessions, for use with Claude Code.",
   "license": "MIT",
   "author": "e0ipso",

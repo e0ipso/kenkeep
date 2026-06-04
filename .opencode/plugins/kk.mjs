@@ -1,13 +1,13 @@
 // kenkeep plugin
 
-// src/harnesses/opencode/plugins/kb.ts
+// src/harnesses/opencode/plugins/kk.ts
 import { spawn } from "child_process";
 import { join } from "path";
 var DISPATCH = {
   "session.created": ["kk-session-start.cjs", "kk-proposal-drain.cjs"],
   "session.idle": ["kk-capture.cjs", "kk-lint-tick.cjs"]
 };
-var kb_default = async (input) => {
+var kk_default = async (input) => {
   if (process.env["KENKEEP_BUILDER_INTERNAL"] === "1") return {};
   const projectDir = input.directory ?? input.project?.worktree ?? process.cwd();
   const kkHooks = join(projectDir, ".opencode", "kk-hooks");
@@ -35,5 +35,5 @@ var kb_default = async (input) => {
   };
 };
 export {
-  kb_default as default
+  kk_default as default
 };

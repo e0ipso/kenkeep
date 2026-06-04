@@ -64,7 +64,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
     return;
   }
 
-  // 1. Knowledge-base skeleton.
+  // 1. Kenkeep skeleton.
   copyTree(join(templatesDir, 'kenkeep'), paths.kkDir);
 
   // 2. Per-harness files (templates + hook registration). Each adapter in

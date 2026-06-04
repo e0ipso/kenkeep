@@ -39,7 +39,7 @@ async function checkOpenCodeCli(): Promise<DoctorCheckResult> {
 function checkPlugin(pluginFile: string): DoctorCheckResult {
   if (!existsSync(pluginFile)) {
     return errCheck(
-      'no .opencode/plugins/kb.mjs. Run `npx kenkeep init --harnesses opencode --upgrade`.'
+      'no .opencode/plugins/kk.mjs. Run `npx kenkeep init --harnesses opencode --upgrade`.'
     );
   }
   let contents: string;

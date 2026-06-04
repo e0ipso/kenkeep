@@ -19,13 +19,13 @@ export function openCodePaths(root: string) {
     pluginsDir: join(dir, 'plugins'),
     kkHooksDir: join(dir, 'kk-hooks'),
     skillsDir: join(dir, 'skills'),
-    pluginFile: join(dir, 'plugins', 'kb.mjs'),
+    pluginFile: join(dir, 'plugins', 'kk.mjs'),
   };
 }
 
 /**
  * Copies the OpenCode-specific template tree into the consumer repo.
- * The plugin file (`.opencode/plugins/kb.mjs`) is self-registering by
+ * The plugin file (`.opencode/plugins/kk.mjs`) is self-registering by
  * virtue of its location; no JSON or TOML config writing is needed.
  *
  * Skill installation is delegated to the shared installer (Plan 23

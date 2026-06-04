@@ -140,7 +140,7 @@ describe('init', () => {
     expect(codexSkill).toBe(cursorSkill);
     expect(cursorSkill).toBe(openCodeSkill);
     expect(claudeSkill).toContain('/tmp/kk-detect-harness.mjs');
-    expect(existsSync(join(sandbox, '.opencode/plugins/kb.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(true);
     expect(existsSync(join(sandbox, '.opencode/kk-hooks/kk-capture.cjs'))).toBe(true);
   });
 
@@ -156,7 +156,7 @@ describe('init', () => {
     expect(claudeSkill).toBe(codexSkill);
     expect(codexSkill).toBe(openCodeSkill);
     expect(claudeSkill).toContain('/tmp/kk-detect-harness.mjs');
-    expect(existsSync(join(sandbox, '.opencode/plugins/kb.mjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(true);
     expect(existsSync(join(sandbox, '.opencode/kk-hooks/kk-capture.cjs'))).toBe(true);
   });
 

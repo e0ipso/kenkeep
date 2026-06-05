@@ -27,8 +27,7 @@ describe('init', () => {
       '.ai/kenkeep/README.md',
       '.ai/kenkeep/INDEX.md',
       '.ai/kenkeep/GRAPH.md',
-      '.ai/kenkeep/nodes/practice/.gitkeep',
-      '.ai/kenkeep/nodes/map/.gitkeep',
+      '.ai/kenkeep/nodes/index.md',
       '.ai/kenkeep/_sessions/.gitkeep',
       '.ai/kenkeep/_logs/proposal/.gitkeep',
       '.ai/kenkeep/_logs/curator/.gitkeep',
@@ -257,8 +256,7 @@ describe('init', () => {
     // Upgrade should not duplicate the block.
     await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
     const second = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
-    const occurrences =
-      second.match(/<!-- >>> kenkeep:kk-index >>> -->/g) ?? [];
+    const occurrences = second.match(/<!-- >>> kenkeep:kk-index >>> -->/g) ?? [];
     expect(occurrences.length).toBe(1);
     expect(second).toContain('# My Project');
   });

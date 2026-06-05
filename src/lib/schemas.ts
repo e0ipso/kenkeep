@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+/**
+ * Schema version for node, index, and graph artifacts. Bumped from 1 to 2 for
+ * the tree-storage clean break (plan 41): `kind` stops determining directory
+ * placement and becomes a pure frontmatter facet, leaves live in a nested
+ * topical folder tree, and every folder carries a generated `index.md`. The
+ * reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1`)
+ * and points the user to re-init; there is no migrator or compatibility shim
+ * (see `practice-strict-schema-version-bump-policy`). Migration of existing
+ * flat knowledge bases is deferred to the treeify plan (plan 45).
+ */
+export const NODE_SCHEMA_VERSION = 2;
+
 export const CaptureTriggerSchema = z.enum(['stop', 'session_end', 'pre_compact', 'manual']);
 export type CaptureTrigger = z.infer<typeof CaptureTriggerSchema>;
 
@@ -137,7 +149,7 @@ export const NodeKindSchema = z.enum(['practice', 'map']);
 export type NodeKind = z.infer<typeof NodeKindSchema>;
 
 export const NodeFrontmatterSchema = z.object({
-  schema_version: z.literal(1),
+  schema_version: z.literal(NODE_SCHEMA_VERSION),
   id: z.string(),
   title: z.string(),
   kind: NodeKindSchema,
@@ -182,14 +194,14 @@ export const CuratorOutputSchema = z.array(CuratorActionSchema);
 export type CuratorOutput = z.infer<typeof CuratorOutputSchema>;
 
 export const IndexFrontmatterSchema = z.object({
-  schema_version: z.literal(1),
+  schema_version: z.literal(NODE_SCHEMA_VERSION),
   nodes_hash: z.string(),
   node_count: z.number().int().nonnegative(),
 });
 export type IndexFrontmatter = z.infer<typeof IndexFrontmatterSchema>;
 
 export const GraphFrontmatterSchema = z.object({
-  schema_version: z.literal(1),
+  schema_version: z.literal(NODE_SCHEMA_VERSION),
   nodes_hash: z.string(),
   node_count: z.number().int().nonnegative(),
 });

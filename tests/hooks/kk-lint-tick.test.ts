@@ -43,8 +43,14 @@ function seedSandbox(sandbox: string, lintEveryNSessions: number): { stateDir: s
   const kkDir = join(sandbox, '.ai/kenkeep');
   const stateDir = join(kkDir, '.state');
   mkdirSync(stateDir, { recursive: true });
-  mkdirSync(join(kkDir, 'nodes', 'practice'), { recursive: true });
-  mkdirSync(join(kkDir, 'nodes', 'map'), { recursive: true });
+  mkdirSync(join(kkDir, 'nodes'), { recursive: true });
+  // Every folder under nodes/ carries a generated index.md (lint asserts this).
+  // A real repo gets it from `index rebuild`; seed it here so the folder is
+  // well-formed and the tick tests target the tag/edge/orphan rules only.
+  writeFileSync(
+    join(kkDir, 'nodes', 'index.md'),
+    '---\nschema_version: 2\nnodes_hash: sha256:placeholder\nnode_count: 0\n---\n# kenkeep Index\n'
+  );
   writeFileSync(
     join(stateDir, 'installed-version'),
     JSON.stringify({
@@ -70,7 +76,7 @@ function writeNode(
 ): void {
   const id = overrides.id ?? `${kind}-${filenameBase}`;
   const fm: NodeFrontmatter = {
-    schema_version: 1,
+    schema_version: 2,
     id,
     title: overrides.title ?? id,
     kind,
@@ -80,8 +86,9 @@ function writeNode(
     confidence: overrides.confidence ?? 'high',
     summary: overrides.summary ?? 's',
   };
+  // Leaves live directly under nodes/ (topical tree, not keyed by kind).
   writeFileSync(
-    join(sandbox, '.ai/kenkeep/nodes', kind, `${filenameBase}.md`),
+    join(sandbox, '.ai/kenkeep/nodes', `${id}.md`),
     matter.stringify(`# ${id}\nBody.`, fm)
   );
 }

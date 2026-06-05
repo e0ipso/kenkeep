@@ -14,12 +14,20 @@ import {
 } from '../../src/lib/nodes.js';
 import type { NodeFrontmatter } from '../../src/lib/schemas.js';
 
-function seedNode(dir: string, kind: 'practice' | 'map', id: string, body = '# body\n'): void {
-  const file = join(dir, kind, `${id}.md`);
-  mkdirSync(join(dir, kind), { recursive: true });
+// Leaves live in topical folders, not kind buckets. `topic` defaults to the
+// node's id so each leaf gets its own folder; pass an explicit topic to colocate.
+function seedNode(
+  dir: string,
+  kind: 'practice' | 'map',
+  id: string,
+  body = '# body\n',
+  topic = id
+): void {
+  const folder = join(dir, topic);
+  mkdirSync(folder, { recursive: true });
   const fm = [
     '---',
-    'schema_version: 1',
+    'schema_version: 2',
     `id: ${id}`,
     `title: "${id} title"`,
     `kind: ${kind}`,
@@ -32,7 +40,7 @@ function seedNode(dir: string, kind: 'practice' | 'map', id: string, body = '# b
     '',
     body,
   ].join('\n');
-  writeFileSync(file, fm);
+  writeFileSync(join(folder, `${id}.md`), fm);
 }
 
 describe('nodes helpers', () => {
@@ -52,13 +60,13 @@ describe('nodes helpers', () => {
 
   it('throws InvalidNodeFrontmatterError aggregating every malformed file', () => {
     seedNode(root, 'practice', 'practice-x');
-    mkdirSync(join(root, 'practice'), { recursive: true });
-    const missingFieldPath = join(root, 'practice', 'practice-missing-summary.md');
+    mkdirSync(join(root, 'bad'), { recursive: true });
+    const missingFieldPath = join(root, 'bad', 'practice-missing-summary.md');
     writeFileSync(
       missingFieldPath,
       [
         '---',
-        'schema_version: 1',
+        'schema_version: 2',
         'id: practice-missing-summary',
         'title: "no summary"',
         'kind: practice',
@@ -71,7 +79,7 @@ describe('nodes helpers', () => {
         'body',
       ].join('\n')
     );
-    const garbagePath = join(root, 'practice', 'practice-garbage.md');
+    const garbagePath = join(root, 'bad', 'practice-garbage.md');
     writeFileSync(garbagePath, '---\nnot: valid\n---\nbody');
 
     let caught: InvalidNodeFrontmatterError | undefined;
@@ -120,9 +128,9 @@ describe('nodes helpers', () => {
     );
   });
 
-  it('writeNodeFile validates frontmatter and atomically writes nodes/<kind>/<id>.md', () => {
+  it('writeNodeFile validates frontmatter and atomically writes a leaf (kind-independent placement)', () => {
     const fm: NodeFrontmatter = {
-      schema_version: 1,
+      schema_version: 2,
       id: 'practice-write-test',
       title: 'Write test',
       kind: 'practice',
@@ -132,17 +140,28 @@ describe('nodes helpers', () => {
       confidence: 'high',
       summary: 'For testing the node writer.',
     };
+    // Default placement: nodes/ root (no kind bucket).
     const written = writeNodeFile({
       nodesDir: root,
       frontmatter: fm,
       body: '# Write test\n\nBody.',
     });
-    expect(written).toBe(join(root, 'practice', 'practice-write-test.md'));
+    expect(written).toBe(join(root, 'practice-write-test.md'));
     const raw = readFileSync(written, 'utf8');
     expect(raw).toContain('id: practice-write-test');
     expect(raw).not.toContain('proposal:');
     expect(raw).toContain('# Write test');
-    expect(nodeFileExists(root, 'practice', 'practice-write-test')).toBe(true);
-    expect(nodeFileExists(root, 'practice', 'practice-other')).toBe(false);
+    expect(nodeFileExists(root, 'practice-write-test')).toBe(true);
+    expect(nodeFileExists(root, 'practice-other')).toBe(false);
+
+    // Explicit topical folder placement.
+    const inTopic = writeNodeFile({
+      nodesDir: root,
+      frontmatter: { ...fm, id: 'map-topical', kind: 'map' },
+      body: '# Topical',
+      relDir: 'topic/sub',
+    });
+    expect(inTopic).toBe(join(root, 'topic', 'sub', 'map-topical.md'));
+    expect(nodeFileExists(root, 'map-topical')).toBe(true);
   });
 });

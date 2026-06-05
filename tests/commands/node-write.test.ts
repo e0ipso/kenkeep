@@ -27,8 +27,9 @@ function sandbox(): string {
       assistants: ['claude'],
     })
   );
-  mkdirSync(join(root, '.ai/kenkeep/nodes/practice'), { recursive: true });
-  mkdirSync(join(root, '.ai/kenkeep/nodes/map'), { recursive: true });
+  // Topical tree: leaves live directly under nodes/ (placement is no longer
+  // keyed by kind). The node-write primitive defaults to the nodes/ root.
+  mkdirSync(join(root, '.ai/kenkeep/nodes'), { recursive: true });
   return root;
 }
 
@@ -71,7 +72,7 @@ describe('node write primitive', () => {
     );
     expect(code).toBe(0);
     expect(out.text()).toBe('practice-use-foo\n');
-    const file = join(cwd, '.ai/kenkeep/nodes/practice/practice-use-foo.md');
+    const file = join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md');
     expect(existsSync(file)).toBe(true);
     const parsed = matter(readFileSync(file, 'utf8'));
     expect(parsed.data['id']).toBe('practice-use-foo');
@@ -85,11 +86,11 @@ describe('node write primitive', () => {
 
   it('resolves slug collisions via -2 suffix', async () => {
     // Pre-seed an existing node so readAllNodes surfaces its id.
-    const seedPath = join(cwd, '.ai/kenkeep/nodes/practice/practice-foo.md');
+    const seedPath = join(cwd, '.ai/kenkeep/nodes/practice-foo.md');
     writeFileSync(
       seedPath,
       matter.stringify('# Existing\nbody\n', {
-        schema_version: 1,
+        schema_version: 2,
         id: 'practice-foo',
         title: 'Existing foo',
         kind: 'practice',
@@ -115,7 +116,7 @@ describe('node write primitive', () => {
     );
     expect(code).toBe(0);
     expect(out.text()).toBe('practice-foo-2\n');
-    const collidedFile = join(cwd, '.ai/kenkeep/nodes/practice/practice-foo-2.md');
+    const collidedFile = join(cwd, '.ai/kenkeep/nodes/practice-foo-2.md');
     expect(existsSync(collidedFile)).toBe(true);
     const data = matter(readFileSync(collidedFile, 'utf8')).data as Record<string, unknown>;
     expect(data['id']).toBe('practice-foo-2');
@@ -139,7 +140,7 @@ describe('node write primitive', () => {
     );
     expect(code).toBe(1);
     expect(out.text()).toBe('');
-    expect(readdirSync(join(cwd, '.ai/kenkeep/nodes/practice'))).toEqual([]);
+    expect(readdirSync(join(cwd, '.ai/kenkeep/nodes'))).toEqual([]);
   });
 
   it('folds bootstrap-state when both --source-doc and --source-hash are passed', async () => {
@@ -196,9 +197,7 @@ describe('node write primitive', () => {
     );
     expect(code).toBe(0);
     expect(existsSync(stateFile)).toBe(false);
-    expect(
-      existsSync(join(cwd, '.ai/kenkeep/nodes/practice/practice-no-source.md'))
-    ).toBe(true);
+    expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-no-source.md'))).toBe(true);
   });
 
   it('errors when only --source-doc is passed (no --source-hash); no writes', async () => {
@@ -219,7 +218,7 @@ describe('node write primitive', () => {
     expect(code).toBe(1);
     expect(out.text()).toBe('');
     expect(existsSync(stateFile)).toBe(false);
-    expect(readdirSync(join(cwd, '.ai/kenkeep/nodes/practice'))).toEqual([]);
+    expect(readdirSync(join(cwd, '.ai/kenkeep/nodes'))).toEqual([]);
   });
 
   it('serialises concurrent --source-doc writers via proper-lockfile', async () => {
@@ -268,5 +267,4 @@ describe('node write primitive', () => {
     expect(state.docs['docs/foo.md']?.produced_nodes).toContain('practice-use-foo');
     expect(state.docs['docs/bar.md']?.produced_nodes).toContain('practice-use-bar');
   });
-
 });

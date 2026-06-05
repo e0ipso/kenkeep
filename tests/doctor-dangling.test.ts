@@ -15,14 +15,16 @@ function makeHarness(): Harness {
   const root = mkdtempSync(join(tmpdir(), 'kk-doctor-dangling-'));
   const nodesDir = join(root, '.ai/kenkeep/nodes');
   const sessionsDir = join(root, '.ai/kenkeep/_sessions');
-  mkdirSync(join(nodesDir, 'practice'), { recursive: true });
+  mkdirSync(nodesDir, { recursive: true });
   mkdirSync(sessionsDir, { recursive: true });
   return { root, nodesDir, sessionsDir };
 }
 
+// Leaves live directly under nodes/ (topical tree; placement is not keyed by
+// kind).
 function writeNode(harness: Harness, id: string, derivedFrom: string[]): void {
   const fm = {
-    schema_version: 1,
+    schema_version: 2,
     id,
     title: id,
     kind: 'practice',
@@ -32,7 +34,7 @@ function writeNode(harness: Harness, id: string, derivedFrom: string[]): void {
     confidence: 'high',
     summary: 's',
   };
-  writeFileSync(join(harness.nodesDir, 'practice', `${id}.md`), matter.stringify('# x\nBody.', fm));
+  writeFileSync(join(harness.nodesDir, `${id}.md`), matter.stringify('# x\nBody.', fm));
 }
 
 describe('collectDanglingDerivedFrom', () => {

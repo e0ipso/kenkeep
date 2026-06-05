@@ -2,7 +2,7 @@
 id: 1
 group: "schema-and-reader"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-05
 skills:
   - typescript

@@ -73,9 +73,11 @@ function seedSession(
   );
 }
 
+// Leaves live directly under nodes/ (topical tree; placement is not keyed by
+// kind).
 function seedNode(harness: Harness, kind: 'practice' | 'map', id: string): void {
   const fm = {
-    schema_version: 1,
+    schema_version: 2,
     id,
     title: id,
     kind,
@@ -85,13 +87,16 @@ function seedNode(harness: Harness, kind: 'practice' | 'map', id: string): void 
     confidence: 'high',
     summary: 's',
   };
-  writeFileSync(join(harness.nodesDir, kind, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));
+  mkdirSync(harness.nodesDir, { recursive: true });
+  writeFileSync(join(harness.nodesDir, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));
 }
 
+// Mirrors `index rebuild`: the root catalog at .ai/kenkeep/INDEX.md is the
+// nodes/ root index node body that SessionStart injects.
 function writeIndexFromCurrentNodes(harness: Harness): void {
   const idx = generateIndex(harness.nodesDir);
   mkdirSync(harness.kkDir, { recursive: true });
-  writeIndex(join(harness.kkDir, 'INDEX.md'), idx);
+  writeIndex(join(harness.kkDir, 'INDEX.md'), idx.rootCatalog);
 }
 
 describe('buildSessionStartContext (index injection)', () => {

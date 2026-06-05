@@ -39,6 +39,7 @@ export const STATIC_SKIPS: readonly string[] = [
   '**/releases/**/*.md',
   '**/INDEX.md',
   '**/GRAPH.md',
+  '**/index.md',
 ];
 
 /**

@@ -9,6 +9,9 @@ import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 
 const exec = promisify(execFile);
 
+// Leaves are placed directly under nodes/ (which already carries the generated
+// index.md from init), so no missing-folder-index lint error fires; the tests
+// target the slug/edge/tag/orphan rules. Filename always matches the id.
 function writeNode(
   sandbox: string,
   kind: NodeKind,
@@ -17,7 +20,7 @@ function writeNode(
 ): void {
   const id = overrides.id ?? `${kind}-${filenameBase}`;
   const fm: NodeFrontmatter = {
-    schema_version: 1,
+    schema_version: 2,
     id,
     title: overrides.title ?? id,
     kind,
@@ -27,9 +30,9 @@ function writeNode(
     confidence: overrides.confidence ?? 'high',
     summary: overrides.summary ?? 's',
   };
-  const dir = join(sandbox, '.ai/kenkeep/nodes', kind);
+  const dir = join(sandbox, '.ai/kenkeep/nodes');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, `${filenameBase}.md`), matter.stringify(`# ${id}\nBody.`, fm));
+  writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));
 }
 
 describe('lint command', () => {

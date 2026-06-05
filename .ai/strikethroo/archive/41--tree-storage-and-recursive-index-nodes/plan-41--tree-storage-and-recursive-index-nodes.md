@@ -191,11 +191,47 @@ The graph is acyclic. No orphan or circular references.
 
 ### Execution Phases
 
-- **Phase 1** (no dependencies): Task 1 (bump schema and reject flat layout).
-- **Phase 2** (depends on Phase 1): Task 2 (topical folder tree and kind as facet).
-- **Phase 3** (depends on Phase 2): Task 3 (nodes_hash over leaves only, excludes index.md).
-- **Phase 4** (depends on Phases 2 and 3): Task 4 (recursive per-folder index generator with metrics).
-- **Phase 5** (depends on Phase 4): Task 5 (index rebuild writes and stages the full tree, regenerates starter nodes).
-- **Phase 6** (depends on Phases 4 and 5, may run in parallel): Task 6 (recursive determinism golden tests) and Task 7 (update tree storage documentation).
+- ✅ **Phase 1** (no dependencies): ✔️ Task 1 (bump schema and reject flat layout). `completed`
+- ✅ **Phase 2** (depends on Phase 1): ✔️ Task 2 (topical folder tree and kind as facet). `completed`
+- ✅ **Phase 3** (depends on Phase 2): ✔️ Task 3 (nodes_hash over leaves only, excludes index.md). `completed`
+- ✅ **Phase 4** (depends on Phases 2 and 3): ✔️ Task 4 (recursive per-folder index generator with metrics). `completed`
+- ✅ **Phase 5** (depends on Phase 4): ✔️ Task 5 (index rebuild writes and stages the full tree, regenerates starter nodes). `completed`
+- ✅ **Phase 6** (depends on Phases 4 and 5, may run in parallel): ✔️ Task 6 (recursive determinism golden tests) and ✔️ Task 7 (update tree storage documentation). `completed`
 
 Every task appears in exactly one phase, and no task runs before its dependencies complete. Phase 1 contains only zero-dependency tasks.
+
+## Execution Summary
+
+- **Status**: Completed Successfully
+- **Completed Date**: 2026-06-05
+
+### Results
+
+Replaced the flat `nodes/<kind>/` storage with a nested topical folder tree of deterministic per-folder index nodes over an id-based DAG overlay. Delivered:
+
+- **Schema clean break (`schema_version: 2`)** for node/index/graph artifacts via a shared `NODE_SCHEMA_VERSION` constant in `src/lib/schemas.ts`. The node reader (`readAllNodes`) now rejects the old flat `nodes/<kind>/` layout through a new `OldLayoutError` / `assertNotOldLayout` guard that points the user to re-init. No migrator, no compatibility shim.
+- **Topical tree loader** in `src/lib/nodes.ts`: `readAllNodes` walks the nested tree recursively (deterministic lexicographic order), excludes generated `index.md`, and records each leaf's `relPath` / `relDir`. `kind` is now a pure frontmatter facet; `nodeFilePath` / `nodeFilename` / `writeNodeFile` / `nodeFileExists` no longer derive directory from `kind` (leaves default to the `nodes/` root, with an optional `relDir`). Added `buildIdToPath` for id-to-current-path resolution and `hashLeaves` for per-folder hashing.
+- **`nodes_hash` over leaves only**: `computeNodesHash` / `walkMarkdown` skip every `index.md`, keeping the hash non-self-referential and stable across rebuilds.
+- **Recursive generator** in `src/lib/index-gen.ts`: `generateIndex` returns one `index.md` body per directory (root and ancestors included), each a rollup of its child leaves (title, summary, tags) and immediate subfolders (deterministic intent line plus rollup stats), ordered by global in-degree then title. It also returns per-folder metrics (occupancy, tag diversity, leaf size) and a separate `rootCatalog` body carrying the global hash for `.ai/kenkeep/INDEX.md`. Per-folder index nodes carry a per-folder hash so a leaf edit only churns its own folder's index.
+- **`index rebuild`** (`src/commands/index-rebuild.ts`) writes one `index.md` per folder under `nodes/`, the root catalog `INDEX.md`, and `GRAPH.md`; `--stage` stages the full generated set; the old-layout guard surfaces a clear error.
+- **Lint** (`src/lib/lint.ts`): dropped kind/directory agreement; asserts filename/id agreement, a stable id, and that every folder under `nodes/` carries an `index.md` (new `missing-folder-index` rule).
+- **Bundled starter nodes** regenerated to the new layout (`src/templates-source/kenkeep/`): no `<kind>/` buckets, a generated `nodes/index.md`, and `INDEX.md` / `GRAPH.md` at `schema_version: 2`, byte-identical to generator output so a fresh `init` is correct.
+- **Tests**: rewrote `tests/lib/index-gen.test.ts` for the recursive layout, global in-degree ordering, empty/singleton folders, per-folder metrics, hash stability (excludes `index.md`), and id-resolved path rendering; updated the seeding helpers in the node-write, lint, doctor, doctor-dangling, kk-lint-tick, init, nodes, and session-start suites to the topical tree.
+- **Docs**: `AGENTS.md`, `docs/internals/architecture.md`, `docs/internals/schemas.md`, and `docs/how-it-works.md` now describe the tree-over-DAG model, the index-node concept, kind-as-facet, id-based references, the `nodes_hash` exclusion, and the `schema_version: 2` clean break.
+
+Validation gates: `npm run typecheck` PASS, `npm run lint` PASS, `npm test` PASS (228/228). Self Validation steps all confirmed: double `index rebuild` is byte-identical; every folder has an `index.md`; editing one leaf's summary changes only that folder's `index.md` (plus the global root catalog) and leaves sibling folder indexes byte-identical; the old flat layout is rejected with a re-init message; references are by `id` and render the current path.
+
+### Noteworthy Events
+
+- **Per-folder vs global hash.** Initially every folder's `index.md` recorded the global `nodes_hash`, which made any leaf edit churn every folder's `index.md`, violating Self Validation step 3. Resolved by giving each folder index node a per-folder hash (`hashLeaves` over that folder's direct leaves), while the root catalog `INDEX.md` keeps the global hash that `doctor` and the SessionStart hook compare for staleness. This also better serves the later rebalance plan's localized updates.
+- **Root catalog vs root index node.** This plan deliberately did not touch SessionStart (out of scope per the clarifications), so `.ai/kenkeep/INDEX.md` remains the injected catalog. `index rebuild` now writes both the per-folder `nodes/index.md` (per-folder hash) and the mirrored `INDEX.md` catalog (global hash) from a dedicated `rootCatalog` field.
+- **Starter templates are now byte-identical to generator output.** The previously shipped placeholder `INDEX.md` / `GRAPH.md` differed from generator output; regenerating them made a second `index rebuild` a true no-op diff. The `index rebuild --stage no-ops` test was adjusted to use `--allow-empty` for its baseline commit since the rebuild now produces no diff.
+- **Intended clean break for this repo's own KB.** Per the program plan, the repo's own flat `.ai/kenkeep/nodes/<kind>/` KB is now unreadable by the new reader until the later treeify plan migrates it. This was left as-is intentionally; no treeify or KB repair was performed.
+- **Branch.** All work landed on the existing branch `claude/strikethrough-plans-41-45-aPS4y`; no feature branch was created (program constraint).
+- **Curator fixture** `tests/fixtures/transcripts/bravo-insider/existing-kb.md` is illustrative prose (not a loaded KB) and was left in its `schema_version: 1` flat form; curation behavior is out of scope (Plans 2-5).
+
+### Necessary follow-ups
+
+- Land the treeify migration plan (Plan 5/45) soon: between this plan and that one, this repo's own flat KB is rejected by the new reader.
+- KB node edits called out in the plan's Documentation section (`map-index-md`, `map-graph-md`, `map-nodes-directory`, `map-nodes-hash`, `map-node-frontmatter`, `practice-lint-naming-rules`, `practice-determinism-contract`) are deliberately deferred as human-in-the-loop node edits and were not committed here.
+- Curated folder-intent lines, home-branch placement, descent injection, and rebalance remain Plans 2-4 and are intentionally out of scope.

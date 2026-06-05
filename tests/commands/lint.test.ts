@@ -66,7 +66,7 @@ describe('lint command', () => {
     expect(combined).toContain('practice-ghost');
   });
 
-  it('exits 0 and prints tag-near-duplicate finding under --verbose', async () => {
+  it('exits 0 and reports tag-near-duplicate and orphan findings under --verbose', async () => {
     writeNode(sandbox, 'practice', 'practice-one', {
       id: 'practice-one',
       relates_to: ['practice-two'],
@@ -77,11 +77,14 @@ describe('lint command', () => {
       relates_to: ['practice-one'],
       tags: ['hook'],
     });
+    writeNode(sandbox, 'map', 'map-loner', { id: 'map-loner' });
     const result = await runCli(sandbox, ['lint', '--verbose']);
     expect(result.exitCode).toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('tag-near-duplicate');
     expect(combined).toContain('hook');
+    expect(combined).toContain('orphan');
+    expect(combined).toContain('map-loner.md');
   });
 
   it('exits 1 on a slug-id-mismatch error and names the offending file under --verbose', async () => {
@@ -100,14 +103,5 @@ describe('lint command', () => {
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('slug-id-mismatch');
     expect(combined).toContain('practice-NotASlug.md');
-  });
-
-  it('exits 0 and reports an orphan finding (no incoming or outgoing edges) under --verbose', async () => {
-    writeNode(sandbox, 'map', 'map-loner', { id: 'map-loner' });
-    const result = await runCli(sandbox, ['lint', '--verbose']);
-    expect(result.exitCode).toBe(0);
-    const combined = result.stdout + result.stderr;
-    expect(combined).toContain('orphan');
-    expect(combined).toContain('map-loner.md');
   });
 });

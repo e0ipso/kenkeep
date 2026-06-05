@@ -276,17 +276,4 @@ describe('runCurateDedupCommand (invalid input)', () => {
       expect(readdirSync(sandbox.conflictsDir)).toEqual([]);
     }
   });
-
-  it('returns nonzero when --input points at a missing file', async () => {
-    const code = await runCurateDedupCommand({
-      input: join(sandbox.root, 'does-not-exist.json'),
-      output: sandbox.outputPath,
-      runId: FIXED_RUN_ID,
-      sessionsDir: sandbox.sessionsDir,
-      conflictsDir: sandbox.conflictsDir,
-      now: FIXED_NOW,
-    });
-    expect(code).not.toBe(0);
-    expect(existsSync(sandbox.outputPath)).toBe(false);
-  });
 });

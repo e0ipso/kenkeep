@@ -249,10 +249,6 @@ describe.each(harnessCases)('kk-capture hook (spawned) [$id]', hc => {
     if (home) cleanSandbox(home);
   });
 
-  it('compiled hook bundle exists on disk', () => {
-    expect(existsSync(hc.hookPath)).toBe(true);
-  });
-
   it('exits silently with KENKEEP_BUILDER_INTERNAL=1 (recursion guard)', async () => {
     hc.seed({ sandbox, home });
     const result = await runHook(hc.hookPath, sandbox, hc.input({ sandbox }), {

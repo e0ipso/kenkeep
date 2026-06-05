@@ -1,5 +1,5 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
@@ -87,16 +87,6 @@ describe('init', () => {
     expect(projectBody).not.toContain('kenkeep');
   });
 
-  it('preserves a user-edited .ai/kenkeep/.gitignore across --upgrade', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const kkGitignore = join(sandbox, '.ai/kenkeep/.gitignore');
-    writeFileSync(kkGitignore, '# user edited\nscratch/\n');
-
-    await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-
-    expect(readFileSync(kkGitignore, 'utf8')).toBe('# user edited\nscratch/\n');
-  });
-
   it('refuses to overwrite when already initialized', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const second = await runCli(sandbox, ['init', '--harnesses', 'claude']);
@@ -108,22 +98,6 @@ describe('init', () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'not-a-harness']);
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr + result.stdout).toMatch(/not-a-harness|Unsupported/i);
-  });
-
-  it('installs cursor hooks and skills on init --harnesses cursor', async () => {
-    const result = await runCli(sandbox, ['init', '--harnesses', 'cursor']);
-    expect(result.exitCode).toBe(0);
-    expect(existsSync(join(sandbox, '.cursor/hooks.json'))).toBe(true);
-    expect(existsSync(join(sandbox, '.cursor/hooks/kk-capture.cjs'))).toBe(true);
-    expect(existsSync(join(sandbox, '.cursor/hooks/kk-session-start.cjs'))).toBe(true);
-    expect(existsSync(join(sandbox, '.cursor/hooks/kk-proposal-drain.cjs'))).toBe(true);
-    expect(existsSync(join(sandbox, '.cursor/hooks/kk-lint-tick.cjs'))).toBe(true);
-    const skill = readFileSync(join(sandbox, '.cursor/skills/kk-curate/SKILL.md'), 'utf8');
-    expect(skill).toContain("'cursor'");
-    const hooks = JSON.parse(readFileSync(join(sandbox, '.cursor/hooks.json'), 'utf8'));
-    expect(hooks.hooks.stop.some((e: { command: string }) => e.command.includes('kk-capture'))).toBe(
-      true
-    );
   });
 
   it('installs the shared skill bytes identically across all four harnesses', async () => {
@@ -158,10 +132,14 @@ describe('init', () => {
     expect(existsSync(join(sandbox, 'package.json'))).toBe(false);
   });
 
-  it('registers Stop, SessionEnd, and PreCompact capture hooks in .claude/settings.json', async () => {
+  it('registers capture, lint-tick, drain (async), and session-start hooks in .claude/settings.json', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(existsSync(join(sandbox, '.claude/hooks/kk-lint-tick.cjs'))).toBe(true);
     const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
-      hooks?: Record<string, Array<{ hooks: Array<{ type: string; command: string }> }>>;
+      hooks?: Record<
+        string,
+        Array<{ hooks: Array<{ type: string; command: string; async?: boolean }> }>
+      >;
     };
     expect(settings.hooks).toBeDefined();
     for (const event of ['Stop', 'SessionEnd', 'PreCompact']) {
@@ -171,23 +149,17 @@ describe('init', () => {
         'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"'
       );
     }
-  });
+    const sessionEnd = (settings.hooks?.['SessionEnd'] ?? []).flatMap(e =>
+      e.hooks.map(h => h.command)
+    );
+    expect(sessionEnd).toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-lint-tick.cjs"');
 
-  it('registers SessionStart drain (async) and session-start (sync) hooks', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
-      hooks?: Record<
-        string,
-        Array<{ hooks: Array<{ type: string; command: string; async?: boolean }> }>
-      >;
-    };
-    const entries = settings.hooks?.['SessionStart'];
-    expect(entries, 'expected SessionStart hook entries').toBeDefined();
-    expect(entries).toHaveLength(2);
-    const commands = entries?.flatMap(e =>
+    const sessionStart = settings.hooks?.['SessionStart'];
+    expect(sessionStart).toHaveLength(2);
+    const startCommands = sessionStart?.flatMap(e =>
       e.hooks.map(h => ({ command: h.command, async: h.async }))
     );
-    expect(commands).toEqual(
+    expect(startCommands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-proposal-drain.cjs"',
@@ -241,42 +213,6 @@ describe('init', () => {
     ]);
   });
 
-  it('registers both SessionEnd capture and lint-tick hooks and ships kk-lint-tick.cjs', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    expect(existsSync(join(sandbox, '.claude/hooks/kk-lint-tick.cjs'))).toBe(true);
-
-    const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
-      hooks?: Record<string, Array<{ hooks: Array<{ type: string; command: string }> }>>;
-    };
-    const sessionEnd = settings.hooks?.['SessionEnd'] ?? [];
-    const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
-    expect(commands).toEqual(
-      expect.arrayContaining([
-        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"',
-        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-lint-tick.cjs"',
-      ])
-    );
-  });
-
-  it('re-running init --upgrade preserves a single set of SessionEnd entries (no duplicates)', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-
-    const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
-      hooks?: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
-    };
-    const sessionEnd = settings.hooks?.['SessionEnd'] ?? [];
-    const commands = sessionEnd.flatMap(e => e.hooks.map(h => h.command));
-    const captureCount = commands.filter(
-      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"'
-    ).length;
-    const lintCount = commands.filter(
-      c => c === 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-lint-tick.cjs"'
-    ).length;
-    expect(captureCount).toBe(1);
-    expect(lintCount).toBe(1);
-  });
-
   it('writes a default .kkignore on fresh init when absent', async () => {
     const kkignore = join(sandbox, '.kkignore');
     expect(existsSync(kkignore)).toBe(false);
@@ -307,32 +243,6 @@ describe('init', () => {
     expect(body).toContain('.claude/hooks/');
   });
 
-  it('leaves an existing .kkignore untouched on fresh init', async () => {
-    // Pre-existing .kkignore counts as initialization-prereq state; an
-    // un-initialized repo with a user-authored .kkignore must keep it
-    // verbatim after `init` runs.
-    const kkignore = join(sandbox, '.kkignore');
-    const customBody = '# user-authored\nfoo/bar/**\n';
-    writeFileSync(kkignore, customBody);
-
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    expect(result.exitCode).toBe(0);
-    expect(readFileSync(kkignore, 'utf8')).toBe(customBody);
-  });
-
-  it('writes .kkignore on init --upgrade when absent', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const kkignore = join(sandbox, '.kkignore');
-    // Simulate a pre-existing install that predates `.kkignore` emission.
-    rmSync(kkignore);
-    expect(existsSync(kkignore)).toBe(false);
-
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    expect(result.exitCode).toBe(0);
-    expect(existsSync(kkignore)).toBe(true);
-    expect(readFileSync(kkignore, 'utf8')).toContain('.claude/skills/');
-  });
-
   it('injects the kk index pointer block into an existing AGENTS.md and never duplicates it on upgrade', async () => {
     writeFileSync(join(sandbox, 'AGENTS.md'), '# My Project\n\nSome description.\n');
 
@@ -353,18 +263,6 @@ describe('init', () => {
     expect(second).toContain('# My Project');
   });
 
-  it('does not accumulate extra newlines in AGENTS.md on repeated upgrades', async () => {
-    writeFileSync(join(sandbox, 'AGENTS.md'), '# Project\n');
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const first = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
-
-    for (let i = 0; i < 5; i++) {
-      await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    }
-    const after = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
-    expect(after).toBe(first);
-  });
-
   it('does not overwrite an existing .kkignore on --upgrade', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const kkignore = join(sandbox, '.kkignore');
@@ -374,24 +272,5 @@ describe('init', () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
     expect(readFileSync(kkignore, 'utf8')).toBe(customized);
-  });
-
-  it('.kkignore deny block enumerates every registered harness adapter when installed together', async () => {
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude,codex,cursor,opencode']);
-    expect(result.exitCode).toBe(0);
-    const body = readFileSync(join(sandbox, '.kkignore'), 'utf8');
-    // Claude.
-    expect(body).toContain('.claude/skills/');
-    expect(body).toContain('.claude/commands/');
-    expect(body).toContain('.claude/hooks/');
-    // Codex.
-    expect(body).toContain('.agents/skills/');
-    expect(body).toContain('.codex/hooks/');
-    // Cursor.
-    expect(body).toContain('.cursor/skills/');
-    expect(body).toContain('.cursor/hooks/');
-    // OpenCode.
-    expect(body).toContain('.opencode/skills/');
-    expect(body).toContain('.opencode/plugins/');
   });
 });

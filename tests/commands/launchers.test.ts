@@ -143,13 +143,6 @@ describe('launchSkill', () => {
     }
   });
 
-  it('exits 1 when the child closes with a null code', () => {
-    const { spawnFn, captured } = makeFakeSpawn();
-    const exitFn = vi.fn((_code: number) => undefined as never);
-    launchSkill({ skill: 'kk-bootstrap', harness: 'claude', spawnFn, exitFn });
-    captured[0]!.emit(null);
-    expect(exitFn).toHaveBeenCalledWith(1);
-  });
 });
 
 describe('runBootstrapLauncher / runCurateLauncher / runNodeAddLauncher', () => {

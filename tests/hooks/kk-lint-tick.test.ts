@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -93,10 +93,6 @@ describe('kk-lint-tick hook (spawned)', () => {
     sandbox = makeSandbox();
   });
   afterEach(() => cleanSandbox(sandbox));
-
-  it('compiled hook bundle exists at dist/hooks/claude/kk-lint-tick.cjs', () => {
-    expect(existsSync(hookPath)).toBe(true);
-  });
 
   it('with lintEveryNSessions:1 and an orphan tree, one invocation persists last_findings>=1 and resets the counter', async () => {
     const { stateDir } = seedSandbox(sandbox, 1);

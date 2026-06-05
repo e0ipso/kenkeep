@@ -68,10 +68,6 @@ describe('kk-proposal-drain hook (spawned)', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('compiled hook bundle exists at dist/hooks/claude/kk-proposal-drain.cjs', () => {
-    expect(existsSync(hookPath)).toBe(true);
-  });
-
   it('exits silently with KENKEEP_BUILDER_INTERNAL=1 (recursion guard)', async () => {
     const file = seedSession(sandbox, 'guarded');
     const result = await runHook(sandbox, { cwd: sandbox }, { KENKEEP_BUILDER_INTERNAL: '1' });

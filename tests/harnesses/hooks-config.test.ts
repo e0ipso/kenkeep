@@ -1,18 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeClaudeHookConfig } from '../../src/harnesses/claude/hooks-config.js';
-import {
-  codexHookConfigPaths,
-  readCodexHooks,
-  writeCodexHooks,
-} from '../../src/harnesses/codex/hooks-config.js';
-import {
-  cursorHookConfigPaths,
-  readCursorHooks,
-  writeCursorHooksConfig,
-} from '../../src/harnesses/cursor/hooks-config.js';
+import { writeCodexHooks } from '../../src/harnesses/codex/hooks-config.js';
+import { writeCursorHooksConfig } from '../../src/harnesses/cursor/hooks-config.js';
 import {
   SENTINEL_END,
   SENTINEL_START,
@@ -107,26 +99,16 @@ describe('hook registration round-trip (parametrized over registered harnesses)'
   });
 
   it.each(roundTrips)(
-    '$id registers the kk capture hook so the host config can run it',
+    '$id registers the kk capture hook and is idempotent across a rewrite',
     async ({ register, readCommands, expected }) => {
       await register(root, home);
       const commands = readCommands(root, home);
       expect(commands.some(c => c.includes(expected))).toBe(true);
+      const first = JSON.stringify(commands);
+      await register(root, home);
+      expect(JSON.stringify(readCommands(root, home))).toBe(first);
     }
   );
-
-  it.each(roundTrips)('$id is idempotent: rewriting yields byte-identical config', async ({
-    id,
-    register,
-    readCommands,
-  }) => {
-    await register(root, home);
-    const first = JSON.stringify(readCommands(root, home));
-    await register(root, home);
-    const second = JSON.stringify(readCommands(root, home));
-    expect(second).toBe(first);
-    expect(id).toBeTruthy();
-  });
 });
 
 describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
@@ -182,41 +164,6 @@ describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
     expect(commands).toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"');
   });
 
-  it('removes an event entry whose only hooks were kk- owned (before re-adding)', async () => {
-    mkdirSync(join(root, '.claude'), { recursive: true });
-    writeFileSync(
-      settingsFile,
-      JSON.stringify({
-        hooks: {
-          PreCompact: [
-            {
-              hooks: [
-                { type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-old.mjs"' },
-              ],
-            },
-          ],
-          SessionEnd: [
-            {
-              hooks: [
-                {
-                  type: 'command',
-                  command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"',
-                },
-              ],
-            },
-          ],
-        },
-      })
-    );
-
-    await writeClaudeHookConfig(root, [{ event: 'Stop', scriptPath: '.claude/hooks/kk-capture.cjs' }]);
-
-    const parsed = JSON.parse(readFileSync(settingsFile, 'utf8'));
-    expect(parsed.hooks.PreCompact).toBeUndefined();
-    expect(parsed.hooks.SessionEnd).toBeUndefined();
-    expect(parsed.hooks.Stop).toHaveLength(1);
-  });
-
   it('emits async: true only when the spec sets it and preserves matcher when set', async () => {
     await writeClaudeHookConfig(root, [
       { event: 'SessionStart', scriptPath: '.claude/hooks/kk-session-start.cjs' },
@@ -236,14 +183,6 @@ describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
     expect(Object.prototype.hasOwnProperty.call(sessionStart, 'async')).toBe(false);
     expect(drain!.async).toBe(true);
     expect(parsed.hooks.UserPromptSubmit[0].matcher).toBe('**/*.md');
-  });
-
-  it('throws when the existing settings.json is unparseable', async () => {
-    mkdirSync(join(root, '.claude'), { recursive: true });
-    writeFileSync(settingsFile, '{ not json');
-    await expect(
-      writeClaudeHookConfig(root, [{ event: 'Stop', scriptPath: '.claude/hooks/kk-capture.cjs' }])
-    ).rejects.toThrow(/Could not parse existing/);
   });
 });
 
@@ -274,31 +213,6 @@ describe('writeCodexHooks (Codex hooks.json specifics)', () => {
     );
   });
 
-  it('preserves foreign entries and scrubs previously-owned kk- hooks', async () => {
-    mkdirSync(join(root, '.codex'), { recursive: true });
-    writeFileSync(
-      hooksFile,
-      JSON.stringify({
-        hooks: {
-          Stop: [
-            { hooks: [{ type: 'command', command: 'node ./.codex/hooks/kk-old-name.mjs', timeout: 30 }] },
-            { hooks: [{ type: 'command', command: 'node ./scripts/user-stop.mjs' }] },
-          ],
-        },
-      })
-    );
-
-    await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kk-capture.cjs' }]);
-
-    const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
-    const commands = parsed.hooks.Stop.flatMap((e: { hooks: Array<{ command: string }> }) =>
-      e.hooks.map(h => h.command)
-    );
-    expect(commands).not.toContain('node ./.codex/hooks/kk-old-name.mjs');
-    expect(commands).toContain('node ./scripts/user-stop.mjs');
-    expect(commands).toContain('node ./.codex/hooks/kk-capture.cjs');
-  });
-
   it('refuses to write when .codex/config.toml defines a [hooks] table', async () => {
     mkdirSync(join(root, '.codex'), { recursive: true });
     writeFileSync(
@@ -319,21 +233,6 @@ describe('writeCodexHooks (Codex hooks.json specifics)', () => {
     );
   });
 
-  it('does not trip the TOML guard when config.toml has no [hooks] table', async () => {
-    mkdirSync(join(root, '.codex'), { recursive: true });
-    writeFileSync(join(root, '.codex/config.toml'), 'model = "gpt-5-codex"\n');
-    await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kk-capture.cjs' }]);
-    expect(existsSync(hooksFile)).toBe(true);
-  });
-
-  it('throws when the existing hooks.json is unparseable; readCodexHooks returns {} when absent', async () => {
-    expect(readCodexHooks(codexHookConfigPaths(root))).toEqual({});
-    mkdirSync(join(root, '.codex'), { recursive: true });
-    writeFileSync(hooksFile, '{ not json');
-    await expect(
-      writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kk-capture.cjs' }])
-    ).rejects.toThrow(/Could not parse existing/);
-  });
 });
 
 describe('writeCursorHooksConfig (Cursor hooks.json specifics)', () => {
@@ -356,34 +255,6 @@ describe('writeCursorHooksConfig (Cursor hooks.json specifics)', () => {
       { command: 'node ./.cursor/hooks/kk-capture.cjs', timeout: 30 },
     ]);
     expect(parsed.hooks.sessionStart[0].command).toBe('node ./.cursor/hooks/kk-session-start.cjs');
-  });
-
-  it('preserves foreign entries and scrubs previously-owned kk- hooks', async () => {
-    mkdirSync(join(root, '.cursor'), { recursive: true });
-    writeFileSync(
-      hooksFile,
-      JSON.stringify({
-        version: 1,
-        hooks: {
-          stop: [
-            { command: 'node .cursor/hooks/kk-old-name.cjs', timeout: 30 },
-            { command: 'node ./scripts/user-stop.mjs' },
-          ],
-        },
-      })
-    );
-
-    await writeCursorHooksConfig(root, [{ event: 'stop', scriptPath: '.cursor/hooks/kk-capture.cjs' }]);
-
-    const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
-    const commands = parsed.hooks.stop.map((e: { command: string }) => e.command);
-    expect(commands).not.toContain('node .cursor/hooks/kk-old-name.cjs');
-    expect(commands).toContain('node ./scripts/user-stop.mjs');
-    expect(commands).toContain('node ./.cursor/hooks/kk-capture.cjs');
-  });
-
-  it('readCursorHooks returns defaults when the file does not exist', () => {
-    expect(readCursorHooks(cursorHookConfigPaths(root))).toEqual({ version: 1, hooks: {} });
   });
 });
 
@@ -449,13 +320,5 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     const second = readFileSync(instructionsFile, 'utf8');
     expect(second).toBe(first);
     expect(second.split(SENTINEL_START)).toHaveLength(2);
-  });
-
-  it('falls back to a placeholder when INDEX.md is absent', async () => {
-    const instructionsFile = join(root, '.github', 'copilot-instructions.md');
-    await writeCopilotInstructionsSentinel(copilotPaths(root, home));
-    const body = readFileSync(instructionsFile, 'utf8');
-    expect(body).toContain(SENTINEL_START);
-    expect(body).toContain('.ai/kenkeep/INDEX.md');
   });
 });

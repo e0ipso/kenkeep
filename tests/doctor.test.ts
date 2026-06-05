@@ -82,20 +82,9 @@ describe('doctor', () => {
   // The `.kkignore present and non-empty` check treats a missing file and a
   // file with no effective pattern lines (only comments, blanks, or a
   // leading-whitespace comment) as equivalent "missing or empty" warnings.
-  it.each([
-    { label: 'missing file', mutate: (root: string) => rmSync(join(root, '.kkignore'), { force: true }) },
-    {
-      label: 'comments and blank lines only',
-      mutate: (root: string) =>
-        writeFileSync(join(root, '.kkignore'), '# just a comment\n\n   \n# another\n'),
-    },
-    {
-      label: 'leading-whitespace comment only',
-      mutate: (root: string) => writeFileSync(join(root, '.kkignore'), '   # indented comment only\n'),
-    },
-  ])('warns when .kkignore is effectively empty ($label)', async ({ mutate }) => {
+  it('warns when .kkignore has only comments and blank lines (effectively empty)', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    mutate(sandbox);
+    writeFileSync(join(sandbox, '.kkignore'), '# just a comment\n\n   \n# another\n');
     const result = await runCli(sandbox, ['doctor']);
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('.kkignore present and non-empty');

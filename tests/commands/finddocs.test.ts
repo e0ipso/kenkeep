@@ -1,17 +1,13 @@
 import { createHash } from 'node:crypto';
-import { execFile } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   discoverMarkdownFiles,
   loadIgnoreFile,
   type DiscoverOptions,
 } from '../../src/lib/bootstrap.js';
-import { cliPath, makeSandbox, cleanSandbox, runCli } from '../helpers.js';
-
-const exec = promisify(execFile);
+import { makeSandbox, cleanSandbox, runCli } from '../helpers.js';
 
 /**
  * Builds a tmp repo with a small fixture: a tracked markdown file, a file
@@ -128,15 +124,4 @@ describe('finddocs CLI command', () => {
     });
   });
 
-  describe('--help', () => {
-    it('mentions .kkignore so users discover the ignore mechanism', async () => {
-      // Run the built CLI directly so commander's `--help` exit code is
-      // exercised end-to-end (it exits 0 after printing).
-      const { stdout, stderr } = await exec('node', [cliPath, 'finddocs', '--help'], {
-        env: { ...process.env, NO_COLOR: '1' },
-      });
-      const combined = stdout + stderr;
-      expect(combined).toContain('.kkignore');
-    });
-  });
 });

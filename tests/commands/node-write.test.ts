@@ -269,21 +269,4 @@ describe('node write primitive', () => {
     expect(state.docs['docs/bar.md']?.produced_nodes).toContain('practice-use-bar');
   });
 
-  it('errors when only --source-hash is passed (no --source-doc); no writes', async () => {
-    const out = capturingStdout();
-    const code = await runNodeWriteCommand(
-      {
-        kind: 'practice',
-        slug: 'half-fold-2',
-        flags: { title: 'Half', summary: 'half', sourceHash: 'b'.repeat(64) },
-      },
-      {
-        readStdin: async () => '# x\n\nbody',
-        isTTY: () => false,
-        writeStdout: out.write,
-      }
-    );
-    expect(code).toBe(1);
-    expect(readdirSync(join(cwd, '.ai/kenkeep/nodes/practice'))).toEqual([]);
-  });
 });

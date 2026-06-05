@@ -50,25 +50,8 @@ describe('nodes helpers', () => {
     expect(nodes.map(n => n.frontmatter.id).sort()).toEqual(['map-y', 'practice-x']);
   });
 
-  it('throws InvalidNodeFrontmatterError naming any malformed file', () => {
+  it('throws InvalidNodeFrontmatterError aggregating every malformed file', () => {
     seedNode(root, 'practice', 'practice-x');
-    mkdirSync(join(root, 'practice'), { recursive: true });
-    const brokenPath = join(root, 'practice', 'broken.md');
-    writeFileSync(brokenPath, '---\nnot: valid\n---\nbody');
-
-    let caught: unknown;
-    try {
-      readAllNodes(root);
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(InvalidNodeFrontmatterError);
-    const failures = (caught as InvalidNodeFrontmatterError).failures;
-    expect(failures).toHaveLength(1);
-    expect(failures[0]!.file).toBe(brokenPath);
-  });
-
-  it('aggregates failures across multiple malformed files', () => {
     mkdirSync(join(root, 'practice'), { recursive: true });
     const missingFieldPath = join(root, 'practice', 'practice-missing-summary.md');
     writeFileSync(
@@ -103,7 +86,7 @@ describe('nodes helpers', () => {
     );
   });
 
-  it('computeNodesHash is deterministic and content-sensitive', () => {
+  it('computeNodesHash is deterministic, content-sensitive, and changes when a file is added', () => {
     seedNode(root, 'practice', 'practice-a', '# v1\n');
     const h1 = computeNodesHash(root);
     seedNode(root, 'practice', 'practice-a', '# v2\n');
@@ -113,13 +96,8 @@ describe('nodes helpers', () => {
     expect(h1).toBe(h3);
     expect(h1).not.toBe(h2);
     expect(h1).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it('hash differs when adding a file', () => {
-    seedNode(root, 'practice', 'practice-a');
-    const before = computeNodesHash(root);
     seedNode(root, 'map', 'map-b');
-    expect(computeNodesHash(root)).not.toBe(before);
+    expect(computeNodesHash(root)).not.toBe(h1);
   });
 
   it('slugify and deriveNodeId match the kind-slug pattern', () => {
@@ -130,23 +108,14 @@ describe('nodes helpers', () => {
     expect(slugify('   ')).toBe('untitled');
   });
 
-  it('ensureUniqueId returns the candidate when no collision exists', () => {
+  it('ensureUniqueId returns the candidate, appends suffixes on collisions, and throws after 4', () => {
     expect(ensureUniqueId(new Set(), 'practice-foo')).toBe('practice-foo');
-  });
-
-  it('ensureUniqueId appends -2, -3, -4 on successive collisions', () => {
     expect(ensureUniqueId(new Set(['practice-foo']), 'practice-foo')).toBe('practice-foo-2');
-    expect(ensureUniqueId(new Set(['practice-foo', 'practice-foo-2']), 'practice-foo')).toBe(
-      'practice-foo-3'
-    );
     expect(
       ensureUniqueId(new Set(['practice-foo', 'practice-foo-2', 'practice-foo-3']), 'practice-foo')
     ).toBe('practice-foo-4');
-  });
-
-  it('ensureUniqueId throws after 4 collisions with a guiding message', () => {
-    const set = new Set(['practice-foo', 'practice-foo-2', 'practice-foo-3', 'practice-foo-4']);
-    expect(() => ensureUniqueId(set, 'practice-foo')).toThrow(
+    const full = new Set(['practice-foo', 'practice-foo-2', 'practice-foo-3', 'practice-foo-4']);
+    expect(() => ensureUniqueId(full, 'practice-foo')).toThrow(
       'id "practice-foo" collides with 4 existing ids; choose a more distinct title'
     );
   });

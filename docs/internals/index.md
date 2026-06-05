@@ -18,4 +18,3 @@ For contributors and adapter authors. **Day-to-day users do not need anything he
 - [Prompts](prompts.md) - editing the proposal, curator, and bootstrap prompts.
 - [Knowledge base navigation](kk-navigation.md) - why the SessionStart payload carries a 3-layer navigation directive, and why it lives there and nowhere else.
 - [Manual test plan](manual-test-plan.md) - pre-release checks that resist automation.
-- [Callouts](callouts.md) - the docs-site callout component and its variants.

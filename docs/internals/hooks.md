@@ -75,7 +75,7 @@ Per `SessionStart`:
 1. Recursion guard.
 2. Load `INDEX.md`. If missing, emit `_The knowledge base is empty._`.
 3. Compare frontmatter `nodes_hash` against the live hash of `nodes/`. On drift, append `> kk index is stale, run \`npx kenkeep index rebuild\``.
-4. Count pending logs. If above `curationThreshold` AND the last nudge was over an hour ago, append a nudge and write `last_nudged_at`.
+4. Count pending logs. If the count is at or above `curationThreshold` (default 5) and the last nudge was over an hour ago, append a one-line nudge and write `last_nudged_at`. The nudge escalates to a loud `🚨 kenkeep curation queue is overdue` heading when the queue is large or stale: `pending >= 10`, or `pending >= curationThreshold` with the oldest log at least `staleDays` (default 7) old.
 5. Emit:
 
    ```json

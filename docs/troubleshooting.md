@@ -84,7 +84,7 @@ Remediation, in order of preference:
 2. **Tighten `.kkignore`.** Add entries to deny large vendored or generated markdown subtrees.
 3. **Run multiple smaller scopes one at a time** instead of one repo-wide pass.
 
-On Claude Code and Cursor, drafting fans out to native sub-agents, which keeps each candidate doc out of the main session's context (see [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs)).
+On Claude Code and Cursor, drafting fans out to native sub-agents, which keeps each candidate doc out of the main session's context (see [Architecture → Parallel drafting and per-batch logs](internals/architecture.md#parallel-drafting-and-per-batch-logs)).
 
 ## Bootstrap is still sequential: why?
 

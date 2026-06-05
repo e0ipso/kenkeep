@@ -106,6 +106,13 @@ proposalModel: { name: <model>, effort: <low|medium|high|xhigh|max> }
 
 `name` is the harness's own model id. Both sub-keys are required when the object is present; omit it to use the harness default. This setting does not apply to Claude, where extraction runs inline while you curate, under your session's own model.
 
+### Model and effort for curate and bootstrap
+
+{% capture curate_cost_tip %}
+`/kk-curate` and `/kk-bootstrap` run under whatever model your host harness session uses, so this cost is yours to tune. Both are structured classification tasks — explicit decision trees with inline examples, plus human review via `git commit`/`git restore` as a safety net — so a mid-tier model at moderate effort is sufficient. Higher-tier models cost significantly more for marginal gains on this workload; bootstrap can go lower still, since its input is structured docs rather than messy transcripts. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
+{% endcapture %}
+{% include callout.html variant="tip" title="Model cost tip" content=curate_cost_tip %}
+
 ## Optional: commit-time hardening
 
 kenkeep does **not** scan or redact captured transcripts, and does nothing to protect commits. Secret hygiene is entirely yours. The two pieces teams most often add by hand:
@@ -146,6 +153,18 @@ module.exports = { extends: ['@commitlint/config-conventional'] };
 ```
 
 Add `.husky/commit-msg` with `npx --no -- commitlint --edit "$1"`.
+
+## Validate in CI
+
+Validate what's committed; don't run the LLM pipelines (they need human review and a live harness):
+
+```sh
+npx kenkeep doctor --verbose
+npx kenkeep index rebuild
+git diff --exit-code .ai/kenkeep/INDEX.md .ai/kenkeep/GRAPH.md
+```
+
+{% include callout.html variant="note" content="The `git diff --exit-code` line fails the build when a commit bypassed the pre-commit hook, leaving `INDEX.md`/`GRAPH.md` out of sync with `nodes/`." %}
 
 ## Seed from existing docs
 

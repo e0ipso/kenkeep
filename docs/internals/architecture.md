@@ -74,6 +74,20 @@ flowchart TB
     end
 ```
 
+## Parallel drafting and per-batch logs
+
+When the host harness exposes native sub-agents (Claude Code and Cursor today), `/kk-bootstrap` and `/kk-curate` fan their drafting out across up to five sub-agents per wave, each reading its own slice in an isolated context. Harnesses without native sub-agents fall back to sequential drafting automatically: the skills probe their own tool surface at the start of each run and degrade silently, so a sequential run looks identical to a parallel one from the outside. `/kk-add` uses a single sub-agent only for context isolation, so the host transcript stays clean.
+
+Each run drops a JSONL trace under `.ai/kenkeep/_logs/`, one file per batch (or one per run for `/kk-add`):
+
+```
+.ai/kenkeep/_logs/bootstrap/<runId>__<batchN>.jsonl
+.ai/kenkeep/_logs/curator/<runId>__<batchN>.jsonl
+.ai/kenkeep/_logs/kk-add/<runId>.jsonl
+```
+
+The parallel path additionally writes a `<runId>__<batchN>.draft.json` beside each `.jsonl`. If those are absent while `.jsonl` files exist, the sequential fallback ran. Everything under `_logs/` is gitignored: per-user diagnostic state, not something to commit.
+
 ## State files
 
 | File | Owner | Purpose |

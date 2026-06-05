@@ -83,4 +83,31 @@ describe('lint command', () => {
     expect(combined).toContain('tag-near-duplicate');
     expect(combined).toContain('hook');
   });
+
+  it('exits 1 on a slug-id-mismatch error and names the offending file under --verbose', async () => {
+    // id is not a canonical slug (uppercase); the filename matches the id so
+    // the file still loads, but the slug-id-mismatch rule must fire as an error.
+    writeNode(sandbox, 'practice', 'practice-NotASlug', {
+      id: 'practice-NotASlug',
+      relates_to: ['practice-anchor'],
+    });
+    writeNode(sandbox, 'practice', 'practice-anchor', {
+      id: 'practice-anchor',
+      relates_to: ['practice-NotASlug'],
+    });
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(1);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('slug-id-mismatch');
+    expect(combined).toContain('practice-NotASlug.md');
+  });
+
+  it('exits 0 and reports an orphan finding (no incoming or outgoing edges) under --verbose', async () => {
+    writeNode(sandbox, 'map', 'map-loner', { id: 'map-loner' });
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('orphan');
+    expect(combined).toContain('map-loner.md');
+  });
 });

@@ -2,9 +2,13 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readState, writeState } from '../../src/lib/state.js';
+import { readState } from '../../src/lib/state.js';
 
-describe('state.json round-trip', () => {
+// The read/write round-trip and `last_nudged_at` persistence are exercised
+// end-to-end by the session-start integration probe. The one behavior with no
+// integration probe is the forward-compat schema stripping: an obsolete `lock`
+// field left by an older kenkeep must be silently dropped on read.
+describe('readState (obsolete-field stripping)', () => {
   let dir: string;
   let file: string;
 
@@ -14,21 +18,6 @@ describe('state.json round-trip', () => {
   });
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
-
-  it('returns schema_version stub when file is missing', () => {
-    expect(readState(file)).toEqual({ schema_version: 1 });
-  });
-
-  it('round-trips schema_version and last_nudged_at', () => {
-    writeState(file, {
-      schema_version: 1,
-      last_nudged_at: '2026-05-11T09:00:00Z',
-    });
-    expect(readState(file)).toEqual({
-      schema_version: 1,
-      last_nudged_at: '2026-05-11T09:00:00Z',
-    });
-  });
 
   it('silently drops an obsolete `lock` field on read', () => {
     mkdirSync(dirname(file), { recursive: true });

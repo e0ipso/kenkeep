@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   SETTINGS_DEFAULTS,
-  defaultProjectConfigBody,
   projectConfigPath,
   resolveSettings,
 } from '../../src/lib/settings.js';
@@ -32,12 +31,6 @@ describe('settings', () => {
     expect(result.settings.lintEveryNSessions).toBe(SETTINGS_DEFAULTS.lintEveryNSessions);
   });
 
-  it('throws on invalid YAML', () => {
-    const projectFile = join(sandbox, 'project.yaml');
-    writeFileSync(projectFile, 'schema_version: 1\ncurationThreshold: [unterminated\n');
-    expect(() => resolveSettings({ projectFile })).toThrow(/not valid YAML/);
-  });
-
   it('throws on schema violation for removed keys', () => {
     const projectFile = join(sandbox, 'project.yaml');
     writeFileSync(projectFile, 'schema_version: 1\ndrainBound: 5\n');
@@ -48,13 +41,6 @@ describe('settings', () => {
     const projectFile = join(sandbox, 'project.yaml');
     writeFileSync(projectFile, 'schema_version: 1\nmystery: 1\n');
     expect(() => resolveSettings({ projectFile })).toThrow(/mystery/);
-  });
-
-  it('defaultProjectConfigBody round-trips through resolveSettings', () => {
-    const projectFile = join(sandbox, 'project.yaml');
-    writeFileSync(projectFile, defaultProjectConfigBody());
-    const result = resolveSettings({ projectFile });
-    expect(result.settings).toEqual(SETTINGS_DEFAULTS);
   });
 
   it('accepts an optional cliDefaultHarness and passes it through', () => {

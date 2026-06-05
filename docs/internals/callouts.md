@@ -12,13 +12,13 @@ Markup is emitted by [`_includes/callout.html`](https://github.com/e0ipso/kenkee
 
 ## Variants
 
-{% include callout.html variant="tip" content="`tip` — dalia-tinted. Use for advice that improves an outcome but isn't required, e.g. *prefer the in-session skills*." %}
+{% include callout.html variant="tip" content="`tip`: dalia-tinted. Use for advice that improves an outcome but isn't required, e.g. *prefer the in-session skills*." %}
 
-{% include callout.html variant="note" content="`note` — neutral cream surface with an ink left rule. Use for neutral asides and clarifications that don't change what the reader must do." %}
+{% include callout.html variant="note" content="`note`: neutral cream surface with an ink left rule. Use for neutral asides and clarifications that don't change what the reader must do." %}
 
-{% include callout.html variant="prereq" content="`prereq` — dalia tint with a dalia left rule. Use for things the reader must have in place *before* the steps that follow." %}
+{% include callout.html variant="prereq" content="`prereq`: dalia tint with a dalia left rule. Use for things the reader must have in place *before* the steps that follow." %}
 
-{% include callout.html variant="warning" content="`warning` — warm amber. Use for consequences worth pausing over: data loss, irreversible actions, security footguns." %}
+{% include callout.html variant="warning" content="`warning`: warm amber. Use for consequences worth pausing over: data loss, irreversible actions, security footguns." %}
 
 ## Authoring
 
@@ -28,7 +28,7 @@ Single line:
 {% raw %}{% include callout.html variant="tip" content="Prefer the in-session skills." %}{% endraw %}
 ```
 
-Rich or multi-paragraph bodies — capture the markdown first so quotes, links, and
+Rich or multi-paragraph bodies: capture the markdown first so quotes, links, and
 code survive intact:
 
 ```liquid
@@ -44,7 +44,7 @@ lines flush-left so kramdown doesn't read the indentation as a code block.
 | Param | Values | Default |
 |---|---|---|
 | `variant` | `tip` · `note` · `prereq` · `warning` | `note` |
-| `content` | markdown string for the body (**required**) | — |
+| `content` | markdown string for the body (**required**) | none |
 | `title` | overrides the default uppercase label | per-variant (`TIP`, `NOTE`, `BEFORE YOU BEGIN`, `CAUTION`) |
 | `hide_title` | set truthy to drop the label | label shown |
 

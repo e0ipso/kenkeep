@@ -6,7 +6,9 @@ nav_order: 5
 
 # Manual test plan
 
-Checks that resist automation: real Claude Code sessions, non-Linux OS, and human judgment on capture quality. Run before any significant release (minor bump, schema bump, or pinned `@anthropic-ai/claude-code` bump). Record results in the release PR.
+Checks that resist automation: real Claude Code sessions, non-Linux OS, and human judgment on capture quality.
+
+{% include callout.html variant="prereq" content="Run before any significant release (minor bump, schema bump, or pinned `@anthropic-ai/claude-code` bump). Record results in the release PR." %}
 
 ## Clean sandbox
 
@@ -25,7 +27,7 @@ npx kenkeep doctor
 
 ## 1. Platform smoke
 
-For each OS, set up a clean sandbox and trigger one `Stop` capture. Confirm `_sessions/` contains one new file with `proposal_status: pending`.
+For each OS: set up a clean sandbox, trigger one `Stop` capture, and confirm `_sessions/` has one new file with `proposal_status: pending`.
 
 - [ ] macOS (latest)
 - [ ] Linux (Ubuntu 22.04+)
@@ -41,7 +43,7 @@ The hook contract is ≤1s wall-clock.
 - [ ] Resulting `_sessions/<log>.md` contains the **full transcript slice**, not a summary.
 - [ ] If the deadline fires, the next `Stop`/`SessionEnd` still produces a log covering the missed window.
 
-Diagnostic: `time node .claude/hooks/kk-capture.mjs < /dev/null` should be under 200ms cold. Over 1s usually means a slow filesystem, or the consumer hasn't run `npm install`.
+{% include callout.html variant="tip" content="Diagnostic: `time node .claude/hooks/kk-capture.mjs < /dev/null` should be under 200ms cold. Over 1s usually means a slow filesystem, or the consumer hasn't run `npm install`." %}
 
 ## 3. End-to-end happy path
 
@@ -94,7 +96,7 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 
 ## 8. Single-author skill sessions (no cross-process lock)
 
-Curate and bootstrap no longer take a `state.json` lock. They are single-author by design.
+Curate and bootstrap take no `state.json` lock; they are single-author by design.
 
 - [ ] Run two `curate` launchers in parallel against the same repo (`&` in a shell). Both run to completion; neither errors out with "locked". After both finish, run `index rebuild` and `doctor`. `state.json` and session-log frontmatter both parse cleanly (Zod validation passes), even though one writer's session-stamp updates may have silently lost to the other.
 - [ ] Worst case is some sessions reprocess on the next `curate` run. Confirm: re-run `curate`, verify the unstamped sessions get processed.

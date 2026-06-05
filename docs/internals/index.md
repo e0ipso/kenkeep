@@ -7,7 +7,10 @@ permalink: /internals/
 
 # Internals
 
-For contributors and adapter authors. **Day-to-day users do not need anything here** - see [How it works](../how-it-works.md) and [Daily use](../daily-use.md).
+{% capture audience %}
+For contributors and adapter authors. **Day-to-day users do not need anything here**, see [How it works](../how-it-works.md) and [Daily use](../daily-use.md).
+{% endcapture %}
+{% include callout.html variant="note" content=audience %}
 
 - [Architecture](architecture.md) - code layout, state files, locking, determinism contract.
 - [Hooks](hooks.md) - what each hook does and when it fires.

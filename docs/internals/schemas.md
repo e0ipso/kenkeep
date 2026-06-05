@@ -6,9 +6,11 @@ nav_order: 3
 
 # Schemas
 
-Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. The schemas in [`src/lib/schemas.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/schemas.ts) are the source of truth; when this page disagrees with the code, the code wins.
+Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. All shapes carry `schema_version: 1`.
 
-All shapes carry `schema_version: 1`. A schema mismatch is a parse failure; the file is silently dropped.
+{% include callout.html variant="note" content="[`src/lib/schemas.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/schemas.ts) is the source of truth. When this page disagrees with the code, the code wins." %}
+
+{% include callout.html variant="warning" content="A schema mismatch is a parse failure: the file is SILENTLY dropped." %}
 
 ## Node (`nodes/{practice,map}/<slug>.md`)
 
@@ -30,18 +32,18 @@ summary: "≤140 char summary, used in INDEX.md"
 
 Validated by `NodeFrontmatterSchema`. Git history is the timeline of record; the frontmatter carries no separate timestamps.
 
-### Field rationale
-
-- `schema_version`: integer schema marker. A mismatch is a parse failure.
-- `id`: stable identifier in the form `<kind>-<slug>`. Used by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions.
-- `title`: human-readable label rendered in `INDEX.md`.
-- `kind`: `practice` (how we build) or `map` (what exists). Drives directory placement under `nodes/<kind>/` and the `INDEX.md` section the node lands in.
-- `tags`: free-form labels used by the `## By topic` section in `INDEX.md`.
-- `derived_from`: list of sources (session log filename, repo-relative doc path, or absolute path). `doctor --verbose` lists dangling refs; the consume path silently ignores them.
-- `relates_to`: loose cross-references, rendered in `GRAPH.md`. Not enforced.
-- `depends_on`: strict cross-references, rendered in `GRAPH.md`. Not enforced.
-- `confidence`: `low`, `medium`, or `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale.
-- `summary`: ≤140-character one-liner injected via `INDEX.md`.
+| Field | Meaning |
+|---|---|
+| `schema_version` | Integer schema marker. A mismatch is a parse failure. |
+| `id` | Stable identifier `<kind>-<slug>`. Referenced by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions. |
+| `title` | Human-readable label rendered in `INDEX.md`. |
+| `kind` | `practice` (how we build) or `map` (what exists). Drives placement under `nodes/<kind>/` and the `INDEX.md` section. |
+| `tags` | Free-form labels for the `## By topic` section in `INDEX.md`. |
+| `derived_from` | Sources (session log filename, repo-relative doc path, or absolute path). `doctor --verbose` lists dangling refs; the consume path silently ignores them. |
+| `relates_to` | Loose cross-references, rendered in `GRAPH.md`. Not enforced. |
+| `depends_on` | Strict cross-references, rendered in `GRAPH.md`. Not enforced. |
+| `confidence` | `low`, `medium`, or `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale. |
+| `summary` | ≤140-character one-liner injected via `INDEX.md`. |
 
 ### Two kinds
 
@@ -52,7 +54,7 @@ The proposal prompt splits combined statements: "use `bravo_analytics.dispatcher
 
 ### Conflict resolution
 
-When the curator emits a `contradict` action, the `/kk-curate` skill walks each pending file under `.ai/kenkeep/conflicts/` with the user. The menu is three-way and git-driven:
+On a `contradict` action, `/kk-curate` walks each pending file under `.ai/kenkeep/conflicts/` with the user. The menu is three-way and git-driven:
 
 | Choice | On-disk effect | Side effects |
 |---|---|---|
@@ -62,7 +64,7 @@ When the curator emits a `contradict` action, the `/kk-curate` skill walks each 
 
 ## Conflict files (`conflicts/<run-id>-<n>.md`)
 
-The curator records `contradict` actions as one markdown file per conflict under `.ai/kenkeep/conflicts/`, instead of writing conflicting nodes to disk. The file shape is set inline by the curate wrapper (`src/lib/curate.ts`); there is no Zod schema for the file (it is reviewed and resolved by humans, not parsed for state).
+The curator records `contradict` actions as one markdown file per conflict, instead of writing conflicting nodes to disk. The shape is set inline by the curate wrapper (`src/lib/curate.ts`); there is no Zod schema (it is human-reviewed, not parsed for state).
 
 ```markdown
 ---
@@ -85,11 +87,11 @@ proposed_title: "..."
 <the proposed node body as the curator would have written it to nodes/>
 ```
 
-The `/kk-curate` skill reads every file with `status: pending` after the curator subprocess exits, walks each with the user, and lets the user advance the file via `git restore` (Reject and Accept-after-applying) or `git commit` (Keep as record). `kenkeep status` reports the pending count.
+After the curator subprocess exits, `/kk-curate` reads every file with `status: pending`, walks each with the user, and advances it via `git restore` (Reject and Accept-after-applying) or `git commit` (Keep as record). `kenkeep status` reports the pending count.
 
 ## Curator failure reports
 
-`runCurate` returns a `failures: FailureReport[]` array alongside `conflicts`. Failures cover two cases the curator must not paper over:
+`runCurate` returns a `failures: FailureReport[]` array alongside `conflicts`, covering two cases the curator must not paper over:
 
 - `reason: "add_collision"`: an `add` action targets a node that already exists on disk.
 - `reason: "modify_missing_target"`: a `modify` action's `target_node_id` doesn't resolve to an existing file.
@@ -162,7 +164,7 @@ Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`.
 
 ### `nodes_hash` algorithm
 
-Deterministic, mtime-independent:
+Deterministic, mtime-independent. Defined in `computeNodesHash` (`src/lib/nodes.ts`):
 
 1. Walk all `.md` files under `nodes/`.
 2. For each, compute `sha256(contents)`.
@@ -170,8 +172,6 @@ Deterministic, mtime-independent:
 4. Sort lexicographically.
 5. Join with `\n`.
 6. `nodes_hash = sha256(joined)`.
-
-Defined in `computeNodesHash` (`src/lib/nodes.ts`).
 
 ## State files
 
@@ -221,7 +221,7 @@ Lifecycle:
 
 - **First run**: file is created with `docs: {}`.
 - **Hash hit**: doc is skipped; `last_processed_at` is not updated.
-- **Hash miss**: doc is read by the kk-bootstrap skill. On success, the kk-bootstrap skill calls `node write --source-doc <relpath> --source-hash <sha256>` which folds the entry into this file as part of the same atomic write. On failure, no entry is added so a re-run retries.
+- **Hash miss**: doc is read by the kk-bootstrap skill. On success, it calls `node write --source-doc <relpath> --source-hash <sha256>`, which folds the entry into this file as part of the same atomic write. On failure, no entry is added so a re-run retries.
 - **Preview discovery without writing**: run `finddocs [--from <scope>] [--with-hashes]`. Read-only, never touches `bootstrap-state.json`.
 - **Force re-bootstrap**: delete the file.
 

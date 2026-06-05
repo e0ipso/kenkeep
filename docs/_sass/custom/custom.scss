@@ -41,6 +41,61 @@ h1, .text-alpha {
   font-weight: 600;
 }
 
+// ---- Lucide icons on the primary (top-level) nav items ----
+// Each icon is a CSS mask filled with the link's own color, so it follows the
+// theme and the hover/active accent for free. Files are committed Lucide SVGs in
+// assets/icons; url() is relative to the compiled stylesheet (assets/css/*), so
+// it resolves to assets/icons/* without hard-coding the site baseurl. Targeting
+// is by href suffix, so only these six top-level links get an icon (nested
+// Internals children keep their plain style). NOTE: this site compiles with the
+// old Ruby Sass, which rejects CSS custom properties that hold a url(), so the
+// icon is set with mask-image longhands per link rather than a shared --var.
+.site-nav .nav-list-link[href$="/kenkeep/"]::before,
+.site-nav .nav-list-link[href$="/how-it-works.html"]::before,
+.site-nav .nav-list-link[href$="/installation.html"]::before,
+.site-nav .nav-list-link[href$="/daily-use.html"]::before,
+.site-nav .nav-list-link[href$="/troubleshooting.html"]::before,
+.site-nav .nav-list-link[href$="/internals/"]::before {
+  content: "";
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.55em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.site-nav .nav-list-link[href$="/kenkeep/"]::before {
+  -webkit-mask-image: url("../icons/house.svg");
+  mask-image: url("../icons/house.svg");
+}
+.site-nav .nav-list-link[href$="/how-it-works.html"]::before {
+  -webkit-mask-image: url("../icons/workflow.svg");
+  mask-image: url("../icons/workflow.svg");
+}
+.site-nav .nav-list-link[href$="/installation.html"]::before {
+  -webkit-mask-image: url("../icons/download.svg");
+  mask-image: url("../icons/download.svg");
+}
+.site-nav .nav-list-link[href$="/daily-use.html"]::before {
+  -webkit-mask-image: url("../icons/repeat.svg");
+  mask-image: url("../icons/repeat.svg");
+}
+.site-nav .nav-list-link[href$="/troubleshooting.html"]::before {
+  -webkit-mask-image: url("../icons/wrench.svg");
+  mask-image: url("../icons/wrench.svg");
+}
+.site-nav .nav-list-link[href$="/internals/"]::before {
+  -webkit-mask-image: url("../icons/cpu.svg");
+  mask-image: url("../icons/cpu.svg");
+}
+
 // ---- Links ----
 a {
   text-underline-offset: 0.15em;

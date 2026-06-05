@@ -26,13 +26,13 @@ Session logs are stuck pending.
 - Make sure `claude` is on PATH in the shell that runs the hook.
 - A stale `proposal-drain` lock can block extraction. Check `.ai/kenkeep/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually. (Curate and bootstrap no longer hold a state lock. They run in a single host session, single-author by design.)
 
-## `curate` says "no pending sessions"
+## `/kk-curate` says "no pending sessions"
 
 Either everything is already curated, or some session logs have invalid frontmatter and are being silently skipped. Run `doctor`.
 
 ## Curator reported `add_collision` or `modify_missing_target` failures
 
-- **`add_collision`**: the curator wanted to write a new node, but a node with that id already exists. Pick a different title for the candidate (rerun curate after deleting/editing the offending session log) or treat the existing node as the canonical version.
+- **`add_collision`**: the curator wanted to write a new node, but a node with that id already exists. Pick a different title for the candidate (re-run `/kk-curate` after deleting/editing the offending session log) or treat the existing node as the canonical version.
 - **`modify_missing_target`**: the curator pointed at a `target_node_id` that's not on disk, usually because the node was renamed or deleted between captures. Either restore the target file or treat the modification as an addition by editing the session log so the next curate run reproposes it as `add`.
 
 ## `INDEX.md` is stale
@@ -74,29 +74,17 @@ The curator writes directly to `.ai/kenkeep/nodes/<kind>/<id>.md`. Review with `
 
 Each contradiction lands as a markdown file under `.ai/kenkeep/conflicts/<id>.md` with `status: pending`; the existing node is never overwritten. Run `/kk-curate` and the skill walks each one with the `y`/`n`/`s`/`k` prompt (see [Daily use → Conflict walkthrough](daily-use.md#conflict-walkthrough)). To resolve by hand, edit the target node yourself and `git restore` (or `git commit`) the conflict file.
 
-## `bootstrap-incremental: command not found` or "deprecated" warning
+## `/kk-bootstrap` uses a lot of context on large repos
 
-The command was renamed: `bootstrap-incremental` → `bootstrap`. The old name is registered as a deprecation alias for one release and prints a stderr notice on every invocation:
-
-```
-[deprecated] Alias for `bootstrap`; will be removed in the next release. Use `kenkeep bootstrap` instead.
-```
-
-The alias is removed in the release after next. Update any scripts, CI workflows, and shell aliases that hardcode the old name. The flags (`--from <scope>`) match the new command.
-
-## `bootstrap` now uses more context: what changed
-
-Previously, `bootstrap-incremental` spawned a fresh headless sub-agent per batch, so the host harness session paid almost no context cost. The current architecture runs the bootstrap skill **inside the host harness session**, so every candidate doc the skill reads counts against the host session's context window.
-
-For small repos this is invisible. For large doc trees (a monorepo with hundreds of markdown files) this can force a host-side compaction mid-run, or in extreme cases exhaust the model's effective window.
+`/kk-bootstrap` reads every candidate doc into your harness session, so on a large doc tree (hundreds of markdown files) it can force a compaction mid-run, or in extreme cases exhaust the session's context window.
 
 Remediation, in order of preference:
 
-1. **Scope the run with `--from <subdir>`.** `npx kenkeep bootstrap --from docs/` limits the walk to that subtree.
-2. **Tighten `.kkignore`.** Add entries to deny large vendored or generated markdown subtrees. Run `finddocs` to preview what the new ignore list lets through.
+1. **Scope the run.** `/kk-bootstrap docs/` limits the walk to that subtree.
+2. **Tighten `.kkignore`.** Add entries to deny large vendored or generated markdown subtrees.
 3. **Run multiple smaller scopes one at a time** instead of one repo-wide pass.
 
-The single-host-session model is intentional. Drafting now fans out to harness-native sub-agents inside that same session when the active harness exposes a Task-style primitive (see [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs)), which frees the host context from reading each candidate doc itself. The outer launcher remains a single harness exec, and the deleted CLI-side `BootstrapRunner` / `CuratorRunner` subprocess fan-out is not coming back. See [Daily use → Host-context cost on large doc trees](daily-use.md#host-context-cost-on-large-doc-trees) and the changelog for the rationale.
+On Claude Code and Cursor, drafting fans out to native sub-agents, which keeps each candidate doc out of the main session's context (see [Daily use → Parallel drafting and per-batch logs](daily-use.md#parallel-drafting-and-per-batch-logs)).
 
 ## Bootstrap is still sequential: why?
 

@@ -7,21 +7,19 @@ nav_order: 4
 
 After install, the only thing you do by hand is **curate**, **review**, and **commit**. Everything else is automatic.
 
-## Skills and CLI
+## Skills
 
-Every workflow has both an in-session **skill** and a **CLI** form. The CLI form is a **launcher**: it execs your active harness against the matching slash-command (`claude -p "/kk-curate"`, `codex …`, etc.). The LLM call happens once, inside the host harness session, the same model, prompt cache, and tools you already use interactively.
+Three in-session skills do all the work. Run them inside your harness session; the LLM call happens in that same session, with the model, prompt cache, and tools you already use interactively.
 
-- **`/kk-add` ≡ `node add`.** The skill conversationally gathers fields, checks INDEX for overlap, and persists via the `node write` primitive. The CLI launcher execs the same skill.
-- **`/kk-curate` ≡ `curate`.** The skill reads pending session logs, drafts curator proposals in-session, hands the merged set to the deterministic `curate-dedup` primitive, then runs `index rebuild`. Inside an interactive session the skill also walks each `contradict` conflict with the `y/n/s/k` prompt; that walkthrough still happens when you invoke via the CLI launcher (since the launcher just opens a host session).
-- **`/kk-bootstrap` ≡ `bootstrap`.** The skill enumerates candidate docs via the `finddocs` primitive, reads them with the host's `Read` tool, drafts node bodies inline, and persists via `node write`. Same flow either entry point.
-
-Use the slash-commands when you're already in a harness session (no extra process spawn). Use the launchers from a shell or CI script.
+- **`/kk-add`** conversationally gathers a node's fields, checks `INDEX.md` for overlap, and writes it under `nodes/`.
+- **`/kk-curate`** reads pending captured sessions, drafts proposed notes, writes them under `nodes/`, and rebuilds `INDEX.md` and `GRAPH.md`. It walks you through any contradictions with the `y/n/s/k` prompt.
+- **`/kk-bootstrap`** reads your existing docs and drafts nodes from them (see [Seed from existing docs](#seed-from-existing-docs)).
 
 ### Parallel drafting and per-batch logs
 
-When the active harness exposes a native sub-agent / task primitive (currently Claude Code and Cursor are confirmed; Codex works at the workflow level; opencode falls back conservatively), `kk-bootstrap` and `kk-curate` fan their drafting work out across up to five host sub-agents per orchestrator wave. Each agent reads its own slice in an isolated context, drafts JSON, and writes a tmpfile that the host collects and persists through the same `node write` / `curate-dedup` primitives as before. On harnesses without a native dispatch primitive, the skills silently fall back to sequential inline drafting, same behaviour you've shipped with since the launcher refactor. `kk-add` uses the same delegation mechanism but only for **context isolation** (a single sub-agent drafts the one node so the host transcript stays clean). There is no throughput gain there because there is only ever one unit of work.
+When your harness exposes native sub-agents (Claude Code and Cursor today), `/kk-bootstrap` and `/kk-curate` fan their drafting out across up to five sub-agents per wave, each reading its own slice in an isolated context. Harnesses without native sub-agents fall back to sequential drafting automatically. `/kk-add` uses a single sub-agent only for context isolation, so the host transcript stays clean.
 
-Each run drops a lowest-common-denominator JSONL trace under `.ai/kenkeep/_logs/`, with one file per batch (or one per run for `kk-add`):
+Each run drops a JSONL trace under `.ai/kenkeep/_logs/`, one file per batch (or one per run for `/kk-add`):
 
 ```
 .ai/kenkeep/_logs/bootstrap/<runId>__<batchN>.jsonl
@@ -29,26 +27,24 @@ Each run drops a lowest-common-denominator JSONL trace under `.ai/kenkeep/_logs/
 .ai/kenkeep/_logs/kk-add/<runId>.jsonl
 ```
 
-These are gitignored along with everything else under `_logs/`. They are per-user diagnostic state, not something to commit. Use them to confirm whether the parallel or the inline-fallback path ran on your harness.
+These are gitignored with everything else under `_logs/`: per-user diagnostic state, not something to commit. Use them to confirm whether the parallel or the fallback path ran on your harness.
 
-**Do not run `kk-bootstrap` and `kk-curate` simultaneously against the same repo.** The two skills touch overlapping state files and there is no cross-skill lock; concurrent invocations may interleave in surprising ways.
+**Don't run `/kk-bootstrap` and `/kk-curate` at the same time against one repo.** They touch overlapping state and there is no cross-skill lock; concurrent runs may interleave in surprising ways.
 
 ### Host-context cost on large doc trees
 
-Because the LLM now runs inside the host harness session, the bootstrap skill reads every candidate doc into **that** session's context window. The cost that used to be paid by ephemeral sub-agents now lands on the user's host session. On a small repo this is invisible; on a monorepo with hundreds of markdown files it may force a host-side compaction mid-run.
+`/kk-bootstrap` reads every candidate doc into your harness session's context window. On a small repo this is invisible; on a monorepo with hundreds of markdown files it may force a compaction mid-run.
 
 Two levers, in order of preference:
 
-1. **Scope with `--from <subdir>`.** `bootstrap --from docs/` (or any other subtree) limits the walk root and dramatically reduces context use.
+1. **Scope the run.** `/kk-bootstrap docs/` (or any other subtree) limits the walk root and dramatically reduces context use.
 2. **Tighten `.kkignore`.** Add entries to deny large generated or vendored markdown subtrees that don't carry curated knowledge.
 
-If neither is enough, run `bootstrap` against narrower scopes one at a time.
+If neither is enough, run `/kk-bootstrap` against narrower scopes one at a time.
 
-### No concurrent invocations of `curate` (or `bootstrap`)
+### Don't run two curates (or bootstraps) at once
 
-Skill sessions are **single-author by design**. There is no cross-process lock on `state.json`, `bootstrap-state.json`, or session-log frontmatter stamps. The atomic tmp+rename writes inside `curate-dedup` and `node write` mean a crash never leaves a partially-written file. But if you run two `curate` launchers from two shells simultaneously, the second writer's state-mark update can silently lose to the first, leaving some sessions unmarked. They'll reprocess on the next run (no data loss), but you've wasted the work.
-
-The rule: **run one `curate` (or `bootstrap`) at a time per repo**. Coordinate by hand if multiple developers are running it on the same workspace.
+The skills are **single-author by design**: there is no cross-process lock. If you run two `/kk-curate` passes against the same repo at once, the second writer's state update can silently lose to the first, leaving some sessions unmarked. They reprocess on the next run (no data loss), but the work is wasted. Run one `/kk-curate` (or `/kk-bootstrap`) at a time per repo, and coordinate by hand if several developers share a workspace.
 
 ## The loop
 
@@ -67,20 +63,14 @@ SessionStart counts pending session logs and, once the queue is worth your atten
 ## Curate
 
 {% capture curate_cost_tip %}
-Curation is a structured classification task — the prompts are explicit decision trees with inline examples, and the pipeline includes human review via `git commit`/`git restore` as a safety net. A mid-tier model at moderate effort is sufficient; higher-tier models produce marginally better output at significantly higher cost without meaningful quality improvement for this workload. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
+Curation is a structured classification task: the prompts are explicit decision trees with inline examples, and the pipeline includes human review via `git commit`/`git restore` as a safety net. A mid-tier model at moderate effort is sufficient; higher-tier models produce marginally better output at significantly higher cost without meaningful quality improvement for this workload. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
 {% endcapture %}
 {% include callout.html variant="tip" title="Model cost tip" content=curate_cost_tip %}
 
-In a Claude Code session:
+In a harness session:
 
 ```
 /kk-curate
-```
-
-Or from a shell:
-
-```sh
-npx kenkeep curate
 ```
 
 The curator reads every captured session that's been processed but not yet curated and applies its decisions directly to `nodes/`:
@@ -115,20 +105,27 @@ Defaults are heuristic per conflict (small diffs default `y`, rewrites `n`, othe
 
 Review with `git diff nodes/`. Accept with `git commit` (the pre-commit hook regenerates and stages `INDEX.md`/`GRAPH.md`). Reject with `git restore <path>`. For curator contradictions, let `/kk-curate` walk you through the `y/n/s/k` prompt.
 
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;" markdown="1">
+<div markdown="1">
+
 ## Add knowledge manually
 
-`/kk-add` (in-session) or `npx kenkeep node add` (shell) writes a node directly. Review with `git diff` and commit.
+`/kk-add` writes a node directly from the current session. Review with `git diff` and commit.
+
+</div>
+<div markdown="1">
 
 ## Seed from existing docs
 
 {% capture bootstrap_cost_tip %}
-Bootstrap is cognitively simpler than curation — its input is structured documentation (not messy session transcripts), there is no session-disposition gate, and no conflict detection. The same mid-tier model recommendation applies, and arguably with even more room to go lower. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
+Bootstrap is cognitively simpler than curation: its input is structured documentation (not messy session transcripts), there is no session-disposition gate, and no conflict detection. The same mid-tier model recommendation applies, and arguably with even more room to go lower. Example configurations: Claude `sonnet` / `medium` effort, Codex `gpt-5-codex` / `low` reasoning effort.
 {% endcapture %}
 {% include callout.html variant="tip" title="Model cost tip" content=bootstrap_cost_tip %}
 
-`/kk-bootstrap [path]` in-session, or `npx kenkeep bootstrap --from docs/` from a shell. Same skill either way. Hash-aware (only reprocesses docs whose SHA-256 changed since the last run). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
+`/kk-bootstrap [path]` in a harness session. Hash-aware (only reprocesses docs whose SHA-256 changed since the last run). Existing nodes are never overwritten. See [Installation → Seed from existing docs](installation.md#seed-from-existing-docs) for details.
 
-If you have scripts or CI invocations still calling `bootstrap-incremental`, they keep working as a deprecation alias for one release. Update them to `bootstrap`. The alias is removed in the release after next.
+</div>
+</div>
 
 ## CI
 

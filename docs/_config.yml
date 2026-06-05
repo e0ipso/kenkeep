@@ -1,12 +1,12 @@
 title: 'kenkeep'
-description: A team-shared, git-native knowledge base for AI coding sessions. No daemons, no services — just Node and git.
+description: 'A team-shared, git-native knowledge base for AI coding sessions. Built up in your repo, reviewed and versioned like code, with no extra infrastructure to run.'
 url: https://mateuaguilo.com
 baseurl: '/kenkeep'
 
 # Just the Docs theme configuration
 remote_theme: just-the-docs/just-the-docs
 
-# Theme settings — kenkeep brand schemes (see docs/_sass/color_schemes/).
+# Theme settings: kenkeep brand schemes (see docs/_sass/color_schemes/).
 # Default load is the light scheme; the sidebar toggle swaps to kenkeep-dark.
 color_scheme: kenkeep
 search_enabled: true

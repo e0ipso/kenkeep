@@ -1,21 +1,38 @@
-# kenkeep
-
-[![npm](https://img.shields.io/npm/v/kenkeep.svg)](https://www.npmjs.com/package/kenkeep)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
 <p align="center">
   <img src="docs/assets/images/kenkeep-hero.png" alt="kenkeep: AI coding sessions are curated into a reviewed, git-tracked knowledge library" width="100%">
 </p>
 
-A **team-shared, git-native knowledge base** for AI coding sessions on [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs), [OpenCode](https://opencode.ai/), and [GitHub Copilot CLI](https://github.com/github/copilot-cli).
+<h1 align="center">kenkeep</h1>
 
-Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
+<p align="center">
+  <strong>A team-shared, git-native knowledge base for AI coding sessions.</strong><br>
+  Built up in your repo, reviewed and versioned like code, with no extra infrastructure to run.
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/kenkeep"><img src="https://img.shields.io/npm/v/kenkeep?style=flat-square&label=npm&color=D14781&labelColor=2b2230" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/kenkeep"><img src="https://img.shields.io/npm/dm/kenkeep?style=flat-square&color=D14781&labelColor=2b2230" alt="npm downloads"></a>
+  <a href="https://github.com/e0ipso/kenkeep/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/e0ipso/kenkeep/test.yml?style=flat-square&label=tests&color=D14781&labelColor=2b2230" alt="tests"></a>
+  <a href="package.json"><img src="https://img.shields.io/node/v/kenkeep?style=flat-square&color=D14781&labelColor=2b2230" alt="node version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/kenkeep?style=flat-square&color=D14781&labelColor=2b2230" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://mateuaguilo.com/kenkeep/how-it-works.html">How it works</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/kenkeep/installation.html">Installation</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/kenkeep/daily-use.html">Daily use</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/kenkeep/troubleshooting.html">Troubleshooting</a>
+</p>
+
+---
+
+Coding assistants forget everything from past sessions. Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. kenkeep captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session — on [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs), [OpenCode](https://opencode.ai/), and [GitHub Copilot CLI](https://github.com/github/copilot-cli).
 
 ## Why kenkeep
 
 <table>
 <tr>
-<td width="33%" valign="top">
+<td width="50%" valign="top">
 
 <img src="docs/assets/icons/users.svg" width="28" height="28" alt="" />
 
@@ -24,7 +41,7 @@ Your AI conversations produce a steady stream of project-specific knowledge (con
 The knowledge base grows in your repo as plain markdown, one node per fact, accumulated from real coding sessions. It travels with the project through `git pull`, so every teammate works from the same conventions instead of rediscovering them on their own laptop.
 
 </td>
-<td width="33%" valign="top">
+<td width="50%" valign="top">
 
 <img src="docs/assets/icons/git-pull-request.svg" width="28" height="28" alt="" />
 
@@ -33,13 +50,24 @@ The knowledge base grows in your repo as plain markdown, one node per fact, accu
 Nothing reaches the knowledge base without a human approving it. Every addition or change is an ordinary git diff you review in a commit or PR, with the full history there to inspect, blame, or revert like any other code.
 
 </td>
-<td width="33%" valign="top">
+</tr>
+<tr>
+<td width="50%" valign="top">
 
 <img src="docs/assets/icons/server-off.svg" width="28" height="28" alt="" />
 
 ### No extra infrastructure
 
-No daemons, services, databases, vector stores, or API keys. kenkeep is just Node and git, so there is nothing to provision, host, or keep alive, and nothing new to secure.
+No daemons, services, databases, or vector stores. kenkeep is just Node and git, so there is nothing to provision, host, or keep alive, and nothing new to secure.
+
+</td>
+<td width="50%" valign="top">
+
+<img src="docs/assets/icons/key-round.svg" width="28" height="28" alt="" />
+
+### No API keys
+
+It all runs from within the assistant of your choice, on the subscription you already pay for. There is no separate API key to obtain, store, or rotate.
 
 </td>
 </tr>

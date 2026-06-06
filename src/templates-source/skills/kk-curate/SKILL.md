@@ -293,7 +293,7 @@ The knowledge base is a nested topical folder tree under `nodes/`: a root index 
 - **Never cross the practice/map boundary.** A practice candidate never becomes a map node, and vice versa.
 - **Never overwrite an unrelated node.** `modify` must target a node whose scope genuinely matches the candidate; otherwise prefer `add` (with `relates_to`) or `contradict`.
 - **Be conservative.** When uncertain between add and modify, prefer modify (less duplication). When uncertain between modify and drop, prefer drop (less noise).
-- **Never change tree structure.** Curation places a leaf into an existing folder; it never creates, splits, or merges folders or branches. The only structural outcome curation may produce is the root fallback (a leaf at the `nodes/` root). Structural changes are out of scope here.
+- **Never change tree structure during curation.** The curation step (drafting and persisting leaves, Steps 2 to 6) places a leaf into an existing folder; it never creates, splits, or merges folders or branches. The only structural outcome curation may produce is the root fallback (a leaf at the `nodes/` root). Structural changes happen only in the final rebalance phase (Step 6b), and only when the deterministic trigger fires.
 
 ### Action object schema
 
@@ -405,11 +405,72 @@ After all writes:
 npx --yes kenkeep@latest index rebuild --harness "$HARNESS"
 ```
 
+## 6b. Rebalance (final phase, act-and-fold)
+
+This is the last phase of curate and the only place tree structure changes. It folds in here: no second command, no second nudge. Run it after the leaves are written and the indices rebuilt (Step 6), before reporting.
+
+### 6b.1 Run the deterministic trigger
+
+The trigger is deterministic and LLM-free: it reads Plan 1's per-folder occupancy / tag-diversity / leaf-size metrics, applies the hysteresis-gated decision rules, and prints a stable JSON decision. Run it and capture stdout:
+
+```bash
+npx --yes kenkeep@latest rebalance trigger
+```
+
+It prints exactly one JSON line:
+
+```
+{"actions":[{"branch":"<path>","operation":"<split-folder|split-leaf|merge|create-branch>"}, ...]}
+```
+
+**Skip path (zero added cost).** If `actions` is empty (`{"actions":[]}`), the tree is balanced past the hysteresis margin. Do **not** enter the LLM clustering step at all. Record "rebalance: no structural action" for the Step 7 summary and proceed to Step 7. This is the common case; most curate runs trip nothing and end exactly as they do today.
+
+**Act path.** If `actions` is non-empty, continue to 6b.2. Reason only over the branches the trigger named; never widen the scope.
+
+### 6b.2 Propose structural operations on the affected branches only
+
+For each entry in `actions`, read only that branch (the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`) and decide a concrete operation. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate. Do not touch any branch the trigger did not name.
+
+Map each operation class to a concrete plan entry:
+
+- **split-folder** (`branch` is an over-full folder): cluster that folder's direct leaves into two or more topical subfolders. Emit `{"operation":"split-folder","branch":"<folder>","groups":[{"subfolder":"<name>","ids":["<id>", ...]}, ...]}`. Every id must be a current direct leaf of `branch`; assign each leaf to exactly one subgroup.
+- **merge** (`branch` is a sparse/redundant folder): pick the best existing destination folder `into` (a sibling or parent whose topic subsumes the sparse branch; empty string for the `nodes/` root). Emit `{"operation":"merge","branch":"<folder>","into":"<destination>"}`.
+- **create-branch** (`branch` is a homeless root leaf, a novel top-level topic): choose a new top-level folder name and the leaves that belong in it. Emit `{"operation":"create-branch","folder":"<new-top-level>","ids":["<id>", ...]}`.
+- **split-leaf** (`branch` is one bloated leaf covering two or more concepts): carve it into two or more new sub-documents under a folder named for the leaf. Emit `{"operation":"split-leaf","leafId":"<old-id>","folder":"<folder>","children":[{"title":"...","summary":"...","body":"...","tags":["..."],"relates_to":["..."]}, ...]}` with at least two children. The primitive mints new ids and records a redirect from the old id; do not author ids.
+
+Assemble all entries into one operation plan: `{"operations":[ ... ]}`. Write it to a tmpfile:
+
+```bash
+REBAL_PLAN=$(mktemp -t kk-rebalance-plan.XXXXXX.json)
+# Write your {"operations":[...]} plan to $REBAL_PLAN.
+```
+
+### 6b.3 Apply the moves deterministically
+
+Hand the plan to the deterministic move primitive. It applies every move as a content-byte-stable, id-stable git rename (split-leaf mints new ids plus a redirect), then runs the deterministic rebuild of the affected index nodes and `nodes_hash`. Do **not** relocate files or regenerate indexes by hand.
+
+```bash
+npx --yes kenkeep@latest rebalance move --input "$REBAL_PLAN"
+```
+
+It prints one JSON line, the structural summary you carry into Step 7:
+
+```
+{"moves":[{"operation":"...","id":"...","from":"...","to":"...","newIds":["..."],"redirectFrom":"..."}, ...]}
+```
+
+Capture it. Do not commit, add, or restore anything: the structural moves and the curation leaf writes now sit together in one uncommitted working-tree diff. The human accepts by `git commit` and rejects just the structural moves by path-scoped `git restore`.
+
 ## 7. Report the summary, then handle conflicts
 
 Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, and the count of drops. Also list the **placement decision per written leaf**: for each `add` you persisted, report its id and the folder it landed in (the chosen `home_folder`, or `root fallback` when none was chosen); for each `modify`, note it was updated in place at its current path. This lets the human review placement alongside content.
 
-**If `conflicts == 0`**, print the placement lines and then exactly one summary line, and stop:
+**Structural summary (rebalance).** Then print the structural summary from the rebalance phase (Step 6b), distinct from and additional to the content summary above so the human gets a legend for the structural diff:
+
+- If 6b.1 reported no action, print one line: `Rebalance: no structural action (tree balanced).`
+- Otherwise, for each move in the `{"moves":[...]}` summary, print one line naming the operation and the affected branch: a `split-folder` / `merge` / `create-branch` shows `<id>: <from> -> <to>`; a `split-leaf` shows `<old-id> -> <new-id>, <new-id>, ... (redirect recorded)`. Close with: `Review the structural diff with \`git diff --summary\` (R entries are renames); accept by \`git commit\`, reject just the structural moves with a path-scoped \`git restore\`.`
+
+**If `conflicts == 0`**, print the placement lines, the structural summary, and then exactly one summary line, and stop:
 
 ```
 Curated <nodes_written> nodes; <drops> dropped; no conflicts. Review the written files under .ai/kenkeep/nodes/.
@@ -486,11 +547,12 @@ After every conflict in a group is decided, move to the next group.
 
 ## 8. Hand off
 
-Tell the user to review the changed nodes and conflict files under `.ai/kenkeep/`. `INDEX.md` and `GRAPH.md` were refreshed in step 6.
+Tell the user to review the changed nodes and conflict files under `.ai/kenkeep/`. `INDEX.md` and `GRAPH.md` were refreshed in step 6 (and again by the rebalance move primitive if the rebalance phase acted). Any structural moves from Step 6b sit in the same uncommitted diff; the human accepts everything by `git commit` or rejects just the structural moves with a path-scoped `git restore`.
 
 ## Constraints
 
 - The reply contract for conflict resolution is strictly `y`/`n`/`s`/`k` (or their long forms / empty for default). Do not accept paraphrased prose as an answer — re-prompt instead.
 - If no session logs are pending, short-circuit at step 1 with the one-line message. Do not invoke any primitive.
 - If `.ai/kenkeep/conflicts/` is empty or every file has `status` other than `pending`, there's nothing to resolve; the fast-path message in step 7 already covers it.
+- Rebalance (Step 6b) runs only as the final phase of curate; it is never a separate command or nudge. When `rebalance trigger` reports `{"actions":[]}`, skip the LLM clustering step entirely (zero added cost) and report no structural action. When it fires, reason only over the branches it names, never widen the scope, and apply moves only through the `rebalance move` primitive. Never relocate files or regenerate indexes by hand, and never `git add`, `git commit`, or `git restore` anything.
 - The dedup primitive is non-locking and idempotent on a fresh `runId` — but do not re-run it with the same `$PROPOSALS` and a different `runId`; that double-stamps consumed sessions and double-writes conflict files. One `curate-dedup` call per session.

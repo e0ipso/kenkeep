@@ -199,13 +199,13 @@ its dependencies complete.
 **Parallel Tasks:**
 - ✔️ Task 001: Deterministic, LLM-free rebalance trigger over per-folder metrics with hysteresis (completed)
 
-### Phase 2: Deterministic move primitive
+### ✅ Phase 2: Deterministic move primitive
 **Parallel Tasks:**
-- Task 002: Content-byte-stable, id-stable move primitive and post-move rebuild
+- ✔️ Task 002: Content-byte-stable, id-stable move primitive and post-move rebuild (completed)
 
-### Phase 3: Curate skill integration
+### ✅ Phase 3: Curate skill integration
 **Parallel Tasks:**
-- Task 003: Fold the rebalance phase into kk-curate as its final, act-and-fold phase
+- ✔️ Task 003: Fold the rebalance phase into kk-curate as its final, act-and-fold phase (completed)
 
 ### Phase 4: Verification and documentation
 **Parallel Tasks:**

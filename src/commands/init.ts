@@ -6,6 +6,7 @@ import { copyTree } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { ensureKbignore } from '../lib/kkignore-stub.js';
+import { KK_NAVIGATION_DIRECTIVE } from '../lib/session-start.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -24,8 +25,16 @@ interface InstalledVersion {
 
 const AGENTS_BLOCK_START = '<!-- >>> kenkeep:kk-index >>> -->';
 const AGENTS_BLOCK_END = '<!-- <<< kenkeep:kk-index <<< -->';
-const AGENTS_POINTER =
-  'Curated project knowledge lives in [.ai/kenkeep/INDEX.md](.ai/kenkeep/INDEX.md). Consult it before designing a non-trivial change.';
+// The static kk-index pointer block. It enters the knowledge base at the root
+// index node and then reuses the exact descent wording shipped by the
+// SessionStart hook, so the always-on file surface and the hook surface share
+// one source of truth and cannot drift. The descent body itself is never
+// re-typed here; it comes from KK_NAVIGATION_DIRECTIVE.
+const AGENTS_POINTER = [
+  'Curated project knowledge lives in [.ai/kenkeep/INDEX.md](.ai/kenkeep/INDEX.md), the root index node of the knowledge base. Enter there and descend before designing a non-trivial change:',
+  '',
+  KK_NAVIGATION_DIRECTIVE,
+].join('\n');
 
 const KENKEEP_GITIGNORE_LINES = [
   '_sessions/',
@@ -206,7 +215,7 @@ function writeInstalledVersion(file: string, stateDir: string, harnesses: string
 
 /**
  * Writes `.ai/kenkeep/.gitignore` with the canonical entries if it
- * doesn't already exist. Once written, the file is treated as user-owned —
+ * doesn't already exist. Once written, the file is treated as user-owned;
  * upgrades will not overwrite local edits.
  */
 function ensureKbGitignore(file: string): void {

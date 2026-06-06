@@ -164,10 +164,10 @@ The graph is acyclic. Task 1 is the foundation (the shared directive constant an
 
 - ✔️ Task 1 (completed): Inject only the root index node and rewrite the navigation directive to descent (`src/lib/session-start.ts`; exports the shared `KK_NAVIGATION_DIRECTIVE` constant).
 
-**Phase 2 (dependencies satisfied by Phase 1, run in parallel):**
+**✅ Phase 2 (dependencies satisfied by Phase 1, run in parallel):**
 
-- Task 2: Update the static AGENTS.md kk-index pointer block to the descent framing, importing the shared directive constant (`src/commands/init.ts`).
-- Task 3: Route the root-only body through every harness channel and cover with per-harness SessionStart tests (`src/harnesses/*`).
+- ✔️ Task 2 (completed): Update the static AGENTS.md kk-index pointer block to the descent framing, importing the shared directive constant (`src/commands/init.ts`).
+- ✔️ Task 3 (completed): Route the root-only body through every harness channel and cover with per-harness SessionStart tests (`src/harnesses/*`).
 
 **Phase 3 (dependencies satisfied by Phases 1 and 2):**
 

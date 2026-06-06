@@ -2,7 +2,7 @@
 id: 4
 group: "treeify-verification"
 dependencies: [3]
-status: "pending"
+status: "completed"
 created: 2026-06-05
 skills:
   - vitest
@@ -18,14 +18,14 @@ Add focused integration tests that verify the treeify migration's custom busines
 - `vitest`: add integration tests using a flat-KB fixture and the project's existing test conventions, asserting on-disk results and the refusal path.
 
 ## Acceptance Criteria
-- [ ] A flat-KB fixture (a small set of flat `nodes/<kind>/` leaves with `relates_to` / `depends_on` edges among them) exists under the test fixtures and is used by the tests.
-- [ ] A test migrates the fixture and asserts: every leaf ends up in a topical folder; every leaf's `id` is unchanged; every `relates_to` / `depends_on` value is unchanged; each migrated leaf's `schema_version` equals the new value; no other frontmatter field changed.
-- [ ] A test asserts the write primitive refuses to overwrite: when a target path already exists, the migration aborts and leaves the KB unchanged (no partial writes).
-- [ ] A test asserts the migration report lists every leaf id and its assigned folder (plan Success Criterion 6).
-- [ ] A test asserts that running treeify on an already-migrated (tree) fixture refuses with the expected message and makes zero filesystem changes (plan Success Criterion 5).
-- [ ] A test (reusing doctor's dangling-ref detection from `src/commands/doctor.ts`) confirms no edge dangles after migration (plan Success Criterion 3, edge half).
-- [ ] LLM clustering is stubbed/injected so tests are deterministic and do not exec the host harness; tests cover the deterministic write/detect/report/refuse logic, not the model.
-- [ ] No em dashes in changed files. `npm run typecheck`, `npm run lint`, and `npm test` pass.
+- [x] A flat-KB fixture (a small set of flat `nodes/<kind>/` leaves with `relates_to` / `depends_on` edges among them) exists under the test fixtures and is used by the tests.
+- [x] A test migrates the fixture and asserts: every leaf ends up in a topical folder; every leaf's `id` is unchanged; every `relates_to` / `depends_on` value is unchanged; each migrated leaf's `schema_version` equals the new value; no other frontmatter field changed.
+- [x] A test asserts the write primitive refuses to overwrite: when a target path already exists, the migration aborts and leaves the KB unchanged (no partial writes).
+- [x] A test asserts the migration report lists every leaf id and its assigned folder (plan Success Criterion 6).
+- [x] A test asserts that running treeify on an already-migrated (tree) fixture refuses with the expected message and makes zero filesystem changes (plan Success Criterion 5).
+- [x] A test (reusing doctor's dangling-ref detection from `src/commands/doctor.ts`) confirms no edge dangles after migration (plan Success Criterion 3, edge half).
+- [x] LLM clustering is stubbed/injected so tests are deterministic and do not exec the host harness; tests cover the deterministic write/detect/report/refuse logic, not the model.
+- [x] No em dashes in changed files. `npm run typecheck`, `npm run lint`, and `npm test` pass.
 
 Use your internal Todo tool to track these and keep on track.
 

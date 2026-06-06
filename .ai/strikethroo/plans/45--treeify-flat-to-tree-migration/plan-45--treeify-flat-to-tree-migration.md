@@ -160,14 +160,14 @@ Yes, this plan updates documentation. Required updates:
 **Validation Gates:**
 - Reference: `/config/hooks/POST_PHASE.md`
 
-### Phase 1: Deterministic treeify foundations
+### Phase 1: Deterministic treeify foundations ✅
 **Parallel Tasks:**
-- Task 001: Deterministic treeify write primitive (place leaves, preserve ids and edges, bump schema_version, never overwrite)
-- Task 002: Treeify layout detection and refuse-on-already-migrated tree
+- ✔️ Task 001: Deterministic treeify write primitive (place leaves, preserve ids and edges, bump schema_version, never overwrite) — `completed`
+- ✔️ Task 002: Treeify layout detection and refuse-on-already-migrated tree — `completed`
 
-### Phase 2: Supervised launcher
+### Phase 2: Supervised launcher ✅
 **Parallel Tasks:**
-- Task 003: Treeify supervised launcher: cluster leaves into topical folders, write placements, rebuild indexes, and report (depends on: 001, 002)
+- ✔️ Task 003: Treeify supervised launcher: cluster leaves into topical folders, write placements, rebuild indexes, and report (depends on: 001, 002) — `completed`
 
 ### Phase 3: Verification and documentation
 **Parallel Tasks:**

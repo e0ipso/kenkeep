@@ -2,7 +2,7 @@
 id: 2
 group: "treeify-core"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-05
 skills:
   - typescript

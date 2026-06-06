@@ -11,6 +11,7 @@ import { runLogsPrune } from './commands/logs-prune.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
+import { runRebalanceTrigger } from './commands/rebalance.js';
 import { runStatus } from './commands/status.js';
 import { runTreeify } from './commands/treeify.js';
 import { listHarnessIds } from './harnesses/registry.js';
@@ -176,6 +177,20 @@ async function main(): Promise<void> {
       const harnessFlag = getHarnessFlag();
       if (harnessFlag !== undefined) treeifyOpts.harness = harnessFlag;
       const code = await runTreeify(treeifyOpts);
+      process.exit(code);
+    });
+
+  const rebalanceGroup = program
+    .command('rebalance')
+    .description('Deterministic, LLM-free tree rebalance primitives (the final phase of curate).');
+  rebalanceGroup
+    .command('trigger')
+    .description(
+      'Deterministic, LLM-free rebalance check: reads Plan 1 per-folder metrics and prints a stable JSON decision {"actions":[{"branch","operation"}]} (split-folder/split-leaf/merge/create-branch), or {"actions":[]} when nothing trips past the hysteresis margin so the LLM phase is skipped.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runRebalanceTrigger();
       process.exit(code);
     });
 

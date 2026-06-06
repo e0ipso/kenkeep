@@ -64,7 +64,13 @@ table-of-contents rollup of that folder's child leaves (title, summary, tags)
 and its immediate subfolders (a deterministic intent line plus rollup stats),
 ordered by global graph in-degree then title. The top-level catalog mirrors the
 `nodes/` root index node at `.ai/kenkeep/INDEX.md` (the SessionStart-injected
-entry point); `.ai/kenkeep/GRAPH.md` is the full edge listing.
+entry point); `.ai/kenkeep/GRAPH.md` is the full edge listing. SessionStart
+injects **only** the root index node, a bounded payload independent of total
+node count, plus a descent navigation directive: enter at the root, pick one or
+more relevant branches by intent and tags, read their branch index nodes,
+descend only as deep as the task needs, open only confirmed-relevant leaves, and
+follow `relates_to` / `depends_on` cross edges to reach related leaves in other
+branches. Multiple branches can be relevant and the agent chooses depth.
 
 `kind` (`map` / `practice`) is a pure frontmatter facet: it drives only the
 Conventions / Components rendering split, **not** directory placement. Folders
@@ -147,10 +153,12 @@ The per-folder [`index.md`](.ai/kenkeep/nodes/map/map-index-md.md) tree (mirrore
 
 ## Working with the knowledge base in this repo
 
-We dogfood the tool. [`.ai/kenkeep/nodes/`](.ai/kenkeep/nodes/) contains the curated knowledge about how this codebase is built. Start at [`INDEX.md`](.ai/kenkeep/INDEX.md); the practice nodes encode hard-won rules that are easier to obey than to re-derive.
+We dogfood the tool. [`.ai/kenkeep/nodes/`](.ai/kenkeep/nodes/) contains the curated knowledge about how this codebase is built. Enter at [`INDEX.md`](.ai/kenkeep/INDEX.md) (the root index node) and descend into the branches your task touches; pull only the leaves you need and follow `relates_to` / `depends_on` cross edges. The practice nodes encode hard-won rules that are easier to obey than to re-derive.
 
 To add to the knowledge base during a session: invoke the `kk-add` skill. To process accumulated session captures: invoke `kk-curate` ([map-curate-command](.ai/kenkeep/nodes/map/map-curate-command.md)). To seed from existing docs: invoke `kk-bootstrap` ([map-kk-bootstrap-skill](.ai/kenkeep/nodes/map/map-kk-bootstrap-skill.md)). All three write to `nodes/` directly; review with `git diff`, accept with `git commit`, reject with `git restore`.
 
 <!-- >>> kenkeep:kk-index >>> -->
-Curated project knowledge lives in [.ai/kenkeep/INDEX.md](.ai/kenkeep/INDEX.md). Consult it before designing a non-trivial change.
+Curated project knowledge lives in [.ai/kenkeep/INDEX.md](.ai/kenkeep/INDEX.md), the root index node of the knowledge base. Enter there and descend before designing a non-trivial change:
+
+> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.
 <!-- <<< kenkeep:kk-index <<< -->

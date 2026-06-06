@@ -43,7 +43,13 @@ table-of-contents for that folder, listing its notes and linking down to the
 index node of each subfolder. This is how kenkeep does **progressive
 disclosure**: a session starts from the top-level catalog (`INDEX.md`, the root
 index node) and descends only into the folders it needs, instead of loading one
-flat list of everything. Notes link to each other by `id`, never by path, so a
+flat list of everything. At session start the harness injects **only** that root
+index node (a bounded payload that does not grow with the size of the knowledge
+base) together with a descent directive: read the root, pick the branches whose
+intent and tags match the task, read those branch index nodes, descend only as
+deep as the task needs, open only the leaves you have confirmed are relevant, and
+follow cross edges to reach related notes in other branches. Notes link to each
+other by `id`, never by path, so a
 note can be moved to a better folder without breaking any reference (path is
 presentation; the `id` is identity). `GRAPH.md` is the cross-reference graph the
 harness reads on demand. The `index.md` files are regenerated automatically from

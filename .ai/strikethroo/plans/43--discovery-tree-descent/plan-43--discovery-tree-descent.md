@@ -169,8 +169,8 @@ The graph is acyclic. Task 1 is the foundation (the shared directive constant an
 - ✔️ Task 2 (completed): Update the static AGENTS.md kk-index pointer block to the descent framing, importing the shared directive constant (`src/commands/init.ts`).
 - ✔️ Task 3 (completed): Route the root-only body through every harness channel and cover with per-harness SessionStart tests (`src/harnesses/*`).
 
-**Phase 3 (dependencies satisfied by Phases 1 and 2):**
+**✅ Phase 3 (dependencies satisfied by Phases 1 and 2):**
 
-- Task 4: Update documentation to describe root-only injection and the descent model (`AGENTS.md`, `docs/how-it-works.md`, `docs/internals/hooks.md`).
+- ✔️ Task 4 (completed): Update documentation to describe root-only injection and the descent model (`AGENTS.md`, `docs/how-it-works.md`, `docs/internals/hooks.md`).
 
 Every task is in exactly one phase, no task runs before its dependencies, and Phase 1 contains only the zero-dependency task.

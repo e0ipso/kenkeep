@@ -2,7 +2,7 @@
 id: 5
 group: "treeify-verification"
 dependencies: [3]
-status: "pending"
+status: "completed"
 created: 2026-06-05
 skills:
   - technical-writing
@@ -16,13 +16,13 @@ Document the treeify migration as required by the plan's Documentation section. 
 - `technical-writing`: update existing docs and `AGENTS.md` and author two KB node files in the project's node format.
 
 ## Acceptance Criteria
-- [ ] `docs/installation.md` explains how to migrate an existing flat KB to the tree layout with treeify, stating it is one-time and supervised (write-to-disk, review by git diff, accept by commit, reject by restore).
-- [ ] `docs/troubleshooting.md` covers treeify migration, including the refuse-on-already-migrated behavior and what to do (curate / rebalance) and that a partial result can be discarded with git restore.
-- [ ] `AGENTS.md` notes the migration path for the layout change introduced in Plan 1 (existing flat KBs migrate via treeify rather than re-bootstrapping).
-- [ ] A new map node for the treeify command is written under the KB nodes directory (mirroring `map-kk-bootstrap-skill` / `map-bootstrap-incremental-command`), describing what treeify does and how it is invoked.
-- [ ] A new practice node is written mirroring `practice-bootstrap-is-supervised-and-judgmental` and `practice-bootstrap-never-overwrites-existing-nodes`, stating that migration is supervised and never overwrites without review and never commits.
-- [ ] The two KB nodes are left uncommitted (written to disk only); this task does not commit them.
-- [ ] No em dashes in any changed file (`practice-no-em-dashes`).
+- [x] `docs/installation.md` explains how to migrate an existing flat KB to the tree layout with treeify, stating it is one-time and supervised (write-to-disk, review by git diff, accept by commit, reject by restore).
+- [x] `docs/troubleshooting.md` covers treeify migration, including the refuse-on-already-migrated behavior and what to do (curate / rebalance) and that a partial result can be discarded with git restore.
+- [x] `AGENTS.md` notes the migration path for the layout change introduced in Plan 1 (existing flat KBs migrate via treeify rather than re-bootstrapping).
+- [x] A new map node for the treeify command is written under the KB nodes directory (mirroring `map-kk-bootstrap-skill` / `map-bootstrap-incremental-command`), describing what treeify does and how it is invoked.
+- [x] A new practice node is written mirroring `practice-bootstrap-is-supervised-and-judgmental` and `practice-bootstrap-never-overwrites-existing-nodes`, stating that migration is supervised and never overwrites without review and never commits.
+- [x] The two KB nodes are left uncommitted (written to disk only); this task does not commit them.
+- [x] No em dashes in any changed file (`practice-no-em-dashes`).
 
 Use your internal Todo tool to track these and keep on track.
 

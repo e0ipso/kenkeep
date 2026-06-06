@@ -49,6 +49,22 @@ npx kenkeep index rebuild
 
 The prompt has drifted from your project's needs. Edit `.ai/kenkeep/.config/prompts/curator.md` and bump its `Version:` comment. See [Customization](internals/prompts.md).
 
+## `treeify` refuses: "already in the tree layout"
+
+`treeify` is a one-time migration. Once a knowledge base is in the tree layout (`schema_version: 2`, leaves in topical folders), `treeify` detects it and refuses rather than reshuffling an established tree. This is expected on a second run.
+
+To reorganize an already-migrated tree, don't re-run `treeify`. Evolve nodes with `/kk-curate`, or move leaves by hand: ids are stable, so you can `git mv` a leaf into a different topical folder and run `npx kenkeep index rebuild` to refresh the index nodes.
+
+## A `treeify` run looks half-done
+
+`treeify` writes to disk and stops for review; it never commits. If a run is interrupted, the partial result is visible in `git status`. Because nothing was committed, you can discard the whole migration and return to the pre-migration state with:
+
+```sh
+git restore --staged --worktree .ai/kenkeep
+```
+
+The write primitive is all-or-nothing per run and never overwrites an existing target, so an interrupted `treeify` cannot clobber a node; the safe recovery is always `git restore`.
+
 ## Bootstrap re-processes done docs
 
 `bootstrap-state.json` keys on file content hash. Causes:

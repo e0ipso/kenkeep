@@ -98,7 +98,7 @@ folder tree); other frontmatter and JSON state files still carry
 - **Bump** when removing/renaming a field, changing field semantics, or making an optional field required.
 - **Do not bump** when adding optional fields, adding enum cases, or relaxing constraints.
 
-When you bump, the reader rejects the old shape with a clear error pointing the user to re-run `init`. **Do not write a migrator, compatibility shim, or legacy code path.** The node reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1` nodes) outright and points the user to re-init; a one-time flat-to-tree migration is handled by a separate later plan, not by a runtime shim.
+When you bump, the reader rejects the old shape with a clear error pointing the user to re-run `init`. **Do not write a migrator, compatibility shim, or legacy code path.** The node reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1` nodes) outright and points the user to re-init. Existing knowledge bases cross this one layout change with the one-time supervised `treeify` command, not by re-bootstrapping: `treeify` clusters the flat leaves into the topical tree, preserving every id and edge and bumping `schema_version`, then stops for review (`git diff` to inspect, `git commit` to accept, `git restore` to reject). It refuses on an already-migrated tree. This is the migration itself, not an ongoing runtime shim. See [map-treeify-command](.ai/kenkeep/nodes/map/map-treeify-command.md) and [practice-treeify-is-supervised-and-never-overwrites](.ai/kenkeep/nodes/practice/practice-treeify-is-supervised-and-never-overwrites.md).
 
 ### Prompt versioning
 

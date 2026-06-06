@@ -176,6 +176,27 @@ Inside a harness session:
 
 Surveys your markdown, splits into `practice` and `map` nodes, writes under `nodes/`. Hash-aware: only reprocesses docs whose SHA-256 changed since the last run. Existing nodes are never overwritten. Review the written files: accept by leaving them in place, reject by deleting them. Don't seed from CI: `/kk-bootstrap` drives the LLM and its output needs human review.
 
+## Migrate an existing flat knowledge base
+
+If you already have a knowledge base from an older kenkeep (the flat `nodes/<kind>/` layout, `schema_version: 1`), the current reader rejects it. Carry it across with the one-time `treeify` command rather than re-bootstrapping (re-bootstrapping reads documentation and cannot reconstruct curated nodes):
+
+```sh
+npx kenkeep treeify
+```
+
+`treeify` reads every existing flat leaf, clusters them into topical folders, writes each leaf into its folder preserving its `id` and its `relates_to` / `depends_on` edges, bumps `schema_version`, and regenerates the index nodes and `GRAPH.md`. It is **one-time and supervised**, exactly like bootstrap: it writes files to disk and stops. Nothing is committed for you.
+
+Review and accept (or reject) the migration:
+
+```sh
+git diff .ai/kenkeep/nodes   # inspect: renames + schema_version bumps, never id changes
+git commit -am "migrate knowledge base to tree layout"   # accept
+# or, to reject the whole migration:
+git restore --staged --worktree .ai/kenkeep
+```
+
+`treeify` is a migration, not a maintenance tool. Run it once. On an already-migrated tree it detects the layout and refuses, pointing you to `/kk-curate` (to evolve nodes) instead. Don't run it in CI: it launches the host harness and the LLM for the clustering step.
+
 ## Upgrading
 
 ```sh

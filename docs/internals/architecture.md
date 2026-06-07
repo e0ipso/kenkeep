@@ -55,9 +55,9 @@ flowchart TB
     subgraph curate[Curate]
         UC["/kk-curate slash command<br/>or curate launcher"] --> KB3[kk-curate skill<br/>in host harness session]
         SLD --> KB3
-        KB3 -->|node write| NODES[(nodes/&lt;kind&gt;/&lt;slug&gt;.md)]
+        KB3 -->|node write| NODES[(nodes/&lt;topic&gt;/&lt;id&gt;.md)]
         KB3 -->|curate-dedup| PC[conflicts/&lt;id&gt;.md]
-        KB3 -->|index rebuild| IDX[INDEX.md / GRAPH.md]
+        KB3 -->|index rebuild| IDX[per-folder index.md + INDEX.md / GRAPH.md]
     end
 
     subgraph review[Review]
@@ -113,10 +113,40 @@ Running two `curate` (or `bootstrap`) launchers against the same repo concurrent
 {% endcapture %}
 {% include callout.html variant="warning" content=concurrency %}
 
+## Knowledge base storage (tree over DAG)
+
+The knowledge base is a nested topical folder **tree**, not a flat two-bucket
+layout. Leaf nodes (the documents) live in topical folders under
+`.ai/kenkeep/nodes/` at any depth. Every folder carries a generated `index.md`
+(an **index node**): a deterministic table-of-contents rollup of that folder's
+child leaves (title, summary, tags) and its immediate subfolders (a
+deterministic intent line plus rollup statistics), ordered by global graph
+in-degree then title. The `nodes/` root index node is mirrored at the top-level
+catalog `INDEX.md` (the SessionStart entry point); `GRAPH.md` is the full edge
+listing.
+
+- **`kind` is a facet, not a directory.** `kind` (`map` / `practice`) drives only
+  the Conventions / Components rendering split, not directory placement. Folders
+  are topical.
+- **Tree over DAG.** Containment is a tree (one parent folder per leaf). The
+  `relates_to` / `depends_on` cross references stay a cross-tree DAG overlay,
+  resolved by `id`.
+- **Path is presentation; `id` is identity.** No node references another by path.
+  Index generation resolves each `id` to its current path, so relocation never
+  breaks a reference. `generateIndex` returns one `index.md` body per directory
+  plus per-folder metrics (occupancy, tag diversity, leaf size) for later
+  consumption.
+- **`nodes_hash` excludes generated `index.md`.** The hash covers leaf nodes only;
+  hashing the generated index nodes would be self-referential and perturb the
+  hash on every rebuild.
+- **Clean break, no migrator.** Node/index/graph artifacts are `schema_version: 2`.
+  The reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1`)
+  with a re-init message; a one-time flat-to-tree migration is a separate plan.
+
 ## Determinism contract
 
-- `computeNodesHash` is content-addressed and mtime-independent.
-- `generateIndex` / `generateGraph` are pure functions of `nodes/` plus an injected `now`.
+- `computeNodesHash` is content-addressed, mtime-independent, and over leaf nodes only (generated `index.md` files are excluded).
+- `generateIndex` emits one deterministic `index.md` body per directory; `generateIndex` / `generateGraph` are pure functions of `nodes/` plus an injected `now`. Repeated rebuilds over an unchanged leaf set are byte-identical.
 - `slugify`, `deriveNodeId`, `ensureUniqueId` are pure.
 - `crypto.randomUUID()` is the only randomness, scoped to `run_id` minting.
 

@@ -6,17 +6,22 @@ nav_order: 3
 
 # Schemas
 
-Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. All shapes carry `schema_version: 1`.
+Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. Node, index, and graph artifacts carry `schema_version: 2` (the tree-storage clean break); all other shapes carry `schema_version: 1`.
 
 {% include callout.html variant="note" content="[`src/lib/schemas.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/schemas.ts) is the source of truth. When this page disagrees with the code, the code wins." %}
 
 {% include callout.html variant="warning" content="A schema mismatch is a parse failure: the file is SILENTLY dropped." %}
 
-## Node (`nodes/{practice,map}/<slug>.md`)
+## Node (`nodes/<topic>/<id>.md`)
+
+Leaf nodes live in topical folders under `nodes/` at any depth; the filename is
+always `<id>.md`. Directory placement is topical. Every folder under `nodes/`
+also carries a generated `index.md` (an
+index node, see below), which is never a leaf.
 
 ```yaml
 ---
-schema_version: 1
+schema_version: 2
 id: practice-prefer-constructor-injection   # <kind>-<slug>
 title: "..."
 kind: practice | map
@@ -26,7 +31,7 @@ derived_from:
 relates_to: [string, ...]
 depends_on: [string, ...]
 confidence: low | medium | high
-summary: "≤140 char summary, used in INDEX.md"
+summary: "≤140 char summary, used in index nodes"
 ---
 ```
 
@@ -34,16 +39,16 @@ Validated by `NodeFrontmatterSchema`. Git history is the timeline of record; the
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | Integer schema marker. A mismatch is a parse failure. |
-| `id` | Stable identifier `<kind>-<slug>`. Referenced by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions. |
-| `title` | Human-readable label rendered in `INDEX.md`. |
-| `kind` | `practice` (how we build) or `map` (what exists). Drives placement under `nodes/<kind>/` and the `INDEX.md` section. |
-| `tags` | Free-form labels for the `## By topic` section in `INDEX.md`. |
+| `schema_version` | Integer schema marker. A mismatch is a parse failure; the reader rejects the old flat layout / `schema_version: 1` and points to re-init (no migrator). |
+| `id` | Stable identifier `<kind>-<slug>`. Referenced by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions. All cross references are by `id`; path is presentation. |
+| `title` | Human-readable label rendered in the folder's index node. |
+| `kind` | `practice` (how we build) or `map` (what exists). A pure facet: drives only the Conventions / Components rendering split, NOT directory placement. |
+| `tags` | Free-form labels for the `## By topic` section in the folder's index node. |
 | `derived_from` | Sources (session log filename, repo-relative doc path, or absolute path). `doctor --verbose` lists dangling refs; the consume path silently ignores them. |
 | `relates_to` | Loose cross-references, rendered in `GRAPH.md`. Not enforced. |
 | `depends_on` | Strict cross-references, rendered in `GRAPH.md`. Not enforced. |
 | `confidence` | `low`, `medium`, or `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale. |
-| `summary` | ≤140-character one-liner injected via `INDEX.md`. |
+| `summary` | ≤140-character one-liner rendered in the folder's index node. |
 
 ### Two kinds
 
@@ -58,7 +63,7 @@ On a `contradict` action, `/kk-curate` walks each pending file under `.ai/kenkee
 
 | Choice | On-disk effect | Side effects |
 |---|---|---|
-| Accept | Skill rewrites `nodes/<kind>/<target_node_id>.md` from the proposed body. | Contributor `git restore`s the conflict file to discard it. |
+| Accept | Skill rewrites the existing leaf `<target_node_id>.md` (located by `id` in its topical folder under `nodes/`) from the proposed body. | Contributor `git restore`s the conflict file to discard it. |
 | Reject | None. The existing node file is untouched. | Contributor `git restore`s the conflict file to discard it. |
 | Keep as record | None to the node tree. | Contributor `git commit`s the conflict file; it stays in `.ai/kenkeep/conflicts/` as durable history for future curate runs to read. |
 
@@ -152,26 +157,36 @@ suggested_resolution: supersede | keep_both | reject | null
 
 Validated by `CuratorOutputSchema` (array of actions).
 
-## INDEX.md / GRAPH.md frontmatter
+## Index node (`index.md`) and GRAPH.md frontmatter
 
 ```yaml
-schema_version: 1
+schema_version: 2
 nodes_hash: sha256:<hex>
 node_count: 47
 ```
 
-Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`.
+Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`. Every folder
+under `nodes/` carries a generated `index.md` index node: a deterministic
+table-of-contents rollup of that folder's child leaves and immediate
+subfolders, ordered by global graph in-degree then title. The `nodes/` root
+index node is mirrored at the top-level catalog `INDEX.md`. `node_count` on a
+folder's index node is that folder's direct leaf count. Index nodes are
+generated artifacts and are excluded from `nodes_hash`.
 
 ### `nodes_hash` algorithm
 
 Deterministic, mtime-independent. Defined in `computeNodesHash` (`src/lib/nodes.ts`):
 
-1. Walk all `.md` files under `nodes/`.
-2. For each, compute `sha256(contents)`.
+1. Walk all leaf `.md` files under `nodes/`, EXCLUDING every generated `index.md`.
+2. For each leaf, compute `sha256(contents)`.
 3. Build strings: `<relative-path>\t<sha256-hex>`.
 4. Sort lexicographically.
 5. Join with `\n`.
 6. `nodes_hash = sha256(joined)`.
+
+Generated `index.md` files are excluded so the hash is not self-referential: a
+rebuild rewrites every `index.md`, and if those fed the hash, every rebuild
+would change it and break source-drift detection.
 
 ## State files
 
@@ -201,8 +216,8 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
       "content_sha256": "abc123...",
       "last_processed_at": "2026-05-10T14:32:00Z",
       "produced_nodes": [
-        "practice/practice-auth-flow.md",
-        "map/map-auth-module.md"
+        "practice-auth-flow",
+        "map-auth-module"
       ]
     }
   }
@@ -215,7 +230,7 @@ Records the SHA-256 of every doc the bootstrap pipelines have processed. Hash hi
 | `last_incremental_at` | Last `bootstrap` run (via the launcher or the kk-bootstrap skill) that processed ≥1 doc. Field name retained from the pre-rename era for backward compatibility. |
 | `docs[].content_sha256` | SHA-256 of file contents at processing time. |
 | `docs[].last_processed_at` | Timestamp of last processing. Not updated on hash hits. |
-| `docs[].produced_nodes` | `<kind>/<filename>.md` paths (relative to `nodes/`) written from this doc. Informational. |
+| `docs[].produced_nodes` | Node ids written from this doc. Informational. |
 
 Lifecycle:
 

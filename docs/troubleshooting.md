@@ -24,7 +24,7 @@ Session logs are stuck pending.
 
 - Background extraction runs at the start of the **next** Claude Code session. Open a new one.
 - Make sure `claude` is on PATH in the shell that runs the hook.
-- A stale `proposal-drain` lock can block extraction. Check `.ai/kenkeep/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually. (Curate and bootstrap no longer hold a state lock. They run in a single host session, single-author by design.)
+- A stale `proposal-drain` lock can block extraction. Check `.ai/kenkeep/.state/state.json`; wait for the TTL (30 min) or clear the `lock` field manually. (Curate and bootstrap don't take a state lock — they run single-author in one host session.)
 
 ## `/kk-curate` says "no pending sessions"
 
@@ -48,6 +48,22 @@ npx kenkeep index rebuild
 ## Curator produces weird proposals
 
 The prompt has drifted from your project's needs. Edit `.ai/kenkeep/.config/prompts/curator.md` and bump its `Version:` comment. See [Customization](internals/prompts.md).
+
+## `treeify` refuses: "already in the tree layout"
+
+`treeify` is a one-time migration. Once a knowledge base is in the tree layout (`schema_version: 2`, leaves in topical folders), `treeify` detects it and refuses rather than reshuffling an established tree. This is expected on a second run.
+
+To reorganize an already-migrated tree, don't re-run `treeify`. Evolve nodes with `/kk-curate`, or move leaves by hand: ids are stable, so you can `git mv` a leaf into a different topical folder and run `npx kenkeep index rebuild` to refresh the index nodes.
+
+## A `treeify` run looks half-done
+
+`treeify` writes to disk and stops for review; it never commits. If a run is interrupted, the partial result is visible in `git status`. Because nothing was committed, you can discard the whole migration and return to the pre-migration state with:
+
+```sh
+git restore --staged --worktree .ai/kenkeep
+```
+
+The write primitive is all-or-nothing per run and never overwrites an existing target, so an interrupted `treeify` cannot clobber a node; the safe recovery is always `git restore`.
 
 ## Bootstrap re-processes done docs
 

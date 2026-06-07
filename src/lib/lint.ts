@@ -1,6 +1,13 @@
-import { readAllNodes, slugify, type NodeFile } from './nodes.js';
+import { existsSync, readdirSync } from 'node:fs';
+import { join, posix, relative, sep } from 'node:path';
+import { INDEX_FILENAME, readAllNodes, slugify, type NodeFile } from './nodes.js';
 
-export type LintRule = 'dangling-edge' | 'slug-id-mismatch' | 'tag-near-duplicate' | 'orphan';
+export type LintRule =
+  | 'dangling-edge'
+  | 'slug-id-mismatch'
+  | 'tag-near-duplicate'
+  | 'orphan'
+  | 'missing-folder-index';
 
 export interface LintEntry {
   rule: LintRule;
@@ -60,7 +67,21 @@ export function runLint(opts: LintOptions): LintResult {
         file: node.path,
         message: mismatch,
         action:
-          'Rename the file and fix the id so id == <kind>-<slug> and filename == <id>.md under nodes/<kind>/.',
+          'Fix the id so it is canonical (id == <kind>-<slug>) and rename the file so filename == <id>.md. Directory placement is topical and not constrained by kind.',
+      });
+    }
+  }
+
+  // Every folder under nodes/ must carry a generated index.md (the table of
+  // contents for that folder). Directory placement is topical and independent
+  // of kind.
+  for (const dir of foldersUnder(opts.nodesDir)) {
+    if (!existsSync(join(dir, INDEX_FILENAME))) {
+      errors.push({
+        rule: 'missing-folder-index',
+        file: dir,
+        message: `folder ${posix.normalize(relative(opts.nodesDir, dir).split(sep).join(posix.sep)) || '.'} has no index.md`,
+        action: 'Run `npx kenkeep index rebuild` to regenerate the per-folder index nodes.',
       });
     }
   }
@@ -114,8 +135,16 @@ export function runLint(opts: LintOptions): LintResult {
   return { errors, findings };
 }
 
+/**
+ * Asserts filename/id agreement and that the leaf carries a stable, canonical
+ * id (`<kind>-<slug>`). The kind prefix is part of the id (identity); directory
+ * placement is topical and unconstrained by kind.
+ */
 function checkSlugId(node: NodeFile): string | null {
   const { id, kind } = node.frontmatter;
+  if (id.trim() === '') {
+    return 'leaf has an empty id; every leaf must carry a stable id';
+  }
   const prefix = `${kind}-`;
   if (!id.startsWith(prefix)) {
     return `id ${id} does not start with kind prefix ${prefix}`;
@@ -129,11 +158,24 @@ function checkSlugId(node: NodeFile): string | null {
   if (node.filename !== expectedFilename) {
     return `filename ${node.filename} does not match expected ${expectedFilename}`;
   }
-  const parentSegment = node.path.split(/[\\/]/).slice(-2, -1)[0];
-  if (parentSegment !== kind) {
-    return `file is under nodes/${parentSegment ?? '?'}/ but kind is ${kind}`;
-  }
   return null;
+}
+
+/**
+ * Every directory under `nodesDir`, inclusive of `nodesDir` itself, that is
+ * expected to carry an `index.md`. Returns absolute paths.
+ */
+function foldersUnder(nodesDir: string): string[] {
+  if (!existsSync(nodesDir)) return [];
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    out.push(dir);
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(join(dir, entry.name));
+    }
+  };
+  walk(nodesDir);
+  return out;
 }
 
 function normalizeTag(tag: string): string {

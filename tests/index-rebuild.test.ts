@@ -8,11 +8,13 @@ import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
 
 const exec = promisify(execFile);
 
+// Leaves live in topical folders, not kind buckets. Each leaf gets its own
+// topical folder (named after its id) under nodes/.
 function writeNode(sandbox: string, kind: 'practice' | 'map', id: string): void {
-  const dir = join(sandbox, '.ai/kenkeep/nodes', kind);
+  const dir = join(sandbox, '.ai/kenkeep/nodes', id);
   mkdirSync(dir, { recursive: true });
   const fm = {
-    schema_version: 1,
+    schema_version: 2,
     id,
     title: id,
     kind,
@@ -40,7 +42,7 @@ describe('index rebuild', () => {
     const before = readFileSync(join(sandbox, '.ai/kenkeep/INDEX.md'), 'utf8');
     const result = await runCli(sandbox, ['index', 'rebuild']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Regenerated INDEX.md and GRAPH.md from 2 node(s)');
+    expect(result.stdout).toContain('index.md file(s) and GRAPH.md from 2 node(s)');
     const after = readFileSync(join(sandbox, '.ai/kenkeep/INDEX.md'), 'utf8');
     expect(after).not.toBe(before);
     expect(after).toContain('practice-foo');
@@ -98,10 +100,14 @@ describe('index rebuild', () => {
     const staged = stdout.trim().split('\n');
     expect(staged).toContain('.ai/kenkeep/INDEX.md');
     expect(staged).toContain('.ai/kenkeep/GRAPH.md');
+    // Per-folder index nodes are staged too: the leaf's topical folder and the
+    // nodes/ root both carry an index.md.
+    expect(staged).toContain('.ai/kenkeep/nodes/index.md');
+    expect(staged).toContain('.ai/kenkeep/nodes/practice-foo/index.md');
   });
 
   it('refuses to rebuild when a node has invalid frontmatter', async () => {
-    const dir = join(sandbox, '.ai/kenkeep/nodes/practice');
+    const dir = join(sandbox, '.ai/kenkeep/nodes/topic');
     mkdirSync(dir, { recursive: true });
     const badPath = join(dir, 'practice-missing-summary.md');
     // Missing required `summary` triggers schema validation failure.
@@ -109,7 +115,7 @@ describe('index rebuild', () => {
       badPath,
       [
         '---',
-        'schema_version: 1',
+        'schema_version: 2',
         'id: practice-missing-summary',
         'title: "missing summary"',
         'kind: practice',
@@ -140,12 +146,24 @@ describe('index rebuild', () => {
     await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], {
       cwd: sandbox,
     });
-    // Bring INDEX.md in sync with current (empty) nodes/ tree.
+    // Bring INDEX.md in sync with current (empty) nodes/ tree. The shipped
+    // template artifacts are byte-identical to generator output, so this is a
+    // no-op diff; --allow-empty keeps the baseline commit regardless.
     expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
     await exec('git', ['add', '.'], { cwd: sandbox });
     await exec(
       'git',
-      ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'baseline'],
+      [
+        '-c',
+        'user.email=t@t',
+        '-c',
+        'user.name=t',
+        'commit',
+        '-q',
+        '--allow-empty',
+        '-m',
+        'baseline',
+      ],
       { cwd: sandbox }
     );
     // No node changes — --stage should short-circuit and nothing should be staged.

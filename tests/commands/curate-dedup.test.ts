@@ -227,6 +227,96 @@ describe('runCurateDedupCommand (session stamps)', () => {
   });
 });
 
+describe('runCurateDedupCommand (home_folder passthrough)', () => {
+  let sandbox: Sandbox;
+  let originalWrite: typeof process.stdout.write;
+
+  beforeEach(() => {
+    sandbox = makeSandbox();
+    originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+  });
+
+  afterEach(() => {
+    process.stdout.write = originalWrite;
+    rmSync(sandbox.root, { recursive: true, force: true });
+  });
+
+  it('carries home_folder on an add through dedup, leaving modify/drop without it unaffected', async () => {
+    // Inline input (does not touch the shared golden fixtures): an add with a
+    // home_folder, a modify and a drop without one.
+    const input = join(sandbox.root, 'placement-input.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        {
+          action: 'add',
+          candidate_origin: 's1:practice:0',
+          target_node_id: null,
+          proposed_node: {
+            title: 'Placed',
+            kind: 'practice',
+            tags: ['a'],
+            summary: 'has a home folder',
+            body: 'body',
+            confidence: 'high',
+            relates_to: [],
+          },
+          home_folder: 'practice/sub',
+          rationale: 'add with placement',
+        },
+        {
+          action: 'modify',
+          candidate_origin: 's1:map:0',
+          target_node_id: 'practice-existing',
+          proposed_node: {
+            title: 'Existing',
+            kind: 'practice',
+            tags: [],
+            summary: 'modified in place',
+            body: 'merged body',
+            confidence: 'high',
+            relates_to: [],
+          },
+          rationale: 'modify, no placement',
+        },
+        {
+          action: 'drop',
+          candidate_origin: 's1:practice:1',
+          target_node_id: null,
+          proposed_node: null,
+          rationale: 'dropped',
+        },
+      ])
+    );
+
+    const code = await runCurateDedupCommand({
+      input,
+      output: sandbox.outputPath,
+      runId: FIXED_RUN_ID,
+      sessionsDir: sandbox.sessionsDir,
+      conflictsDir: sandbox.conflictsDir,
+      now: FIXED_NOW,
+    });
+    expect(code).toBe(0);
+
+    const survivors = JSON.parse(readFileSync(sandbox.outputPath, 'utf8')) as Array<
+      Record<string, unknown>
+    >;
+    const addAction = survivors.find(a => a['action'] === 'add');
+    const modifyAction = survivors.find(a => a['action'] === 'modify');
+    const dropAction = survivors.find(a => a['action'] === 'drop');
+
+    // The add keeps its home_folder verbatim across dedup.
+    expect(addAction?.['home_folder']).toBe('practice/sub');
+    // modify and drop survive unaffected and never gain a home_folder.
+    expect(modifyAction).toBeDefined();
+    expect(modifyAction?.['home_folder']).toBeUndefined();
+    expect(dropAction).toBeDefined();
+    expect(dropAction?.['home_folder']).toBeUndefined();
+  });
+});
+
 describe('runCurateDedupCommand (invalid input)', () => {
   let sandbox: Sandbox;
   let originalErr: typeof process.stderr.write;

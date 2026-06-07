@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { KK_NAVIGATION_DIRECTIVE } from '../../lib/session-start.js';
 import type { HarnessPaths } from '../types.js';
 import { copilotHookSpecs } from './hook-spec.js';
 
@@ -101,7 +102,12 @@ export async function writeCopilotHookConfig(paths: HarnessPaths): Promise<void>
 function readIndexContent(repoRoot: string): string {
   const indexFile = join(repoRoot, '.ai', 'kenkeep', 'INDEX.md');
   if (existsSync(indexFile)) {
-    return readFileSync(indexFile, 'utf8').trimEnd();
+    // INDEX.md is the root index node (the top-level catalog of branches and
+    // root-level leaves). Pair it with the shared descent directive so Copilot
+    // gets the same enter-at-the-root, descend-on-demand guidance as the other
+    // adapters, sourced from the one KK_NAVIGATION_DIRECTIVE constant.
+    const body = readFileSync(indexFile, 'utf8').trimEnd();
+    return `${body}\n\n${KK_NAVIGATION_DIRECTIVE}`;
   }
   return 'Curated project knowledge lives in .ai/kenkeep/INDEX.md (not yet generated). Run `npx kenkeep index rebuild` to populate it.';
 }

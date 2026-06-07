@@ -49,10 +49,18 @@ The curator reads every captured session that's been processed but not yet curat
 
 | Decision | Effect |
 |---|---|
-| **add** | Writes `nodes/<kind>/<id>.md`. Fails loud if the file already exists. |
-| **modify** | Overwrites the target node. Fails loud if `target_node_id` is missing on disk. |
+| **add** | Writes the new note into its home branch, the best-fitting existing folder under `nodes/` (or the `nodes/` root when nothing fits). The note id is independent of the folder. |
+| **modify** | Updates the target note in place at its current path by id, with no relocation. Fails loud if `target_node_id` is missing on disk. |
 | **contradict** | Records the conflict under `.ai/kenkeep/conflicts/<id>.md` with `status: pending`; writes nothing to `nodes/`. |
 | **drop** | No change. |
+
+The curator names where each new note lives: as it relates a note to its neighbors, the same reasoning pass picks the home branch. Curation places notes into existing folders only and never creates, splits, or merges folders. The end-of-run summary lists the placement decision per written note (the folder it landed in, or `root fallback`) so you can review placement alongside content.
+
+### Rebalance (act-and-fold)
+
+Structural upkeep folds into curate as its last phase; there is no separate command and no extra nudge. A deterministic, LLM-free trigger checks the per-folder metrics with a hysteresis margin. If nothing trips, the phase is skipped and curate ends exactly as before. If a threshold trips, the LLM splits a folder, splits a bloated note, merges a sparse branch, or creates a branch for a novel top-level topic, on the affected branches only.
+
+The structural changes land in the **same** working-tree diff as the note writes (act-and-fold). The only review gate is the one you already use: `git diff` to inspect, then `git commit` to accept everything, or a path-scoped `git restore <path>` to reject just the structural moves while keeping the note writes (or the reverse). Moves preserve content byte-for-byte, so `git diff --summary` shows them as `R` renames rather than churn; ids stay stable so cross references survive. Curate prints a structural summary as a legend for the diff. To undo a whole rebalance, restore the moved paths; to keep it, commit.
 
 ### Fast path
 

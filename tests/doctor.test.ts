@@ -38,14 +38,14 @@ describe('doctor', () => {
 
   it('flags nodes with invalid frontmatter and skips the dangling check', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const dir = join(sandbox, '.ai/kenkeep/nodes/practice');
+    const dir = join(sandbox, '.ai/kenkeep/nodes');
     mkdirSync(dir, { recursive: true });
     // Missing required `summary` field triggers schema validation failure.
     writeFileSync(
       join(dir, 'practice-broken.md'),
       [
         '---',
-        'schema_version: 1',
+        'schema_version: 2',
         'id: practice-broken',
         'title: "broken frontmatter"',
         'kind: practice',

@@ -11,7 +11,9 @@ import { runLogsPrune } from './commands/logs-prune.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
+import { runRebalanceMove, runRebalanceTrigger } from './commands/rebalance.js';
 import { runStatus } from './commands/status.js';
+import { runTreeify } from './commands/treeify.js';
 import { listHarnessIds } from './harnesses/registry.js';
 import { log } from './lib/log.js';
 import { packageVersion } from './lib/version.js';
@@ -165,6 +167,46 @@ async function main(): Promise<void> {
       runBootstrapLauncher(launchOpts);
     });
 
+  program
+    .command('treeify')
+    .description(
+      'One-time supervised migration of an existing flat nodes/<kind>/ knowledge base into the nested topical tree layout. Clusters leaves into folders (via the active harness), preserves ids and edges, bumps schema_version, rebuilds indexes, and stops. Writes files only; review with `git diff` and accept by commit or reject by `git restore`. Refuses on an already-migrated tree.'
+    )
+    .action(async () => {
+      const treeifyOpts: Parameters<typeof runTreeify>[0] = {};
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) treeifyOpts.harness = harnessFlag;
+      const code = await runTreeify(treeifyOpts);
+      process.exit(code);
+    });
+
+  const rebalanceGroup = program
+    .command('rebalance')
+    .description('Deterministic, LLM-free tree rebalance primitives (the final phase of curate).');
+  rebalanceGroup
+    .command('trigger')
+    .description(
+      'Deterministic, LLM-free rebalance check: reads Plan 1 per-folder metrics and prints a stable JSON decision {"actions":[{"branch","operation"}]} (split-folder/split-leaf/merge/create-branch), or {"actions":[]} when nothing trips past the hysteresis margin so the LLM phase is skipped.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runRebalanceTrigger();
+      process.exit(code);
+    });
+  rebalanceGroup
+    .command('move')
+    .description(
+      'Deterministic move primitive: applies a caller-supplied operation plan (split-folder/split-leaf/merge/create-branch) as content-byte-stable, id-stable git renames (split-leaf mints new ids + a redirect), then rebuilds affected index nodes and nodes_hash. Reads the plan JSON from --input or stdin. Writes files only; never stages or commits. Prints a structural summary JSON.'
+    )
+    .option('--input <path>', 'path to the operation-plan JSON; reads stdin when omitted')
+    .allowExcessArguments(true)
+    .action(async (opts: { input?: string }) => {
+      const flags: Parameters<typeof runRebalanceMove>[0] = {};
+      if (opts.input !== undefined) flags.input = opts.input;
+      const code = await runRebalanceMove(flags);
+      process.exit(code);
+    });
+
   const nodeGroup = program.command('node').description('Manage kenkeep nodes.');
   nodeGroup
     .command('add')
@@ -180,7 +222,7 @@ async function main(): Promise<void> {
   nodeGroup
     .command('write')
     .description(
-      'Headless primitive: atomically write a single node to nodes/<kind>/<id>.md with Zod-validated frontmatter and slug-collision resolution. Body read from stdin (default) or --from <path>. Prints the resolved id to stdout. When both --source-doc and --source-hash are passed, also updates bootstrap-state.json per-file hash map.'
+      'Headless primitive: atomically write a single node to nodes/<folder>/<id>.md (or nodes/<id>.md at the root when --folder is omitted) with Zod-validated frontmatter and slug-collision resolution. The folder is presentation only; the id is folder-independent. Body read from stdin (default) or --from <path>. Prints the resolved id to stdout. When both --source-doc and --source-hash are passed, also updates bootstrap-state.json per-file hash map.'
     )
     .argument('<kind>', 'node kind: practice or map')
     .argument('<slug>', 'proposed id base (kind prefix added automatically when missing)')
@@ -190,6 +232,10 @@ async function main(): Promise<void> {
     .option('--relates-to <list>', 'comma-separated node ids')
     .option('--confidence <level>', 'low, medium, or high (default: high)')
     .option('--from <path>', 'read body from <path> instead of stdin')
+    .option(
+      '--folder <relpath>',
+      'existing home folder under nodes/ (POSIX-style); omitted/empty lands the leaf at the nodes/ root'
+    )
     .option('--source-doc <relpath>', 'source markdown doc (repo-relative); requires --source-hash')
     .option('--source-hash <sha256>', 'sha256 hex digest of --source-doc; requires --source-doc')
     .action(
@@ -203,6 +249,7 @@ async function main(): Promise<void> {
           relatesTo?: string;
           confidence?: string;
           from?: string;
+          folder?: string;
           sourceDoc?: string;
           sourceHash?: string;
         }
@@ -214,6 +261,7 @@ async function main(): Promise<void> {
         if (opts.relatesTo !== undefined) flags.relatesTo = opts.relatesTo;
         if (opts.confidence !== undefined) flags.confidence = opts.confidence;
         if (opts.from !== undefined) flags.from = opts.from;
+        if (opts.folder !== undefined) flags.folder = opts.folder;
         if (opts.sourceDoc !== undefined) flags.sourceDoc = opts.sourceDoc;
         if (opts.sourceHash !== undefined) flags.sourceHash = opts.sourceHash;
         const code = await runNodeWriteCommand({ kind, slug, flags });

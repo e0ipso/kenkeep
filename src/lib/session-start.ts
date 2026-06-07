@@ -9,6 +9,22 @@ import { readState, writeState } from './state.js';
 export const DEFAULT_NUDGE_THRESHOLD = 20;
 export const DEFAULT_STALE_DAYS = 7;
 
+/**
+ * The descent navigation directive injected at SessionStart and reused verbatim
+ * by the static AGENTS.md kk-index pointer block (see `src/commands/init.ts`).
+ * Sourcing both surfaces from this single constant keeps the hook and the
+ * always-on file from ever drifting apart.
+ *
+ * The directive describes how to navigate the tree-structured knowledge base:
+ * enter at the injected root index node, pick the branches whose intent and tags
+ * match the task, read those branch index nodes, descend only as deep as the
+ * task needs, open only confirmed-relevant leaves, and follow cross edges to
+ * reach related leaves in other branches. Multiple branches can be relevant and
+ * the agent chooses how deep to go.
+ */
+export const KK_NAVIGATION_DIRECTIVE =
+  '> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf\'s `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.';
+
 export interface SessionStartContext {
   kkDir: string;
   nodesDir: string;
@@ -40,9 +56,15 @@ export interface SessionStartResult {
 /**
  * Builds the additional-context payload for the SessionStart sync hook.
  *
- * 1. Reads INDEX.md (or returns a "kk is empty" stub if missing).
- * 2. Detects staleness by comparing the frontmatter `nodes_hash` against
- *    the live hash of `nodes/`. If mismatched, appends a warning line.
+ * 1. Reads the root index node (`.ai/kenkeep/INDEX.md`, the top-level catalog of
+ *    branches and root-level leaves) or returns a "kk is empty" stub if missing.
+ *    Only the root index node is injected: the payload is bounded and does not
+ *    grow with the total node count, because deep leaves appear in the root only
+ *    as subfolder rollup counts. The agent descends the tree on demand following
+ *    `KK_NAVIGATION_DIRECTIVE`.
+ * 2. Detects staleness by comparing the root index node's frontmatter
+ *    `nodes_hash` (the global hash over the whole leaf set) against the live hash
+ *    of `nodes/`. If mismatched, appends a warning line.
  * 3. Counts pending session logs and, when >= threshold,
  *    appends a nudge and persists `last_nudged_at` to `state.json`.
  *
@@ -81,9 +103,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     '> kenkeep nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user.'
   );
   lines.push('');
-  lines.push(
-    '> kenkeep navigation: consult the index above first, then `grep -C 2 <term> nodes/` for candidate slugs (the `-C 2` context surfaces the `summary:` frontmatter line), and only open full node bodies for confirmed matches.'
-  );
+  lines.push(KK_NAVIGATION_DIRECTIVE);
   if (indexStale) {
     lines.push('');
     lines.push(
@@ -143,6 +163,14 @@ interface LoadedIndex {
   missing: boolean;
 }
 
+/**
+ * Loads the root index node body for injection. The root index node lives at
+ * `.ai/kenkeep/INDEX.md`: it is the root folder's `index.md` (the top-level
+ * catalog of branches and root-level leaves) stamped with the GLOBAL
+ * `nodes_hash` over the whole leaf set, so the drift check below stays
+ * meaningful against the live `nodes/` hash. Deep leaves are not inlined here;
+ * they surface only as subfolder rollup counts, keeping the payload bounded.
+ */
 function loadIndex(kkDir: string): LoadedIndex {
   const indexFile = `${kkDir.replace(/[\\/]$/, '')}/INDEX.md`;
   if (!existsSync(indexFile)) {

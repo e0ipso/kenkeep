@@ -82,11 +82,16 @@ It all runs from within the assistant of your choice, on the subscription you al
   <img src="docs/assets/images/kenkeep-infography.png" alt="kenkeep knowledge lifecycle: capture transcripts, curate them into reviewed notes, and inject them back into every session" width="100%">
 </p>
 
-kenkeep runs a loop around your AI sessions. Capture and injection happen on their own; you trigger curation, and you decide what to keep:
+kenkeep runs a loop around your AI sessions. Capture and recall happen on their own; you trigger curation, and you decide what to keep:
 
 - **Capture** (automatic): when a session ends, a hook saves the transcript.
 - **Curate** (you run `/kk-curate`): the AI drafts proposed notes under `nodes/`, then walks you through any contradictions with an existing note.
-- **Review** (you decide): inspect the notes with `git diff`, then commit the ones you want to keep. `INDEX.md` is injected into every future session.
+- **Review** (you decide): inspect the notes with `git diff`, then commit the ones you want to keep.
+- **Recall** (automatic): at the start of every session a hook injects only the root index; the assistant descends by relevance, opening just the notes it needs (**progressive disclosure**), so the payload stays small as the base grows.
+
+<p align="center">
+  <img src="docs/assets/images/progressive-disclosure.png" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" width="100%">
+</p>
 
 Full walkthrough: [How it works](https://mateuaguilo.com/kenkeep/how-it-works.html).
 

@@ -162,7 +162,7 @@ nodes_hash: sha256:<hex>
 node_count: 47
 ```
 
-Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`. Every folder under `nodes/` carries a generated `index.md` index node — a deterministic table-of-contents rollup of its child leaves and immediate subfolders, ordered by graph in-degree then title; the `nodes/` root index node is mirrored at the top-level catalog `INDEX.md`. `node_count` is the folder's direct leaf count. Index nodes are generated artifacts, excluded from `nodes_hash`.
+Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`. Every folder under `nodes/` carries a generated `index.md` index node — a deterministic table-of-contents rollup of its child leaves and immediate subfolders, ordered by graph in-degree then title. The top-level catalog `ENTRY.md` is a purpose-built whole-tree launchpad (totals plus the branch list), not a per-folder index node. For a folder index node, `node_count` is the folder's direct leaf count; for `ENTRY.md` it is the whole-tree total. Index nodes are generated artifacts, excluded from `nodes_hash`.
 
 ### `nodes_hash` algorithm
 

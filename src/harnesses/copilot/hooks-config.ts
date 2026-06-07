@@ -94,22 +94,25 @@ export async function writeCopilotHookConfig(paths: HarnessPaths): Promise<void>
 }
 
 /**
- * Reads the current INDEX content the sentinel block should carry. The
- * INDEX lives at `<root>/.ai/kenkeep/INDEX.md`; the repo root is the parent
- * of `paths.dir` (`<root>/.copilot`). Falls back to a short placeholder when
- * INDEX.md is absent (a fresh repo before the first index rebuild).
+ * Reads the current entry-catalog content the sentinel block should carry. The
+ * catalog lives at `<root>/.ai/kenkeep/ENTRY.md`; the repo root is the parent
+ * of `paths.dir` (`<root>/.copilot`). Repos seeded before the rename are read
+ * from the legacy `INDEX.md`. Falls back to a short placeholder when neither
+ * exists (a fresh repo before the first index rebuild).
  */
 function readIndexContent(repoRoot: string): string {
-  const indexFile = join(repoRoot, '.ai', 'kenkeep', 'INDEX.md');
+  const kkDir = join(repoRoot, '.ai', 'kenkeep');
+  const entryFile = join(kkDir, 'ENTRY.md');
+  const indexFile = existsSync(entryFile) ? entryFile : join(kkDir, 'INDEX.md');
   if (existsSync(indexFile)) {
-    // INDEX.md is the root index node (the top-level catalog of branches and
-    // root-level leaves). Pair it with the shared descent directive so Copilot
-    // gets the same enter-at-the-root, descend-on-demand guidance as the other
-    // adapters, sourced from the one KK_NAVIGATION_DIRECTIVE constant.
+    // The entry catalog is the whole-tree launchpad. Pair it with the shared
+    // descent directive so Copilot gets the same enter-at-the-root,
+    // descend-on-demand guidance as the other adapters, sourced from the one
+    // KK_NAVIGATION_DIRECTIVE constant.
     const body = readFileSync(indexFile, 'utf8').trimEnd();
     return `${body}\n\n${KK_NAVIGATION_DIRECTIVE}`;
   }
-  return 'Curated project knowledge lives in .ai/kenkeep/INDEX.md (not yet generated). Run `npx kenkeep index rebuild` to populate it.';
+  return 'Curated project knowledge lives in .ai/kenkeep/ENTRY.md (not yet generated). Run `npx kenkeep index rebuild` to populate it.';
 }
 
 /**
@@ -137,7 +140,7 @@ function withSentinelBlock(existing: string, indexContent: string): string {
 }
 
 /**
- * Idempotently injects the kenkeep INDEX sentinel block into
+ * Idempotently injects the kenkeep entry-catalog sentinel block into
  * `<root>/.github/copilot-instructions.md`. Copilot reads that file on
  * session start, so the sentinel block is the v1 channel for session-start
  * context injection. User-authored content outside the block is preserved

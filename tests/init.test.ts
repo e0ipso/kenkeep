@@ -25,7 +25,7 @@ describe('init', () => {
 
     const expected = [
       '.ai/kenkeep/README.md',
-      '.ai/kenkeep/INDEX.md',
+      '.ai/kenkeep/ENTRY.md',
       '.ai/kenkeep/GRAPH.md',
       '.ai/kenkeep/nodes/index.md',
       '.ai/kenkeep/_sessions/.gitkeep',
@@ -248,9 +248,9 @@ describe('init', () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const first = readFileSync(join(sandbox, 'AGENTS.md'), 'utf8');
     expect(first).toContain('# My Project');
-    // The full delimited block is injected: open marker, INDEX pointer, close marker.
+    // The full delimited block is injected: open marker, ENTRY pointer, close marker.
     expect(first).toContain('<!-- >>> kenkeep:kk-index >>> -->');
-    expect(first).toContain('.ai/kenkeep/INDEX.md');
+    expect(first).toContain('.ai/kenkeep/ENTRY.md');
     expect(first).toContain('<!-- <<< kenkeep:kk-index <<< -->');
 
     // Upgrade should not duplicate the block.

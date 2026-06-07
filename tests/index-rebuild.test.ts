@@ -36,14 +36,14 @@ describe('index rebuild', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('regenerates INDEX.md and GRAPH.md from the current nodes tree', async () => {
+  it('regenerates ENTRY.md and GRAPH.md from the current nodes tree', async () => {
     writeNode(sandbox, 'practice', 'practice-foo');
     writeNode(sandbox, 'map', 'map-bar');
-    const before = readFileSync(join(sandbox, '.ai/kenkeep/INDEX.md'), 'utf8');
+    const before = readFileSync(join(sandbox, '.ai/kenkeep/ENTRY.md'), 'utf8');
     const result = await runCli(sandbox, ['index', 'rebuild']);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('index.md file(s) and GRAPH.md from 2 node(s)');
-    const after = readFileSync(join(sandbox, '.ai/kenkeep/INDEX.md'), 'utf8');
+    const after = readFileSync(join(sandbox, '.ai/kenkeep/ENTRY.md'), 'utf8');
     expect(after).not.toBe(before);
     expect(after).toContain('practice-foo');
     expect(after).toContain('map-bar');
@@ -73,21 +73,21 @@ describe('index rebuild', () => {
     }
     const result = await runCli(sandbox, ['index', 'rebuild']);
     expect(result.exitCode).toBe(0);
-    const body = readFileSync(join(sandbox, '.ai/kenkeep/INDEX.md'), 'utf8');
+    const body = readFileSync(join(sandbox, '.ai/kenkeep/ENTRY.md'), 'utf8');
     expect(body).not.toContain('additional nodes hidden by token budget');
     for (const title of titles) expect(body).toContain(title);
   });
 
-  it('writes a freshness-aligned INDEX (doctor reports fresh after rebuild)', async () => {
+  it('writes a freshness-aligned ENTRY (doctor reports fresh after rebuild)', async () => {
     writeNode(sandbox, 'practice', 'practice-foo');
-    // Run rebuild then doctor; INDEX should be reported fresh.
+    // Run rebuild then doctor; ENTRY should be reported fresh.
     expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
     const doc = await runCli(sandbox, ['doctor']);
-    expect(doc.stdout + doc.stderr).toContain('INDEX.md is fresh');
+    expect(doc.stdout + doc.stderr).toContain('ENTRY.md is fresh');
     expect((doc.stdout + doc.stderr).toLowerCase()).not.toContain('stale (nodes_hash');
   });
 
-  it('--stage runs `git add` on INDEX.md and GRAPH.md after writing', async () => {
+  it('--stage runs `git add` on ENTRY.md and GRAPH.md after writing', async () => {
     // Baseline commit so the diff is meaningful.
     await exec('git', ['add', '.'], { cwd: sandbox });
     await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], {
@@ -98,7 +98,7 @@ describe('index rebuild', () => {
     expect(result.exitCode).toBe(0);
     const { stdout } = await exec('git', ['diff', '--cached', '--name-only'], { cwd: sandbox });
     const staged = stdout.trim().split('\n');
-    expect(staged).toContain('.ai/kenkeep/INDEX.md');
+    expect(staged).toContain('.ai/kenkeep/ENTRY.md');
     expect(staged).toContain('.ai/kenkeep/GRAPH.md');
     // Per-folder index nodes are staged too: the leaf's topical folder and the
     // nodes/ root both carry an index.md.
@@ -128,7 +128,7 @@ describe('index rebuild', () => {
         'body',
       ].join('\n')
     );
-    const indexPath = join(sandbox, '.ai/kenkeep/INDEX.md');
+    const indexPath = join(sandbox, '.ai/kenkeep/ENTRY.md');
     const before = readFileSync(indexPath, 'utf8');
 
     const result = await runCli(sandbox, ['index', 'rebuild']);
@@ -137,7 +137,7 @@ describe('index rebuild', () => {
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('practice-missing-summary.md');
     expect(combined).toContain('summary');
-    // INDEX.md must not be overwritten to an empty (0-node) state.
+    // ENTRY.md must not be overwritten to an empty (0-node) state.
     expect(readFileSync(indexPath, 'utf8')).toBe(before);
   });
 
@@ -146,7 +146,7 @@ describe('index rebuild', () => {
     await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init'], {
       cwd: sandbox,
     });
-    // Bring INDEX.md in sync with current (empty) nodes/ tree. The shipped
+    // Bring ENTRY.md in sync with current (empty) nodes/ tree. The shipped
     // template artifacts are byte-identical to generator output, so this is a
     // no-op diff; --allow-empty keeps the baseline commit regardless.
     expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
@@ -175,7 +175,7 @@ describe('index rebuild', () => {
   });
 });
 
-describe('doctor: stale INDEX detection', () => {
+describe('doctor: stale ENTRY detection', () => {
   let sandbox: string;
   beforeEach(async () => {
     sandbox = makeSandbox();
@@ -184,7 +184,7 @@ describe('doctor: stale INDEX detection', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('warns when nodes drift after INDEX was written', async () => {
+  it('warns when nodes drift after ENTRY was written', async () => {
     writeNode(sandbox, 'practice', 'practice-foo');
     expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
     // Drift: add another node without rebuilding.
@@ -195,7 +195,7 @@ describe('doctor: stale INDEX detection', () => {
   });
 });
 
-describe('doctor: missing INDEX', () => {
+describe('doctor: missing ENTRY', () => {
   let sandbox: string;
   beforeEach(async () => {
     sandbox = makeSandbox();
@@ -204,15 +204,15 @@ describe('doctor: missing INDEX', () => {
   });
   afterEach(() => cleanSandbox(sandbox));
 
-  it('warns when INDEX.md was deleted', async () => {
-    const indexFile = join(sandbox, '.ai/kenkeep/INDEX.md');
+  it('warns when ENTRY.md was deleted', async () => {
+    const indexFile = join(sandbox, '.ai/kenkeep/ENTRY.md');
     if (existsSync(indexFile)) {
       writeFileSync(indexFile, '');
       // Make it truly invalid (empty -> no frontmatter).
     }
     // Replace with no frontmatter so the freshness check warns.
-    writeFileSync(indexFile, '# kenkeep Index\n');
+    writeFileSync(indexFile, '# kenkeep\n');
     const doc = await runCli(sandbox, ['doctor']);
-    expect(doc.stdout + doc.stderr).toContain('INDEX.md');
+    expect(doc.stdout + doc.stderr).toContain('ENTRY.md');
   });
 });

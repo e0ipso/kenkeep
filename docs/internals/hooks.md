@@ -73,7 +73,7 @@ Per `SessionStart`:
 ## `kk-session-start.mjs` (consume)
 
 1. Recursion guard.
-2. Load **only** the root index node (`INDEX.md`, the top-level catalog). If missing, emit `_The knowledge base is empty._`. The injected body is bounded and does not grow with node count; deep leaves surface only as subfolder rollup counts.
+2. Load **only** the entry catalog (`ENTRY.md`, the top-level branch catalog). If missing, emit `_The knowledge base is empty._`. The injected body is bounded and does not grow with node count; deep leaves surface only as branch rollup counts.
 3. Append the descent navigation directive (pick relevant branches by intent and tags, read their index nodes, descend as needed, open only confirmed-relevant leaves, follow cross edges). It comes from the single `KK_NAVIGATION_DIRECTIVE` constant that the `kenkeep:kk-index` block in `AGENTS.md` reuses verbatim, so the two surfaces never drift.
 4. Compare the root index node's `nodes_hash` (the global hash over the whole leaf set) against the live hash of `nodes/`. On drift, append `> kenkeep index is stale, run \`npx kenkeep index rebuild\``.
 5. Count pending logs. If the count is at or above `curationThreshold` (default 5) and the last nudge was over an hour ago, append a one-line nudge and write `last_nudged_at`. The nudge escalates to a loud `🚨 kenkeep curation queue is overdue` heading when the queue is large or stale: `pending >= 10`, or `pending >= curationThreshold` with the oldest log at least `staleDays` (default 7) old.

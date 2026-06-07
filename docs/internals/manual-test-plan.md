@@ -53,8 +53,8 @@ Quality judgment.
 2. [ ] 10-15 messages of substantive conversation about an invented project. End the session.
 3. [ ] `_sessions/` shows one `proposal_status: pending` log.
 4. [ ] Open a new session. Wait 30-90s. `_logs/proposal/` has a new `.jsonl`. Log flips to `proposal_status: done`.
-5. [ ] `curate` writes 1-4 nodes under `nodes/` and regenerates `INDEX.md`. Are these the **right** facts to remember? (Target: ≥80% acceptance.)
-6. [ ] `git diff nodes/` shows the new files. `git add` the ones you want, `git commit`. The pre-commit hook regenerates and stages a fresh `INDEX.md`/`GRAPH.md` into the same commit. `git restore nodes/<unwanted>.md` to drop the rest.
+5. [ ] `curate` writes 1-4 nodes under `nodes/` and regenerates `ENTRY.md`. Are these the **right** facts to remember? (Target: ≥80% acceptance.)
+6. [ ] `git diff nodes/` shows the new files. `git add` the ones you want, `git commit`. The pre-commit hook regenerates and stages a fresh `ENTRY.md`/`GRAPH.md` into the same commit. `git restore nodes/<unwanted>.md` to drop the rest.
 7. [ ] One more session. Ask Claude "what do you know about this project?" The response references something committed.
 
 If curator output is clearly noise, bump the proposal prompt's `Version:` and tighten "what to skip".
@@ -114,7 +114,7 @@ Reset between scenarios.
 
 - [ ] Delete `installed-version`. Doctor errors, exit 1.
 - [ ] Hand-edit a node to add fake `derived_from: nonexistent.md`. Warning, exit 0.
-- [ ] Hand-edit a node's `summary` after a curate run. INDEX stale warning, exit 0.
+- [ ] Hand-edit a node's `summary` after a curate run. ENTRY stale warning, exit 0.
 - [ ] Install v(N-1), drop v(N) binary without upgrading. Version-mismatch warning, exit 0.
 
 ## What this plan does NOT cover

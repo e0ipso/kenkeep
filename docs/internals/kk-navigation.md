@@ -15,8 +15,8 @@ This page documents intent for `kenkeep` maintainers. It has no runtime effect. 
 
 When an agent in a consumer repo consults the knowledge base, the workflow is three layers, in order:
 
-1. **Read `INDEX.md`.** The catalog of titles, tags, and one-line summaries. It is auto-injected into every session via the SessionStart additional-context payload, so the agent already has it.
-2. **Shortlist with `grep -C 2 <term> nodes/`.** When INDEX titles lack a verbatim match, run a structured grep across `nodes/` instead of opening files speculatively. See [Why `-C 2`](#why--c-2).
+1. **Read `ENTRY.md`.** The entry catalog: whole-tree totals plus the top-level branch list. It is auto-injected into every session via the SessionStart additional-context payload, so the agent already has it.
+2. **Shortlist with `grep -C 2 <term> nodes/`.** When the entry catalog's branches don't pinpoint the match, run a structured grep across `nodes/` instead of opening files speculatively. See [Why `-C 2`](#why--c-2).
 3. **Open full node bodies only for confirmed matches.** Read a node body only after layers 1 and 2 produce a slug already believed relevant.
 
 {% capture flow %}

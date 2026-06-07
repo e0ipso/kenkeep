@@ -19,6 +19,6 @@ summary: >-
 ---
 As of May 2026, Cursor's `sessionStart` hook accepts the `additional_context` field in its JSON output and logs it as "merged successfully," but the content is silently dropped before the agent window is created due to a race condition. Multiple forum reports confirm this behavior.
 
-The Cursor adapter in this project currently relies on `additional_context` to inject the knowledge base index and queue status into the model's context. As a result, the model in Cursor does not actually receive the knowledge base index via the hook — it only receives it if the user has the static pointer in AGENTS.md and opens the INDEX.md file explicitly.
+The Cursor adapter in this project currently relies on `additional_context` to inject the knowledge base index and queue status into the model's context. As a result, the model in Cursor does not actually receive the knowledge base index via the hook — it only receives it if the user has the static pointer in AGENTS.md and opens the ENTRY.md file explicitly.
 
 The only reliable mechanism for injecting persistent context into Cursor's model at session start is static rules files under `.cursor/rules/`.

@@ -137,7 +137,7 @@ module.exports = {
 };
 ```
 
-Replace `.husky/pre-commit` with `npx lint-staged`. The `index rebuild --stage` step keeps `INDEX.md`/`GRAPH.md` in lockstep with committed nodes (no-op when already current).
+Replace `.husky/pre-commit` with `npx lint-staged`. The `index rebuild --stage` step keeps `ENTRY.md`/`GRAPH.md` in lockstep with committed nodes (no-op when already current).
 
 Cheaper alternative: run `npx secretlint "**/*"` in CI on every push instead of locally.
 
@@ -161,10 +161,10 @@ Validate what's committed; don't run the LLM pipelines (they need human review a
 ```sh
 npx kenkeep doctor --verbose
 npx kenkeep index rebuild
-git diff --exit-code .ai/kenkeep/INDEX.md .ai/kenkeep/GRAPH.md
+git diff --exit-code .ai/kenkeep/ENTRY.md .ai/kenkeep/GRAPH.md
 ```
 
-{% include callout.html variant="note" content="The `git diff --exit-code` line fails the build when a commit bypassed the pre-commit hook, leaving `INDEX.md`/`GRAPH.md` out of sync with `nodes/`." %}
+{% include callout.html variant="note" content="The `git diff --exit-code` line fails the build when a commit bypassed the pre-commit hook, leaving `ENTRY.md`/`GRAPH.md` out of sync with `nodes/`." %}
 
 ## Seed from existing docs
 

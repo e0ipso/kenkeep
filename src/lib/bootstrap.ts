@@ -37,6 +37,7 @@ export const STATIC_SKIPS: readonly string[] = [
   '**/RELEASE_NOTES',
   '**/RELEASE_NOTES.md',
   '**/releases/**/*.md',
+  '**/ENTRY.md',
   '**/INDEX.md',
   '**/GRAPH.md',
   '**/index.md',

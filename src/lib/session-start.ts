@@ -45,7 +45,7 @@ export interface SessionStartResult {
   lintNudged: boolean;
   /** True if the index was missing and a stub was generated. */
   indexMissing: boolean;
-  /** True if INDEX.md exists but its nodes_hash does not match nodes/. */
+  /** True if the entry catalog exists but its nodes_hash does not match nodes/. */
   indexStale: boolean;
   /** Number of session logs awaiting processing (proposal extraction or curation). */
   pendingSessions: number;
@@ -56,13 +56,13 @@ export interface SessionStartResult {
 /**
  * Builds the additional-context payload for the SessionStart sync hook.
  *
- * 1. Reads the root index node (`.ai/kenkeep/INDEX.md`, the top-level catalog of
- *    branches and root-level leaves) or returns a "kk is empty" stub if missing.
- *    Only the root index node is injected: the payload is bounded and does not
- *    grow with the total node count, because deep leaves appear in the root only
- *    as subfolder rollup counts. The agent descends the tree on demand following
- *    `KK_NAVIGATION_DIRECTIVE`.
- * 2. Detects staleness by comparing the root index node's frontmatter
+ * 1. Reads the entry catalog (`.ai/kenkeep/ENTRY.md`, the whole-tree launchpad:
+ *    totals plus the branch list) or returns a "kk is empty" stub if missing.
+ *    Only the entry catalog is injected, never full leaf bodies; deep leaves
+ *    surface as branch rollup counts, so the payload stays bounded by branch
+ *    count, not total node count. The agent descends the tree on demand
+ *    following `KK_NAVIGATION_DIRECTIVE`.
+ * 2. Detects staleness by comparing the entry catalog's frontmatter
  *    `nodes_hash` (the global hash over the whole leaf set) against the live hash
  *    of `nodes/`. If mismatched, appends a warning line.
  * 3. Counts pending session logs and, when >= threshold,
@@ -107,7 +107,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   if (indexStale) {
     lines.push('');
     lines.push(
-      `> kenkeep index is stale, run \`npx kenkeep index rebuild\` to refresh (live hash differs from INDEX.md \`nodes_hash\`).`
+      `> kenkeep index is stale, run \`npx kenkeep index rebuild\` to refresh (live hash differs from ENTRY.md \`nodes_hash\`).`
     );
   }
   if (shouldNudge) {
@@ -164,15 +164,21 @@ interface LoadedIndex {
 }
 
 /**
- * Loads the root index node body for injection. The root index node lives at
- * `.ai/kenkeep/INDEX.md`: it is the root folder's `index.md` (the top-level
- * catalog of branches and root-level leaves) stamped with the GLOBAL
- * `nodes_hash` over the whole leaf set, so the drift check below stays
- * meaningful against the live `nodes/` hash. Deep leaves are not inlined here;
- * they surface only as subfolder rollup counts, keeping the payload bounded.
+ * Loads the entry catalog body for injection. The entry catalog lives at
+ * `.ai/kenkeep/ENTRY.md`: the whole-tree launchpad (totals plus the branch list)
+ * stamped with the GLOBAL `nodes_hash` over the whole leaf set, so the drift
+ * check below stays meaningful against the live `nodes/` hash. Deep leaves are
+ * not inlined here; they surface only as branch rollup counts.
+ *
+ * Repos seeded before the rename carry the old catalog at `INDEX.md`. We fall
+ * back to it so an upgraded-but-not-yet-rebuilt repo still gets a useful (if
+ * old-format) injection; the next `index rebuild` writes `ENTRY.md` and removes
+ * the legacy file.
  */
 function loadIndex(kkDir: string): LoadedIndex {
-  const indexFile = `${kkDir.replace(/[\\/]$/, '')}/INDEX.md`;
+  const base = kkDir.replace(/[\\/]$/, '');
+  const entryFile = `${base}/ENTRY.md`;
+  const indexFile = existsSync(entryFile) ? entryFile : `${base}/INDEX.md`;
   if (!existsSync(indexFile)) {
     return {
       content: stubIndex(),
@@ -193,7 +199,7 @@ function loadIndex(kkDir: string): LoadedIndex {
 
 function stubIndex(): string {
   return [
-    '# kenkeep Index',
+    '# kenkeep',
     '',
     '_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `npx kenkeep node add` to seed it._',
   ].join('\n');

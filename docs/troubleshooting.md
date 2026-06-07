@@ -35,7 +35,7 @@ Either everything is already curated, or some session logs have invalid frontmat
 - **`add_collision`**: the curator wanted to write a new node, but a node with that id already exists. Pick a different title for the candidate (re-run `/kk-curate` after deleting/editing the offending session log) or treat the existing node as the canonical version.
 - **`modify_missing_target`**: the curator pointed at a `target_node_id` that's not on disk, usually because the node was renamed or deleted between captures. Either restore the target file or treat the modification as an addition by editing the session log so the next curate run reproposes it as `add`.
 
-## `INDEX.md` is stale
+## `ENTRY.md` is stale
 
 `doctor` reports a hash drift. Cause: someone hand-edited or rebased `nodes/` without running the curator.
 

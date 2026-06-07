@@ -1,7 +1,7 @@
 /**
  * sessionStart hook for the Cursor adapter.
  *
- * Emits INDEX context using Cursor's native `{ "additional_context": "..." }`
+ * Emits entry-catalog context using Cursor's native `{ "additional_context": "..." }`
  * stdout envelope.
  */
 import { existsSync } from 'node:fs';

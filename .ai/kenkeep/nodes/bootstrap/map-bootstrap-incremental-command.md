@@ -42,4 +42,4 @@ Locking: takes the `bootstrap-incremental` lock in `state.json` (distinct from `
 
 Per-spawn model selection from `bootstrapModel: { name, effort }` in `config.yaml`.
 
-Static file-discovery skips (applied by the CLI before any LLM call): `.gitignore`, the project's include/exclude rules, and a static skip list — `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `INDEX.md`, `GRAPH.md`, `releases/**/*.md`.
+Static file-discovery skips (applied by the CLI before any LLM call): `.gitignore`, the project's include/exclude rules, and a static skip list — `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `ENTRY.md`, `GRAPH.md`, `releases/**/*.md`.

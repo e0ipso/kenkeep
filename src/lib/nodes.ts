@@ -215,7 +215,7 @@ export function findNodeById(nodesDir: string, id: string): NodeFile | null {
  * Deterministic content hash over the leaf nodes under `nodesDir`.
  *
  *   1. Walk all leaf `.md` files under nodes/ recursively, EXCLUDING every
- *      generated `index.md` at any depth (and any root INDEX.md/GRAPH.md, which
+ *      generated `index.md` at any depth (and the root ENTRY.md/GRAPH.md, which
  *      live outside `nodesDir`).
  *   2. For each leaf, sha256(file contents).
  *   3. Build "<relative-path-from-nodes-dir>\t<sha256-hex>" strings.

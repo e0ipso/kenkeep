@@ -35,5 +35,5 @@ Every path that writes to `nodes/` (the curator, `/kk-bootstrap`, `bootstrap-inc
 **How to apply:**
 
 - Don't invent in-place "accept" mechanisms in skills or CLIs; defer to `git commit` and `git restore`.
-- The pre-commit hook (when wired via lint-staged with `index rebuild --stage`) regenerates `INDEX.md`/`GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes — don't bypass that hook.
+- The pre-commit hook (when wired via lint-staged with `index rebuild --stage`) regenerates `ENTRY.md`/`GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes — don't bypass that hook.
 - For curator-detected contradictions, let the `/kk-curate` skill walk the conflict files with the user; that's the authoritative resolution path, not a separate manual edit.

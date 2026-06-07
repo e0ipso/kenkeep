@@ -1,7 +1,7 @@
 /**
  * SessionStart hook (sync) for the Codex CLI adapter.
  *
- * Emits the current `INDEX.md` body (plus the standard staleness and nudge
+ * Emits the current `ENTRY.md` body (plus the standard staleness and nudge
  * lines) as Codex's documented additionalContext payload. Codex consumes
  * `{ "additionalContext": "<text>" }` on stdout and injects the string into
  * the active session.

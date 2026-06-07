@@ -34,6 +34,6 @@ Installed paths:
 
 OpenCode's hook payload does not carry a `transcript_path`. The capture script parses on-disk session storage under `${XDG_DATA_HOME:-$HOME/.local/share}/opencode/storage/`: `session/<projectID>/<sessionID>.json`, then `message/<sessionID>/*.json` ordered by `time.created`, concatenating text parts under `part/<messageID>/`. If the on-disk parse yields zero turns, the hook falls back to spawning `opencode export <sessionID>` (30-second timeout) and adapting its JSON output.
 
-OpenCode also has no v1 equivalent of Claude's `SessionStart` `additionalContext` stdout channel, so the session-start hook writes the current INDEX body to `.opencode/AGENTS.md`; users opt in by referencing that file from their primary `AGENTS.md`.
+OpenCode also has no v1 equivalent of Claude's `SessionStart` `additionalContext` stdout channel, so the session-start hook writes the current ENTRY body to `.opencode/AGENTS.md`; users opt in by referencing that file from their primary `AGENTS.md`.
 
 OpenCode exports no in-session env var; pass `--harness opencode` or set `cliDefaultHarness: opencode`.

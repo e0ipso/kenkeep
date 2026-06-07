@@ -13,7 +13,7 @@ derived_from:
 relates_to:
   - map-nodes-directory
   - map-session-log
-  - map-index-md
+  - map-entry-md
   - map-graph-md
   - map-state-file
   - map-bootstrap-state-file
@@ -22,7 +22,7 @@ relates_to:
 depends_on: []
 confidence: high
 summary: >-
-  Per-repo scaffold at .ai/kenkeep/: nodes/, INDEX/GRAPH, _sessions/, _logs/,
+  Per-repo scaffold at .ai/kenkeep/: nodes/, ENTRY/GRAPH, _sessions/, _logs/,
   .state/, .config/prompts/, conflicts/.
 ---
 
@@ -33,7 +33,7 @@ Created by `init`. Same layout across all three harnesses.
 | Path | Purpose |
 |---|---|
 | `nodes/{practice,map}/` | Canonical knowledge nodes. Reviewed via `git diff`, accepted via `git commit`. |
-| `INDEX.md` | Catalog of every node (title, path, tags). Injected into every new session. Regenerated deterministically. |
+| `ENTRY.md` | Entry catalog: whole-tree totals + top-level branch list. Injected into every new session. Regenerated deterministically. |
 | `GRAPH.md` | Full edge listing. Not injected; read on demand. Regenerated deterministically. |
 | `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` | Per-session checkpoint (redacted transcript + frontmatter). |
 | `_logs/{proposal,curator,bootstrap-incremental}/*.jsonl` | Stream-JSON traces from LLM pipelines. Gitignored. |

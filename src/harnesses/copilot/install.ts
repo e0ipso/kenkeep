@@ -73,7 +73,7 @@ function harnessPaths(root: string): HarnessPaths {
  * registers the canonical hook set in `~/.copilot/hooks/kk.json` (plus a
  * byte-identical in-repo copy at `.copilot/hooks/kk.json`). Skills install
  * to `.github/skills/`; hook scripts install to `.copilot/kk-hooks/`. The
- * INDEX sentinel block is injected into `.github/copilot-instructions.md`.
+ * entry-catalog sentinel block is injected into `.github/copilot-instructions.md`.
  *
  * Idempotent: called from both first-time install and `init --upgrade`.
  */

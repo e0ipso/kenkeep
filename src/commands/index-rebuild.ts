@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import {
@@ -28,10 +28,10 @@ export interface IndexRebuildOptions {
 }
 
 /**
- * Deterministic regeneration of the per-folder index-node tree plus the root
+ * Deterministic regeneration of the per-folder index-node tree plus the entry
  * catalog and GRAPH.md. Writes one `index.md` per folder under `nodes/` (the
- * recursive table-of-contents), the top-level catalog at `.ai/kenkeep/INDEX.md`
- * (the SessionStart-injected root index node), and `.ai/kenkeep/GRAPH.md`
+ * recursive table-of-contents), the entry catalog at `.ai/kenkeep/ENTRY.md`
+ * (the SessionStart-injected launchpad), and `.ai/kenkeep/GRAPH.md`
  * (the cross-tree DAG overlay). The curator and `node add` also regenerate
  * these; this command exists for hand-edits and for the lint-staged pre-commit
  * step, which runs `index rebuild --stage` so generated files land in the same
@@ -52,7 +52,8 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   // Validate the project config (throws on malformed YAML or schema violations).
   resolveSettings({ projectFile: paths.projectConfigFile });
 
-  const indexFile = join(paths.kkDir, 'INDEX.md');
+  const indexFile = join(paths.kkDir, 'ENTRY.md');
+  const legacyIndexFile = join(paths.kkDir, 'INDEX.md');
   const graphFile = join(paths.kkDir, 'GRAPH.md');
 
   // Strict validation up front: surface any malformed node files (or the old
@@ -81,12 +82,18 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   const graph = generateGraph(paths.nodesDir);
 
   const written = writeFolderIndexes(paths.nodesDir, index);
-  // Root catalog at .ai/kenkeep/INDEX.md mirrors the nodes/ root index node so
-  // the SessionStart hook keeps injecting the top-level table of contents. It
-  // carries the GLOBAL nodes_hash (the per-folder nodes/index.md carries a
-  // per-folder hash), which doctor/session-start compare for staleness.
+  // Entry catalog at .ai/kenkeep/ENTRY.md is the SessionStart-injected launchpad
+  // (whole-tree totals plus the branch list). It carries the GLOBAL nodes_hash
+  // (the per-folder nodes/index.md carries a per-folder hash), which
+  // doctor/session-start compare for staleness.
   writeIndex(indexFile, index.rootCatalog);
   written.push(indexFile);
+  // Migrate repos seeded before the rename: the old combined-template catalog
+  // lived at INDEX.md. Remove it so the tree carries exactly one entry catalog.
+  if (existsSync(legacyIndexFile)) {
+    rmSync(legacyIndexFile);
+    if (opts.stage) stageIfInGitRepo(root, [legacyIndexFile]);
+  }
   writeGraph(graphFile, graph);
   written.push(graphFile);
 
@@ -118,8 +125,8 @@ function writeFolderIndexes(nodesDir: string, index: GeneratedIndex): string[] {
 }
 
 /**
- * Returns true if the recorded `nodes_hash` in INDEX.md doesn't match the
- * live hash of `nodes/`. Returns true if INDEX.md is missing or unreadable
+ * Returns true if the recorded `nodes_hash` in ENTRY.md doesn't match the
+ * live hash of `nodes/`. Returns true if ENTRY.md is missing or unreadable
  * (force a regenerate). Used to short-circuit `--stage` when nothing changed.
  */
 function nodesHashChanged(indexFile: string, nodesDir: string): boolean {

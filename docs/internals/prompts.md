@@ -235,7 +235,7 @@ Controls what the kk-bootstrap skill treats as candidates from your source docs.
 1. **Discovery**: call `finddocs --from <scope> --with-hashes` to enumerate candidate markdown.
 2. **Per-doc loop**: for each surviving doc, `Read` it, decide whether it carries durable knowledge (skipping auto-generated reference, licenses, generic framework knowledge, aspirational TODOs, and [durability-filter](#the-durability-filter) cases), draft practice and map candidates inline, and persist via `node write --source-doc <relpath> --source-hash <sha256>` (which folds the hash into `bootstrap-state.json` in the same atomic transaction).
 3. **Hash-aware skip**: before reading a doc, compare its `finddocs --with-hashes` digest against `bootstrap-state.json`. Skip on hit.
-4. **Finalize**: call `index rebuild` to regenerate `INDEX.md` and `GRAPH.md`.
+4. **Finalize**: call `index rebuild` to regenerate `ENTRY.md` and `GRAPH.md`.
 5. **Rules**: never invent facts, quote rationale verbatim, never overwrite an existing node.
 
 ### Calibration loop

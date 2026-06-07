@@ -2,7 +2,7 @@
  * session.created handler for the OpenCode adapter.
  *
  * OpenCode plugins have no v1 equivalent of Claude's
- * `{additionalContext}` stdout channel. To get the INDEX.md context in
+ * `{additionalContext}` stdout channel. To get the ENTRY.md context in
  * front of the agent at session start, this script writes the context
  * payload to `.opencode/AGENTS.md` (a location OpenCode reads at agent
  * resolution time when the user references it from a parent AGENTS.md).

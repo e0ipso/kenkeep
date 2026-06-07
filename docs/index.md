@@ -89,6 +89,6 @@ kenkeep runs a loop around your AI sessions. Capture and injection happen on the
 - **[Daily use](daily-use.md)** - the loop you'll run week to week.
 - **[Troubleshooting](troubleshooting.md)** - when something looks wrong.
 
-Curious how `INDEX.md` actually reaches the harness on every session start? See [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume). These are the harness's own hooks (Claude Code's `SessionStart`, `Stop`, etc.) that we register into, not an extension API exposed by `kenkeep`.
+Curious how `ENTRY.md` actually reaches the harness on every session start? See [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume). These are the harness's own hooks (Claude Code's `SessionStart`, `Stop`, etc.) that we register into, not an extension API exposed by `kenkeep`.
 
 Contributors: see [Internals](internals/).

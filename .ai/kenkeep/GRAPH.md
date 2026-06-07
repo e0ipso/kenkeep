@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:5afee27d6ac5b71d4a0f8f14670bb604d34c1b3d988abed821868e81f24e979a'
+nodes_hash: 'sha256:aa5ac264481a900eda5294fde3f0d3cf2f5cdc5ee43d6fd13fdf90db491ab29b'
 node_count: 57
 ---
 # kenkeep Graph
@@ -114,13 +114,22 @@ Total nodes: 57
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, https://cursor.com/docs/hooks, https://cursor.com/docs/cli/using
 
+## map-entry-md
+
+- **kind:** map
+- **title:** ENTRY.md
+- **path:** knowledge-base/index/map-entry-md.md
+- **tags:** entry, index, deterministic, sessionstart
+- **relates_to:** map-graph-md, map-session-start-hook, map-nodes-hash
+- **derived_from:** docs/how-it-works.md, docs/internals/schemas.md, docs/internals/architecture.md
+
 ## map-graph-md
 
 - **kind:** map
 - **title:** GRAPH.md
 - **path:** knowledge-base/index/map-graph-md.md
 - **tags:** graph, deterministic
-- **relates_to:** map-index-md, map-node-frontmatter
+- **relates_to:** map-entry-md, map-node-frontmatter
 - **derived_from:** docs/how-it-works.md, docs/internals/schemas.md
 
 ## map-harness-adapter
@@ -139,22 +148,13 @@ Total nodes: 57
 - **path:** hooks/map-hook-build-pipeline-ts-to-cjs.md
 - **tags:** build, hooks, tsup, templates, cjs
 
-## map-index-md
-
-- **kind:** map
-- **title:** INDEX.md
-- **path:** knowledge-base/index/map-index-md.md
-- **tags:** index, deterministic, sessionstart
-- **relates_to:** map-graph-md, map-session-start-hook, map-nodes-hash
-- **derived_from:** docs/how-it-works.md, docs/internals/schemas.md, docs/internals/architecture.md
-
 ## map-kenkeep-directory
 
 - **kind:** map
 - **title:** .ai/kenkeep/ directory layout
 - **path:** knowledge-base/map-kenkeep-directory.md
 - **tags:** layout, state, directory
-- **relates_to:** map-nodes-directory, map-session-log, map-index-md, map-graph-md, map-state-file, map-bootstrap-state-file, map-config-yaml, map-conflict-files
+- **relates_to:** map-nodes-directory, map-session-log, map-entry-md, map-graph-md, map-state-file, map-bootstrap-state-file, map-config-yaml, map-conflict-files
 - **derived_from:** docs/internals/architecture.md, docs/installation.md
 
 ## map-kenkeep-package
@@ -181,7 +181,7 @@ Total nodes: 57
 - **title:** Node frontmatter schema
 - **path:** knowledge-base/nodes/map-node-frontmatter.md
 - **tags:** schema, frontmatter, nodes
-- **relates_to:** map-nodes-directory, map-index-md, map-graph-md
+- **relates_to:** map-nodes-directory, map-entry-md, map-graph-md
 - **derived_from:** docs/internals/schemas.md
 
 ## map-nodes-directory
@@ -199,7 +199,7 @@ Total nodes: 57
 - **title:** nodes_hash algorithm
 - **path:** knowledge-base/index/map-nodes-hash.md
 - **tags:** hash, deterministic, sha256
-- **relates_to:** map-index-md, map-graph-md, practice-determinism-contract
+- **relates_to:** map-entry-md, map-graph-md, practice-determinism-contract
 - **derived_from:** docs/internals/schemas.md, docs/internals/architecture.md
 
 ## map-opencode-harness
@@ -244,7 +244,7 @@ Total nodes: 57
 - **title:** kk-session-start.mjs (consume hook)
 - **path:** hooks/map-session-start-hook.md
 - **tags:** hooks, consume, sessionstart, index
-- **relates_to:** map-index-md, practice-recursion-guard-kenkeep-builder-internal
+- **relates_to:** map-entry-md, practice-recursion-guard-kenkeep-builder-internal
 - **derived_from:** docs/internals/hooks.md, docs/index.md
 
 ## map-state-file
@@ -262,7 +262,7 @@ Total nodes: 57
 - **title:** updateAgentsMd - kk index pointer injection into AGENTS.md
 - **path:** cli/map-update-agents-md-kk-index-pointer-injection-into-agents-md.md
 - **tags:** init, upgrade, agents-md, markers, index
-- **relates_to:** map-index-md, practice-init-does-not-install-commit-tooling
+- **relates_to:** map-entry-md, practice-init-does-not-install-commit-tooling
 
 ## practice-adapters-never-cross-directories
 
@@ -354,10 +354,10 @@ Total nodes: 57
 ## practice-determinism-contract
 
 - **kind:** practice
-- **title:** Determinism contract for INDEX/GRAPH generation
+- **title:** Determinism contract for ENTRY/GRAPH generation
 - **path:** knowledge-base/index/practice-determinism-contract.md
 - **tags:** determinism, indexing, testing
-- **relates_to:** map-nodes-hash, map-index-md, map-graph-md
+- **relates_to:** map-nodes-hash, map-entry-md, map-graph-md
 - **derived_from:** docs/internals/architecture.md
 
 ## practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents
@@ -414,7 +414,7 @@ Total nodes: 57
 - **title:** init and upgrade inject a static kk index pointer into AGENTS.md
 - **path:** cli/practice-init-and-upgrade-inject-a-static-kk-index-pointer-into-agents-md.md
 - **tags:** init, upgrade, agents-md, index, markers
-- **relates_to:** map-index-md, map-session-start-hook
+- **relates_to:** map-entry-md, map-session-start-hook
 
 ## practice-init-does-not-install-commit-tooling
 

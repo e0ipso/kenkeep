@@ -301,7 +301,7 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
   it('appends a sentinel block, preserves user content, and is zero-diff on re-run', async () => {
     mkdirSync(join(root, '.ai', 'kenkeep'), { recursive: true });
     writeFileSync(
-      join(root, '.ai', 'kenkeep', 'INDEX.md'),
+      join(root, '.ai', 'kenkeep', 'ENTRY.md'),
       '# Knowledge base index\n\n_0 nodes_\n'
     );
     const instructionsFile = join(root, '.github', 'copilot-instructions.md');

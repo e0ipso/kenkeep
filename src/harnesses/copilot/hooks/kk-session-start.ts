@@ -3,7 +3,7 @@
  *
  * Copilot does not document a stdout context-injection channel on
  * `sessionStart` (unlike Claude's `additionalContext`). The v1 strategy is
- * to write the current INDEX content into `<root>/.github/copilot-instructions.md`
+ * to write the current entry-catalog content into `<root>/.github/copilot-instructions.md`
  * under a `<!-- kk:start --> ... <!-- kk:end -->` sentinel block, which
  * Copilot reads on session start. The rewrite is idempotent and preserves
  * any user-authored content outside the block. Errors go to stderr only and

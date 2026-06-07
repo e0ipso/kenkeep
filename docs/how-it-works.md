@@ -17,7 +17,7 @@ When a session ends, a hook saves the transcript to `.ai/kenkeep/_sessions/`. Yo
 
 ## 2. Curate (you start it, the AI does most of the work)
 
-Run `/kk-curate` (the system nudges you once transcripts pile up). It reads the captured sessions, drafts proposed notes, writes them under `.ai/kenkeep/nodes/`, then rebuilds the `index.md` tree (root catalog `INDEX.md`) and `GRAPH.md`.
+Run `/kk-curate` (the system nudges you once transcripts pile up). It reads the captured sessions, drafts proposed notes, writes them under `.ai/kenkeep/nodes/`, then rebuilds the `index.md` tree (root catalog `ENTRY.md`) and `GRAPH.md`.
 
 In the same pass that links a note to its neighbors, the curator picks its home folder — the best-fitting existing folder under `nodes/`, or the `nodes/` root when nothing fits. Identity is the note's id, not its path, so its links hold wherever it lives. Curation only places notes in existing folders; it never creates, splits, or merges them.
 
@@ -37,7 +37,7 @@ Rebalance moves land in this same diff (act-and-fold), reviewed alongside the no
 
 ## 4. Recall (automatic)
 
-At the start of every session a hook injects the knowledge base back into your assistant — like capture, you don't run it. It injects **only** the root index node (`INDEX.md`, the catalog of top-level branches), never the whole base, plus a directive to descend by relevance. This is **progressive disclosure**: the assistant reads the root, picks the branches whose intent and tags match the task, and opens only the leaf notes it needs, following `relates_to` / `depends_on` cross-edges to related notes in other branches. The injected payload stays small no matter how large the knowledge base grows.
+At the start of every session a hook injects the knowledge base back into your assistant — like capture, you don't run it. It injects **only** the entry catalog (`ENTRY.md`, the catalog of top-level branches), never the whole base, plus a directive to descend by relevance. This is **progressive disclosure**: the assistant reads the root, picks the branches whose intent and tags match the task, and opens only the leaf notes it needs, following `relates_to` / `depends_on` cross-edges to related notes in other branches. The injected payload stays small no matter how large the knowledge base grows.
 
 <p align="center">
   <img src="{{ '/assets/images/progressive-disclosure.png' | relative_url }}" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" />

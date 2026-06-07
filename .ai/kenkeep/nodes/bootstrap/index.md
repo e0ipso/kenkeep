@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:69e32cd21fde852da9f03d708f587dff259b4fe0f541bb42f76d06757cb58687'
+nodes_hash: 'sha256:b166136534632c1b21ec488f887cb102bdb8297431ec9ebf1d0afc3d7f52cf08'
 node_count: 6
 ---
 # kenkeep Index: bootstrap

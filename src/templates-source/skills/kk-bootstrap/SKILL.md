@@ -101,7 +101,7 @@ npx --yes kenkeep@latest finddocs --from <scope> --with-hashes
 + <relpath>\t<sha256>
 ```
 
-The primitive has already applied `.gitignore`, `.kkignore`, and the static skip list (filenames like `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `INDEX.md`, `GRAPH.md`, `releases/**/*.md`); you will not see those.
+The primitive has already applied `.gitignore`, `.kkignore`, and the static skip list (filenames like `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `ENTRY.md`, `GRAPH.md`, `releases/**/*.md`); you will not see those.
 
 Count the lines and **report briefly to the user before reading anything in depth**, e.g. "The CLI lists 30 markdown files across docs/, three module READMEs, two top-level overviews. I'll prioritize the overviews first, then sample modules." Use judgement to spot entry points, suspected-stale docs, and a sampling order from the deterministic list, but do not rebuild it.
 
@@ -239,7 +239,7 @@ On success the primitive prints the resolved node id and exits 0. Capture it. If
 
 **Multi-source nodes.** If a candidate is sourced from multiple docs (you found the same convention discussed in two places), pick the most authoritative doc as the `--source-doc` / `--source-hash` pair and mention the other sources in the body (e.g. "Also documented in `docs/auth.md`."). Do not write duplicate nodes.
 
-### 7. Refresh INDEX.md and GRAPH.md
+### 7. Refresh ENTRY.md and GRAPH.md
 
 After all writes, rebuild the indices so the reviewer sees them in sync with the new nodes:
 
@@ -257,7 +257,7 @@ When you're done, summarize for the user:
 - Any candidates you skipped because they overlapped an existing node; the user may want to merge content manually.
 - Any cross-references you noticed but didn't follow (the user might want to direct you to those).
 - Any docs that looked stale or contradictory that the user should double-check.
-- Confirmation that `INDEX.md` and `GRAPH.md` were refreshed.
+- Confirmation that `ENTRY.md` and `GRAPH.md` were refreshed.
 
 Then tell the user to review the written files, accept by leaving them in place, and reject by deleting them (`rm nodes/<kind>/<file>.md`).
 

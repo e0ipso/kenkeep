@@ -86,8 +86,8 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     { name: 'shipped prompts present', result: checkPrompts(paths.promptsDir) },
     { name: 'settings file is valid', result: checkSettings(paths.projectConfigFile) },
     {
-      name: 'INDEX.md is fresh',
-      result: checkIndexFreshness(join(paths.kkDir, 'INDEX.md'), paths.nodesDir),
+      name: 'ENTRY.md is fresh',
+      result: checkIndexFreshness(join(paths.kkDir, 'ENTRY.md'), paths.nodesDir),
     },
     { name: 'node frontmatter valid', result: frontmatterCheck.result },
     { name: 'derived_from references resolve', result: danglingResult },
@@ -243,11 +243,11 @@ function checkPrompts(promptsDir: string): CheckResult {
 
 function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
   if (!existsSync(indexFile))
-    return warn('INDEX.md missing; run `npx kenkeep index rebuild`.');
+    return warn('ENTRY.md missing; run `npx kenkeep index rebuild`.');
   try {
     const parsed = matter(readFileSync(indexFile, 'utf8'));
     const fm = IndexFrontmatterSchema.safeParse(parsed.data);
-    if (!fm.success) return warn('INDEX.md frontmatter is invalid; rebuild it.');
+    if (!fm.success) return warn('ENTRY.md frontmatter is invalid; rebuild it.');
     const recorded = fm.data.nodes_hash.startsWith('sha256:')
       ? fm.data.nodes_hash.slice(7)
       : fm.data.nodes_hash;

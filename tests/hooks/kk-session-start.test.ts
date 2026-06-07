@@ -49,8 +49,8 @@ function runHook(
 
 /**
  * Materialize a tree-shaped KB under the sandbox: leaves in deep branch folders
- * plus the regenerated INDEX.md (the root index node carrying the global
- * nodes_hash). Returns nothing; callers read INDEX.md afterwards.
+ * plus the regenerated ENTRY.md (the entry catalog carrying the global
+ * nodes_hash). Returns nothing; callers read ENTRY.md afterwards.
  */
 function seedLeaf(nodesDir: string, relDir: string, id: string, kind: 'practice' | 'map'): void {
   const dir = relDir === '' ? nodesDir : join(nodesDir, ...relDir.split('/'));
@@ -71,7 +71,7 @@ function seedLeaf(nodesDir: string, relDir: string, id: string, kind: 'practice'
 
 function rebuildIndex(kkDir: string, nodesDir: string): void {
   const idx = generateIndex(nodesDir);
-  writeIndex(join(kkDir, 'INDEX.md'), idx.rootCatalog);
+  writeIndex(join(kkDir, 'ENTRY.md'), idx.rootCatalog);
 }
 
 interface Sandbox {
@@ -111,11 +111,11 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     // Native event name, not translated.
     expect(parsed.hookSpecificOutput?.hookEventName).toBe('SessionStart');
     const ctx = parsed.hookSpecificOutput?.additionalContext ?? '';
-    expect(ctx).toContain('# kenkeep Index');
-    expect(ctx).toContain('## Subfolders');
+    expect(ctx).toContain('# kenkeep');
+    expect(ctx).toContain('## Branches');
     expect(ctx).toContain(DESCENT_PHRASE);
     expect(ctx).not.toContain(GREP_RECIPE);
-    // Root index node lists the deep branch by rollup, not the deep leaf body.
+    // Entry catalog lists the deep branch by rollup, not the deep leaf body.
     expect(ctx).toContain('storage/');
     expect(ctx).not.toContain('practice-deep-leaf');
   });
@@ -125,7 +125,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(res.exitCode).toBe(0);
     const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
     const ctx = parsed.additionalContext ?? '';
-    expect(ctx).toContain('# kenkeep Index');
+    expect(ctx).toContain('# kenkeep');
     expect(ctx).toContain(DESCENT_PHRASE);
     expect(ctx).not.toContain(GREP_RECIPE);
   });
@@ -135,7 +135,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(res.exitCode).toBe(0);
     const parsed = JSON.parse(res.stdout) as { additional_context?: string };
     const ctx = parsed.additional_context ?? '';
-    expect(ctx).toContain('# kenkeep Index');
+    expect(ctx).toContain('# kenkeep');
     expect(ctx).toContain(DESCENT_PHRASE);
     expect(ctx).not.toContain(GREP_RECIPE);
   });
@@ -146,7 +146,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     const target = join(sb.root, '.opencode', 'AGENTS.md');
     expect(existsSync(target)).toBe(true);
     const body = readFileSync(target, 'utf8');
-    expect(body).toContain('# kenkeep Index');
+    expect(body).toContain('# kenkeep');
     expect(body).toContain(DESCENT_PHRASE);
     expect(body).not.toContain(GREP_RECIPE);
     expect(body).not.toContain('practice-deep-leaf');
@@ -158,7 +158,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     const target = join(sb.root, '.github', 'copilot-instructions.md');
     expect(existsSync(target)).toBe(true);
     const body = readFileSync(target, 'utf8');
-    expect(body).toContain('# kenkeep Index');
+    expect(body).toContain('# kenkeep');
     expect(body).toContain(DESCENT_PHRASE);
     expect(body).not.toContain(GREP_RECIPE);
   });

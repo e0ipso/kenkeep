@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:a91966574b5f501f441e59b8e3b9bffafd936151b5b1bf6b6ef82f52808dd842'
+nodes_hash: 'sha256:4ca63ce73ab3fac036c7dbe45d4f57d5a6190fc5bf373894ffe48dc1616818b1'
 node_count: 8
 ---
 # kenkeep Index: curation

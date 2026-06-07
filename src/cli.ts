@@ -276,13 +276,13 @@ async function main(): Promise<void> {
       }
     );
 
-  const indexGroup = program.command('index').description('Manage INDEX.md and GRAPH.md.');
+  const indexGroup = program.command('index').description('Manage ENTRY.md and GRAPH.md.');
   indexGroup
     .command('rebuild')
-    .description('Regenerate INDEX.md and GRAPH.md from the current nodes/ tree (deterministic).')
+    .description('Regenerate ENTRY.md and GRAPH.md from the current nodes/ tree (deterministic).')
     .option(
       '--stage',
-      'after writing, `git add` INDEX.md and GRAPH.md (no-op outside a git repo)',
+      'after writing, `git add` ENTRY.md and GRAPH.md (no-op outside a git repo)',
       false
     )
     .allowExcessArguments(true)

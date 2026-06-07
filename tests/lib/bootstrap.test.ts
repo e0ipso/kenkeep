@@ -65,6 +65,7 @@ describe('discoverMarkdownFiles (skip-list and ignore composition)', () => {
     writeFileSync(join(harness.root, 'CHANGES.md'), 'c');
     writeFileSync(join(harness.root, 'HISTORY.md'), 'h');
     writeFileSync(join(harness.root, 'RELEASE_NOTES.md'), 'r');
+    writeFileSync(join(harness.root, 'ENTRY.md'), 'e');
     writeFileSync(join(harness.root, 'INDEX.md'), 'i');
     writeFileSync(join(harness.root, 'GRAPH.md'), 'g');
     mkdirSync(join(harness.root, 'releases'), { recursive: true });

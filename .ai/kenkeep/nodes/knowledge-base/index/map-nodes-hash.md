@@ -11,7 +11,7 @@ derived_from:
   - docs/internals/schemas.md
   - docs/internals/architecture.md
 relates_to:
-  - map-index-md
+  - map-entry-md
   - map-graph-md
   - practice-determinism-contract
 depends_on: []
@@ -34,6 +34,6 @@ Steps:
 5. Join with `\n`.
 6. `nodes_hash = sha256(joined)`.
 
-The hash is embedded in the frontmatter of `INDEX.md` and `GRAPH.md`. Comparing the recorded hash against a fresh recompute is how `doctor` and `kk-session-start.mjs` detect that the indices have drifted from `nodes/`.
+The hash is embedded in the frontmatter of `ENTRY.md` and `GRAPH.md`. Comparing the recorded hash against a fresh recompute is how `doctor` and `kk-session-start.mjs` detect that the indices have drifted from `nodes/`.
 
 Tests rely on this determinism — see `tests/lib/index-gen.test.ts` for golden-file comparisons.

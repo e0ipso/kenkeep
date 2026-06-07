@@ -41,10 +41,13 @@ export interface GeneratedIndex {
    */
   folders: Map<string, FolderIndex>;
   /**
-   * The root catalog body for `.ai/kenkeep/INDEX.md`: identical layout to the
-   * `nodes/` root index node, but its frontmatter records the GLOBAL
-   * `nodes_hash` (over the whole leaf set). The SessionStart hook and `doctor`
-   * compare this global hash to detect staleness, so the catalog must carry it.
+   * The purpose-built entry catalog body for `.ai/kenkeep/ENTRY.md`: the
+   * always-injected launchpad. Unlike a per-folder `index.md` (which rolls up
+   * only its own direct leaves, leaving three empty sections at the root where
+   * no leaves live directly), it carries whole-tree totals and the branch list,
+   * and nothing more. Its frontmatter records the GLOBAL `nodes_hash` (over the
+   * whole leaf set); the SessionStart hook and `doctor` compare this global hash
+   * to detect staleness, so the catalog must carry it.
    */
   rootCatalog: string;
   /** Global hash over the whole leaf set (excludes generated index.md). */
@@ -127,6 +130,97 @@ export function renderTagIndex(nodes: NodeFile[], inDegree: Map<string, number>)
     lines.push(`- **#${tag} (${titles.length}):** ${titles.join(', ')}`);
   }
   return lines.join('\n');
+}
+
+interface RenderRootCatalogArgs {
+  /** Every leaf in the tree (drives whole-tree totals and the topic index). */
+  allNodes: NodeFile[];
+  /** Leaves directly at the root (rare); rendered only when non-empty. */
+  rootLeaves: NodeFile[];
+  /** Top-level branch directories, sorted. */
+  rootSubDirs: string[];
+  leavesByDir: Map<string, NodeFile[]>;
+  inDegree: Map<string, number>;
+  /** GLOBAL hash over the whole leaf set, stamped into the frontmatter. */
+  nodesHash: string;
+}
+
+/**
+ * Render the purpose-built entry catalog body for `.ai/kenkeep/ENTRY.md`.
+ *
+ * This is deliberately NOT the per-folder `index.md` template. A folder index
+ * rolls up only its own direct leaves, so at the root (where no leaves live
+ * directly) it renders a misleading `0 node(s)` header and three empty sections.
+ * The entry catalog instead gives the always-injected launchpad what it needs,
+ * and nothing more:
+ *   - accurate WHOLE-TREE totals (nodes, branches, estimated tokens), and
+ *   - the branch list with compact rollup counts (the next descent step).
+ *
+ * It deliberately carries NO topic index: cross-cutting topic recall is left to
+ * descent (each branch `index.md` rolls up its own tags), keeping the
+ * always-injected payload bounded by branch count rather than tag cardinality.
+ * The frontmatter still records the GLOBAL `nodes_hash` so the
+ * SessionStart/doctor staleness checks keep working unchanged.
+ */
+function renderRootCatalog(args: RenderRootCatalogArgs): string {
+  const { allNodes, rootLeaves, rootSubDirs, leavesByDir, inDegree, nodesHash } = args;
+  const cmp = makeCatalogComparator(inDegree);
+
+  const parts: string[] = [];
+  parts.push('# kenkeep');
+  parts.push('');
+  parts.push(
+    `_${allNodes.length} node(s) across ${rootSubDirs.length} branch(es) • ~${estimateTokens(
+      allNodes
+    )} estimated tokens (whole tree)_`
+  );
+
+  // Branches: the next descent step. Compact count -> "(N)" when the whole
+  // subtree lives directly in the branch, "(D here, T in subtree)" otherwise.
+  parts.push('');
+  parts.push('## Branches');
+  if (rootSubDirs.length === 0) {
+    parts.push('_None._');
+  } else {
+    for (const sub of rootSubDirs) {
+      const stats = rollupStats(sub, leavesByDir);
+      const name = sub.split('/').pop() ?? sub;
+      const count =
+        stats.directLeaves === stats.totalLeaves
+          ? `${stats.totalLeaves}`
+          : `${stats.directLeaves} here, ${stats.totalLeaves} in subtree`;
+      parts.push(
+        `- **${name}/** [\`${posix.join('nodes', sub, 'index.md')}\`] ${deterministicIntent(
+          sub
+        )} (${count})`
+      );
+    }
+  }
+
+  // Root-level leaves render only when present; the empty headings the
+  // per-folder template would emit at the root are dropped here.
+  const byKind: Record<'practice' | 'map', NodeFile[]> = { practice: [], map: [] };
+  for (const n of rootLeaves) byKind[n.frontmatter.kind].push(n);
+  byKind.practice.sort(cmp);
+  byKind.map.sort(cmp);
+  if (byKind.practice.length > 0) {
+    parts.push('');
+    parts.push('## Conventions (how we build)');
+    for (const b of byKind.practice) parts.push(renderBullet(b));
+  }
+  if (byKind.map.length > 0) {
+    parts.push('');
+    parts.push('## Components (what exists)');
+    for (const b of byKind.map) parts.push(renderBullet(b));
+  }
+
+  const body = parts.join('\n');
+  const fm = IndexFrontmatterSchema.parse({
+    schema_version: NODE_SCHEMA_VERSION,
+    nodes_hash: `sha256:${nodesHash}`,
+    node_count: allNodes.length,
+  });
+  return matter.stringify(body, fm);
 }
 
 function estimateTokens(nodes: NodeFile[]): number {
@@ -217,17 +311,17 @@ export function generateIndex(nodesDir: string): GeneratedIndex {
     folders.set(dir, { relDir: dir, content, metrics });
   }
 
-  // Root catalog for .ai/kenkeep/INDEX.md: same layout as the nodes/ root index
-  // node, but stamped with the GLOBAL hash so SessionStart/doctor staleness
-  // checks compare against the whole leaf set.
+  // Entry catalog for .ai/kenkeep/ENTRY.md: a purpose-built launchpad (NOT the
+  // per-folder template), stamped with the GLOBAL hash so SessionStart/doctor
+  // staleness checks compare against the whole leaf set.
   const rootLeaves = (leavesByDir.get('') ?? []).slice().sort(cmp);
   const rootSubDirs = [...dirs]
     .filter(d => d !== '' && !d.includes('/'))
     .sort((a, b) => a.localeCompare(b));
-  const rootCatalog = renderFolderIndex({
-    relDir: '',
-    leaves: rootLeaves,
-    subDirs: rootSubDirs,
+  const rootCatalog = renderRootCatalog({
+    allNodes: nodes,
+    rootLeaves,
+    rootSubDirs,
     leavesByDir,
     inDegree,
     nodesHash: hash,

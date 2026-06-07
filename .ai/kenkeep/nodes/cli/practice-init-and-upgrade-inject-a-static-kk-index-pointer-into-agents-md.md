@@ -11,18 +11,18 @@ tags:
   - markers
 derived_from: []
 relates_to:
-  - map-index-md
+  - map-entry-md
   - map-session-start-hook
 confidence: high
 summary: >-
-  During init and upgrade, a static one-line pointer to INDEX.md is appended to
+  During init and upgrade, a static one-line pointer to ENTRY.md is appended to
   AGENTS.md, guarded by sentinel markers for idempotency.
 ---
 The `runInit()` and `runUpgrade()` functions call `updateAgentsMd()` to inject a static pointer block into `AGENTS.md`. The block uses sentinel markers so the operation is idempotent:
 
 ```
 <!-- >>> kenkeep:kk-index >>> -->
-Curated project knowledge lives in [.ai/kenkeep/INDEX.md](.ai/kenkeep/INDEX.md). Consult it before designing a non-trivial change.
+Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md). Consult it before designing a non-trivial change.
 <!-- <<< kenkeep:kk-index <<< -->
 ```
 

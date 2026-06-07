@@ -30,7 +30,7 @@ function payload(): Record<string, unknown> {
  * `bash` command Copilot runs.
  *
  * Events:
- *   sessionStart: writes the INDEX sentinel block, then drains proposals.
+ *   sessionStart: writes the entry-catalog sentinel block, then drains proposals.
  *   sessionEnd:   captures the transcript, then ticks the periodic lint.
  *   agentStop:    captures again at each agent-turn boundary (Claude `Stop`
  *                 analog); the shared transcript_hash dedup keeps one log

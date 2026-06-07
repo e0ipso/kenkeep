@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 id: practice-determinism-contract
-title: Determinism contract for INDEX/GRAPH generation
+title: Determinism contract for ENTRY/GRAPH generation
 kind: practice
 tags:
   - determinism
@@ -11,7 +11,7 @@ derived_from:
   - docs/internals/architecture.md
 relates_to:
   - map-nodes-hash
-  - map-index-md
+  - map-entry-md
   - map-graph-md
 depends_on: []
 confidence: high
@@ -21,16 +21,16 @@ summary: >-
   run_id.
 ---
 
-# Determinism contract for INDEX/GRAPH generation
+# Determinism contract for ENTRY/GRAPH generation
 
-The package depends on a strict determinism contract for everything that touches `nodes/`, `INDEX.md`, and `GRAPH.md`:
+The package depends on a strict determinism contract for everything that touches `nodes/`, `ENTRY.md`, and `GRAPH.md`:
 
 - `computeNodesHash` is content-addressed and mtime-independent.
 - `generateIndex` and `generateGraph` are pure functions of `nodes/` plus an injected `now`.
 - `slugify`, `deriveNodeId`, and `ensureUniqueId` are pure.
 - `crypto.randomUUID()` is the only randomness in the system, and it is scoped to minting `run_id` values.
 
-**Why:** the same `nodes/` tree must produce byte-identical `INDEX.md` and `GRAPH.md` no matter who runs the regeneration or when. This is what makes the pre-commit hook (`index rebuild --stage`) safe to run from a contributor's machine, and what makes the `doctor` and `kk-session-start.mjs` freshness check meaningful (`nodes_hash` drift is real, not a clock or filesystem artifact). Tests rely on this — `tests/lib/index-gen.test.ts` does golden-file comparisons.
+**Why:** the same `nodes/` tree must produce byte-identical `ENTRY.md` and `GRAPH.md` no matter who runs the regeneration or when. This is what makes the pre-commit hook (`index rebuild --stage`) safe to run from a contributor's machine, and what makes the `doctor` and `kk-session-start.mjs` freshness check meaningful (`nodes_hash` drift is real, not a clock or filesystem artifact). Tests rely on this — `tests/lib/index-gen.test.ts` does golden-file comparisons.
 
 **How to apply:**
 

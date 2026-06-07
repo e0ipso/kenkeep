@@ -91,12 +91,12 @@ function seedNode(harness: Harness, kind: 'practice' | 'map', id: string): void 
   writeFileSync(join(harness.nodesDir, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));
 }
 
-// Mirrors `index rebuild`: the root catalog at .ai/kenkeep/INDEX.md is the
-// nodes/ root index node body that SessionStart injects.
+// Mirrors `index rebuild`: the entry catalog at .ai/kenkeep/ENTRY.md is the
+// whole-tree launchpad body that SessionStart injects.
 function writeIndexFromCurrentNodes(harness: Harness): void {
   const idx = generateIndex(harness.nodesDir);
   mkdirSync(harness.kkDir, { recursive: true });
-  writeIndex(join(harness.kkDir, 'INDEX.md'), idx.rootCatalog);
+  writeIndex(join(harness.kkDir, 'ENTRY.md'), idx.rootCatalog);
 }
 
 describe('buildSessionStartContext (index injection)', () => {
@@ -104,7 +104,7 @@ describe('buildSessionStartContext (index injection)', () => {
   beforeEach(() => (harness = makeHarness()));
   afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
 
-  it('emits a stub when INDEX.md is missing', () => {
+  it('emits a stub when ENTRY.md is missing', () => {
     const result = buildSessionStartContext({
       kkDir: harness.kkDir,
       nodesDir: harness.nodesDir,
@@ -112,14 +112,14 @@ describe('buildSessionStartContext (index injection)', () => {
       stateFile: harness.stateFile,
     });
     expect(result.indexMissing).toBe(true);
-    expect(result.additionalContext).toContain('# kenkeep Index');
+    expect(result.additionalContext).toContain('# kenkeep');
     expect(result.additionalContext).toContain('empty');
   });
 
-  it('injects the live INDEX.md (frontmatter stripped) when fresh and emits no warnings', () => {
+  it('injects the live ENTRY.md (frontmatter stripped) when fresh and emits no warnings', () => {
     seedNode(harness, 'practice', 'practice-foo');
     writeIndexFromCurrentNodes(harness);
-    const raw = readFileSync(join(harness.kkDir, 'INDEX.md'), 'utf8');
+    const raw = readFileSync(join(harness.kkDir, 'ENTRY.md'), 'utf8');
     expect(raw).toMatch(/^---\n/);
 
     const result = buildSessionStartContext({
@@ -131,13 +131,13 @@ describe('buildSessionStartContext (index injection)', () => {
     expect(result.indexStale).toBe(false);
     expect(result.indexMissing).toBe(false);
     expect(result.additionalContext.startsWith('---')).toBe(false);
-    expect(result.additionalContext).toContain('# kenkeep Index');
+    expect(result.additionalContext).toContain('# kenkeep');
     expect(result.additionalContext).toContain('practice-foo');
     expect(result.additionalContext).not.toContain('kenkeep index is stale');
     expect(result.additionalContext).not.toContain('pending session log');
   });
 
-  it('appends a stale warning when nodes/ has drifted from INDEX.md', () => {
+  it('appends a stale warning when nodes/ has drifted from ENTRY.md', () => {
     seedNode(harness, 'practice', 'practice-foo');
     writeIndexFromCurrentNodes(harness);
     // Drift: add another node so the live nodes_hash no longer matches.

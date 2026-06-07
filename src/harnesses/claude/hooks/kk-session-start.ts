@@ -1,8 +1,8 @@
 /**
  * SessionStart hook (sync) for the Claude Code adapter.
  *
- * Injects the current `INDEX.md` body as additionalContext, optionally
- * appends a stale-INDEX warning, and optionally appends a curate nudge
+ * Injects the current `ENTRY.md` body as additionalContext, optionally
+ * appends a stale-entry warning, and optionally appends a curate nudge
  * when the pending-session backlog exceeds the threshold.
  *
  * Output format: a JSON object on stdout matching Claude Code's

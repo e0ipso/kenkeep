@@ -35,7 +35,7 @@ Execs the active harness against the `/kk-curate` skill (`<harness> -p "/kk-cura
 - **contradict** → writes nothing to `nodes/`. Records one markdown file per conflict under `.ai/kenkeep/conflicts/`.
 - **drop** → no change.
 
-At end-of-run, regenerates `INDEX.md` and `GRAPH.md` deterministically (no LLM).
+At end-of-run, regenerates `ENTRY.md` and `GRAPH.md` deterministically (no LLM).
 
 The in-session equivalent is the `/kk-curate` skill. The skill runs the CLI, then walks any pending conflict files with the user (Accept / Reject / Keep as record) and applies the chosen resolution. Conflict resolution always goes through the user; the curator never auto-resolves.
 

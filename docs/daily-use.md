@@ -17,7 +17,7 @@ After install, kenkeep runs itself. Capture and injection happen on their own; t
 4. Inspect the resulting changes under `.ai/kenkeep/nodes/` with `git diff` (or your preferred diff tool, e.g. [self-review](https://github.com/e0ipso/self-review)).
 5. `git commit` what you want to keep; `git restore <path>` to discard.
 
-The pre-commit hook regenerates `INDEX.md` and `GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes.
+The pre-commit hook regenerates `ENTRY.md` and `GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes.
 
 That is the entire daily workflow. The rest of this page is reference: the three skills, and the two manual actions you reach for occasionally.
 
@@ -27,8 +27,8 @@ Three in-session skills do all the work. Run them inside your harness session; t
 
 | Skill | What it does | When you reach for it |
 |---|---|---|
-| `/kk-add` | Conversationally gathers a node's fields, checks `INDEX.md` for overlap, writes it under `nodes/`. | Any time you want to capture a fact on the spot. |
-| `/kk-curate` | Reads pending captured sessions, drafts proposed notes under `nodes/`, rebuilds `INDEX.md`/`GRAPH.md`, and walks you through any contradictions with the `y/n/s/k` prompt. | The daily loop, when nudged. |
+| `/kk-add` | Conversationally gathers a node's fields, checks `ENTRY.md` for overlap, writes it under `nodes/`. | Any time you want to capture a fact on the spot. |
+| `/kk-curate` | Reads pending captured sessions, drafts proposed notes under `nodes/`, rebuilds `ENTRY.md`/`GRAPH.md`, and walks you through any contradictions with the `y/n/s/k` prompt. | The daily loop, when nudged. |
 | `/kk-bootstrap` | Seeds nodes from your existing docs — a one-time setup step, see [Installation → Seed from existing docs](installation.md#seed-from-existing-docs). | Once, at setup. |
 
 {% include callout.html variant="warning" content="Run only one LLM skill at a time per repo. `/kk-curate` and `/kk-bootstrap` are single-author by design and take no cross-process lock, so concurrent runs against the same repo can silently waste work (sessions reprocess on the next run — no data loss). See [Architecture → Locking](internals/architecture.md#locking)." %}

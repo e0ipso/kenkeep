@@ -29,7 +29,7 @@ CI's job is to validate that what's committed is well-formed, not to run the LLM
 ```sh
 npx kenkeep doctor --verbose
 npx kenkeep index rebuild
-git diff --exit-code .ai/kenkeep/INDEX.md .ai/kenkeep/GRAPH.md
+git diff --exit-code .ai/kenkeep/ENTRY.md .ai/kenkeep/GRAPH.md
 ```
 
 The last step catches commits that bypassed the pre-commit hook.

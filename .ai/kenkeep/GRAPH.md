@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:c6d2fa9073118a82e4d10d01ecdd7090225b87a1e41760754635a59e971c5893'
+nodes_hash: 'sha256:a3eae4fa8136dda223e49e791b4f36e9aaf36f7c1fc40455b51190d3887c9b42'
 node_count: 57
 ---
 # kenkeep Graph
@@ -38,7 +38,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Claude Code harness adapter
-- **path:** harness/map-claude-harness.md
+- **path:** harnesses/map-claude-harness.md
 - **tags:** harness, claude, hooks
 - **relates_to:** map-harness-adapter, map-capture-hook, map-proposal-drain-hook, map-session-start-hook
 - **derived_from:** docs/installation.md, docs/how-it-works.md, docs/internals/hooks.md
@@ -47,7 +47,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Codex CLI harness adapter
-- **path:** harness/map-codex-harness.md
+- **path:** harnesses/map-codex-harness.md
 - **tags:** harness, codex, hooks
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/installation/codex-toml-hooks-coexistence.md, docs/how-it-works.md
@@ -56,7 +56,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** config.yaml (project settings)
-- **path:** knowledge-base/state/map-config-yaml.md
+- **path:** config-and-prompts/map-config-yaml.md
 - **tags:** config, settings, model
 - **relates_to:** map-curate-command, map-bootstrap-incremental-command, map-proposal-drain-hook
 - **derived_from:** docs/cli-reference.md, docs/internals/architecture.md
@@ -74,7 +74,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Copilot harness adapter
-- **path:** harness/map-copilot-harness-adapter.md
+- **path:** harnesses/map-copilot-harness-adapter.md
 - **tags:** harness, copilot, hooks, adapter
 - **relates_to:** map-harness-adapter, map-codex-harness, map-opencode-harness, map-cursor-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, https://github.com/github/copilot-cli, https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference
@@ -109,7 +109,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Cursor harness adapter
-- **path:** harness/map-cursor-harness-adapter.md
+- **path:** harnesses/map-cursor-harness-adapter.md
 - **tags:** harness, cursor, hooks
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, https://cursor.com/docs/hooks, https://cursor.com/docs/cli/using
@@ -118,7 +118,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** ENTRY.md
-- **path:** knowledge-base/index/map-entry-md.md
+- **path:** index/map-entry-md.md
 - **tags:** entry, index, deterministic, sessionstart
 - **relates_to:** map-graph-md, map-session-start-hook, map-nodes-hash
 - **derived_from:** docs/how-it-works.md, docs/internals/schemas.md, docs/internals/architecture.md
@@ -127,7 +127,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** GRAPH.md
-- **path:** knowledge-base/index/map-graph-md.md
+- **path:** index/map-graph-md.md
 - **tags:** graph, deterministic
 - **relates_to:** map-entry-md, map-node-frontmatter
 - **derived_from:** docs/how-it-works.md, docs/internals/schemas.md
@@ -136,7 +136,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Harness adapter
-- **path:** harness/map-harness-adapter.md
+- **path:** harnesses/map-harness-adapter.md
 - **tags:** harness, adapter, claude, codex, cursor, opencode, copilot, architecture
 - **relates_to:** map-claude-harness, map-codex-harness, map-cursor-harness-adapter, map-opencode-harness, map-copilot-harness-adapter, practice-explicit-harness-flag-outside-claude
 - **derived_from:** README.md, docs/installation.md, docs/internals/architecture.md, CONTRIBUTING.md
@@ -152,7 +152,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** .ai/kenkeep/ directory layout
-- **path:** knowledge-base/map-kenkeep-directory.md
+- **path:** overview/map-kenkeep-directory.md
 - **tags:** layout, state, directory
 - **relates_to:** map-nodes-directory, map-session-log, map-entry-md, map-graph-md, map-state-file, map-bootstrap-state-file, map-config-yaml, map-conflict-files
 - **derived_from:** docs/internals/architecture.md, docs/installation.md
@@ -161,7 +161,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** kenkeep npm package
-- **path:** knowledge-base/map-kenkeep-package.md
+- **path:** overview/map-kenkeep-package.md
 - **tags:** overview, package, npm
 - **relates_to:** map-harness-adapter, map-kenkeep-directory
 - **derived_from:** README.md, docs/index.md, docs/how-it-works.md
@@ -179,7 +179,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Node frontmatter schema
-- **path:** knowledge-base/nodes/map-node-frontmatter.md
+- **path:** node-schema/map-node-frontmatter.md
 - **tags:** schema, frontmatter, nodes
 - **relates_to:** map-nodes-directory, map-entry-md, map-graph-md
 - **derived_from:** docs/internals/schemas.md
@@ -188,7 +188,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** nodes/ directory and the two kinds
-- **path:** knowledge-base/nodes/map-nodes-directory.md
+- **path:** node-schema/map-nodes-directory.md
 - **tags:** nodes, practice, map, frontmatter, schema
 - **relates_to:** map-node-frontmatter, map-kenkeep-directory
 - **derived_from:** docs/how-it-works.md, docs/internals/schemas.md
@@ -197,7 +197,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** nodes_hash algorithm
-- **path:** knowledge-base/index/map-nodes-hash.md
+- **path:** index/map-nodes-hash.md
 - **tags:** hash, deterministic, sha256
 - **relates_to:** map-entry-md, map-graph-md, practice-determinism-contract
 - **derived_from:** docs/internals/schemas.md, docs/internals/architecture.md
@@ -206,7 +206,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** OpenCode harness adapter
-- **path:** harness/map-opencode-harness.md
+- **path:** harnesses/map-opencode-harness.md
 - **tags:** harness, opencode, hooks, plugin
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, README.md
@@ -233,7 +233,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** Session log (_sessions/*.md)
-- **path:** knowledge-base/state/map-session-log.md
+- **path:** state/map-session-log.md
 - **tags:** session, capture, state, schema
 - **relates_to:** map-capture-hook, map-proposal-drain-hook
 - **derived_from:** docs/internals/hooks.md, docs/internals/schemas.md, docs/internals/architecture.md
@@ -251,7 +251,7 @@ Total nodes: 57
 
 - **kind:** map
 - **title:** .state/state.json (lock + nudge state)
-- **path:** knowledge-base/state/map-state-file.md
+- **path:** state/map-state-file.md
 - **tags:** state, lock, schema
 - **relates_to:** map-bootstrap-state-file
 - **derived_from:** docs/internals/architecture.md, docs/internals/schemas.md
@@ -268,7 +268,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Adapters never reach into each other's directories
-- **path:** harness/practice-adapters-never-cross-directories.md
+- **path:** harnesses/practice-adapters-never-cross-directories.md
 - **tags:** adapter, architecture, isolation
 - **relates_to:** map-harness-adapter, practice-no-event-translation-across-adapters
 - **derived_from:** CONTRIBUTING.md, docs/internals/architecture.md
@@ -295,7 +295,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Bump the prompt's Version comment on every behavior change
-- **path:** prompts/practice-bump-prompt-version-comment.md
+- **path:** config-and-prompts/practice-bump-prompt-version-comment.md
 - **tags:** prompts, versioning, audit
 - **relates_to:** practice-local-prompt-overrides-fall-back-to-bundled
 - **derived_from:** docs/internals/prompts.md, docs/troubleshooting.md, CONTRIBUTING.md
@@ -347,7 +347,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Cursor sessionStart additional_context is silently dropped
-- **path:** harness/practice-cursor-sessionstart-additional-context-is-silently-dropped.md
+- **path:** harnesses/practice-cursor-sessionstart-additional-context-is-silently-dropped.md
 - **tags:** cursor, harness, hooks, gotcha, context-injection
 - **relates_to:** map-cursor-harness-adapter
 
@@ -355,7 +355,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Determinism contract for ENTRY/GRAPH generation
-- **path:** knowledge-base/index/practice-determinism-contract.md
+- **path:** index/practice-determinism-contract.md
 - **tags:** determinism, indexing, testing
 - **relates_to:** map-nodes-hash, map-entry-md, map-graph-md
 - **derived_from:** docs/internals/architecture.md
@@ -371,7 +371,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Avoid harness favoritism in examples and recommendations
-- **path:** conventions/practice-document-model-recommendations-with-harness-agnostic-framing-2.md
+- **path:** config-and-prompts/practice-document-model-recommendations-with-harness-agnostic-framing-2.md
 - **tags:** documentation, harness, models, recommendations, examples, configuration
 - **relates_to:** map-config-yaml
 
@@ -388,7 +388,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Pass --harness explicitly outside an active harness session
-- **path:** harness/practice-explicit-harness-flag-outside-claude.md
+- **path:** harnesses/practice-explicit-harness-flag-outside-claude.md
 - **tags:** harness, cli, codex, cursor, opencode
 - **relates_to:** map-harness-adapter, map-cursor-harness-adapter, map-config-yaml
 - **derived_from:** docs/cli-reference.md, docs/installation.md
@@ -397,7 +397,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Hook behavior changes must be applied to all four harness adapters
-- **path:** harness/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md
+- **path:** hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md
 - **tags:** harness, hooks, architecture, drift
 
 ## practice-hook-status-messages-include-kk-prefix-after-emoji
@@ -436,7 +436,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Node naming: id, filename, and kind must agree
-- **path:** knowledge-base/nodes/practice-lint-naming-rules.md
+- **path:** node-schema/practice-lint-naming-rules.md
 - **tags:** lint, naming, nodes
 - **relates_to:** map-nodes-directory, map-node-frontmatter
 - **derived_from:** README.md, docs/internals/schemas.md
@@ -445,7 +445,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Local prompt overrides fall back to bundled templates
-- **path:** prompts/practice-local-prompt-overrides-fall-back-to-bundled.md
+- **path:** config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md
 - **tags:** prompts, customization, override
 - **relates_to:** map-config-yaml, map-proposal-drain-hook, map-curate-command, map-bootstrap-incremental-command
 - **derived_from:** docs/internals/prompts.md, docs/troubleshooting.md
@@ -461,7 +461,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Don't translate event names across harness adapters
-- **path:** harness/practice-no-event-translation-across-adapters.md
+- **path:** harnesses/practice-no-event-translation-across-adapters.md
 - **tags:** adapter, events, harness
 - **relates_to:** map-harness-adapter, map-claude-harness, map-codex-harness, map-opencode-harness
 - **derived_from:** CONTRIBUTING.md, docs/internals/architecture.md
@@ -479,7 +479,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Review node changes via git
-- **path:** knowledge-base/nodes/practice-review-nodes-via-git.md
+- **path:** conventions/practice-review-nodes-via-git.md
 - **tags:** review, git, workflow
 - **relates_to:** map-curate-command, map-kk-bootstrap-skill
 - **derived_from:** README.md, docs/how-it-works.md, docs/daily-use.md, docs/troubleshooting.md
@@ -488,7 +488,7 @@ Total nodes: 57
 
 - **kind:** practice
 - **title:** Strict schema-version bump policy
-- **path:** knowledge-base/nodes/practice-strict-schema-version-bump-policy.md
+- **path:** node-schema/practice-strict-schema-version-bump-policy.md
 - **tags:** schema, versioning, breaking-change
 - **relates_to:** map-node-frontmatter
 - **derived_from:** CONTRIBUTING.md, docs/internals/schemas.md

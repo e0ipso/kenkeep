@@ -1,11 +1,5 @@
 import { execFile } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
@@ -48,13 +42,18 @@ async function gitCommitAll(sandbox: string, msg: string): Promise<void> {
   });
 }
 
-async function triggerActions(sandbox: string): Promise<Array<{ branch: string; operation: string }>> {
+async function triggerActions(
+  sandbox: string
+): Promise<Array<{ branch: string; operation: string }>> {
   const res = await runCli(sandbox, ['rebalance', 'trigger']);
   expect(res.exitCode).toBe(0);
   return JSON.parse(res.stdout.trim()).actions;
 }
 
-async function move(sandbox: string, plan: unknown): Promise<{ moves: Array<Record<string, unknown>> }> {
+async function move(
+  sandbox: string,
+  plan: unknown
+): Promise<{ moves: Array<Record<string, unknown>> }> {
   const planPath = join(sandbox, 'plan.json');
   writeFileSync(planPath, JSON.stringify(plan));
   const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
@@ -75,7 +74,8 @@ describe('rebalance trigger and move (integration)', () => {
 
   it('skips when the tree is balanced (trigger reports no action)', async () => {
     // A healthy folder sitting inside the hysteresis band.
-    for (let i = 0; i < 4; i += 1) writeLeaf(sandbox, 'topic', `practice-b${i}`, { relates_to: ['practice-b0'] });
+    for (let i = 0; i < 4; i += 1)
+      writeLeaf(sandbox, 'topic', `practice-b${i}`, { relates_to: ['practice-b0'] });
     await runCli(sandbox, ['index', 'rebuild']);
     expect(await triggerActions(sandbox)).toEqual([]);
   });
@@ -103,8 +103,16 @@ describe('rebalance trigger and move (integration)', () => {
           operation: 'split-folder',
           branch: 'over-full',
           groups: [
-            { subfolder: 'sub-a', summary: 'the first cluster of split leaves', ids: ids.slice(0, half) },
-            { subfolder: 'sub-b', summary: 'the second cluster of split leaves', ids: ids.slice(half) },
+            {
+              subfolder: 'sub-a',
+              summary: 'the first cluster of split leaves',
+              ids: ids.slice(0, half),
+            },
+            {
+              subfolder: 'sub-b',
+              summary: 'the second cluster of split leaves',
+              ids: ids.slice(half),
+            },
           ],
         },
       ],
@@ -113,13 +121,17 @@ describe('rebalance trigger and move (integration)', () => {
     expect(summary.moves.length).toBe(ids.length);
 
     // Bytes are identical post-move (rename, not rewrite); id preserved.
-    const sampleAfter = readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-a', 'practice-leaf-1.md'));
+    const sampleAfter = readFileSync(
+      join(nodesDir(sandbox), 'over-full', 'sub-a', 'practice-leaf-1.md')
+    );
     expect(sampleAfter.equals(sampleBefore)).toBe(true);
     expect(matter(sampleAfter.toString()).data.id).toBe('practice-leaf-1');
 
     // git records renames (R entries), no content delta on moved leaves.
     await exec('git', ['add', '-A'], { cwd: sandbox });
-    const { stdout: summaryOut } = await exec('git', ['diff', '--cached', '-M', '--summary'], { cwd: sandbox });
+    const { stdout: summaryOut } = await exec('git', ['diff', '--cached', '-M', '--summary'], {
+      cwd: sandbox,
+    });
     expect(summaryOut).toMatch(/rename .*practice-leaf-1\.md \(100%\)/);
 
     // Affected index nodes regenerated.
@@ -128,8 +140,12 @@ describe('rebalance trigger and move (integration)', () => {
 
     // Success Criterion 5: each new subfolder's authored summary landed in its
     // index.md frontmatter, and the move wrapper's rebuild self-preserved it.
-    const subAFm = matter(readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-a', 'index.md'), 'utf8')).data;
-    const subBFm = matter(readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-b', 'index.md'), 'utf8')).data;
+    const subAFm = matter(
+      readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-a', 'index.md'), 'utf8')
+    ).data;
+    const subBFm = matter(
+      readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-b', 'index.md'), 'utf8')
+    ).data;
     expect(subAFm.summary).toBe('the first cluster of split leaves');
     expect(subBFm.summary).toBe('the second cluster of split leaves');
   });
@@ -148,7 +164,13 @@ describe('rebalance trigger and move (integration)', () => {
           summary: 'the two concepts carved out of the bloated leaf',
           children: [
             { title: 'concept one', summary: 'first', body: 'First.', tags: ['a'], relates_to: [] },
-            { title: 'concept two', summary: 'second', body: 'Second.', tags: ['b'], relates_to: [] },
+            {
+              title: 'concept two',
+              summary: 'second',
+              body: 'Second.',
+              tags: ['b'],
+              relates_to: [],
+            },
           ],
         },
       ],
@@ -200,29 +222,36 @@ describe('rebalance trigger and move (integration)', () => {
     const summary = await move(sandbox, plan);
 
     expect(summary.moves.some(m => m.operation === 'merge' && m.id === 'practice-a2')).toBe(true);
-    expect(
-      summary.moves.some(m => m.operation === 'create-branch' && m.id === 'practice-a1')
-    ).toBe(true);
+    expect(summary.moves.some(m => m.operation === 'create-branch' && m.id === 'practice-a1')).toBe(
+      true
+    );
 
     // Final placement: a1 in the new branch, a2 at the root, sparse/ removed.
     expect(existsSync(join(nodesDir(sandbox), 'regrouped', 'practice-a1.md'))).toBe(true);
     expect(existsSync(join(nodesDir(sandbox), 'practice-a2.md'))).toBe(true);
     expect(existsSync(join(nodesDir(sandbox), 'sparse'))).toBe(false);
     // The new branch's authored summary persisted into its index.md.
-    expect(matter(readFileSync(join(nodesDir(sandbox), 'regrouped', 'index.md'), 'utf8')).data.summary).toBe(
-      'leaves regrouped out of the merged sparse folder'
-    );
+    expect(
+      matter(readFileSync(join(nodesDir(sandbox), 'regrouped', 'index.md'), 'utf8')).data.summary
+    ).toBe('leaves regrouped out of the merged sparse folder');
   });
 
   it('post-move rebuild is byte-stable (a second rebuild is a no-op)', async () => {
-    for (let i = 1; i <= FOLDER_OCCUPANCY_MAX + 2; i += 1) writeLeaf(sandbox, 'over-full', `practice-leaf-${i}`);
+    for (let i = 1; i <= FOLDER_OCCUPANCY_MAX + 2; i += 1)
+      writeLeaf(sandbox, 'over-full', `practice-leaf-${i}`);
     await runCli(sandbox, ['index', 'rebuild']);
     await move(sandbox, {
       operations: [
         {
           operation: 'split-folder',
           branch: 'over-full',
-          groups: [{ subfolder: 'sub-a', summary: 'a split cluster', ids: ['practice-leaf-1', 'practice-leaf-2'] }],
+          groups: [
+            {
+              subfolder: 'sub-a',
+              summary: 'a split cluster',
+              ids: ['practice-leaf-1', 'practice-leaf-2'],
+            },
+          ],
         },
       ],
     });
@@ -272,7 +301,8 @@ describe('rebalance trigger and move (integration)', () => {
   });
 
   it('leaves the working tree dirty: the primitives never commit', async () => {
-    for (let i = 1; i <= FOLDER_OCCUPANCY_MAX + 2; i += 1) writeLeaf(sandbox, 'over-full', `practice-leaf-${i}`);
+    for (let i = 1; i <= FOLDER_OCCUPANCY_MAX + 2; i += 1)
+      writeLeaf(sandbox, 'over-full', `practice-leaf-${i}`);
     await runCli(sandbox, ['index', 'rebuild']);
     await gitCommitAll(sandbox, 'baseline');
     await move(sandbox, {
@@ -280,14 +310,22 @@ describe('rebalance trigger and move (integration)', () => {
         {
           operation: 'split-folder',
           branch: 'over-full',
-          groups: [{ subfolder: 'sub-a', summary: 'a split cluster', ids: ['practice-leaf-1', 'practice-leaf-2'] }],
+          groups: [
+            {
+              subfolder: 'sub-a',
+              summary: 'a split cluster',
+              ids: ['practice-leaf-1', 'practice-leaf-2'],
+            },
+          ],
         },
       ],
     });
     // Working tree is dirty; nothing was staged or committed by the primitive.
     const { stdout: status } = await exec('git', ['status', '--porcelain'], { cwd: sandbox });
     expect(status.trim().length).toBeGreaterThan(0);
-    const { stdout: staged } = await exec('git', ['diff', '--cached', '--name-only'], { cwd: sandbox });
+    const { stdout: staged } = await exec('git', ['diff', '--cached', '--name-only'], {
+      cwd: sandbox,
+    });
     expect(staged.trim()).toBe('');
   });
 
@@ -299,7 +337,12 @@ describe('rebalance trigger and move (integration)', () => {
       planPath,
       JSON.stringify({
         operations: [
-          { operation: 'create-branch', folder: '../escape', summary: 'should be rejected', ids: ['practice-x'] },
+          {
+            operation: 'create-branch',
+            folder: '../escape',
+            summary: 'should be rejected',
+            ids: ['practice-x'],
+          },
         ],
       })
     );

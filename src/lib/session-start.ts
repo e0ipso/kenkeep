@@ -10,10 +10,14 @@ export const DEFAULT_NUDGE_THRESHOLD = 20;
 export const DEFAULT_STALE_DAYS = 7;
 
 /**
- * The descent navigation directive injected at SessionStart and reused verbatim
- * by the static AGENTS.md kk-index pointer block (see `src/commands/init.ts`).
- * Sourcing both surfaces from this single constant keeps the hook and the
- * always-on file from ever drifting apart.
+ * The descent navigation directive. The single source of truth for "how to
+ * navigate the tree", reused verbatim by three surfaces: it is embedded in every
+ * generated `index.md`/`ENTRY.md` body (`src/lib/index-gen.ts`) so a file is
+ * self-describing in isolation; injected once at SessionStart (the hook appends
+ * it only when the loaded body does not already embed it, so the injected
+ * catalog carries it exactly once); and stamped into the static AGENTS.md
+ * kk-index pointer block (see `src/commands/init.ts`). Sourcing every surface
+ * from this one constant keeps them from ever drifting apart.
  *
  * The directive describes how to navigate the tree-structured knowledge base:
  * enter at the injected root index node, pick the branches whose intent and tags
@@ -23,7 +27,7 @@ export const DEFAULT_STALE_DAYS = 7;
  * the agent chooses how deep to go.
  */
 export const KK_NAVIGATION_DIRECTIVE =
-  '> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf\'s `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.';
+  "> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.";
 
 export interface SessionStartContext {
   kkDir: string;
@@ -97,13 +101,21 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     ((pending >= threshold && oldestAgeDays >= staleDays) || pending >= 2 * threshold);
 
   const lines: string[] = [];
-  lines.push(indexBody.trim());
+  const trimmedBody = indexBody.trim();
+  lines.push(trimmedBody);
   lines.push('');
   lines.push(
     '> kenkeep nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user.'
   );
-  lines.push('');
-  lines.push(KK_NAVIGATION_DIRECTIVE);
+  // The generated ENTRY.md body now embeds the descent directive itself, so
+  // appending it again would double-print. Append only when the loaded body does
+  // NOT already carry it — i.e. the legacy INDEX.md fallback (seeded before the
+  // rename, not yet rebuilt) — so the injected catalog always contains the
+  // directive exactly once. `KK_NAVIGATION_DIRECTIVE` stays the single source.
+  if (!trimmedBody.includes(KK_NAVIGATION_DIRECTIVE)) {
+    lines.push('');
+    lines.push(KK_NAVIGATION_DIRECTIVE);
+  }
   if (indexStale) {
     lines.push('');
     lines.push(
@@ -270,7 +282,10 @@ export function countPendingSessions(sessionsDir: string): number {
   return summarizePendingSessions(sessionsDir).pending;
 }
 
-export function buildNudgeContent(result: SessionStartResult): { statusLine: string; content: string } {
+export function buildNudgeContent(result: SessionStartResult): {
+  statusLine: string;
+  content: string;
+} {
   const statusLine = result.nudged
     ? `🚨 kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kk-curate`
     : `📋 kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
@@ -290,4 +305,3 @@ export function buildNudgeContent(result: SessionStartResult): { statusLine: str
   }
   return { statusLine, content };
 }
-

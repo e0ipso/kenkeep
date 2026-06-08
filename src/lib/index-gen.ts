@@ -217,7 +217,8 @@ export function renderTagIndex(
     });
     scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      const dIn = (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
+      const dIn =
+        (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
       if (dIn !== 0) return dIn;
       return a.node.frontmatter.title.localeCompare(b.node.frontmatter.title);
     });
@@ -386,10 +387,7 @@ function harvestFolderSummaries(
 ): Map<string, string> {
   const summaries = new Map<string, string>();
   for (const dir of dirs) {
-    const file =
-      dir === ''
-        ? entryFile
-        : join(nodesDir, ...dir.split('/'), INDEX_FILENAME);
+    const file = dir === '' ? entryFile : join(nodesDir, ...dir.split('/'), INDEX_FILENAME);
     if (!file) continue;
     const summary = harvestSummary(file);
     if (summary !== undefined) summaries.set(dir, summary);
@@ -534,8 +532,7 @@ function renderFolderIndex(args: RenderFolderArgs): string {
   // root index node carries none.
   if (!isRoot) {
     const segments = relDir.split('/');
-    const parentName =
-      segments.length > 1 ? (segments[segments.length - 2] as string) : 'kenkeep';
+    const parentName = segments.length > 1 ? (segments[segments.length - 2] as string) : 'kenkeep';
     parts.push('');
     parts.push(`↑ Parent: [${parentName}](../index.md)`);
   }

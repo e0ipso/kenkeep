@@ -114,6 +114,9 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(ctx).toContain('# kenkeep');
     expect(ctx).toContain('## Branches');
     expect(ctx).toContain(DESCENT_PHRASE);
+    // Success Criterion 8: the directive is embedded in the ENTRY.md body, so the
+    // hook must not append it again — exactly one occurrence reaches the channel.
+    expect(ctx.split(DESCENT_PHRASE).length - 1).toBe(1);
     expect(ctx).not.toContain(GREP_RECIPE);
     // Entry catalog lists the deep branch by rollup, not the deep leaf body.
     expect(ctx).toContain('storage/');
@@ -165,9 +168,8 @@ describe('per-harness SessionStart injection (tree descent)', () => {
 
   it('keeps the injected payload bounded as deep leaves are added', async () => {
     const before = (await runHook(hookPath('claude'), sb.root, { cwd: sb.root })).stdout;
-    const ctxBefore = (
-      JSON.parse(before) as { hookSpecificOutput: { additionalContext: string } }
-    ).hookSpecificOutput.additionalContext;
+    const ctxBefore = (JSON.parse(before) as { hookSpecificOutput: { additionalContext: string } })
+      .hookSpecificOutput.additionalContext;
 
     // Add many leaves in a deep folder; the root index node body must not grow
     // proportionally (deep leaves surface only as a subfolder rollup count).
@@ -177,9 +179,8 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     rebuildIndex(sb.kkDir, sb.nodesDir);
 
     const after = (await runHook(hookPath('claude'), sb.root, { cwd: sb.root })).stdout;
-    const ctxAfter = (
-      JSON.parse(after) as { hookSpecificOutput: { additionalContext: string } }
-    ).hookSpecificOutput.additionalContext;
+    const ctxAfter = (JSON.parse(after) as { hookSpecificOutput: { additionalContext: string } })
+      .hookSpecificOutput.additionalContext;
 
     // None of the 25 deep leaf bodies/ids appear at the root.
     expect(ctxAfter).not.toContain('practice-bulk-0');
@@ -194,9 +195,8 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     seedLeaf(sb.nodesDir, 'storage', 'map-drift-leaf', 'map');
     const res = await runHook(hookPath('claude'), sb.root, { cwd: sb.root });
     expect(res.exitCode).toBe(0);
-    const ctx = (
-      JSON.parse(res.stdout) as { hookSpecificOutput: { additionalContext: string } }
-    ).hookSpecificOutput.additionalContext;
+    const ctx = (JSON.parse(res.stdout) as { hookSpecificOutput: { additionalContext: string } })
+      .hookSpecificOutput.additionalContext;
     expect(ctx).toContain('kenkeep index is stale');
   });
 });

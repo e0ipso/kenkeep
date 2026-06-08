@@ -57,8 +57,16 @@ PRD.md                    # authoritative product spec
 
 ### Knowledge base storage (tree over DAG)
 
-Leaf nodes live in topical folders under `.ai/kenkeep/nodes/`, at any depth. Every folder carries a generated `index.md` (an **index node**): a deterministic table-of-contents rollup of its child leaves and immediate subfolders. The top-level catalog `.ai/kenkeep/ENTRY.md` (the SessionStart entry point) is a purpose-built whole-tree launchpad — totals plus the branch list — distinct from the per-folder `nodes/index.md`; `.ai/kenkeep/GRAPH.md` is the full edge listing.
+Leaf nodes live in topical folders under `.ai/kenkeep/nodes/`, at any depth. Every folder carries a generated `index.md` (an **index node**): a deterministic, actionable table-of-contents that invites descent. The top-level catalog `.ai/kenkeep/ENTRY.md` (the SessionStart entry point) is a purpose-built whole-tree launchpad — the branch list — distinct from the per-folder `nodes/index.md`; `.ai/kenkeep/GRAPH.md` is the full edge listing.
 
+A generated index node renders:
+- an embedded one-line **descent directive** (sourced from the single `KK_NAVIGATION_DIRECTIVE` constant) so the file is self-describing even when read in isolation;
+- a `↑ Parent` **breadcrumb** on every non-root index (bidirectional navigation for an agent that lands deep via grep);
+- imperative **`Load [\`name/\`](…) for more information on <summary>`** descent pointers that splice each child folder's summary, and **`Open [**title**](…) to learn about: <summary>`** leaf pointers — valid Markdown links, verb-first invitations to act;
+- a reworked **`## By topic`**: per tag present among the folder's direct leaves, the ≤3 most-central whole-tree nodes (by tag Jaccard) as followable path+summary entries;
+- **no body statistics** — node counts and token estimates are `doctor`/curation diagnostics, kept in frontmatter (`nodes_hash`, `node_count`), never printed.
+
+- **Folder `summary` is self-preserved.** Each folder's one-line description lives in its `index.md` frontmatter `summary` (the root's in `ENTRY.md`). It is the single non-deterministic field: `generateIndex` harvests the prior on-disk value before regenerating and re-stamps it verbatim, so it survives the otherwise-total rebuild. It is authored only at the two quarantined LLM clustering moments — the v1→v2 **migrate** and the **rebalance** split/create steps (humans may hand-edit) — and merely carried by every deterministic rebuild. A folder with no summary renders the Title-cased folder-name fallback; `index rebuild` warns and exits zero (warn, never block).
 - **`kind` is a facet, not a directory.** `map` / `practice` drives only the Conventions / Components rendering split; folders are topical and free of `kind`.
 - **Path is presentation; `id` is identity.** Each leaf has one parent folder, but no node references another by path — `relates_to` / `depends_on` and index generation resolve each `id` to its current path, so relocation never breaks a reference.
 

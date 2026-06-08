@@ -6,11 +6,23 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateIndex, writeIndex } from '../../src/lib/index-gen.js';
 import {
   DEFAULT_NUDGE_THRESHOLD,
+  KK_NAVIGATION_DIRECTIVE,
   buildSessionStartContext,
   countPendingSessions,
   summarizePendingSessions,
 } from '../../src/lib/session-start.js';
 import { readState } from '../../src/lib/state.js';
+
+/** Count non-overlapping occurrences of a substring. */
+function countOccurrences(haystack: string, needle: string): number {
+  let count = 0;
+  let idx = haystack.indexOf(needle);
+  while (idx !== -1) {
+    count += 1;
+    idx = haystack.indexOf(needle, idx + needle.length);
+  }
+  return count;
+}
 
 // Session-start is the critical path: it injects the INDEX into every new
 // session and nudges curation when the queue grows. These tests assert the
@@ -135,6 +147,44 @@ describe('buildSessionStartContext (index injection)', () => {
     expect(result.additionalContext).toContain('practice-foo');
     expect(result.additionalContext).not.toContain('kenkeep index is stale');
     expect(result.additionalContext).not.toContain('pending session log');
+  });
+
+  it('injects the descent directive exactly once when ENTRY.md already embeds it', () => {
+    // Task 2 embeds the directive in the generated ENTRY.md body. The hook must
+    // therefore NOT append it again (Success Criterion 8: exactly one occurrence).
+    seedNode(harness, 'practice', 'practice-foo');
+    writeIndexFromCurrentNodes(harness);
+    const entry = readFileSync(join(harness.kkDir, 'ENTRY.md'), 'utf8');
+    expect(entry).toContain(KK_NAVIGATION_DIRECTIVE); // precondition: body embeds it
+
+    const result = buildSessionStartContext({
+      kkDir: harness.kkDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+    });
+    expect(countOccurrences(result.additionalContext, KK_NAVIGATION_DIRECTIVE)).toBe(1);
+  });
+
+  it('bridges a legacy INDEX.md body (no embedded directive) by appending it exactly once', () => {
+    // A repo seeded before the ENTRY.md rename and not yet rebuilt: the old
+    // INDEX.md body does NOT embed the directive, so the hook appends it once.
+    mkdirSync(harness.kkDir, { recursive: true });
+    writeFileSync(
+      join(harness.kkDir, 'INDEX.md'),
+      matter.stringify('# kenkeep\n\nLegacy catalog body without the directive.\n', {
+        schema_version: 2,
+        nodes_hash: 'sha256:legacy',
+        node_count: 0,
+      })
+    );
+    const result = buildSessionStartContext({
+      kkDir: harness.kkDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+    });
+    expect(countOccurrences(result.additionalContext, KK_NAVIGATION_DIRECTIVE)).toBe(1);
   });
 
   it('appends a stale warning when nodes/ has drifted from ENTRY.md', () => {

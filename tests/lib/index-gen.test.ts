@@ -394,7 +394,14 @@ describe('generateIndex actionable rendering', () => {
     // multi-tag hubs match each other at Jaccard 1.0 and partially match the
     // spoke, so they out-score the lonely single-tag leaves.
     seedNodes(root, [
-      { dir: 'home', kind: 'map', id: 'map-home', title: 'Home', summary: 'home', tags: ['shared'] },
+      {
+        dir: 'home',
+        kind: 'map',
+        id: 'map-home',
+        title: 'Home',
+        summary: 'home',
+        tags: ['shared'],
+      },
       {
         dir: 'a',
         kind: 'map',

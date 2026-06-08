@@ -11,6 +11,7 @@ import {
   writeCopilotHookConfig,
   writeCopilotInstructionsSentinel,
 } from '../../src/harnesses/copilot/hooks-config.js';
+import { KK_NAVIGATION_DIRECTIVE } from '../../src/lib/session-start.js';
 import type { HarnessPaths } from '../../src/harnesses/types.js';
 
 function copilotPaths(root: string, home: string): HarnessPaths {
@@ -153,7 +154,9 @@ describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
       })
     );
 
-    await writeClaudeHookConfig(root, [{ event: 'Stop', scriptPath: '.claude/hooks/kk-capture.cjs' }]);
+    await writeClaudeHookConfig(root, [
+      { event: 'Stop', scriptPath: '.claude/hooks/kk-capture.cjs' },
+    ]);
 
     const parsed = JSON.parse(readFileSync(settingsFile, 'utf8'));
     const commands = parsed.hooks.Stop.flatMap((e: { hooks: Array<{ command: string }> }) =>
@@ -232,7 +235,6 @@ describe('writeCodexHooks (Codex hooks.json specifics)', () => {
       'https://github.com/e0ipso/kenkeep/blob/main/docs/installation/codex-toml-hooks-coexistence.md'
     );
   });
-
 });
 
 describe('writeCursorHooksConfig (Cursor hooks.json specifics)', () => {
@@ -320,5 +322,20 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     const second = readFileSync(instructionsFile, 'utf8');
     expect(second).toBe(first);
     expect(second.split(SENTINEL_START)).toHaveLength(2);
+  });
+
+  it('does not double-print the descent directive when ENTRY.md already embeds it', async () => {
+    // Post-Task-2 ENTRY.md embeds the directive in its body. The copilot bridge
+    // must NOT append it again — the sentinel block carries it exactly once.
+    mkdirSync(join(root, '.ai', 'kenkeep'), { recursive: true });
+    writeFileSync(
+      join(root, '.ai', 'kenkeep', 'ENTRY.md'),
+      `# kenkeep\n\n${KK_NAVIGATION_DIRECTIVE}\n\n## Branches\n_None._\n`
+    );
+    mkdirSync(join(root, '.github'), { recursive: true });
+
+    await writeCopilotInstructionsSentinel(copilotPaths(root, home));
+    const body = readFileSync(join(root, '.github', 'copilot-instructions.md'), 'utf8');
+    expect(body.split(KK_NAVIGATION_DIRECTIVE)).toHaveLength(2); // exactly one occurrence
   });
 });

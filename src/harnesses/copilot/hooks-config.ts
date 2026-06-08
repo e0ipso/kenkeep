@@ -105,11 +105,13 @@ function readIndexContent(repoRoot: string): string {
   const entryFile = join(kkDir, 'ENTRY.md');
   const indexFile = existsSync(entryFile) ? entryFile : join(kkDir, 'INDEX.md');
   if (existsSync(indexFile)) {
-    // The entry catalog is the whole-tree launchpad. Pair it with the shared
-    // descent directive so Copilot gets the same enter-at-the-root,
-    // descend-on-demand guidance as the other adapters, sourced from the one
-    // KK_NAVIGATION_DIRECTIVE constant.
+    // The entry catalog is the whole-tree launchpad. The generated ENTRY.md now
+    // embeds the descent directive itself, so append it only when the body does
+    // NOT already carry it — i.e. the legacy INDEX.md fallback — so Copilot gets
+    // the same enter-at-the-root, descend-on-demand guidance exactly once,
+    // sourced from the one KK_NAVIGATION_DIRECTIVE constant.
     const body = readFileSync(indexFile, 'utf8').trimEnd();
+    if (body.includes(KK_NAVIGATION_DIRECTIVE)) return body;
     return `${body}\n\n${KK_NAVIGATION_DIRECTIVE}`;
   }
   return 'Curated project knowledge lives in .ai/kenkeep/ENTRY.md (not yet generated). Run `npx kenkeep index rebuild` to populate it.';

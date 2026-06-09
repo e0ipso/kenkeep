@@ -135,7 +135,6 @@ function findNewestMatching(
   return newest;
 }
 
-
 void main().catch((err: unknown) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));

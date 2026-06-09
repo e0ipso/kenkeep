@@ -59,9 +59,7 @@ function checkClaudeHooks(settingsFile: string, hooksDir: string): DoctorCheckRe
   const parts: string[] = [];
   if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
   if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return errCheck(
-    `${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses claude --upgrade\`.`
-  );
+  return errCheck(`${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses claude --upgrade\`.`);
 }
 
 function checkClaudeSkills(skillsDir: string): DoctorCheckResult {

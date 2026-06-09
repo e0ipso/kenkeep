@@ -220,7 +220,9 @@ describe('nodes helpers', () => {
     });
     expect(second).toBe(first);
     expect(readFileSync(first, 'utf8')).toContain('updated body');
-    expect(readAllNodes(root).filter(n => n.frontmatter.id === 'practice-in-place')).toHaveLength(1);
+    expect(readAllNodes(root).filter(n => n.frontmatter.id === 'practice-in-place')).toHaveLength(
+      1
+    );
     expect(nodeFileExists(root, 'practice-in-place')).toBe(true);
   });
 

@@ -155,7 +155,6 @@ function findBySessionMeta(dir: string, sessionId: string): string | null {
   return null;
 }
 
-
 void main().catch((err: unknown) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));

@@ -41,4 +41,3 @@ export async function installCursor(opts: HarnessInstallOptions): Promise<void> 
     }))
   );
 }
-

@@ -43,7 +43,7 @@ export const HARNESS_MEMORY_DISCOVERY_PROMPT = [
   '',
   'Auto-memory files are the files the harness writes to remember user',
   'preferences, project facts, feedback, or external references between',
-  'sessions (e.g. Claude Code\'s memory files under the user/project memory',
+  "sessions (e.g. Claude Code's memory files under the user/project memory",
   'directory). Configuration files, transcripts, hook scripts, and skill',
   'definitions are NOT memory files and must be excluded.',
   '',

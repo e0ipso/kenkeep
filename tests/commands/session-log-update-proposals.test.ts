@@ -107,7 +107,15 @@ describe('session-log update-proposals CLI', () => {
   it('sets error fields with --status failed', async () => {
     const result = await runCliWithStdin(
       sandbox,
-      ['session-log', 'update-proposals', sessionPath, '--status', 'failed', '--error', 'extraction timed out'],
+      [
+        'session-log',
+        'update-proposals',
+        sessionPath,
+        '--status',
+        'failed',
+        '--error',
+        'extraction timed out',
+      ],
       ''
     );
 

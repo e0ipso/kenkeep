@@ -30,7 +30,6 @@ async function main(): Promise<void> {
   await runLintTick(startCwd, 'opencode:kk-lint-tick');
 }
 
-
 void main().catch((err: unknown) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -6,52 +6,59 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === 'object') || typeof from === 'function') {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule
+      ? __defProp(target, 'default', { value: mod, enumerable: true })
+      : target,
+    mod
+  )
+);
+var __toCommonJS = mod => __copyProps(__defProp({}, '__esModule', { value: true }), mod);
 
 // src/skill-scripts/find-strikethroo-root.ts
 var find_strikethroo_root_exports = {};
 __export(find_strikethroo_root_exports, {
-  main: () => main
+  main: () => main,
 });
 module.exports = __toCommonJS(find_strikethroo_root_exports);
 
 // src/skill-scripts/shared/root.ts
-var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
+var fs = __toESM(require('fs'));
+var path = __toESM(require('path'));
 var EXPECTED_SCHEMA = true ? 1 : 1;
-var isValidStrikethrooRoot = (strikethrooPath) => {
+var isValidStrikethrooRoot = strikethrooPath => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
     if (!fs.lstatSync(strikethrooPath).isDirectory()) return false;
-    const metadataPath = path.join(strikethrooPath, ".init-metadata.json");
+    const metadataPath = path.join(strikethrooPath, '.init-metadata.json');
     if (!fs.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    return metadata && typeof metadata === 'object' && 'version' in metadata;
   } catch (_err) {
     return false;
   }
 };
-var getStrikethrooAt = (directory) => {
-  const strikethrooPath = path.join(directory, ".ai", "strikethroo");
+var getStrikethrooAt = directory => {
+  const strikethrooPath = path.join(directory, '.ai', 'strikethroo');
   return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
 var getParentPaths = (currentPath, acc = []) => {
@@ -61,14 +68,15 @@ var getParentPaths = (currentPath, acc = []) => {
   if (parentPath === absolutePath) return nextAcc;
   return getParentPaths(parentPath, nextAcc);
 };
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = metadataPath => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
   } catch {
     return;
   }
-  const actual = typeof metadata.workspaceSchemaVersion === "number" ? metadata.workspaceSchemaVersion : 1;
+  const actual =
+    typeof metadata.workspaceSchemaVersion === 'number' ? metadata.workspaceSchemaVersion : 1;
   if (actual === EXPECTED_SCHEMA) return;
   if (actual < EXPECTED_SCHEMA) {
     process.stderr.write(
@@ -85,10 +93,10 @@ var checkWorkspaceSchema = (metadataPath) => {
 };
 var findStrikethrooRoot = (startPath = process.cwd()) => {
   const paths = getParentPaths(startPath);
-  const found = paths.find((p) => getStrikethrooAt(p));
+  const found = paths.find(p => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  if (root) checkWorkspaceSchema(path.join(root, '.init-metadata.json'));
   return root;
 };
 
@@ -111,6 +119,7 @@ if (require.main === module) {
   main();
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  main
-});
+0 &&
+  (module.exports = {
+    main,
+  });

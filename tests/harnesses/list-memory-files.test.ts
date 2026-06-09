@@ -110,7 +110,10 @@ describe('discoverHarnessMemoryFiles (shared ledger pipeline)', () => {
   it('skips files whose sha256 matches the ledger and reprocesses on hash change', async () => {
     const iri = writeMemoryFile(box, 'memory_a.md', 'original body\n');
 
-    let result = await discoverHarnessMemoryFiles({ adapter: stubAdapter([iri]), paths: box.paths });
+    let result = await discoverHarnessMemoryFiles({
+      adapter: stubAdapter([iri]),
+      paths: box.paths,
+    });
     expect(result.bootstrapCandidates).toHaveLength(1);
     await result.commit('run-1', true);
     const firstLedger = JSON.parse(readFileSync(box.paths.memoryLedgerFile, 'utf8'));
@@ -147,7 +150,10 @@ describe('discoverHarnessMemoryFiles (shared ledger pipeline)', () => {
 
   it('does not commit ledger entries when the consumer reports failure', async () => {
     const iri = writeMemoryFile(box, 'memory_a.md', 'body\n');
-    const result = await discoverHarnessMemoryFiles({ adapter: stubAdapter([iri]), paths: box.paths });
+    const result = await discoverHarnessMemoryFiles({
+      adapter: stubAdapter([iri]),
+      paths: box.paths,
+    });
     expect(result.bootstrapCandidates).toHaveLength(1);
     await result.commit('run-1', false);
     expect(() => readFileSync(box.paths.memoryLedgerFile, 'utf8')).toThrow();

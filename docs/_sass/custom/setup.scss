@@ -6,10 +6,18 @@
 // assets/fonts and declared in _includes/head_custom.html.
 // =====================================================================
 
-$body-font-family: "Outfit", system-ui, -apple-system, "Segoe UI", roboto,
-  "Helvetica Neue", arial, sans-serif;
-$mono-font-family: ui-monospace, "SF Mono", "SFMono-Regular", "Cascadia Code",
-  "Fira Code", menlo, consolas, monospace;
+$body-font-family:
+  'Outfit',
+  system-ui,
+  -apple-system,
+  'Segoe UI',
+  roboto,
+  'Helvetica Neue',
+  arial,
+  sans-serif;
+$mono-font-family:
+  ui-monospace, 'SF Mono', 'SFMono-Regular', 'Cascadia Code', 'Fira Code', menlo, consolas,
+  monospace;
 
 $root-font-size: 16px;
 $body-line-height: 1.55;

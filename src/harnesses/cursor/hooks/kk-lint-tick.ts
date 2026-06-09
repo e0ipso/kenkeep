@@ -30,7 +30,6 @@ async function main(): Promise<void> {
   await runLintTick(startCwd, 'cursor:kk-lint-tick');
 }
 
-
 void main().catch((err: unknown) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));

@@ -19,7 +19,9 @@ describe('harness registry', () => {
   it('hasHarness recognizes registered ids and getHarness throws for unregistered ones', () => {
     expect(hasHarness('claude')).toBe(true);
     expect(hasHarness('not-a-real-harness')).toBe(false);
-    expect(() => getHarness('not-a-real-harness')).toThrow(/Unsupported harness 'not-a-real-harness'/);
+    expect(() => getHarness('not-a-real-harness')).toThrow(
+      /Unsupported harness 'not-a-real-harness'/
+    );
   });
 });
 

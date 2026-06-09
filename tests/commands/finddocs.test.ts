@@ -117,11 +117,8 @@ describe('finddocs CLI command', () => {
       const parts = readmeLine!.split('\t');
       expect(parts.length).toBe(2);
       expect(parts[0]).toBe('+ README.md');
-      const expectedHash = createHash('sha256')
-        .update('# project\n\nIntro.', 'utf8')
-        .digest('hex');
+      const expectedHash = createHash('sha256').update('# project\n\nIntro.', 'utf8').digest('hex');
       expect(parts[1]).toBe(expectedHash);
     });
   });
-
 });

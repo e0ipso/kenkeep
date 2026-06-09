@@ -2,11 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  SETTINGS_DEFAULTS,
-  projectConfigPath,
-  resolveSettings,
-} from '../../src/lib/settings.js';
+import { SETTINGS_DEFAULTS, projectConfigPath, resolveSettings } from '../../src/lib/settings.js';
 import { SettingsSchema } from '../../src/lib/schemas.js';
 
 describe('settings', () => {
@@ -63,9 +59,7 @@ describe('settings', () => {
   });
 
   it('projectConfigPath joins to the kb dir', () => {
-    expect(projectConfigPath('/repo/.ai/kenkeep')).toBe(
-      '/repo/.ai/kenkeep/config.yaml'
-    );
+    expect(projectConfigPath('/repo/.ai/kenkeep')).toBe('/repo/.ai/kenkeep/config.yaml');
   });
 
   it('accepts a complete claude model choice and treats all three keys as optional', () => {

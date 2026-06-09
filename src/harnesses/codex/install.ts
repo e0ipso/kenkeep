@@ -50,5 +50,3 @@ export async function installCodex(opts: HarnessInstallOptions): Promise<void> {
     }))
   );
 }
-
-

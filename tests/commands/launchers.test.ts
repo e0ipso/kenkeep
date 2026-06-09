@@ -29,7 +29,10 @@ interface FakeSpawn {
   emit: (code: number | null) => void;
 }
 
-function makeFakeSpawn(): { spawnFn: typeof import('node:child_process').spawn; captured: FakeSpawn[] } {
+function makeFakeSpawn(): {
+  spawnFn: typeof import('node:child_process').spawn;
+  captured: FakeSpawn[];
+} {
   const captured: FakeSpawn[] = [];
   const spawnFn = ((binary: string, args: readonly string[], options: Record<string, unknown>) => {
     const child = new EventEmitter() as EventEmitter & {
@@ -142,7 +145,6 @@ describe('launchSkill', () => {
       expect(captured[0]!.args.binary, `harness ${harness}`).toBe(expectedBinary);
     }
   });
-
 });
 
 describe('runBootstrapLauncher / runCurateLauncher / runNodeAddLauncher', () => {

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { pickModelChoice, type EffectiveSettings, type ModelChoiceRole } from '../../lib/settings.js';
+import {
+  pickModelChoice,
+  type EffectiveSettings,
+  type ModelChoiceRole,
+} from '../../lib/settings.js';
 import { EffortLevelSchema, ModelFamilySchema } from '../../lib/schemas.js';
 
 /**

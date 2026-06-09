@@ -6,14 +6,24 @@
 // =====================================================================
 
 // ---- Display serif for headings (body stays Outfit, set in custom/setup) ----
-h1, h2, h3, h4, h5, h6,
-.text-alpha, .text-beta, .text-gamma, .text-delta, .text-epsilon {
-  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.text-alpha,
+.text-beta,
+.text-gamma,
+.text-delta,
+.text-epsilon {
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
   font-weight: 600;
   letter-spacing: -0.015em;
 }
 
-h1, .text-alpha {
+h1,
+.text-alpha {
   letter-spacing: -0.025em;
 }
 
@@ -21,7 +31,7 @@ h1, .text-alpha {
 // The site title is the lowercase brand mark in Outfit. (No throughline: unlike
 // strikethroo's wordmark there is no strike-through pun on this name.)
 .site-title.site-title {
-  font-family: "Outfit", system-ui, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
   font-weight: 500;
   letter-spacing: -0.015em;
   text-transform: lowercase;
@@ -50,13 +60,13 @@ h1, .text-alpha {
 // Internals children keep their plain style). NOTE: this site compiles with the
 // old Ruby Sass, which rejects CSS custom properties that hold a url(), so the
 // icon is set with mask-image longhands per link rather than a shared --var.
-.site-nav .nav-list-link[href$="/kenkeep/"]::before,
-.site-nav .nav-list-link[href$="/how-it-works.html"]::before,
-.site-nav .nav-list-link[href$="/installation.html"]::before,
-.site-nav .nav-list-link[href$="/daily-use.html"]::before,
-.site-nav .nav-list-link[href$="/troubleshooting.html"]::before,
-.site-nav .nav-list-link[href$="/internals/"]::before {
-  content: "";
+.site-nav .nav-list-link[href$='/kenkeep/']::before,
+.site-nav .nav-list-link[href$='/how-it-works.html']::before,
+.site-nav .nav-list-link[href$='/installation.html']::before,
+.site-nav .nav-list-link[href$='/daily-use.html']::before,
+.site-nav .nav-list-link[href$='/troubleshooting.html']::before,
+.site-nav .nav-list-link[href$='/internals/']::before {
+  content: '';
   display: inline-block;
   flex: 0 0 auto;
   width: 1em;
@@ -71,29 +81,29 @@ h1, .text-alpha {
   -webkit-mask-size: contain;
   mask-size: contain;
 }
-.site-nav .nav-list-link[href$="/kenkeep/"]::before {
-  -webkit-mask-image: url("../icons/house.svg");
-  mask-image: url("../icons/house.svg");
+.site-nav .nav-list-link[href$='/kenkeep/']::before {
+  -webkit-mask-image: url('../icons/house.svg');
+  mask-image: url('../icons/house.svg');
 }
-.site-nav .nav-list-link[href$="/how-it-works.html"]::before {
-  -webkit-mask-image: url("../icons/workflow.svg");
-  mask-image: url("../icons/workflow.svg");
+.site-nav .nav-list-link[href$='/how-it-works.html']::before {
+  -webkit-mask-image: url('../icons/workflow.svg');
+  mask-image: url('../icons/workflow.svg');
 }
-.site-nav .nav-list-link[href$="/installation.html"]::before {
-  -webkit-mask-image: url("../icons/download.svg");
-  mask-image: url("../icons/download.svg");
+.site-nav .nav-list-link[href$='/installation.html']::before {
+  -webkit-mask-image: url('../icons/download.svg');
+  mask-image: url('../icons/download.svg');
 }
-.site-nav .nav-list-link[href$="/daily-use.html"]::before {
-  -webkit-mask-image: url("../icons/repeat.svg");
-  mask-image: url("../icons/repeat.svg");
+.site-nav .nav-list-link[href$='/daily-use.html']::before {
+  -webkit-mask-image: url('../icons/repeat.svg');
+  mask-image: url('../icons/repeat.svg');
 }
-.site-nav .nav-list-link[href$="/troubleshooting.html"]::before {
-  -webkit-mask-image: url("../icons/wrench.svg");
-  mask-image: url("../icons/wrench.svg");
+.site-nav .nav-list-link[href$='/troubleshooting.html']::before {
+  -webkit-mask-image: url('../icons/wrench.svg');
+  mask-image: url('../icons/wrench.svg');
 }
-.site-nav .nav-list-link[href$="/internals/"]::before {
-  -webkit-mask-image: url("../icons/cpu.svg");
-  mask-image: url("../icons/cpu.svg");
+.site-nav .nav-list-link[href$='/internals/']::before {
+  -webkit-mask-image: url('../icons/cpu.svg');
+  mask-image: url('../icons/cpu.svg');
 }
 
 // ---- Links ----
@@ -169,7 +179,7 @@ code {
   // h5/h6 are too small to lean on size alone — keep them as a sans, tracked,
   // uppercase label (accent color) so they still read clearly as headings.
   h5 {
-    font-family: "Outfit", system-ui, sans-serif;
+    font-family: 'Outfit', system-ui, sans-serif;
     font-size: 0.8rem !important;
     font-weight: 700;
     text-transform: uppercase;
@@ -178,7 +188,7 @@ code {
     color: $link-color;
   }
   h6 {
-    font-family: "Outfit", system-ui, sans-serif;
+    font-family: 'Outfit', system-ui, sans-serif;
     font-size: 0.75rem !important;
     font-weight: 700;
     text-transform: uppercase;
@@ -236,7 +246,7 @@ code {
   .wide-video {
     // Interpolated so Sass emits it verbatim instead of trying (and failing) to
     // do vw/rem arithmetic at compile time. Resolves in the browser per viewport.
-    --bleed: #{"max(0rem, min(8rem, (100vw - 66.5rem) / 2 - 1rem))"};
+    --bleed: #{'max(0rem, min(8rem, (100vw - 66.5rem) / 2 - 1rem))'};
     width: calc(100% + 4rem + 2 * var(--bleed));
     margin-right: calc(-2rem - var(--bleed));
     margin-left: calc(-2rem - var(--bleed));
@@ -254,7 +264,7 @@ code {
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.7rem;
-  font-family: "Outfit", system-ui, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
   color: $body-text-color;
@@ -262,7 +272,9 @@ code {
   border: 1px solid $border-color;
   border-radius: 0.5rem;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 .kk-theme__btn:hover {
   color: $link-color;
@@ -327,7 +339,7 @@ $callout-warning-border: hsl(32, 70%, 50%);
 }
 .callout__title {
   margin: 0 0 0.375rem;
-  font-family: "Outfit", system-ui, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.1em;

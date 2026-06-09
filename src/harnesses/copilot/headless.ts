@@ -48,8 +48,7 @@ export async function runHeadlessCopilot<T>(
   const cli = opts.copilotCli ?? 'copilot';
   const repoRoot = opts.repoRoot ?? process.cwd();
 
-  const fullPrompt =
-    stdin.length > 0 ? `${promptBody}\n\n--- input ---\n${stdin}` : promptBody;
+  const fullPrompt = stdin.length > 0 ? `${promptBody}\n\n--- input ---\n${stdin}` : promptBody;
 
   const args: string[] = [
     '-p',

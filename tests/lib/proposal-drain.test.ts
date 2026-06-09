@@ -29,7 +29,12 @@ function makeHarness(): Harness {
   mkdirSync(paths.sessionsDir, { recursive: true });
   mkdirSync(paths.logsDir, { recursive: true });
   mkdirSync(paths.stateDir, { recursive: true });
-  return { root, paths, sessionsDir: paths.sessionsDir, stateFile: join(paths.stateDir, 'state.json') };
+  return {
+    root,
+    paths,
+    sessionsDir: paths.sessionsDir,
+    stateFile: join(paths.stateDir, 'state.json'),
+  };
 }
 
 function seedSession(harness: Harness, sessionId: string, transcript: string): string {

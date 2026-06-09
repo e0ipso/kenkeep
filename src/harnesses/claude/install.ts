@@ -57,4 +57,3 @@ export function refreshClaudeTemplates(opts: HarnessInstallOptions): void {
   copyTree(join(templates, 'hooks'), paths.hooksDir);
   installSharedSkills(opts.templatesDir, paths.skillsDir);
 }
-

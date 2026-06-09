@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { pickModelChoice, type EffectiveSettings, type ModelChoiceRole } from '../../lib/settings.js';
+import {
+  pickModelChoice,
+  type EffectiveSettings,
+  type ModelChoiceRole,
+} from '../../lib/settings.js';
 
 /**
  * Copilot-local Zod schema for the opaque `harnessOpts` blob handed to

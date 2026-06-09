@@ -10,9 +10,7 @@ export async function runStatus(): Promise<void> {
   const paths = repoPaths(root);
 
   if (!existsSync(paths.installedVersionFile)) {
-    log.warn(
-      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.'
-    );
+    log.warn('kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.');
     return;
   }
 
@@ -24,9 +22,7 @@ export async function runStatus(): Promise<void> {
   const sessionStats = scanSessions(paths.sessionsDir);
   const nodeCounts = countNodes(paths.nodesDir);
 
-  log.plain(
-    `kenkeep v${installed.version} (installed ${installed.installed_at})`
-  );
+  log.plain(`kenkeep v${installed.version} (installed ${installed.installed_at})`);
   log.plain('');
   log.plain('Knowledge base');
   log.plain(`  Practice nodes: ${nodeCounts.practice}`);

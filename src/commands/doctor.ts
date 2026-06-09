@@ -220,9 +220,7 @@ function installedHarnessIds(file: string): string[] {
 
 function checkInstalled(file: string): CheckResult {
   if (!existsSync(file)) {
-    return err(
-      'missing. Run `npx kenkeep init --harnesses claude` from the repo root.'
-    );
+    return err('missing. Run `npx kenkeep init --harnesses claude` from the repo root.');
   }
   let parsed: { version?: string };
   try {
@@ -249,8 +247,7 @@ function checkPrompts(promptsDir: string): CheckResult {
 }
 
 function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
-  if (!existsSync(indexFile))
-    return warn('ENTRY.md missing; run `npx kenkeep index rebuild`.');
+  if (!existsSync(indexFile)) return warn('ENTRY.md missing; run `npx kenkeep index rebuild`.');
   try {
     const parsed = matter(readFileSync(indexFile, 'utf8'));
     const fm = IndexFrontmatterSchema.safeParse(parsed.data);

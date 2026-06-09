@@ -1,11 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, posix, sep } from 'node:path';
-import {
-  discoverMarkdownFiles,
-  loadIgnoreFile,
-  type DiscoverOptions,
-} from '../lib/bootstrap.js';
+import { discoverMarkdownFiles, loadIgnoreFile, type DiscoverOptions } from '../lib/bootstrap.js';
 import { findRepoRoot } from '../lib/paths.js';
 import { log } from '../lib/log.js';
 

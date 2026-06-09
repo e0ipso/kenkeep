@@ -10,7 +10,12 @@ import {
 } from '../../src/lib/rebalance.js';
 import type { NodeFile } from '../../src/lib/nodes.js';
 
-function folder(relDir: string, occupancy: number, tagDiversity = 1, leafSize = 100): FolderMetricEntry {
+function folder(
+  relDir: string,
+  occupancy: number,
+  tagDiversity = 1,
+  leafSize = 100
+): FolderMetricEntry {
   return { relDir, metrics: { occupancy, tagDiversity, leafSize } };
 }
 
@@ -53,7 +58,10 @@ describe('rebalance trigger thresholds', () => {
 
   it('is deterministic: identical input yields byte-identical output', () => {
     const folders = [folder('alpha', FOLDER_OCCUPANCY_MAX + 5), folder('beta', 1)];
-    const leaves = [leaf({ id: 'practice-a', relDir: 'alpha' }), leaf({ id: 'practice-b', relDir: 'beta' })];
+    const leaves = [
+      leaf({ id: 'practice-a', relDir: 'alpha' }),
+      leaf({ id: 'practice-b', relDir: 'beta' }),
+    ];
     const a = JSON.stringify(decideRebalance(folders, leaves));
     const b = JSON.stringify(decideRebalance(folders, leaves));
     expect(a).toBe(b);
@@ -88,15 +96,24 @@ describe('rebalance trigger thresholds', () => {
     const manyTags = Array.from({ length: LEAF_CONCEPT_MIN }, (_, i) => `t${i}`);
     // Both gates: fires.
     expect(
-      decideRebalance([], [leaf({ id: 'practice-big', relDir: 'home', tags: manyTags, bodyChars: bigChars })]).actions
+      decideRebalance(
+        [],
+        [leaf({ id: 'practice-big', relDir: 'home', tags: manyTags, bodyChars: bigChars })]
+      ).actions
     ).toEqual([{ branch: 'home/practice-big.md', operation: 'split-leaf' }]);
     // Big but too few concepts: does not fire.
     expect(
-      decideRebalance([], [leaf({ id: 'practice-big', relDir: 'home', tags: ['only-one'], bodyChars: bigChars })]).actions
+      decideRebalance(
+        [],
+        [leaf({ id: 'practice-big', relDir: 'home', tags: ['only-one'], bodyChars: bigChars })]
+      ).actions
     ).toEqual([]);
     // Many concepts but small: does not fire.
     expect(
-      decideRebalance([], [leaf({ id: 'practice-small', relDir: 'home', tags: manyTags, bodyChars: 40 })]).actions
+      decideRebalance(
+        [],
+        [leaf({ id: 'practice-small', relDir: 'home', tags: manyTags, bodyChars: 40 })]
+      ).actions
     ).toEqual([]);
   });
 
@@ -106,12 +123,18 @@ describe('rebalance trigger thresholds', () => {
     ]);
     // A root leaf that relates to something is not homeless: no create-branch.
     expect(
-      decideRebalance([], [leaf({ id: 'practice-linked', relDir: '', relates_to: ['practice-other'] })]).actions
+      decideRebalance(
+        [],
+        [leaf({ id: 'practice-linked', relDir: '', relates_to: ['practice-other'] })]
+      ).actions
     ).toEqual([]);
   });
 
   it('sorts actions by branch then operation for stable output', () => {
-    const folders = [folder('zeta', FOLDER_OCCUPANCY_MAX + 1), folder('alpha', BRANCH_OCCUPANCY_MIN - 1)];
+    const folders = [
+      folder('zeta', FOLDER_OCCUPANCY_MAX + 1),
+      folder('alpha', BRANCH_OCCUPANCY_MIN - 1),
+    ];
     const actions = decideRebalance(folders, []).actions;
     expect(actions).toEqual([
       { branch: 'alpha', operation: 'merge' },

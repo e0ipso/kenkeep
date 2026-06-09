@@ -56,9 +56,7 @@ function checkCodexHooks(
     }
   }
   if (!existsSync(hooksFile)) {
-    return errCheck(
-      'no .codex/hooks.json. Run `npx kenkeep init --harnesses codex --upgrade`.'
-    );
+    return errCheck('no .codex/hooks.json. Run `npx kenkeep init --harnesses codex --upgrade`.');
   }
   let parsed: {
     hooks?: Record<string, Array<{ hooks?: Array<{ type?: string; command?: string }> }>>;
@@ -87,9 +85,7 @@ function checkCodexHooks(
   const parts: string[] = [];
   if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
   if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return errCheck(
-    `${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses codex --upgrade\`.`
-  );
+  return errCheck(`${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses codex --upgrade\`.`);
 }
 
 function checkCodexSkills(skillsDir: string): DoctorCheckResult {

@@ -266,9 +266,15 @@ describe('cursor headless option mapping', () => {
 
   it('honors agentCli override and passes the documented flags', async () => {
     const { captured } = mockExecaOnce([
-      JSON.stringify({ type: 'result', subtype: 'success', result: JSON.stringify({ ok: true, n: 1 }) }),
+      JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: JSON.stringify({ ok: true, n: 1 }),
+      }),
     ]);
-    await cursor.runHeadless('prompt', '', Schema, { harnessOpts: { agentCli: '/tmp/fake-agent' } });
+    await cursor.runHeadless('prompt', '', Schema, {
+      harnessOpts: { agentCli: '/tmp/fake-agent' },
+    });
     expect(captured.command).toBe('/tmp/fake-agent');
     expect(captured.args).toContain('-p');
     expect(captured.args).toContain('--output-format');

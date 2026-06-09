@@ -77,7 +77,9 @@ export function parseOpenCodeTranscript(
         try {
           sessionFile = JSON.parse(readFileSync(candidate, 'utf8')) as SessionFile;
         } catch (err) {
-          console.warn(`parseOpenCodeTranscript: skipping malformed JSON file: ${(err as Error).message}`);
+          console.warn(
+            `parseOpenCodeTranscript: skipping malformed JSON file: ${(err as Error).message}`
+          );
           sessionFile = null;
         }
         break;
@@ -97,7 +99,9 @@ export function parseOpenCodeTranscript(
       try {
         content = JSON.parse(readFileSync(full, 'utf8')) as MessageFile;
       } catch (err) {
-        console.warn(`parseOpenCodeTranscript: skipping malformed JSON file: ${(err as Error).message}`);
+        console.warn(
+          `parseOpenCodeTranscript: skipping malformed JSON file: ${(err as Error).message}`
+        );
         content = {};
       }
       return { name, content };
@@ -117,7 +121,9 @@ export function parseOpenCodeTranscript(
         try {
           content = JSON.parse(readFileSync(full, 'utf8')) as PartFile;
         } catch (err) {
-          console.warn(`parseOpenCodeTranscript: skipping malformed JSON file: ${(err as Error).message}`);
+          console.warn(
+            `parseOpenCodeTranscript: skipping malformed JSON file: ${(err as Error).message}`
+          );
           content = {};
         }
         return { name, content };

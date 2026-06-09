@@ -48,9 +48,7 @@ async function checkCopilotCli(): Promise<DoctorCheckResult> {
 
 function checkCopilotAuth(): DoctorCheckResult {
   const token =
-    process.env['COPILOT_GITHUB_TOKEN'] ??
-    process.env['GH_TOKEN'] ??
-    process.env['GITHUB_TOKEN'];
+    process.env['COPILOT_GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? process.env['GITHUB_TOKEN'];
   if (token && token.length > 0) return ok('GitHub token present in environment');
   if (existsSync(join(copilotHome(), 'settings.json'))) {
     return ok('~/.copilot/settings.json present (assuming interactive `/login` completed)');
@@ -63,9 +61,7 @@ function checkCopilotAuth(): DoctorCheckResult {
 function checkCopilotHooks(): DoctorCheckResult {
   const hookFile = join(copilotHome(), 'hooks', 'kk.json');
   if (!existsSync(hookFile)) {
-    return errCheck(
-      `no ${hookFile}. Run \`npx kenkeep init --harnesses copilot --upgrade\`.`
-    );
+    return errCheck(`no ${hookFile}. Run \`npx kenkeep init --harnesses copilot --upgrade\`.`);
   }
   let parsed: { hooks?: Record<string, Array<{ type?: string; bash?: string }>> };
   try {

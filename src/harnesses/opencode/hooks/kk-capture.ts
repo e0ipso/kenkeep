@@ -149,7 +149,6 @@ function shapeExportedTranscript(json: unknown): RoleTaggedTranscript {
   return out;
 }
 
-
 void main().catch((err: unknown) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));

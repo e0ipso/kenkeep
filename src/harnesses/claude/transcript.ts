@@ -43,7 +43,9 @@ export function parseTranscriptJsonl(text: string): RoleTaggedTranscript {
     try {
       msg = JSON.parse(line) as RawMessage;
     } catch (err) {
-      console.warn(`parseClaudeTranscript: skipping malformed JSONL line: ${(err as Error).message}`);
+      console.warn(
+        `parseClaudeTranscript: skipping malformed JSONL line: ${(err as Error).message}`
+      );
       continue;
     }
     const role = msg.message?.role ?? msg.role ?? msg.type;

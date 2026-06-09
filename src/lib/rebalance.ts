@@ -105,8 +105,7 @@ export interface FolderMetricEntry {
 /** Estimated token size of one leaf, mirroring index-gen's estimator. */
 const CHARS_PER_TOKEN = 4;
 function estimateLeafTokens(node: NodeFile): number {
-  const chars =
-    node.frontmatter.title.length + node.frontmatter.summary.length + node.body.length;
+  const chars = node.frontmatter.title.length + node.frontmatter.summary.length + node.body.length;
   return Math.max(0, Math.ceil(chars / CHARS_PER_TOKEN));
 }
 

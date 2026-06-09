@@ -3,12 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
-import {
-  errCheck,
-  ok,
-  type DoctorCheckResult,
-  type NamedDoctorCheck,
-} from '../types.js';
+import { errCheck, ok, type DoctorCheckResult, type NamedDoctorCheck } from '../types.js';
 import { cursorHookSpecs } from './hook-spec.js';
 import { cursorPaths } from './install.js';
 
@@ -44,9 +39,7 @@ async function checkAgentCli(): Promise<DoctorCheckResult> {
 
 function checkCursorHooks(hooksFile: string, hooksDir: string): DoctorCheckResult {
   if (!existsSync(hooksFile)) {
-    return errCheck(
-      'no .cursor/hooks.json. Run `npx kenkeep init --harnesses cursor --upgrade`.'
-    );
+    return errCheck('no .cursor/hooks.json. Run `npx kenkeep init --harnesses cursor --upgrade`.');
   }
   let parsed: { hooks?: Record<string, Array<{ command?: string }>> };
   try {
@@ -71,9 +64,7 @@ function checkCursorHooks(hooksFile: string, hooksDir: string): DoctorCheckResul
   const parts: string[] = [];
   if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
   if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return errCheck(
-    `${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses cursor --upgrade\`.`
-  );
+  return errCheck(`${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses cursor --upgrade\`.`);
 }
 
 function checkCursorSkills(skillsDir: string): DoctorCheckResult {

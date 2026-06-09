@@ -107,11 +107,7 @@ function rankConfidence(action: CuratorAction): number {
  * each pending session file. Exported so the standalone `curate dedup`
  * primitive can apply the same mark from the CLI.
  */
-export function markSessionsProcessed(
-  sessions: PendingSession[],
-  runId: string,
-  now: Date
-): void {
+export function markSessionsProcessed(sessions: PendingSession[], runId: string, now: Date): void {
   for (const s of sessions) {
     const parsed = matter(readFileSync(s.filePath, 'utf8'));
     const data = { ...(parsed.data as Record<string, unknown>) };

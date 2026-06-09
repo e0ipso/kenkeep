@@ -37,7 +37,9 @@ console.log(`Copied ${src} -> ${dest}`);
 
 function usesKkHooksOutput(harnessId) {
   const adapterDir = join(harnessSrcRoot, harnessId);
-  return existsSync(join(adapterDir, 'plugins')) || existsSync(join(adapterDir, '.kk-hooks-output'));
+  return (
+    existsSync(join(adapterDir, 'plugins')) || existsSync(join(adapterDir, '.kk-hooks-output'))
+  );
 }
 
 if (existsSync(compiledHooksRoot)) {

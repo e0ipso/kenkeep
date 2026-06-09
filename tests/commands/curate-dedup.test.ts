@@ -205,10 +205,7 @@ describe('runCurateDedupCommand (session stamps)', () => {
       proposal_log: null,
       proposals: { practice: [], map: [] },
     };
-    writeFileSync(
-      join(sandbox.sessionsDir, notDoneName),
-      matter.stringify('## Proposal\n', fm)
-    );
+    writeFileSync(join(sandbox.sessionsDir, notDoneName), matter.stringify('## Proposal\n', fm));
 
     const code = await runCurateDedupCommand({
       input: inputFixture,

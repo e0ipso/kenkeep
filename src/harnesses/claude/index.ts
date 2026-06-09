@@ -1,10 +1,7 @@
 import { join } from 'node:path';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import { log } from '../../lib/log.js';
-import {
-  HARNESS_MEMORY_DISCOVERY_PROMPT,
-  MemoryIriListSchema,
-} from '../../lib/memory-files.js';
+import { HARNESS_MEMORY_DISCOVERY_PROMPT, MemoryIriListSchema } from '../../lib/memory-files.js';
 import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
 import { claudeDoctorChecks } from './doctor.js';
 import { runHeadlessClaude, runHeadlessClaudeRaw } from './headless.js';

@@ -10,14 +10,16 @@ describe('extractJsonPayload', () => {
   it('unwraps fenced blocks (json-tagged and bare), including those preceded by prose', () => {
     expect(JSON.parse(extractJsonPayload('```json\n{"a":1}\n```'))).toEqual({ a: 1 });
     expect(JSON.parse(extractJsonPayload('```\n[true, false]\n```'))).toEqual([true, false]);
-    expect(JSON.parse(extractJsonPayload('Sure, here is the JSON:\n\n```json\n{"ok":true}\n```'))).toEqual(
-      { ok: true }
-    );
+    expect(
+      JSON.parse(extractJsonPayload('Sure, here is the JSON:\n\n```json\n{"ok":true}\n```'))
+    ).toEqual({ ok: true });
   });
 
   it('skips a fenced non-JSON block and returns the last balanced object from prose', () => {
     expect(
-      JSON.parse(extractJsonPayload('Background:\n```bash\necho hi\n```\nAnswer:\n```json\n{"x":42}\n```'))
+      JSON.parse(
+        extractJsonPayload('Background:\n```bash\necho hi\n```\nAnswer:\n```json\n{"x":42}\n```')
+      )
     ).toEqual({ x: 42 });
     expect(
       JSON.parse(extractJsonPayload('First I considered {"draft":1} but the answer is {"final":2}'))

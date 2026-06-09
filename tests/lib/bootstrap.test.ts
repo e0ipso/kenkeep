@@ -3,11 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import ignore from 'ignore';
-import {
-  discoverMarkdownFiles,
-  readBootstrapState,
-  sha256Hex,
-} from '../../src/lib/bootstrap.js';
+import { discoverMarkdownFiles, readBootstrapState, sha256Hex } from '../../src/lib/bootstrap.js';
 import { repoPaths, type RepoPaths } from '../../src/lib/paths.js';
 
 // The finddocs CLI integration test covers the everyday walker semantics
@@ -79,11 +75,7 @@ describe('discoverMarkdownFiles (skip-list and ignore composition)', () => {
     writeFileSync(join(harness.root, 'LICENSE_HEADER.md'), 'lh');
     writeFileSync(join(harness.root, 'licensing-policy.md'), 'lp');
     const got = discoverMarkdownFiles({ repoRoot: harness.root });
-    expect(got.files).toEqual([
-      'CHANGELOG_FORMAT.md',
-      'LICENSE_HEADER.md',
-      'licensing-policy.md',
-    ]);
+    expect(got.files).toEqual(['CHANGELOG_FORMAT.md', 'LICENSE_HEADER.md', 'licensing-policy.md']);
   });
 
   it('honours .gitignore negation and composes .gitignore ∪ .kkignore (either blocks)', () => {

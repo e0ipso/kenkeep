@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -6,58 +6,65 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === 'object') || typeof from === 'function') {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule
+      ? __defProp(target, 'default', { value: mod, enumerable: true })
+      : target,
+    mod
+  )
+);
+var __toCommonJS = mod => __copyProps(__defProp({}, '__esModule', { value: true }), mod);
 
 // src/skill-scripts/check-task-dependencies.ts
 var check_task_dependencies_exports = {};
 __export(check_task_dependencies_exports, {
-  _main: () => _main
+  _main: () => _main,
 });
 module.exports = __toCommonJS(check_task_dependencies_exports);
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var fs4 = __toESM(require('fs'));
+var path4 = __toESM(require('path'));
 
 // src/skill-scripts/shared/plan-resolve.ts
-var fs3 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
+var fs3 = __toESM(require('fs'));
+var path3 = __toESM(require('path'));
 
 // src/skill-scripts/shared/root.ts
-var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
+var fs = __toESM(require('fs'));
+var path = __toESM(require('path'));
 var EXPECTED_SCHEMA = true ? 1 : 1;
-var isValidStrikethrooRoot = (strikethrooPath) => {
+var isValidStrikethrooRoot = strikethrooPath => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
     if (!fs.lstatSync(strikethrooPath).isDirectory()) return false;
-    const metadataPath = path.join(strikethrooPath, ".init-metadata.json");
+    const metadataPath = path.join(strikethrooPath, '.init-metadata.json');
     if (!fs.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    return metadata && typeof metadata === 'object' && 'version' in metadata;
   } catch (_err) {
     return false;
   }
 };
-var getStrikethrooAt = (directory) => {
-  const strikethrooPath = path.join(directory, ".ai", "strikethroo");
+var getStrikethrooAt = directory => {
+  const strikethrooPath = path.join(directory, '.ai', 'strikethroo');
   return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
 var getParentPaths = (currentPath, acc = []) => {
@@ -67,14 +74,15 @@ var getParentPaths = (currentPath, acc = []) => {
   if (parentPath === absolutePath) return nextAcc;
   return getParentPaths(parentPath, nextAcc);
 };
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = metadataPath => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
   } catch {
     return;
   }
-  const actual = typeof metadata.workspaceSchemaVersion === "number" ? metadata.workspaceSchemaVersion : 1;
+  const actual =
+    typeof metadata.workspaceSchemaVersion === 'number' ? metadata.workspaceSchemaVersion : 1;
   if (actual === EXPECTED_SCHEMA) return;
   if (actual < EXPECTED_SCHEMA) {
     process.stderr.write(
@@ -91,16 +99,16 @@ var checkWorkspaceSchema = (metadataPath) => {
 };
 var findStrikethrooRoot = (startPath = process.cwd()) => {
   const paths = getParentPaths(startPath);
-  const found = paths.find((p) => getStrikethrooAt(p));
+  const found = paths.find(p => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  if (root) checkWorkspaceSchema(path.join(root, '.init-metadata.json'));
   return root;
 };
 
 // src/skill-scripts/shared/plan-scan.ts
-var fs2 = __toESM(require("fs"));
-var path2 = __toESM(require("path"));
+var fs2 = __toESM(require('fs'));
+var path2 = __toESM(require('path'));
 
 // src/skill-scripts/shared/frontmatter.ts
 var ID_PATTERNS = [
@@ -109,14 +117,14 @@ var ID_PATTERNS = [
   /^\s*["']?id["']?\s*:\s*"([+-]?\d+)"\s*(?:#.*)?$/im,
   /^\s*["']?id["']?\s*:\s*'([+-]?\d+)'\s*(?:#.*)?$/im,
   /^\s*["']id["']\s*:\s*([+-]?\d+)\s*(?:#.*)?$/im,
-  /^\s*id\s*:\s*[|>]\s*([+-]?\d+)\s*$/im
+  /^\s*id\s*:\s*[|>]\s*([+-]?\d+)\s*$/im,
 ];
-var validateId = (rawId) => {
+var validateId = rawId => {
   const id = parseInt(rawId, 10);
   if (Number.isNaN(id) || id < 0 || id > Number.MAX_SAFE_INTEGER) return null;
   return id;
 };
-var extractIdFromMarkdown = (content) => {
+var extractIdFromMarkdown = content => {
   const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   if (!frontmatterMatch || !frontmatterMatch[1]) return null;
   const block = frontmatterMatch[1];
@@ -134,7 +142,7 @@ var extractPlanId = (content, _filePath) => {
 };
 
 // src/skill-scripts/shared/plan-scan.ts
-var PLAN_EXTENSIONS = [".md"];
+var PLAN_EXTENSIONS = ['.md'];
 var scanPlanDir = (planDirPath, dirName, isArchive) => {
   let entries;
   try {
@@ -142,22 +150,24 @@ var scanPlanDir = (planDirPath, dirName, isArchive) => {
   } catch (_err) {
     return [];
   }
-  return entries.filter((e) => e.isFile() && PLAN_EXTENSIONS.some((ext) => e.name.endsWith(ext))).flatMap((e) => {
-    const filePath = path2.join(planDirPath, e.name);
-    try {
-      const content = fs2.readFileSync(filePath, "utf8");
-      const id = extractPlanId(content, filePath);
-      if (id === null) return [];
-      return [{ id, file: filePath, dir: planDirPath, isArchive, name: dirName }];
-    } catch (_err) {
-      return [];
-    }
-  });
+  return entries
+    .filter(e => e.isFile() && PLAN_EXTENSIONS.some(ext => e.name.endsWith(ext)))
+    .flatMap(e => {
+      const filePath = path2.join(planDirPath, e.name);
+      try {
+        const content = fs2.readFileSync(filePath, 'utf8');
+        const id = extractPlanId(content, filePath);
+        if (id === null) return [];
+        return [{ id, file: filePath, dir: planDirPath, isArchive, name: dirName }];
+      } catch (_err) {
+        return [];
+      }
+    });
 };
-var getAllPlans = (taskManagerRoot) => {
+var getAllPlans = taskManagerRoot => {
   const sources = [
-    { dir: path2.join(taskManagerRoot, "plans"), isArchive: false },
-    { dir: path2.join(taskManagerRoot, "archive"), isArchive: true }
+    { dir: path2.join(taskManagerRoot, 'plans'), isArchive: false },
+    { dir: path2.join(taskManagerRoot, 'archive'), isArchive: true },
   ];
   return sources.flatMap(({ dir, isArchive }) => {
     if (!fs2.existsSync(dir)) return [];
@@ -167,50 +177,53 @@ var getAllPlans = (taskManagerRoot) => {
     } catch (_err) {
       return [];
     }
-    return entries.filter((e) => e.isDirectory()).flatMap((e) => scanPlanDir(path2.join(dir, e.name), e.name, isArchive));
+    return entries
+      .filter(e => e.isDirectory())
+      .flatMap(e => scanPlanDir(path2.join(dir, e.name), e.name, isArchive));
   });
 };
 
 // src/skill-scripts/shared/plan-resolve.ts
-var isValidRootDir = (strikethrooPath) => {
+var isValidRootDir = strikethrooPath => {
   try {
     if (!fs3.existsSync(strikethrooPath)) return false;
     if (!fs3.lstatSync(strikethrooPath).isDirectory()) return false;
-    const metadataPath = path3.join(strikethrooPath, ".init-metadata.json");
+    const metadataPath = path3.join(strikethrooPath, '.init-metadata.json');
     if (!fs3.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    const metadata = JSON.parse(fs3.readFileSync(metadataPath, 'utf8'));
+    return metadata && typeof metadata === 'object' && 'version' in metadata;
   } catch (_err) {
     return false;
   }
 };
-var checkStandardRootShortcut = (filePath) => {
+var checkStandardRootShortcut = filePath => {
   const planDir = path3.dirname(filePath);
   const parentDir = path3.dirname(planDir);
   const possibleRoot = path3.dirname(parentDir);
   const parentBase = path3.basename(parentDir);
-  if (parentBase !== "plans" && parentBase !== "archive") return null;
-  if (path3.basename(possibleRoot) !== "strikethroo") return null;
+  if (parentBase !== 'plans' && parentBase !== 'archive') return null;
+  if (path3.basename(possibleRoot) !== 'strikethroo') return null;
   const dotAiDir = path3.dirname(possibleRoot);
-  if (path3.basename(dotAiDir) !== ".ai") return null;
+  if (path3.basename(dotAiDir) !== '.ai') return null;
   return isValidRootDir(possibleRoot) ? possibleRoot : null;
 };
-var resolveByPath = (absolutePath) => {
+var resolveByPath = absolutePath => {
   let content;
   try {
-    content = fs3.readFileSync(absolutePath, "utf8");
+    content = fs3.readFileSync(absolutePath, 'utf8');
   } catch (_err) {
     return null;
   }
   const planId = extractPlanId(content, absolutePath);
   if (planId === null) return null;
-  const tmRoot = checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path3.dirname(absolutePath));
+  const tmRoot =
+    checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path3.dirname(absolutePath));
   if (!tmRoot) return null;
   return {
     planFile: absolutePath,
     planDir: path3.dirname(absolutePath),
     strikethrooRoot: tmRoot,
-    planId
+    planId,
   };
 };
 var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new Set()) => {
@@ -220,13 +233,13 @@ var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new S
   if (searched.has(normalized)) return null;
   searched.add(normalized);
   const plans = getAllPlans(tmRoot);
-  const match = plans.find((p) => p.id === planId);
+  const match = plans.find(p => p.id === planId);
   if (match) {
     return {
       planFile: match.file,
       planDir: match.dir,
       strikethrooRoot: tmRoot,
-      planId
+      planId,
     };
   }
   const parentOfRoot = path3.dirname(path3.dirname(tmRoot));
@@ -234,9 +247,9 @@ var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new S
   return resolveByIdInAncestry(planId, parentOfRoot, searched);
 };
 var resolvePlan = (input, startPath = process.cwd()) => {
-  if (input === null || input === void 0 || input === "") return null;
+  if (input === null || input === void 0 || input === '') return null;
   const inputStr = String(input);
-  if (inputStr.startsWith("/")) {
+  if (inputStr.startsWith('/')) {
     return resolveByPath(inputStr);
   }
   const planId = parseInt(inputStr, 10);
@@ -245,34 +258,34 @@ var resolvePlan = (input, startPath = process.cwd()) => {
 };
 
 // src/skill-scripts/check-task-dependencies.ts
-var _printError = (message) => {
+var _printError = message => {
   console.error(`ERROR: ${message}`);
 };
-var _printSuccess = (message) => {
+var _printSuccess = message => {
   console.log(`\u2713 ${message}`);
 };
-var _printWarning = (message) => {
+var _printWarning = message => {
   console.log(`\u26A0 ${message}`);
 };
-var _printInfo = (message) => {
+var _printInfo = message => {
   console.log(message);
 };
-var _extractFrontmatter = (content) => {
+var _extractFrontmatter = content => {
   const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   return match && match[1] ? match[1] : null;
 };
 var _findTaskFile = (planDir, taskId) => {
-  const taskDir = path4.join(planDir, "tasks");
+  const taskDir = path4.join(planDir, 'tasks');
   if (!fs4.existsSync(taskDir)) {
     return null;
   }
-  const variations = [taskId, taskId.padStart(2, "0"), taskId.replace(/^0+/, "") || "0"];
+  const variations = [taskId, taskId.padStart(2, '0'), taskId.replace(/^0+/, '') || '0'];
   const uniqueVariations = [...new Set(variations)];
   try {
     const files = fs4.readdirSync(taskDir);
     const found = uniqueVariations.reduce((acc, v) => {
       if (acc) return acc;
-      const match = files.find((f) => f.startsWith(`${v}--`) && f.endsWith(".md"));
+      const match = files.find(f => f.startsWith(`${v}--`) && f.endsWith('.md'));
       return match ? path4.join(taskDir, match) : null;
     }, null);
     return found;
@@ -280,8 +293,8 @@ var _findTaskFile = (planDir, taskId) => {
     return null;
   }
 };
-var _extractDependencies = (frontmatter) => {
-  const lines = frontmatter.split("\n");
+var _extractDependencies = frontmatter => {
+  const lines = frontmatter.split('\n');
   const dependencies = [];
   let inDependenciesSection = false;
   for (const line of lines) {
@@ -289,7 +302,10 @@ var _extractDependencies = (frontmatter) => {
       inDependenciesSection = true;
       const arrayMatch = line.match(/\[(.*)\]/);
       if (arrayMatch && arrayMatch[1]) {
-        const deps = arrayMatch[1].split(",").map((dep) => dep.trim().replace(/['"]/g, "")).filter((dep) => dep.length > 0);
+        const deps = arrayMatch[1]
+          .split(',')
+          .map(dep => dep.trim().replace(/['"]/g, ''))
+          .filter(dep => dep.length > 0);
         dependencies.push(...deps);
         inDependenciesSection = false;
       }
@@ -299,7 +315,10 @@ var _extractDependencies = (frontmatter) => {
       inDependenciesSection = false;
     }
     if (inDependenciesSection && line.match(/^[ \t]*-/)) {
-      const dep = line.replace(/^[ \t]*-[ \t]*/, "").replace(/[ \t]*$/, "").replace(/['"]/g, "");
+      const dep = line
+        .replace(/^[ \t]*-[ \t]*/, '')
+        .replace(/[ \t]*$/, '')
+        .replace(/['"]/g, '');
       if (dep.length > 0) {
         dependencies.push(dep);
       }
@@ -307,26 +326,30 @@ var _extractDependencies = (frontmatter) => {
   }
   return dependencies;
 };
-var _extractStatus = (frontmatter) => {
-  const lines = frontmatter.split("\n");
+var _extractStatus = frontmatter => {
+  const lines = frontmatter.split('\n');
   for (const line of lines) {
     if (line.match(/^status:/)) {
-      return line.replace(/^status:[ \t]*/, "").replace(/^["']/, "").replace(/["']$/, "").trim();
+      return line
+        .replace(/^status:[ \t]*/, '')
+        .replace(/^["']/, '')
+        .replace(/["']$/, '')
+        .trim();
     }
   }
   return null;
 };
 var _main = (startPath = process.cwd()) => {
   if (process.argv.length !== 4) {
-    _printError("Invalid number of arguments");
-    console.log("Usage: node check-task-dependencies.cjs <plan-id-or-path> <task-id>");
-    console.log("Example: node check-task-dependencies.cjs 16 03");
+    _printError('Invalid number of arguments');
+    console.log('Usage: node check-task-dependencies.cjs <plan-id-or-path> <task-id>');
+    console.log('Example: node check-task-dependencies.cjs 16 03');
     process.exit(1);
   }
   const inputId = process.argv[2];
   const taskId = process.argv[3];
   if (!inputId || !taskId) {
-    _printError("Invalid arguments");
+    _printError('Invalid arguments');
     process.exit(1);
   }
   const resolved = resolvePlan(inputId, startPath);
@@ -342,29 +365,29 @@ var _main = (startPath = process.cwd()) => {
     process.exit(1);
   }
   _printInfo(`Checking task: ${path4.basename(taskFile)}`);
-  console.log("");
-  const taskContent = fs4.readFileSync(taskFile, "utf8");
+  console.log('');
+  const taskContent = fs4.readFileSync(taskFile, 'utf8');
   const frontmatter = _extractFrontmatter(taskContent);
   if (!frontmatter) {
-    _printError("Could not extract frontmatter from task file");
+    _printError('Could not extract frontmatter from task file');
     process.exit(1);
   }
   const dependencies = _extractDependencies(frontmatter);
   if (dependencies.length === 0) {
-    _printSuccess("Task has no dependencies - ready to execute!");
+    _printSuccess('Task has no dependencies - ready to execute!');
     process.exit(0);
   }
-  _printInfo("Task dependencies found:");
-  dependencies.forEach((dep) => {
+  _printInfo('Task dependencies found:');
+  dependencies.forEach(dep => {
     console.log(`  - Task ${dep}`);
   });
-  console.log("");
+  console.log('');
   let allResolved = true;
   const unresolvedDeps = [];
   let resolvedCount = 0;
   const totalDeps = dependencies.length;
-  _printInfo("Checking dependency status...");
-  console.log("");
+  _printInfo('Checking dependency status...');
+  console.log('');
   for (const depId of dependencies) {
     const depFile = _findTaskFile(planDir, depId);
     if (!depFile || !fs4.existsSync(depFile)) {
@@ -373,7 +396,7 @@ var _main = (startPath = process.cwd()) => {
       unresolvedDeps.push(`${depId} (not found)`);
       continue;
     }
-    const depContent = fs4.readFileSync(depFile, "utf8");
+    const depContent = fs4.readFileSync(depFile, 'utf8');
     const depFrontmatter = _extractFrontmatter(depContent);
     if (!depFrontmatter) {
       _printError(`Could not extract frontmatter from dependency task ${depId}`);
@@ -382,32 +405,32 @@ var _main = (startPath = process.cwd()) => {
       continue;
     }
     const status = _extractStatus(depFrontmatter);
-    if (status === "completed") {
+    if (status === 'completed') {
       _printSuccess(`Task ${depId} - Status: completed \u2713`);
       resolvedCount++;
     } else {
-      _printWarning(`Task ${depId} - Status: ${status || "unknown"} \u2717`);
+      _printWarning(`Task ${depId} - Status: ${status || 'unknown'} \u2717`);
       allResolved = false;
-      unresolvedDeps.push(`${depId} (${status || "unknown"})`);
+      unresolvedDeps.push(`${depId} (${status || 'unknown'})`);
     }
   }
-  console.log("");
-  _printInfo("=========================================");
-  _printInfo("Dependency Check Summary");
-  _printInfo("=========================================");
+  console.log('');
+  _printInfo('=========================================');
+  _printInfo('Dependency Check Summary');
+  _printInfo('=========================================');
   _printInfo(`Total dependencies: ${totalDeps}`);
   _printInfo(`Resolved: ${resolvedCount}`);
   _printInfo(`Unresolved: ${totalDeps - resolvedCount}`);
-  console.log("");
+  console.log('');
   if (allResolved) {
     _printSuccess(`All dependencies are resolved! Task ${taskId} is ready to execute.`);
     process.exit(0);
   } else {
     _printError(`Task ${taskId} has unresolved dependencies:`);
-    unresolvedDeps.forEach((dep) => {
+    unresolvedDeps.forEach(dep => {
       console.log(dep);
     });
-    _printInfo("Please complete the dependencies before executing this task.");
+    _printInfo('Please complete the dependencies before executing this task.');
     process.exit(1);
   }
 };
@@ -415,6 +438,7 @@ if (require.main === module) {
   _main();
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  _main
-});
+0 &&
+  (module.exports = {
+    _main,
+  });

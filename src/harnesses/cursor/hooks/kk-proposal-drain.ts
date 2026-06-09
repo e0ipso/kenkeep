@@ -38,7 +38,6 @@ async function main(): Promise<void> {
   });
 }
 
-
 void main().catch((err: unknown) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));

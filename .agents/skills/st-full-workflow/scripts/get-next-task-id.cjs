@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -6,56 +6,63 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === 'object') || typeof from === 'function') {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule
+      ? __defProp(target, 'default', { value: mod, enumerable: true })
+      : target,
+    mod
+  )
+);
+var __toCommonJS = mod => __copyProps(__defProp({}, '__esModule', { value: true }), mod);
 
 // src/skill-scripts/get-next-task-id.ts
 var get_next_task_id_exports = {};
 __export(get_next_task_id_exports, {
-  main: () => main
+  main: () => main,
 });
 module.exports = __toCommonJS(get_next_task_id_exports);
 
 // src/skill-scripts/shared/plan-resolve.ts
-var fs3 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
+var fs3 = __toESM(require('fs'));
+var path3 = __toESM(require('path'));
 
 // src/skill-scripts/shared/root.ts
-var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
+var fs = __toESM(require('fs'));
+var path = __toESM(require('path'));
 var EXPECTED_SCHEMA = true ? 1 : 1;
-var isValidStrikethrooRoot = (strikethrooPath) => {
+var isValidStrikethrooRoot = strikethrooPath => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
     if (!fs.lstatSync(strikethrooPath).isDirectory()) return false;
-    const metadataPath = path.join(strikethrooPath, ".init-metadata.json");
+    const metadataPath = path.join(strikethrooPath, '.init-metadata.json');
     if (!fs.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    return metadata && typeof metadata === 'object' && 'version' in metadata;
   } catch (_err) {
     return false;
   }
 };
-var getStrikethrooAt = (directory) => {
-  const strikethrooPath = path.join(directory, ".ai", "strikethroo");
+var getStrikethrooAt = directory => {
+  const strikethrooPath = path.join(directory, '.ai', 'strikethroo');
   return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
 var getParentPaths = (currentPath, acc = []) => {
@@ -65,14 +72,15 @@ var getParentPaths = (currentPath, acc = []) => {
   if (parentPath === absolutePath) return nextAcc;
   return getParentPaths(parentPath, nextAcc);
 };
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = metadataPath => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
   } catch {
     return;
   }
-  const actual = typeof metadata.workspaceSchemaVersion === "number" ? metadata.workspaceSchemaVersion : 1;
+  const actual =
+    typeof metadata.workspaceSchemaVersion === 'number' ? metadata.workspaceSchemaVersion : 1;
   if (actual === EXPECTED_SCHEMA) return;
   if (actual < EXPECTED_SCHEMA) {
     process.stderr.write(
@@ -89,16 +97,16 @@ var checkWorkspaceSchema = (metadataPath) => {
 };
 var findStrikethrooRoot = (startPath = process.cwd()) => {
   const paths = getParentPaths(startPath);
-  const found = paths.find((p) => getStrikethrooAt(p));
+  const found = paths.find(p => getStrikethrooAt(p));
   if (!found) return null;
   const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  if (root) checkWorkspaceSchema(path.join(root, '.init-metadata.json'));
   return root;
 };
 
 // src/skill-scripts/shared/plan-scan.ts
-var fs2 = __toESM(require("fs"));
-var path2 = __toESM(require("path"));
+var fs2 = __toESM(require('fs'));
+var path2 = __toESM(require('path'));
 
 // src/skill-scripts/shared/frontmatter.ts
 var ID_PATTERNS = [
@@ -107,14 +115,14 @@ var ID_PATTERNS = [
   /^\s*["']?id["']?\s*:\s*"([+-]?\d+)"\s*(?:#.*)?$/im,
   /^\s*["']?id["']?\s*:\s*'([+-]?\d+)'\s*(?:#.*)?$/im,
   /^\s*["']id["']\s*:\s*([+-]?\d+)\s*(?:#.*)?$/im,
-  /^\s*id\s*:\s*[|>]\s*([+-]?\d+)\s*$/im
+  /^\s*id\s*:\s*[|>]\s*([+-]?\d+)\s*$/im,
 ];
-var validateId = (rawId) => {
+var validateId = rawId => {
   const id = parseInt(rawId, 10);
   if (Number.isNaN(id) || id < 0 || id > Number.MAX_SAFE_INTEGER) return null;
   return id;
 };
-var extractIdFromMarkdown = (content) => {
+var extractIdFromMarkdown = content => {
   const frontmatterMatch = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   if (!frontmatterMatch || !frontmatterMatch[1]) return null;
   const block = frontmatterMatch[1];
@@ -132,7 +140,7 @@ var extractPlanId = (content, _filePath) => {
 };
 
 // src/skill-scripts/shared/plan-scan.ts
-var PLAN_EXTENSIONS = [".md"];
+var PLAN_EXTENSIONS = ['.md'];
 var scanPlanDir = (planDirPath, dirName, isArchive) => {
   let entries;
   try {
@@ -140,22 +148,24 @@ var scanPlanDir = (planDirPath, dirName, isArchive) => {
   } catch (_err) {
     return [];
   }
-  return entries.filter((e) => e.isFile() && PLAN_EXTENSIONS.some((ext) => e.name.endsWith(ext))).flatMap((e) => {
-    const filePath = path2.join(planDirPath, e.name);
-    try {
-      const content = fs2.readFileSync(filePath, "utf8");
-      const id = extractPlanId(content, filePath);
-      if (id === null) return [];
-      return [{ id, file: filePath, dir: planDirPath, isArchive, name: dirName }];
-    } catch (_err) {
-      return [];
-    }
-  });
+  return entries
+    .filter(e => e.isFile() && PLAN_EXTENSIONS.some(ext => e.name.endsWith(ext)))
+    .flatMap(e => {
+      const filePath = path2.join(planDirPath, e.name);
+      try {
+        const content = fs2.readFileSync(filePath, 'utf8');
+        const id = extractPlanId(content, filePath);
+        if (id === null) return [];
+        return [{ id, file: filePath, dir: planDirPath, isArchive, name: dirName }];
+      } catch (_err) {
+        return [];
+      }
+    });
 };
-var getAllPlans = (taskManagerRoot) => {
+var getAllPlans = taskManagerRoot => {
   const sources = [
-    { dir: path2.join(taskManagerRoot, "plans"), isArchive: false },
-    { dir: path2.join(taskManagerRoot, "archive"), isArchive: true }
+    { dir: path2.join(taskManagerRoot, 'plans'), isArchive: false },
+    { dir: path2.join(taskManagerRoot, 'archive'), isArchive: true },
   ];
   return sources.flatMap(({ dir, isArchive }) => {
     if (!fs2.existsSync(dir)) return [];
@@ -165,50 +175,53 @@ var getAllPlans = (taskManagerRoot) => {
     } catch (_err) {
       return [];
     }
-    return entries.filter((e) => e.isDirectory()).flatMap((e) => scanPlanDir(path2.join(dir, e.name), e.name, isArchive));
+    return entries
+      .filter(e => e.isDirectory())
+      .flatMap(e => scanPlanDir(path2.join(dir, e.name), e.name, isArchive));
   });
 };
 
 // src/skill-scripts/shared/plan-resolve.ts
-var isValidRootDir = (strikethrooPath) => {
+var isValidRootDir = strikethrooPath => {
   try {
     if (!fs3.existsSync(strikethrooPath)) return false;
     if (!fs3.lstatSync(strikethrooPath).isDirectory()) return false;
-    const metadataPath = path3.join(strikethrooPath, ".init-metadata.json");
+    const metadataPath = path3.join(strikethrooPath, '.init-metadata.json');
     if (!fs3.existsSync(metadataPath)) return false;
-    const metadata = JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
-    return metadata && typeof metadata === "object" && "version" in metadata;
+    const metadata = JSON.parse(fs3.readFileSync(metadataPath, 'utf8'));
+    return metadata && typeof metadata === 'object' && 'version' in metadata;
   } catch (_err) {
     return false;
   }
 };
-var checkStandardRootShortcut = (filePath) => {
+var checkStandardRootShortcut = filePath => {
   const planDir = path3.dirname(filePath);
   const parentDir = path3.dirname(planDir);
   const possibleRoot = path3.dirname(parentDir);
   const parentBase = path3.basename(parentDir);
-  if (parentBase !== "plans" && parentBase !== "archive") return null;
-  if (path3.basename(possibleRoot) !== "strikethroo") return null;
+  if (parentBase !== 'plans' && parentBase !== 'archive') return null;
+  if (path3.basename(possibleRoot) !== 'strikethroo') return null;
   const dotAiDir = path3.dirname(possibleRoot);
-  if (path3.basename(dotAiDir) !== ".ai") return null;
+  if (path3.basename(dotAiDir) !== '.ai') return null;
   return isValidRootDir(possibleRoot) ? possibleRoot : null;
 };
-var resolveByPath = (absolutePath) => {
+var resolveByPath = absolutePath => {
   let content;
   try {
-    content = fs3.readFileSync(absolutePath, "utf8");
+    content = fs3.readFileSync(absolutePath, 'utf8');
   } catch (_err) {
     return null;
   }
   const planId = extractPlanId(content, absolutePath);
   if (planId === null) return null;
-  const tmRoot = checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path3.dirname(absolutePath));
+  const tmRoot =
+    checkStandardRootShortcut(absolutePath) || findStrikethrooRoot(path3.dirname(absolutePath));
   if (!tmRoot) return null;
   return {
     planFile: absolutePath,
     planDir: path3.dirname(absolutePath),
     strikethrooRoot: tmRoot,
-    planId
+    planId,
   };
 };
 var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new Set()) => {
@@ -218,13 +231,13 @@ var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new S
   if (searched.has(normalized)) return null;
   searched.add(normalized);
   const plans = getAllPlans(tmRoot);
-  const match = plans.find((p) => p.id === planId);
+  const match = plans.find(p => p.id === planId);
   if (match) {
     return {
       planFile: match.file,
       planDir: match.dir,
       strikethrooRoot: tmRoot,
-      planId
+      planId,
     };
   }
   const parentOfRoot = path3.dirname(path3.dirname(tmRoot));
@@ -232,9 +245,9 @@ var resolveByIdInAncestry = (planId, startPath, searched = /* @__PURE__ */ new S
   return resolveByIdInAncestry(planId, parentOfRoot, searched);
 };
 var resolvePlan = (input, startPath = process.cwd()) => {
-  if (input === null || input === void 0 || input === "") return null;
+  if (input === null || input === void 0 || input === '') return null;
   const inputStr = String(input);
-  if (inputStr.startsWith("/")) {
+  if (inputStr.startsWith('/')) {
     return resolveByPath(inputStr);
   }
   const planId = parseInt(inputStr, 10);
@@ -243,10 +256,10 @@ var resolvePlan = (input, startPath = process.cwd()) => {
 };
 
 // src/skill-scripts/shared/task-scan.ts
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
-var computeNextTaskId = (planDir) => {
-  const tasksDir = path4.join(planDir, "tasks");
+var fs4 = __toESM(require('fs'));
+var path4 = __toESM(require('path'));
+var computeNextTaskId = planDir => {
+  const tasksDir = path4.join(planDir, 'tasks');
   if (!fs4.existsSync(tasksDir)) return 1;
   let entries;
   try {
@@ -255,16 +268,18 @@ var computeNextTaskId = (planDir) => {
     return 1;
   }
   if (entries.length === 0) return 1;
-  const ids = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).flatMap((e) => {
-    const filePath = path4.join(tasksDir, e.name);
-    try {
-      const content = fs4.readFileSync(filePath, "utf8");
-      const id = extractPlanId(content, filePath);
-      return id === null ? [] : [id];
-    } catch (_err) {
-      return [];
-    }
-  });
+  const ids = entries
+    .filter(e => e.isFile() && e.name.endsWith('.md'))
+    .flatMap(e => {
+      const filePath = path4.join(tasksDir, e.name);
+      try {
+        const content = fs4.readFileSync(filePath, 'utf8');
+        const id = extractPlanId(content, filePath);
+        return id === null ? [] : [id];
+      } catch (_err) {
+        return [];
+      }
+    });
   const max = ids.reduce((acc, id) => Math.max(acc, id), 0);
   return max + 1;
 };
@@ -273,7 +288,7 @@ var computeNextTaskId = (planDir) => {
 var main = () => {
   const inputId = process.argv[2];
   if (!inputId) {
-    process.stderr.write("Error: Plan ID or path is required\n");
+    process.stderr.write('Error: Plan ID or path is required\n');
     process.exit(1);
   }
   const resolved = resolvePlan(inputId);
@@ -290,6 +305,7 @@ if (require.main === module) {
   main();
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  main
-});
+0 &&
+  (module.exports = {
+    main,
+  });

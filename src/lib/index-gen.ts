@@ -105,30 +105,52 @@ export function computeInDegree(nodes: NodeFile[]): Map<string, number> {
 }
 
 /**
+ * Escape author-controlled text (a leaf/folder `title` or `summary`) before
+ * splicing it into a generated Markdown bullet — both inside a `[label](path)`
+ * link label and in the trailing prose after it. Collapses internal whitespace
+ * (newlines included) to single spaces so a multi-line value cannot inject a new
+ * list item or heading, and backslash-escapes the inline-Markdown
+ * metacharacters that would otherwise break the rendered structure: backtick (a
+ * code span) and `[` / `]` (a link). Deterministic. Only the rendered splice is
+ * escaped; the harvested/stored frontmatter `summary` is carried verbatim.
+ */
+function escapeInlineMarkdown(text: string): string {
+  return text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/([\\`[\]])/g, '\\$1');
+}
+
+/**
  * Imperative leaf pointer: a verb-first invitation to open a terminal leaf,
  * splicing in the leaf's own summary so the reader knows what they will get
  * before following the link. Uses valid `[label](path)` Markdown so the link is
  * followable (the work order's `(label)[path]` sketch renders as literal text).
+ * The author-controlled title and summary are escaped so a stray `]`/backtick
+ * cannot break the link or list item.
  */
 function renderLeafPointer(n: NodeFile): string {
   const tagPart = n.frontmatter.tags.map(t => ` #${t}`).join('');
-  const summary = n.frontmatter.summary.trim();
+  const summary = escapeInlineMarkdown(n.frontmatter.summary);
   const learn = summary ? ` to learn about: ${summary}` : '';
-  return `- Open [**${n.frontmatter.title}**](${n.relPath})${learn}${tagPart}`;
+  return `- Open [**${escapeInlineMarkdown(n.frontmatter.title)}**](${n.relPath})${learn}${tagPart}`;
 }
 
 /**
  * Imperative descent pointer: a verb-first invitation to descend into a child
  * folder, splicing in that child folder's self-preserved summary (or the
  * Title-cased name fallback when absent). The sentence ends with a single
- * period; an authored summary that already ends in terminal punctuation is not
- * double-punctuated.
+ * period; an authored summary that already ends in terminal punctuation —
+ * optionally wrapped in a trailing closing bracket/quote/backtick — is not
+ * double-punctuated. The terminal-punctuation test runs on the raw summary; the
+ * spliced phrase is then escaped so a stray `]`/backtick cannot break the bullet.
  */
 function renderDescentPointer(sub: string, childSummary: string | undefined): string {
   const href = posix.join('nodes', sub, 'index.md');
   const name = sub.split('/').pop() ?? sub;
-  const phrase = childSummary?.trim() || deterministicIntent(sub);
-  const tail = /[.!?]$/.test(phrase) ? '' : '.';
+  const raw = childSummary?.trim() || deterministicIntent(sub);
+  const tail = /[.!?][)\]"'`]*$/.test(raw) ? '' : '.';
+  const phrase = escapeInlineMarkdown(raw);
   return `- Load [\`${name}/\`](${href}) for more information on ${phrase}${tail}`;
 }
 
@@ -156,29 +178,73 @@ function makeCatalogComparator(inDegree: Map<string, number>) {
 }
 
 /**
+ * Rank every tag's whole-tree cohort ONCE per rebuild: for each tag, the nodes
+ * carrying it, sorted by centrality (summed tag-Jaccard against the other cohort
+ * members) DESC, ties broken by global in-degree DESC then title. The ranking
+ * depends only on the whole tree, not on which folder renders the tag, so
+ * computing it once and reusing it across every folder's `## By topic` collapses
+ * the prior O(folders × Σ cohort²) into a single O(Σ cohort²) pass — `index
+ * rebuild` runs on the SessionStart / pre-commit hot path.
+ */
+function rankTagCohorts(
+  allNodes: NodeFile[],
+  inDegree: Map<string, number>
+): Map<string, NodeFile[]> {
+  const cohorts = new Map<string, NodeFile[]>();
+  for (const n of allNodes) {
+    for (const t of n.frontmatter.tags) {
+      let cohort = cohorts.get(t);
+      if (!cohort) {
+        cohort = [];
+        cohorts.set(t, cohort);
+      }
+      cohort.push(n);
+    }
+  }
+  const ranked = new Map<string, NodeFile[]>();
+  for (const [tag, cohort] of cohorts) {
+    // Centrality: summed tag-Jaccard against the other cohort members.
+    const scored = cohort.map(node => {
+      let score = 0;
+      for (const other of cohort) {
+        if (other === node) continue;
+        score += tagJaccard(node.frontmatter.tags, other.frontmatter.tags);
+      }
+      return { node, score };
+    });
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const dIn =
+        (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
+      if (dIn !== 0) return dIn;
+      return a.node.frontmatter.title.localeCompare(b.node.frontmatter.title);
+    });
+    ranked.set(
+      tag,
+      scored.map(s => s.node)
+    );
+  }
+  return ranked;
+}
+
+/**
  * Render the reworked `## By topic` block: a followable, bounded "most relevant
  * nodes for this topic" surface, NOT a link-less histogram.
  *
  * The bucket set is the tags present among the FOLDER'S DIRECT leaves (`leaves`)
- * — unchanged bucket selection and order (bucket size DESC over the direct
- * leaves, then alpha). For each such tag, candidates are drawn from the WHOLE
- * tree (`allNodes`): every node carrying the tag. Each candidate is scored by
- * its centrality within that tag's whole-tree cohort — the summed tag-Jaccard
- * against the other cohort members — so the most topically representative nodes
- * rise. The top `BY_TOPIC_MAX_PER_TAG` are rendered as followable
- * `Open [**title**](path) — <summary>` entries. Ties break by global in-degree
- * DESC then title, keeping the output deterministic and total.
+ * — bucket size DESC over the direct leaves, then alpha. Each tag's candidates
+ * and their order come from `rankedCohorts` (precomputed once over the whole
+ * tree by `rankTagCohorts`): the most topically central nodes first, capped at
+ * `BY_TOPIC_MAX_PER_TAG`, rendered as followable
+ * `Open [**title**](path) — <summary>` entries with the author-controlled title
+ * and summary escaped.
  *
  * The whole-tree candidate pull means a distant tag change can reorder this
  * block; that is intentional. The block's bytes are NOT fed into the per-folder
  * `hashLeaves`, so cross-tree churn never perturbs this folder's stability hash
  * (paired with the Task 1 hash boundary).
  */
-export function renderTagIndex(
-  leaves: NodeFile[],
-  allNodes: NodeFile[],
-  inDegree: Map<string, number>
-): string {
+export function renderTagIndex(leaves: NodeFile[], rankedCohorts: Map<string, NodeFile[]>): string {
   // Bucket selection/order: the folder's own direct leaves (unchanged).
   const directBuckets = new Map<string, number>();
   for (const n of leaves) {
@@ -199,42 +265,15 @@ export function renderTagIndex(
     return lines.join('\n');
   }
 
-  // Whole-tree cohorts: every node carrying a given tag.
-  const cohorts = new Map<string, NodeFile[]>();
-  for (const n of allNodes) {
-    for (const t of n.frontmatter.tags) {
-      let cohort = cohorts.get(t);
-      if (!cohort) {
-        cohort = [];
-        cohorts.set(t, cohort);
-      }
-      cohort.push(n);
-    }
-  }
-
   for (const tag of tags) {
-    const cohort = cohorts.get(tag) ?? [];
-    // Centrality: summed tag-Jaccard against the other cohort members.
-    const scored = cohort.map(node => {
-      let score = 0;
-      for (const other of cohort) {
-        if (other === node) continue;
-        score += tagJaccard(node.frontmatter.tags, other.frontmatter.tags);
-      }
-      return { node, score };
-    });
-    scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      const dIn =
-        (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
-      if (dIn !== 0) return dIn;
-      return a.node.frontmatter.title.localeCompare(b.node.frontmatter.title);
-    });
+    const ranked = rankedCohorts.get(tag) ?? [];
     lines.push(`### #${tag}`);
-    for (const { node } of scored.slice(0, BY_TOPIC_MAX_PER_TAG)) {
-      const summary = node.frontmatter.summary.trim();
+    for (const node of ranked.slice(0, BY_TOPIC_MAX_PER_TAG)) {
+      const summary = escapeInlineMarkdown(node.frontmatter.summary);
       const summaryPart = summary ? ` — ${summary}` : '';
-      lines.push(`- Open [**${node.frontmatter.title}**](${node.relPath})${summaryPart}`);
+      lines.push(
+        `- Open [**${escapeInlineMarkdown(node.frontmatter.title)}**](${node.relPath})${summaryPart}`
+      );
     }
   }
   return lines.join('\n');
@@ -357,9 +396,17 @@ function deterministicIntent(relDir: string): string {
 /**
  * Read a single self-preserved folder `summary` from an on-disk index file.
  * Returns the trimmed non-empty summary, or `undefined` when the file is
- * missing, unparseable, fails `IndexFrontmatterSchema`, or carries no/empty
- * summary. Tolerant by design: a missing summary is the normal brand-new-folder
- * case, not an error.
+ * missing, unparseable as frontmatter, or carries no/empty summary.
+ *
+ * The `summary` is harvested on its OWN, independent of the rest of
+ * `IndexFrontmatterSchema`. It is the single human-authored field; `nodes_hash`,
+ * `node_count`, and `schema_version` are machine-owned and recomputed by the
+ * imminent rebuild. AGENTS.md and the docs invite hand-editing a folder summary,
+ * so a human who writes a valid `summary` alongside a malformed or missing
+ * `nodes_hash`/`node_count` must NOT silently lose the authored text to a
+ * whole-object schema failure (which would also mislabel the folder as "missing
+ * a summary" on the next rebuild). Tolerant by design: a missing summary is the
+ * normal brand-new-folder case, not an error.
  */
 function harvestSummary(file: string): string | undefined {
   if (!existsSync(file)) return undefined;
@@ -369,9 +416,8 @@ function harvestSummary(file: string): string | undefined {
   } catch {
     return undefined;
   }
-  const fm = IndexFrontmatterSchema.safeParse(parsed.data);
-  if (!fm.success) return undefined;
-  const summary = fm.data.summary?.trim();
+  const raw = (parsed.data as Record<string, unknown>)['summary'];
+  const summary = typeof raw === 'string' ? raw.trim() : '';
   return summary ? summary : undefined;
 }
 
@@ -422,6 +468,9 @@ function harvestFolderSummaries(
 export function generateIndex(nodesDir: string, entryFile?: string): GeneratedIndex {
   const nodes = readAllNodes(nodesDir);
   const inDegree = computeInDegree(nodes);
+  // Rank each tag's whole-tree cohort once; every folder's `## By topic` reuses
+  // it instead of re-scoring the cohort per folder (was O(folders × cohort²)).
+  const rankedCohorts = rankTagCohorts(nodes, inDegree);
   const cmp = makeCatalogComparator(inDegree);
 
   const hash = computeNodesHash(nodesDir);
@@ -464,7 +513,7 @@ export function generateIndex(nodesDir: string, entryFile?: string): GeneratedIn
       relDir: dir,
       leaves,
       subDirs,
-      allNodes: nodes,
+      rankedCohorts,
       inDegree,
       // Per-folder hash: a leaf edit only perturbs the hash recorded in that
       // leaf's own folder index, leaving unrelated folder indexes byte-stable.
@@ -519,8 +568,8 @@ interface RenderFolderArgs {
   relDir: string;
   leaves: NodeFile[];
   subDirs: string[];
-  /** Every leaf in the tree, for the whole-tree `## By topic` ranking. */
-  allNodes: NodeFile[];
+  /** Per-tag whole-tree ranking (precomputed once) for the `## By topic` block. */
+  rankedCohorts: Map<string, NodeFile[]>;
   inDegree: Map<string, number>;
   nodesHash: string;
   /** Self-preserved folder summary, carried verbatim from the prior index.md. */
@@ -530,7 +579,7 @@ interface RenderFolderArgs {
 }
 
 function renderFolderIndex(args: RenderFolderArgs): string {
-  const { relDir, leaves, subDirs, allNodes, inDegree, folderSummaries } = args;
+  const { relDir, leaves, subDirs, rankedCohorts, inDegree, folderSummaries } = args;
   const cmp = makeCatalogComparator(inDegree);
 
   const byKind: Record<'practice' | 'map', NodeFile[]> = { practice: [], map: [] };
@@ -584,7 +633,7 @@ function renderFolderIndex(args: RenderFolderArgs): string {
   }
 
   parts.push('');
-  parts.push(renderTagIndex(leaves, allNodes, inDegree));
+  parts.push(renderTagIndex(leaves, rankedCohorts));
 
   const body = parts.join('\n');
   // The summary is the only non-deterministic field; emit no key when absent so

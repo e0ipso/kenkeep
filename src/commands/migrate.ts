@@ -119,6 +119,10 @@ function flatToTreeStep(opts: MigrateOptions): MigrationStep {
       const cluster = opts.cluster ?? makeHarnessCluster(opts.harness);
       const { placements: proposed, folderSummaries } = await cluster(leaves);
       const placements = reconcilePlacements(leaves, proposed);
+      // Cross-check the parallel folder-summary channel against the folders the
+      // placements actually create, BEFORE any write, so a stray summary cannot
+      // orphan an index.md (see reconcileFolderSummaries).
+      reconcileFolderSummaries(folderSummaries, placements);
       const results = writePlacements(paths.nodesDir, placements);
       // Author the folder summaries: stamp each into its new folder's index.md
       // so the rebuild that follows this step self-preserves it. The LLM invents
@@ -156,6 +160,42 @@ function reconcilePlacements(leaves: FlatLeaf[], proposed: Placement[]): Placeme
     throw new Error(`clustering omitted ${missing.length} leaf/leaves: ${missing.join(', ')}`);
   }
   return placements;
+}
+
+/**
+ * Cross-check the LLM-authored folder-summary keys against the folders the
+ * placements will actually create — each placement's `targetFolder` and every
+ * ancestor of it (the rebuild stamps an `index.md` at each). `reconcilePlacements`
+ * validates the leaf-id channel; this guards the parallel `folders` channel. A
+ * summary keyed to a folder no leaf is placed into (nor an ancestor of one)
+ * would `mkdirSync` + stamp an `index.md` into a directory the subsequent
+ * rebuild never regenerates, orphaning it on disk. Throw before any write,
+ * mirroring `reconcilePlacements`' abort-on-bad-clustering. Folder keys are
+ * normalized (slash-split, blanks dropped) so a trailing/duplicate slash never
+ * triggers a false orphan; the empty root key is skipped (it stamps no folder).
+ */
+function reconcileFolderSummaries(
+  folderSummaries: Record<string, string>,
+  placements: Placement[]
+): void {
+  const created = new Set<string>();
+  for (const p of placements) {
+    let acc = '';
+    for (const seg of p.targetFolder.split('/').filter(Boolean)) {
+      acc = acc === '' ? seg : `${acc}/${seg}`;
+      created.add(acc);
+    }
+  }
+  const orphaned = Object.keys(folderSummaries).filter(folder => {
+    const norm = folder.split('/').filter(Boolean).join('/');
+    return norm !== '' && !created.has(norm);
+  });
+  if (orphaned.length > 0) {
+    throw new Error(
+      `clustering authored a folder summary for ${orphaned.length} folder(s) no leaf was ` +
+        `placed into: ${orphaned.join(', ')}`
+    );
+  }
 }
 
 const CLUSTER_INSTRUCTIONS =

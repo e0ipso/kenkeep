@@ -75,6 +75,10 @@ describe('init --upgrade', () => {
       skillFile,
       '---\nname: kk-curate\nallowed-tools: Bash(rm:*), Read, Edit, Write\n---\nold\n'
     );
+    // kk-migrate ships and refreshes through the same shared-skills path; stub it
+    // stale too and assert upgrade restores the shipped body alongside kk-curate.
+    const migrateSkillFile = join(sandbox, '.claude/skills/kk-migrate/SKILL.md');
+    writeFileSync(migrateSkillFile, '---\nname: kk-migrate\n---\nstale\n');
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
@@ -84,6 +88,13 @@ describe('init --upgrade', () => {
     expect(skill).toContain('--harness "$HARNESS"');
     expect(skill).not.toContain('Bash(rm:*)');
     expect(skill).not.toMatch(/^allowed-tools:/m);
+
+    // kk-migrate refreshed: the shipped body carries the harness heredoc and the
+    // `place` primitive flow, and the stale stub is gone.
+    const migrateSkill = readFileSync(migrateSkillFile, 'utf8');
+    expect(migrateSkill).toContain('/tmp/kk-detect-harness.mjs');
+    expect(migrateSkill).toContain('place apply');
+    expect(migrateSkill).not.toContain('stale');
   });
 
   it('re-copies a missing prompt during upgrade', async () => {

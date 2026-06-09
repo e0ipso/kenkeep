@@ -36,7 +36,7 @@ Validated by `NodeFrontmatterSchema`. Git history is the timeline of record; the
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | Integer schema marker. A mismatch is a parse failure; the reader rejects the old flat layout / `schema_version: 1` and points to `npx kenkeep --harness <id> migrate`. |
+| `schema_version` | Integer schema marker. A mismatch is a parse failure; the reader rejects the old flat layout / `schema_version: 1` and points to the `kk-migrate` skill (run in an agent session; the in-host clustering drives the deterministic `place` primitive). |
 | `id` | Stable identifier `<kind>-<slug>`. Referenced by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions. All cross references are by `id`; path is presentation. |
 | `title` | Human-readable label rendered in the folder's index node. |
 | `kind` | `practice` (how we build) or `map` (what exists). A pure facet: drives only the Conventions / Components rendering split, NOT directory placement. |

@@ -152,9 +152,9 @@ function validateHarnesses(harnesses: string[]): void {
  * `init --upgrade` refresh templates and hooks but never touch `nodes/`, so a
  * knowledge base written by an older kenkeep stays stale and every command that
  * reads it would fail. We detect the on-disk schema and point the user at the
- * one command that fixes it, matching the error the node reader raises. Loud but
- * non-fatal: init did its own job; migration is a deliberate, harness-backed
- * follow-up the user runs next.
+ * `kk-migrate` skill that fixes it, matching the error the node reader raises.
+ * Loud but non-fatal: init did its own job; migration is a deliberate,
+ * in-session follow-up the user runs next.
  */
 function reportSchemaMismatch(nodesDir: string): void {
   const onDisk = detectSchemaVersion(nodesDir);
@@ -162,7 +162,7 @@ function reportSchemaMismatch(nodesDir: string): void {
   log.error(
     `Knowledge base on disk is at schema_version ${onDisk}, but this kenkeep reads ` +
       `schema_version ${NODE_SCHEMA_VERSION}. nodes/ was left untouched and commands that ` +
-      `read it will fail until you migrate it: run ${MIGRATE_COMMAND_HINT}.`
+      `read it will fail until you migrate it: use ${MIGRATE_COMMAND_HINT}.`
   );
 }
 

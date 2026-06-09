@@ -36,6 +36,7 @@ describe('init', () => {
       '.claude/skills/kk-add/SKILL.md',
       '.claude/skills/kk-bootstrap/SKILL.md',
       '.claude/skills/kk-curate/SKILL.md',
+      '.claude/skills/kk-migrate/SKILL.md',
       '.claude/hooks/kk-capture.cjs',
       '.claude/hooks/kk-proposal-drain.cjs',
       '.claude/hooks/kk-session-start.cjs',
@@ -68,7 +69,7 @@ describe('init', () => {
     expect(typeof installed.installed_at).toBe('string');
   });
 
-  it('reports the migrate command when an existing knowledge base is at an older schema_version', async () => {
+  it('points to the kk-migrate skill when an existing knowledge base is at an older schema_version', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     // Plant a legacy flat-layout (schema_version 1) leaf so the detector sees a stale KB.
     const bucket = join(sandbox, '.ai/kenkeep/nodes/practice');
@@ -78,23 +79,26 @@ describe('init', () => {
       '---\nschema_version: 1\nid: practice-old\n---\n\n# old\n'
     );
 
-    // Re-running init (already-initialized path) surfaces the migrate guidance.
+    // Re-running init (already-initialized path) surfaces the migrate guidance,
+    // which now names the in-session kk-migrate skill, not the removed command.
     const reinit = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(reinit.exitCode).toBe(0);
     const reinitOut = reinit.stdout + reinit.stderr;
     expect(reinitOut).toMatch(/schema_version 1/);
-    expect(reinitOut).toMatch(/`npx kenkeep --harness <id> migrate`/);
+    expect(reinitOut).toMatch(/`\/kk-migrate` skill/);
+    expect(reinitOut).not.toMatch(/npx kenkeep --harness <id> migrate/);
 
     // The upgrade path surfaces it too.
     const upgrade = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
     expect(upgrade.exitCode).toBe(0);
-    expect(upgrade.stdout + upgrade.stderr).toMatch(/`npx kenkeep --harness <id> migrate`/);
+    expect(upgrade.stdout + upgrade.stderr).toMatch(/`\/kk-migrate` skill/);
   });
 
   it('does not mention migration when the knowledge base is already at the current schema', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const reinit = await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    expect(reinit.stdout + reinit.stderr).not.toMatch(/--harness <id> migrate/);
+    expect(reinit.stdout + reinit.stderr).not.toMatch(/kk-migrate/);
+    expect(reinit.stdout + reinit.stderr).not.toMatch(/migrate it/);
   });
 
   it('writes .ai/kenkeep/.gitignore and leaves the project .gitignore untouched', async () => {

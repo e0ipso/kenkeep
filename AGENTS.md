@@ -87,7 +87,7 @@ Node, index, and graph artifacts carry `schema_version: 2` (the tree-storage cle
 - **Bump** when removing/renaming a field, changing field semantics, or making an optional field required.
 - **Do not bump** when adding optional fields, adding enum cases, or relaxing constraints.
 
-When you bump, the reader rejects the old shape with a clear error pointing the user to run `npx kenkeep --harness <id> migrate` — the node reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1` nodes) outright. Migration preserves every node's id and edges; re-running `init` would not migrate existing nodes.
+When you bump, the reader rejects the old shape with a clear error pointing the user to run the `kk-migrate` skill in their agent session — the node reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1` nodes) outright. The skill clusters the leaves in-session and drives the deterministic `place` primitive to relocate them; because the clustering needs the in-session agent, full migration now requires an interactive session (there is no headless/unattended migration). Migration preserves every node's id and edges and is reviewed via `git diff`; re-running `init` would not migrate existing nodes.
 
 ### Prompt versioning
 

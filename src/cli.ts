@@ -8,7 +8,6 @@ import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
 import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
-import { runMigrate } from './commands/migrate.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
@@ -166,26 +165,6 @@ async function main(): Promise<void> {
       const harnessFlag = getHarnessFlag();
       if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
       runBootstrapLauncher(launchOpts);
-    });
-
-  // Hidden: brings an on-disk knowledge base up to the current storage schema.
-  // Reads the version on disk, runs the matching step(s), rebuilds indexes, and
-  // stops for review. Writes files only; accept by commit or reject by restore.
-  program
-    .command('migrate', { hidden: true })
-    .description('Bring the on-disk knowledge base up to the current storage schema.')
-    .addHelpText(
-      'after',
-      `\nMigrations that cluster nodes run an LLM in your coding agent and require an\n` +
-        `explicit harness, passed as a global flag before the subcommand:\n` +
-        `  kenkeep --harness <id> migrate   (one of: ${listHarnessIds().join(', ')})\n`
-    )
-    .action(async () => {
-      const migrateOpts: Parameters<typeof runMigrate>[0] = {};
-      const harnessFlag = getHarnessFlag();
-      if (harnessFlag !== undefined) migrateOpts.harness = harnessFlag;
-      const code = await runMigrate(migrateOpts);
-      process.exit(code);
     });
 
   const placeGroup = program

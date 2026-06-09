@@ -59,7 +59,7 @@ describe('nodes helpers', () => {
     expect(nodes.map(n => n.frontmatter.id).sort()).toEqual(['map-y', 'practice-x']);
   });
 
-  it('rejects the legacy flat nodes/<kind>/ layout and points to migrate, not init --upgrade', () => {
+  it('rejects the legacy flat nodes/<kind>/ layout and points to the kk-migrate skill, not init --upgrade', () => {
     // A v1 flat bucket: leaf docs under nodes/practice/ with no generated index.md.
     const bucket = join(root, 'practice');
     mkdirSync(bucket, { recursive: true });
@@ -74,7 +74,10 @@ describe('nodes helpers', () => {
     } catch (err) {
       msg = (err as Error).message;
     }
-    expect(msg).toMatch(/`npx kenkeep --harness <id> migrate`/);
+    // The removed `npx kenkeep --harness <id> migrate` command is gone; the
+    // rejection now names the in-session kk-migrate skill.
+    expect(msg).toMatch(/`\/kk-migrate` skill/);
+    expect(msg).not.toMatch(/npx kenkeep --harness <id> migrate/);
     expect(msg).not.toMatch(/init --upgrade/);
   });
 

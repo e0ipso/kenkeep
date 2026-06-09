@@ -61,9 +61,10 @@ export class InvalidNodeFrontmatterError extends Error {
 /**
  * Thrown when the on-disk knowledge base uses the old flat `nodes/<kind>/`
  * layout (or `schema_version: 1`). The reader rejects the old shape outright
- * rather than misparsing it; the message points the user at `migrate`, which
- * preserves every node's id and edges (re-init would not migrate, and deleting
- * the tree would discard curated knowledge).
+ * rather than misparsing it; the message points the user at the `kk-migrate`
+ * skill, which clusters in-session and preserves every node's id and edges
+ * (re-init would not migrate, and deleting the tree would discard curated
+ * knowledge).
  */
 export class OldLayoutError extends Error {
   constructor(detail: string) {
@@ -412,9 +413,10 @@ export function writeNodeFile(args: WriteNodeArgs): string {
  * reads this folder's `index.md` for staleness. The placeholder
  * `nodes_hash: sha256:pending` is a poison value, not a real hash; until the
  * rebuild overwrites it, `nodesHashChanged`/`doctor` would read it as the
- * recorded hash. Both current callers honor this: migrate rebuilds once after
- * all steps (`runMigrate`), and the rebalance command wrapper rebuilds after
- * `applyRebalancePlan`. This primitive deliberately does NOT rebuild itself — it
+ * recorded hash. Both current callers honor this: the `place apply` migration
+ * primitive expects the skill to rebuild once afterwards (`index rebuild`), and
+ * the rebalance command wrapper rebuilds after `applyRebalancePlan`. This
+ * primitive deliberately does NOT rebuild itself — it
  * is a single-folder write invoked in a loop, so rebuilding here would
  * regenerate the whole tree once per stamped folder, and `lib/` must not depend
  * on the `commands/` rebuild entry point.

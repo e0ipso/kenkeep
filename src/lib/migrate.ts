@@ -4,22 +4,37 @@ import matter from 'gray-matter';
 import { INDEX_FILENAME } from './nodes.js';
 
 /**
- * A single ordered step that brings on-disk artifacts from one schema_version to
- * the next. A registry of these lets the dispatcher resolve any gap by chaining
- * steps, so a future schema bump adds one step rather than a new command.
+ * A single declarative step that brings on-disk artifacts from one
+ * schema_version to the next. Steps are never executed by the CLI: the
+ * `migrate status` primitive reports the pending chain, and the in-host
+ * `kk-migrate` skill carries each step out by driving the step's CLI
+ * primitives. A registry of these lets a future schema bump add one entry
+ * rather than a new command.
  */
 export interface MigrationStep {
+  /** Stable step identifier, matched against SKILL.md procedure sections. */
+  readonly id: string;
   readonly from: number;
   readonly to: number;
-  /**
-   * True when `run()` drives an LLM-backed harness. The dispatcher refuses the
-   * migration unless an explicit `--harness` was passed, so an LLM step never
-   * silently falls back to env/config-resolved harness selection.
-   */
-  readonly requiresHarness: boolean;
-  /** Applies the step to the working tree; returns human-readable report lines. */
-  run(): Promise<string[]>;
+  /** The deterministic CLI primitives the in-host skill drives for this step. */
+  readonly primitives: readonly string[];
 }
+
+/**
+ * The ordered registry of every known migration step, consumed by the
+ * `migrate status` CLI primitive and the in-host `kk-migrate` skill. Two rules
+ * bind every entry:
+ *
+ * 1. A step's primitives must refuse to run unless the detected on-disk
+ *    version equals the step's `from`, so a step can never apply to a tree it
+ *    was not written for.
+ * 2. Adding an entry requires a matching per-step procedure section in the
+ *    kk-migrate SKILL.md plus a `<!-- Version -->` bump there, so the skill
+ *    and the registry never drift apart.
+ */
+export const MIGRATION_STEPS: readonly MigrationStep[] = [
+  { id: 'flat-to-tree', from: 1, to: 2, primitives: ['place inventory', 'place apply'] },
+];
 
 const LEGACY_KIND_DIRS = ['practice', 'map'];
 
@@ -90,10 +105,11 @@ export function detectSchemaVersion(nodesDir: string): number | null {
 }
 
 /**
- * Resolves the ordered chain of steps that takes `current` up to `target`,
- * picking the step whose `from` matches the running version at each hop. Throws
- * when a gap has no step so a missing step fails loudly rather than silently
- * leaving artifacts behind.
+ * Resolves the ordered pending chain that takes `current` up to `target` for
+ * the `migrate status` dispatch primitive, picking the step whose `from`
+ * matches the running version at each hop. Throws when a gap has no step so a
+ * missing registry entry fails loudly rather than silently leaving artifacts
+ * behind.
  */
 export function planMigration(
   steps: readonly MigrationStep[],

@@ -9,6 +9,7 @@ import { runInit } from './commands/init.js';
 import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
+import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
 import { runPlaceApply, runPlaceInventory } from './commands/place.js';
@@ -165,6 +166,22 @@ async function main(): Promise<void> {
       const harnessFlag = getHarnessFlag();
       if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
       runBootstrapLauncher(launchOpts);
+    });
+
+  const migrateGroup = program
+    .command('migrate')
+    .description(
+      "Reports pending knowledge-base migrations. Never executes them: migrations run in-host via the kk-migrate skill, which dispatches on this command's output."
+    );
+  migrateGroup
+    .command('status')
+    .description(
+      'Deterministic, LLM-free migration report: detects the on-disk schema_version and, when migrations are pending, prints the ordered step chain as a JSON document {"current","target","steps":[{"id","from","to","primitives"}]} for the kk-migrate skill to dispatch on, or reports "nothing to do" when already current.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runMigrateStatus();
+      process.exit(code);
     });
 
   const placeGroup = program

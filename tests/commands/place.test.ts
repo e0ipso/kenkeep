@@ -395,10 +395,12 @@ describe('place (deterministic migration primitive)', () => {
     expect(() => JSON.parse(done.stdout.trim())).toThrow();
   });
 
-  it('migrate is no longer a command (removed; clustering is the kk-migrate skill)', async () => {
+  it('bare migrate surfaces the dispatch group help (reports only; never executes)', async () => {
     const res = await runCli(sandbox, ['migrate']);
     expect(res.exitCode).not.toBe(0);
-    expect(res.stderr).toMatch(/unknown command/i);
+    expect(res.stderr).not.toMatch(/unknown command/i);
+    expect(res.stderr).toMatch(/status/);
+    expect(res.stderr).toMatch(/never executes/i);
   });
 
   it('after a place-apply migration no edge dangles (doctor dangling-ref detection finds nothing)', async () => {

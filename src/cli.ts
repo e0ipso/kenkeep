@@ -12,6 +12,7 @@ import { runMigrate } from './commands/migrate.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
+import { runPlaceApply, runPlaceInventory } from './commands/place.js';
 import { runRebalanceMove, runRebalanceTrigger } from './commands/rebalance.js';
 import { runStatus } from './commands/status.js';
 import { listHarnessIds } from './harnesses/registry.js';
@@ -184,6 +185,35 @@ async function main(): Promise<void> {
       const harnessFlag = getHarnessFlag();
       if (harnessFlag !== undefined) migrateOpts.harness = harnessFlag;
       const code = await runMigrate(migrateOpts);
+      process.exit(code);
+    });
+
+  const placeGroup = program
+    .command('place')
+    .description(
+      'Deterministic, LLM-free v1->v2 migration placement primitives (driven by the kk-migrate skill).'
+    );
+  placeGroup
+    .command('inventory')
+    .description(
+      'Deterministic, LLM-free migration check: detects the on-disk schema_version and, when a v1->v2 migration is due, prints the flat leaves as a JSON document {"leaves":[{"id","title","kind","tags","summary","relates_to","sourcePath"}]} for the kk-migrate skill to cluster, or reports "nothing to do" when already current.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runPlaceInventory();
+      process.exit(code);
+    });
+  placeGroup
+    .command('apply')
+    .description(
+      'Deterministic placement primitive: applies a caller-supplied placement-and-folders plan {"placements":[{"id","targetFolder"}],"folders":[{"folder","summary"}]} as id-stable, byte-stable relocations and stamps each authored folder summary. Validates every id and folder before any write (a bad plan aborts with zero changes). Reads the plan JSON from --input or stdin. Writes files only; never stages or commits. Prints a placement summary JSON.'
+    )
+    .option('--input <path>', 'path to the placement-and-folders JSON; reads stdin when omitted')
+    .allowExcessArguments(true)
+    .action(async (opts: { input?: string }) => {
+      const flags: Parameters<typeof runPlaceApply>[0] = {};
+      if (opts.input !== undefined) flags.input = opts.input;
+      const code = await runPlaceApply(flags);
       process.exit(code);
     });
 

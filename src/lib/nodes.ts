@@ -404,8 +404,20 @@ export function writeNodeFile(args: WriteNodeArgs): string {
  *
  * A blank summary is a no-op (nothing to author). When an `index.md` already
  * exists, only its `summary` is updated; `nodes_hash`/`node_count` are left as
- * placeholders that the imminent rebuild overwrites. `dirRel` is a POSIX-style
- * folder under `nodesDir` and must stay within it.
+ * placeholders (`sha256:pending` / `0`) for the rebuild to overwrite. `dirRel`
+ * is a POSIX-style folder under `nodesDir` and must stay within it.
+ *
+ * CALLER CONTRACT — load-bearing: every call MUST be followed by a
+ * `runIndexRebuild()` (or equivalent `generateIndex` write) before any consumer
+ * reads this folder's `index.md` for staleness. The placeholder
+ * `nodes_hash: sha256:pending` is a poison value, not a real hash; until the
+ * rebuild overwrites it, `nodesHashChanged`/`doctor` would read it as the
+ * recorded hash. Both current callers honor this: migrate rebuilds once after
+ * all steps (`runMigrate`), and the rebalance command wrapper rebuilds after
+ * `applyRebalancePlan`. This primitive deliberately does NOT rebuild itself — it
+ * is a single-folder write invoked in a loop, so rebuilding here would
+ * regenerate the whole tree once per stamped folder, and `lib/` must not depend
+ * on the `commands/` rebuild entry point.
  */
 export function stampFolderSummary(nodesDir: string, dirRel: string, summary: string): void {
   const trimmed = summary.trim();

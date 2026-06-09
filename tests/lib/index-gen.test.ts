@@ -265,6 +265,28 @@ describe('generateIndex self-preserves the folder summary', () => {
     expect(summaryOf(generateIndex(root).folders.get('topic')!.content)).toBe(authored);
   });
 
+  it('preserves a hand-authored summary even when other index frontmatter is malformed', () => {
+    seedNodes(root, [{ dir: 'topic', kind: 'map', id: 'map-a', title: 'A', summary: 's' }]);
+    // A human hand-edits the folder summary but leaves a malformed nodes_hash and
+    // an out-of-schema node_count. The authored summary must still survive: it is
+    // harvested independently of the machine-owned fields the rebuild recomputes.
+    const d = join(root, 'topic');
+    mkdirSync(d, { recursive: true });
+    writeFileSync(
+      join(d, 'index.md'),
+      matter.stringify('# hand edited\n', {
+        schema_version: 2,
+        nodes_hash: 12345, // wrong type (number, not string)
+        node_count: 'lots', // wrong type (string, not number)
+        summary: 'hand-authored, must survive',
+      })
+    );
+    const out = generateIndex(root);
+    expect(summaryOf(out.folders.get('topic')!.content)).toBe('hand-authored, must survive');
+    // ...and the folder is NOT mislabeled as missing a summary on this rebuild.
+    expect(out.foldersMissingSummary).not.toContain('topic');
+  });
+
   it('reports non-root folders lacking a summary (warn, never block), excluding the root', () => {
     seedNodes(root, [
       { dir: 'has', kind: 'map', id: 'map-a', title: 'A', summary: 's' },
@@ -453,6 +475,35 @@ describe('generateIndex actionable rendering', () => {
     expect(entries[1]).toContain('[**Hub Two**]');
     expect(entries[2]).toContain('[**X**]');
     expect(bucket).not.toContain('[**Z**]');
+  });
+
+  it('escapes structure-breaking markdown when splicing a leaf title and summary', () => {
+    seedNodes(root, [
+      {
+        dir: 'topic',
+        kind: 'map',
+        id: 'map-tricky',
+        title: 'Title [with] `code`',
+        summary: 'summary with ] bracket and ` tick',
+      },
+    ]);
+    const content = matter(generateIndex(root).folders.get('topic')!.content).content;
+    // Title (inside the link label) and summary (trailing prose) are both escaped
+    // so a stray `]`/backtick cannot break the link or the list item.
+    expect(content).toContain('Open [**Title \\[with\\] \\`code\\`**](topic/map-tricky.md)');
+    expect(content).toContain('to learn about: summary with \\] bracket and \\` tick');
+  });
+
+  it('escapes a spliced folder summary in the Load pointer but stores it verbatim', () => {
+    seedNodes(root, [{ dir: 'child', kind: 'map', id: 'map-a', title: 'A', summary: 's' }]);
+    writeFolderIndexWithSummary('child', 'edge ] cases and `code`');
+    const out = generateIndex(root);
+    // Parent (root index node) Load pointer: escaped so the bullet stays intact.
+    expect(out.folders.get('')!.content).toContain(
+      'for more information on edge \\] cases and \\`code\\`.'
+    );
+    // The folder's own frontmatter keeps the authored summary byte-for-byte.
+    expect(matter(out.folders.get('child')!.content).data.summary).toBe('edge ] cases and `code`');
   });
 });
 

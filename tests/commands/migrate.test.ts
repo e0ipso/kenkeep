@@ -396,4 +396,34 @@ describe('migrate (deterministic primitives)', () => {
     const dangling = collectDanglingDerivedFrom(sandbox, nodesDir, sessionsDir);
     expect(dangling).toEqual([]);
   });
+
+  it('rejects a clustering result that summarizes a folder no leaf was placed into', async () => {
+    const nodesDir = await makeFlatKb(sandbox);
+
+    // Snapshot the flat tree to prove the guard fires before any write.
+    const snapshot = new Map<string, string>();
+    for (const leaf of collectLeaves(nodesDir)) {
+      snapshot.set(relative(nodesDir, leaf), readFileSync(leaf, 'utf8'));
+    }
+
+    process.chdir(sandbox);
+    // Every leaf lands in `workflow`, but the clustering also authors a summary
+    // for an unrelated `ghost` folder no placement ever targets.
+    const orphanCluster = (leaves: { id: string; sourcePath: string }[]) => ({
+      placements: leaves.map(l => ({
+        id: l.id,
+        sourcePath: l.sourcePath,
+        targetFolder: 'workflow',
+      })),
+      folderSummaries: { workflow: 'real folder', ghost: 'orphaned summary' },
+    });
+
+    await expect(runMigrate({ cluster: orphanCluster })).rejects.toThrow(/ghost/);
+
+    // No write happened: the flat KB is byte-for-byte intact and still v1.
+    expect(detectSchemaVersion(nodesDir)).toBe(1);
+    for (const [rel, content] of snapshot) {
+      expect(readFileSync(join(nodesDir, rel), 'utf8')).toBe(content);
+    }
+  });
 });

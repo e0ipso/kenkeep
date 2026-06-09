@@ -1,3 +1,28 @@
+## [1.2.0](https://github.com/e0ipso/kenkeep/compare/v1.1.0...v1.2.0) (2026-06-09)
+
+### Features
+
+* actionable index rendering and folder-summary authoring ([8f5b79f](https://github.com/e0ipso/kenkeep/commit/8f5b79f5915169f184a615e63bedd2fddec24b12))
+* add deterministic place primitive and kk-migrate in-host skill ([bb733bd](https://github.com/e0ipso/kenkeep/commit/bb733bd95fe9b7325ff64494720e45abc8b41644))
+* add migrate status dispatch primitive ([d7e0d6b](https://github.com/e0ipso/kenkeep/commit/d7e0d6b42279753ff5121ea6a4fdc606bbfb5401))
+* add self-preserved folder summary to the index schema ([da6b670](https://github.com/e0ipso/kenkeep/commit/da6b670988365386b495ac611314a43b45d18ea9))
+* detect the need for migration ([e1b0330](https://github.com/e0ipso/kenkeep/commit/e1b0330fc0095629e32c05b276059b885141fd73))
+* gate place primitives to schema_version 1 ([138b246](https://github.com/e0ipso/kenkeep/commit/138b24640cd9389c68ddbc0349e41357ed8c4fc7))
+* inject the descent directive once and document the new index format ([f131224](https://github.com/e0ipso/kenkeep/commit/f1312244fb53849bf136b463fe63b7473574c0e0))
+* make kk-migrate skill a generic dispatcher ([8c00c54](https://github.com/e0ipso/kenkeep/commit/8c00c54a3fcc3697e7d50502c0e02b0e9a440673))
+* remove migrate command for the in-host kk-migrate skill ([ff8360b](https://github.com/e0ipso/kenkeep/commit/ff8360ba9071ac030be95bc7cdf307f12f346b8a))
+* replace INDEX.md with a purpose-built ENTRY.md entry catalog ([4a363a3](https://github.com/e0ipso/kenkeep/commit/4a363a33c8468195ef657ebb814d606784729357))
+* reshape MigrationStep into step registry ([468a680](https://github.com/e0ipso/kenkeep/commit/468a680e4988ab5a3f8abaa443e4af4ac508d32f))
+* treefy knowledge storage ([a7e01d7](https://github.com/e0ipso/kenkeep/commit/a7e01d7a7af06dc735749a16885156dafa9896ce))
+* warn and list folders missing a summary on index rebuild ([ab7cc00](https://github.com/e0ipso/kenkeep/commit/ab7cc009387ee0f5d60cfa3dc0b73c9b8be98855))
+
+### Bug Fixes
+
+* address tree-storage review findings ([6929bc6](https://github.com/e0ipso/kenkeep/commit/6929bc6fe1113e8e4485584cccda02a111c8e3e6))
+* harden KB index and migrate from self-review ([949489f](https://github.com/e0ipso/kenkeep/commit/949489fc365ae5b04f857518a4ad6cc7dc9c99f5))
+* misc changes ([1691b05](https://github.com/e0ipso/kenkeep/commit/1691b052e495092b9f09c4cc870a1d1143eb88bf))
+* misc changes ([634c855](https://github.com/e0ipso/kenkeep/commit/634c855767cec0fda1dc912d247d2cdf40764f09))
+
 ## [1.1.0](https://github.com/e0ipso/kenkeep/compare/v1.0.2...v1.1.0) (2026-06-05)
 
 ### Features

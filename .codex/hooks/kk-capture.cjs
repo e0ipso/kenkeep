@@ -5,11 +5,10 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// src/harnesses/opencode/hooks/kk-capture.ts
-var import_node_child_process = require("child_process");
-var import_node_fs7 = require("fs");
-var import_node_os2 = require("os");
-var import_node_path6 = require("path");
+// src/harnesses/codex/hooks/kk-capture.ts
+var import_node_fs6 = require("fs");
+var import_node_os = require("os");
+var import_node_path5 = require("path");
 
 // src/lib/capture.ts
 var import_node_crypto = require("crypto");
@@ -7077,84 +7076,61 @@ function repoPaths(root) {
   };
 }
 
-// src/harnesses/opencode/transcript.ts
-var import_node_fs6 = require("fs");
-var import_node_os = require("os");
-var import_node_path5 = require("path");
-function defaultOpenCodeStorageDir(env = process.env) {
-  const explicit = env["OPENCODE_STORAGE_DIR"];
-  if (explicit && explicit.length > 0) return explicit;
-  const xdg = env["XDG_DATA_HOME"];
-  const base = xdg && xdg.length > 0 ? xdg : (0, import_node_path5.join)((0, import_node_os.homedir)(), ".local", "share");
-  return (0, import_node_path5.join)(base, "opencode", "storage");
+// src/harnesses/codex/transcript.ts
+function extractMessageText(line) {
+  const blocks = line.payload?.content;
+  if (!Array.isArray(blocks)) return "";
+  return blocks.filter((b) => !!b && typeof b === "object").filter((b) => typeof b.type === "string" && b.type.endsWith("_text")).map((b) => typeof b.text === "string" ? b.text : "").filter((s) => s.length > 0).join("\n");
 }
-function parseOpenCodeTranscript(storageDir, sessionID) {
+function parseCodexTranscript(text) {
   const out = { interleaved: [] };
-  const sessionRoot = (0, import_node_path5.join)(storageDir, "session");
-  const messageRoot = (0, import_node_path5.join)(storageDir, "message", sessionID);
-  if (!(0, import_node_fs6.existsSync)(messageRoot)) return out;
-  let sessionFile = null;
-  if ((0, import_node_fs6.existsSync)(sessionRoot)) {
-    for (const project of (0, import_node_fs6.readdirSync)(sessionRoot)) {
-      const candidate = (0, import_node_path5.join)(sessionRoot, project, `${sessionID}.json`);
-      if ((0, import_node_fs6.existsSync)(candidate)) {
-        try {
-          sessionFile = JSON.parse((0, import_node_fs6.readFileSync)(candidate, "utf8"));
-        } catch (err) {
-          console.warn(
-            `parseOpenCodeTranscript: skipping malformed JSON file: ${err.message}`
-          );
-          sessionFile = null;
-        }
-        break;
-      }
-    }
-  }
-  void sessionFile;
-  const messageFiles = (0, import_node_fs6.readdirSync)(messageRoot).filter((name) => name.endsWith(".json")).map((name) => {
-    const full = (0, import_node_path5.join)(messageRoot, name);
-    let content;
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+    let parsed;
     try {
-      content = JSON.parse((0, import_node_fs6.readFileSync)(full, "utf8"));
+      parsed = JSON.parse(line);
     } catch (err) {
       console.warn(
-        `parseOpenCodeTranscript: skipping malformed JSON file: ${err.message}`
+        `parseCodexTranscript: skipping malformed JSONL line: ${err.message}`
       );
-      content = {};
+      continue;
     }
-    return { name, content };
-  }).sort((a, b) => (a.content.time?.created ?? 0) - (b.content.time?.created ?? 0));
-  const partRoot = (0, import_node_path5.join)(storageDir, "part");
-  for (const { content: message } of messageFiles) {
-    if (!message.id || message.role !== "user" && message.role !== "assistant") continue;
-    const partDir = (0, import_node_path5.join)(partRoot, message.id);
-    if (!(0, import_node_fs6.existsSync)(partDir)) continue;
-    const parts = (0, import_node_fs6.readdirSync)(partDir).filter((name) => name.endsWith(".json")).map((name) => {
-      const full = (0, import_node_path5.join)(partDir, name);
-      let content;
-      try {
-        content = JSON.parse((0, import_node_fs6.readFileSync)(full, "utf8"));
-      } catch (err) {
-        console.warn(
-          `parseOpenCodeTranscript: skipping malformed JSON file: ${err.message}`
-        );
-        content = {};
+    const kind = parsed.type;
+    const payloadType = parsed.payload?.type;
+    if (kind === "session_meta") continue;
+    if (kind === "response_item" && payloadType === "message") {
+      const role = parsed.payload?.role;
+      const turnText = extractMessageText(parsed);
+      if (!turnText) continue;
+      if (role === "user") {
+        out.interleaved.push({ role: "user", text: turnText });
+      } else if (role === "assistant") {
+        out.interleaved.push({ role: "agent", text: turnText });
       }
-      return { name, content };
-    }).sort((a, b) => a.name.localeCompare(b.name));
-    const text = parts.filter((p) => p.content.type === "text" && typeof p.content.text === "string").map((p) => p.content.text).filter((s) => s.length > 0).join("\n");
-    if (!text) continue;
-    out.interleaved.push({
-      role: message.role === "user" ? "user" : "agent",
-      text
-    });
+      continue;
+    }
+    if (kind === "event_msg" && payloadType === "user_message") {
+      const message = parsed.payload?.message;
+      if (typeof message === "string" && message.length > 0) {
+        out.interleaved.push({ role: "user", text: message });
+      }
+      continue;
+    }
+    if (kind === "event_msg" && payloadType === "task_complete") {
+      const message = parsed.payload?.last_agent_message;
+      if (typeof message !== "string" || message.length === 0) continue;
+      const last = out.interleaved[out.interleaved.length - 1];
+      if (last && last.role === "agent" && last.text === message) continue;
+      out.interleaved.push({ role: "agent", text: message });
+      continue;
+    }
   }
   return out;
 }
 
-// src/harnesses/opencode/hooks/kk-capture.ts
+// src/harnesses/codex/hooks/kk-capture.ts
 var HARD_DEADLINE_MS = 1e3;
-var EXPORT_TIMEOUT_MS = 3e4;
 var PACKAGE_TAG = "[kenkeep]";
 async function main() {
   if (process.env["KENKEEP_BUILDER_INTERNAL"] === "1") return;
@@ -7167,7 +7143,7 @@ async function main() {
     payload = JSON.parse(raw);
   } catch (err) {
     const paths2 = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("opencode:kk-capture", "parse", err, paths2.logsDir);
+    appendHookDiagnostic("codex:kk-capture", "parse", err, paths2.logsDir);
     return;
   }
   const startCwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : process.cwd();
@@ -7175,27 +7151,21 @@ async function main() {
   const paths = repoPaths(root);
   try {
     const sessionId = assertValidSessionId(payload["session_id"]);
-    const storageDir = defaultOpenCodeStorageDir();
-    let transcript = parseOpenCodeTranscript(storageDir, sessionId);
-    if (transcript.interleaved.length === 0) {
-      const fromExport = exportFallback(sessionId);
-      if (fromExport) transcript = fromExport;
+    const homeRoot = process.env["CODEX_HOME"] ?? (0, import_node_path5.join)((0, import_node_os.homedir)(), ".codex");
+    const rolloutPath = locateRollout(homeRoot, sessionId);
+    if (rolloutPath === null) {
+      return;
     }
-    if (transcript.interleaved.length === 0) return;
-    const tmpRoot = (0, import_node_fs7.mkdtempSync)((0, import_node_path6.join)((0, import_node_os2.tmpdir)(), "kk-opencode-"));
-    const transcriptFile = (0, import_node_path6.join)(tmpRoot, "transcript.json");
-    (0, import_node_fs7.writeFileSync)(transcriptFile, JSON.stringify(transcript));
-    const parser = (text) => JSON.parse(text);
     const input = {
       session_id: sessionId,
-      transcript_path: transcriptFile,
+      transcript_path: rolloutPath,
       hook_event_name: "Stop",
       ...typeof payload["cwd"] === "string" ? { cwd: payload["cwd"] } : {}
     };
     process.stderr.write("\u{1F4F8} kenkeep Capture: Saving session transcript\u2026\n");
     await captureSession(input, {
       sessionsDir: paths.sessionsDir,
-      parseTranscript: parser
+      parseTranscript: parseCodexTranscript
     });
     process.stderr.write("\u{1F4BE} kenkeep Capture: Session transcript saved.\n");
   } catch (err) {
@@ -7205,46 +7175,76 @@ async function main() {
     );
   }
 }
-function exportFallback(sessionId) {
-  try {
-    (0, import_node_child_process.execFileSync)("opencode", ["--version"], { timeout: 5e3, stdio: "ignore" });
-  } catch {
-    return null;
-  }
-  const run = (0, import_node_child_process.spawnSync)("opencode", ["export", sessionId], {
-    timeout: EXPORT_TIMEOUT_MS,
-    encoding: "utf8"
-  });
-  if (run.status !== 0 || !run.stdout) return null;
-  let exported;
-  try {
-    exported = JSON.parse(run.stdout);
-  } catch {
-    return null;
-  }
-  return shapeExportedTranscript(exported);
+function locateRollout(homeRoot, sessionId) {
+  const sessionsRoot = (0, import_node_path5.join)(homeRoot, "sessions");
+  if (!(0, import_node_fs6.existsSync)(sessionsRoot)) return null;
+  const today = /* @__PURE__ */ new Date();
+  const todayDir = sessionsDirForDate(sessionsRoot, today);
+  const direct = findByFilename(todayDir, sessionId);
+  if (direct !== null) return direct;
+  const yesterday = new Date(today.getTime() - 864e5);
+  const yesterdayDir = sessionsDirForDate(sessionsRoot, yesterday);
+  const fromYesterday = findByFilename(yesterdayDir, sessionId);
+  if (fromYesterday !== null) return fromYesterday;
+  return findBySessionMeta(todayDir, sessionId);
 }
-function shapeExportedTranscript(json2) {
-  const out = { interleaved: [] };
-  if (!json2 || typeof json2 !== "object") return out;
-  const session = json2;
-  if (!Array.isArray(session.messages)) return out;
-  const sorted = [...session.messages].sort(
-    (a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0)
-  );
-  for (const message of sorted) {
-    if (message.role !== "user" && message.role !== "assistant") continue;
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    const text = parts.filter((p) => p.type === "text" && typeof p.text === "string").map((p) => p.text).filter((s) => s.length > 0).join("\n");
-    if (!text) continue;
-    out.interleaved.push({ role: message.role === "user" ? "user" : "agent", text });
+function sessionsDirForDate(sessionsRoot, when) {
+  const y = when.getUTCFullYear().toString();
+  const m = String(when.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(when.getUTCDate()).padStart(2, "0");
+  return (0, import_node_path5.join)(sessionsRoot, y, m, d);
+}
+function findByFilename(dir, sessionId) {
+  if (!(0, import_node_fs6.existsSync)(dir)) return null;
+  let entries;
+  try {
+    entries = (0, import_node_fs6.readdirSync)(dir);
+  } catch {
+    return null;
   }
-  return out;
+  const suffix = `-${sessionId}.jsonl`;
+  for (const name of entries) {
+    if (name.startsWith("rollout-") && name.endsWith(suffix)) {
+      return (0, import_node_path5.join)(dir, name);
+    }
+  }
+  return null;
+}
+function findBySessionMeta(dir, sessionId) {
+  if (!(0, import_node_fs6.existsSync)(dir)) return null;
+  let entries;
+  try {
+    entries = (0, import_node_fs6.readdirSync)(dir);
+  } catch {
+    return null;
+  }
+  for (const name of entries) {
+    if (!name.startsWith("rollout-") || !name.endsWith(".jsonl")) continue;
+    const full = (0, import_node_path5.join)(dir, name);
+    let firstLine;
+    try {
+      const text = (0, import_node_fs6.readFileSync)(full, "utf8");
+      const nl = text.indexOf("\n");
+      firstLine = nl === -1 ? text : text.slice(0, nl);
+    } catch {
+      continue;
+    }
+    if (firstLine.length === 0) continue;
+    try {
+      const parsed = JSON.parse(firstLine);
+      if (parsed.type === "session_meta" && parsed.payload?.id === sessionId) {
+        return full;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 void main().catch((err) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("opencode:kk-capture", "uncaught", err, paths.logsDir);
+    appendHookDiagnostic("codex:kk-capture", "uncaught", err, paths.logsDir);
   } catch {
   }
   process.exit(0);

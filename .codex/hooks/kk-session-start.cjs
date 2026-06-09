@@ -3567,7 +3567,7 @@ var require_gray_matter = __commonJS({
   }
 });
 
-// src/harnesses/claude/hooks/kk-session-start.ts
+// src/harnesses/codex/hooks/kk-session-start.ts
 init_cjs_shims();
 var import_node_fs10 = require("fs");
 var import_node_path10 = require("path");
@@ -3587,24 +3587,6 @@ function appendHookDiagnostic(hook, phase, error, logsDir) {
     (0, import_node_fs.appendFileSync)((0, import_node_path.join)(logsDir, `hook-errors-${dateStr}.log`), line, "utf8");
   } catch {
   }
-}
-
-// src/lib/stdin.ts
-init_cjs_shims();
-function readStdin() {
-  return new Promise((resolve2) => {
-    if (process.stdin.isTTY) {
-      resolve2("");
-      return;
-    }
-    let data = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on("end", () => resolve2(data));
-    process.stdin.on("error", () => resolve2(""));
-  });
 }
 
 // src/lib/session-start.ts
@@ -10831,8 +10813,39 @@ function summarizePendingSessions(sessionsDir) {
   }
   return { pending, candidateCount, oldestCapturedAt: oldest };
 }
+function buildNudgeContent(result) {
+  const statusLine = result.nudged ? `\u{1F6A8} kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kk-curate` : `\u{1F4CB} kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+  let content = statusLine + "\n\n" + result.additionalContext;
+  if (result.nudged) {
+    const box = `\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502 \u{1F6A8} kenkeep curation is overdue       \u2502
+\u2502 Run /kk-curate to process them.      \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
+    content += "\n> IMPORTANT: After completing your response, append the following block verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> " + box.split("\n").join("\n> ") + "\n> ```\n";
+  }
+  return { statusLine, content };
+}
 
-// src/harnesses/claude/hooks/kk-session-start.ts
+// src/lib/stdin.ts
+init_cjs_shims();
+function readStdin() {
+  return new Promise((resolve2) => {
+    if (process.stdin.isTTY) {
+      resolve2("");
+      return;
+    }
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve2(data));
+    process.stdin.on("error", () => resolve2(""));
+  });
+}
+
+// src/harnesses/codex/hooks/kk-session-start.ts
 var PACKAGE_TAG = "[kenkeep]";
 var HARD_DEADLINE_MS = 1e3;
 async function main() {
@@ -10846,7 +10859,7 @@ async function main() {
       input = JSON.parse(raw);
     } catch (err) {
       const paths2 = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic("claude:kk-session-start", "parse", err, paths2.logsDir);
+      appendHookDiagnostic("codex:kk-session-start", "parse", err, paths2.logsDir);
       input = {};
     }
   }
@@ -10865,17 +10878,11 @@ async function main() {
       lintStateFile: lintStateFile(paths.stateDir),
       threshold: settings.curationThreshold
     });
-    const statusLine = result.nudged ? `\u{1F6A8} kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kk-curate` : `\u{1F4CB} kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
-    process.stdout.write(
-      `${JSON.stringify({
-        systemMessage: statusLine,
-        hookSpecificOutput: {
-          hookEventName: "SessionStart",
-          additionalContext: result.additionalContext
-        }
-      })}
-`
-    );
+    const { statusLine, content } = buildNudgeContent(result);
+    process.stdout.write(JSON.stringify({ additionalContext: content }));
+    process.stderr.write(`${statusLine}
+`);
+    process.stderr.write("\u{1F9E0} kenkeep Index: Knowledge base loaded.\n");
   } catch (err) {
     process.stderr.write(
       `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}
@@ -10886,7 +10893,7 @@ async function main() {
 void main().catch((err) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("claude:kk-session-start", "uncaught", err, paths.logsDir);
+    appendHookDiagnostic("codex:kk-session-start", "uncaught", err, paths.logsDir);
   } catch {
   }
   process.exit(0);

@@ -1,16 +1,16 @@
 // kenkeep plugin
 
 // src/harnesses/opencode/plugins/kk.ts
-import { spawn } from 'child_process';
-import { join } from 'path';
+import { spawn } from "child_process";
+import { join } from "path";
 var DISPATCH = {
-  'session.created': ['kk-session-start.cjs', 'kk-proposal-drain.cjs'],
-  'session.idle': ['kk-capture.cjs', 'kk-lint-tick.cjs'],
+  "session.created": ["kk-session-start.cjs", "kk-proposal-drain.cjs"],
+  "session.idle": ["kk-capture.cjs", "kk-lint-tick.cjs"]
 };
-var kk_default = async input => {
-  if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return {};
+var kk_default = async (input) => {
+  if (process.env["KENKEEP_BUILDER_INTERNAL"] === "1") return {};
   const projectDir = input.directory ?? input.project?.worktree ?? process.cwd();
-  const kkHooks = join(projectDir, '.opencode', 'kk-hooks');
+  const kkHooks = join(projectDir, ".opencode", "kk-hooks");
   return {
     event: async ({ event }) => {
       if (!event.type) return;
@@ -18,20 +18,22 @@ var kk_default = async input => {
       if (!scripts) return;
       const payload = JSON.stringify({
         session_id: event.properties?.sessionID,
-        hook_event_name: event.type === 'session.created' ? 'SessionCreated' : 'SessionIdle',
-        cwd: projectDir,
+        hook_event_name: event.type === "session.created" ? "SessionCreated" : "SessionIdle",
+        cwd: projectDir
       });
       for (const script of scripts) {
-        const child = spawn('node', [join(kkHooks, script)], {
-          env: { ...process.env, KENKEEP_BUILDER_INTERNAL: '1' },
-          stdio: ['pipe', 'inherit', 'inherit'],
+        const child = spawn("node", [join(kkHooks, script)], {
+          env: { ...process.env, KENKEEP_BUILDER_INTERNAL: "1" },
+          stdio: ["pipe", "inherit", "inherit"]
         });
         if (child.stdin) {
           child.stdin.write(payload);
           child.stdin.end();
         }
       }
-    },
+    }
   };
 };
-export { kk_default as default };
+export {
+  kk_default as default
+};

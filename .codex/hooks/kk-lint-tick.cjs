@@ -3351,10 +3351,10 @@ var require_stringify = __commonJS({
       data = Object.assign({}, file.data, data);
       const open = opts.delimiters[0];
       const close = opts.delimiters[1];
-      const matter3 = engine.stringify(data, options2).trim();
+      const matter2 = engine.stringify(data, options2).trim();
       let buf = "";
-      if (matter3 !== "{}") {
-        buf = newline(open) + newline(matter3) + newline(close);
+      if (matter2 !== "{}") {
+        buf = newline(open) + newline(matter2) + newline(close);
       }
       if (typeof file.excerpt === "string" && file.excerpt !== "") {
         if (str3.indexOf(file.excerpt.trim()) === -1) {
@@ -3464,19 +3464,19 @@ var require_gray_matter = __commonJS({
     var toFile = require_to_file();
     var parse2 = require_parse();
     var utils = require_utils();
-    function matter3(input, options2) {
+    function matter2(input, options2) {
       if (input === "") {
         return { data: {}, content: input, excerpt: "", orig: input };
       }
       let file = toFile(input);
-      const cached = matter3.cache[file.content];
+      const cached = matter2.cache[file.content];
       if (!options2) {
         if (cached) {
           file = Object.assign({}, cached);
           file.orig = cached.orig;
           return file;
         }
-        matter3.cache[file.content] = file;
+        matter2.cache[file.content] = file;
       }
       return parseMatter(file, options2);
     }
@@ -3498,7 +3498,7 @@ var require_gray_matter = __commonJS({
       }
       str3 = str3.slice(openLen);
       const len = str3.length;
-      const language = matter3.language(str3, opts);
+      const language = matter2.language(str3, opts);
       if (language.name) {
         file.language = language.name;
         str3 = str3.slice(language.raw.length);
@@ -3533,24 +3533,24 @@ var require_gray_matter = __commonJS({
       }
       return file;
     }
-    matter3.engines = engines2;
-    matter3.stringify = function(file, data, options2) {
-      if (typeof file === "string") file = matter3(file, options2);
+    matter2.engines = engines2;
+    matter2.stringify = function(file, data, options2) {
+      if (typeof file === "string") file = matter2(file, options2);
       return stringify(file, data, options2);
     };
-    matter3.read = function(filepath, options2) {
+    matter2.read = function(filepath, options2) {
       const str3 = fs.readFileSync(filepath, "utf8");
-      const file = matter3(str3, options2);
+      const file = matter2(str3, options2);
       file.path = filepath;
       return file;
     };
-    matter3.test = function(str3, options2) {
+    matter2.test = function(str3, options2) {
       return utils.startsWith(str3, defaults(options2).delimiters[0]);
     };
-    matter3.language = function(str3, options2) {
+    matter2.language = function(str3, options2) {
       const opts = defaults(options2);
       const open = opts.delimiters[0];
-      if (matter3.test(str3)) {
+      if (matter2.test(str3)) {
         str3 = str3.slice(open.length);
       }
       const language = str3.slice(0, str3.search(/\r?\n/));
@@ -3559,18 +3559,16 @@ var require_gray_matter = __commonJS({
         name: language ? language.trim() : ""
       };
     };
-    matter3.cache = {};
-    matter3.clearCache = function() {
-      matter3.cache = {};
+    matter2.cache = {};
+    matter2.clearCache = function() {
+      matter2.cache = {};
     };
-    module2.exports = matter3;
+    module2.exports = matter2;
   }
 });
 
-// src/harnesses/claude/hooks/kk-session-start.ts
+// src/harnesses/codex/hooks/kk-lint-tick.ts
 init_cjs_shims();
-var import_node_fs10 = require("fs");
-var import_node_path10 = require("path");
 
 // src/lib/hook-diagnostic.ts
 init_cjs_shims();
@@ -3589,35 +3587,44 @@ function appendHookDiagnostic(hook, phase, error, logsDir) {
   }
 }
 
-// src/lib/stdin.ts
+// src/lib/lint-state.ts
 init_cjs_shims();
-function readStdin() {
-  return new Promise((resolve2) => {
-    if (process.stdin.isTTY) {
-      resolve2("");
-      return;
-    }
-    let data = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on("end", () => resolve2(data));
-    process.stdin.on("error", () => resolve2(""));
-  });
+var import_node_fs8 = require("fs");
+var import_node_path8 = require("path");
+
+// src/lib/fs-atomic.ts
+init_cjs_shims();
+var import_node_fs2 = require("fs");
+var import_node_path2 = require("path");
+function atomicWriteJson(file, data) {
+  (0, import_node_fs2.mkdirSync)((0, import_node_path2.dirname)(file), { recursive: true });
+  const tmp = `${file}.tmp`;
+  (0, import_node_fs2.writeFileSync)(tmp, `${JSON.stringify(data, null, 2)}
+`);
+  (0, import_node_fs2.renameSync)(tmp, file);
+}
+function readJsonValidated(file, schema2, fallback) {
+  if (!(0, import_node_fs2.existsSync)(file)) return fallback;
+  try {
+    const raw = JSON.parse((0, import_node_fs2.readFileSync)(file, "utf8"));
+    const parsed = schema2.safeParse(raw);
+    if (parsed.success) return parsed.data;
+    return fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-// src/lib/session-start.ts
+// src/lib/lint.ts
 init_cjs_shims();
-var import_node_fs9 = require("fs");
-var import_node_path9 = require("path");
-var import_gray_matter2 = __toESM(require_gray_matter(), 1);
+var import_node_fs5 = require("fs");
+var import_node_path5 = require("path");
 
 // src/lib/nodes.ts
 init_cjs_shims();
 var import_node_crypto = require("crypto");
-var import_node_fs2 = require("fs");
-var import_node_path2 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_path3 = require("path");
 var import_gray_matter = __toESM(require_gray_matter(), 1);
 
 // node_modules/zod/index.js
@@ -7682,6 +7689,7 @@ var NEVER = INVALID;
 
 // src/lib/migrate-guidance.ts
 init_cjs_shims();
+var MIGRATE_COMMAND_HINT = "the `/kk-migrate` skill in your agent session (migration now requires an interactive session)";
 
 // src/lib/schemas.ts
 init_cjs_shims();
@@ -7882,67 +7890,304 @@ var MemoryLedgerSchema = external_exports.object({
 
 // src/lib/nodes.ts
 var INDEX_FILENAME = "index.md";
-function computeNodesHash(nodesDir) {
-  const entries = [];
-  if ((0, import_node_fs2.existsSync)(nodesDir)) {
-    walkMarkdown(nodesDir, nodesDir, entries);
+var InvalidNodeFrontmatterError = class extends Error {
+  failures;
+  constructor(failures) {
+    super(formatFailures(failures));
+    this.name = "InvalidNodeFrontmatterError";
+    this.failures = failures;
   }
-  entries.sort();
-  return (0, import_node_crypto.createHash)("sha256").update(entries.join("\n"), "utf8").digest("hex");
+};
+var OldLayoutError = class extends Error {
+  constructor(detail) {
+    super(
+      `${detail} kenkeep now stores nodes in a nested topical folder tree (schema_version ${NODE_SCHEMA_VERSION}); the old flat nodes/<kind>/ layout is no longer readable. Migrate the knowledge base with ${MIGRATE_COMMAND_HINT}, then review the result with \`git diff\`.`
+    );
+    this.name = "OldLayoutError";
+  }
+};
+var LEGACY_KIND_DIRS = ["practice", "map"];
+function assertNotOldLayout(nodesDir) {
+  if (!(0, import_node_fs3.existsSync)(nodesDir)) return;
+  for (const kind of LEGACY_KIND_DIRS) {
+    const dir = (0, import_node_path3.join)(nodesDir, kind);
+    if (!(0, import_node_fs3.existsSync)(dir) || !isDirectory(dir)) continue;
+    const hasLeafDocs = (0, import_node_fs3.readdirSync)(dir).some((name) => name.endsWith(".md") && name !== "index.md");
+    const hasIndex = (0, import_node_fs3.existsSync)((0, import_node_path3.join)(dir, "index.md"));
+    if (hasLeafDocs && !hasIndex) {
+      throw new OldLayoutError(
+        `Detected the legacy nodes/${kind}/ bucket with leaf documents and no index.md.`
+      );
+    }
+  }
 }
-function walkMarkdown(rootDir, currentDir, out) {
-  for (const name of (0, import_node_fs2.readdirSync)(currentDir, { withFileTypes: true })) {
-    const fullPath = (0, import_node_path2.join)(currentDir, name.name);
-    if (name.isDirectory()) {
-      walkMarkdown(rootDir, fullPath, out);
+function isDirectory(p) {
+  try {
+    return (0, import_node_fs3.statSync)(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+function readAllNodes(nodesDir) {
+  assertNotOldLayout(nodesDir);
+  const out = [];
+  const failures = [];
+  if ((0, import_node_fs3.existsSync)(nodesDir)) {
+    collectLeafNodes(nodesDir, nodesDir, out, failures);
+  }
+  out.sort((a, b) => a.relPath.localeCompare(b.relPath));
+  if (failures.length > 0) {
+    throw new InvalidNodeFrontmatterError(failures);
+  }
+  return out;
+}
+function collectLeafNodes(rootDir, currentDir, out, failures) {
+  const names = (0, import_node_fs3.readdirSync)(currentDir, { withFileTypes: true }).sort(
+    (a, b) => a.name.localeCompare(b.name)
+  );
+  for (const entry of names) {
+    const fullPath = (0, import_node_path3.join)(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      collectLeafNodes(rootDir, fullPath, out, failures);
       continue;
     }
-    if (!name.name.endsWith(".md")) continue;
-    if (name.name === INDEX_FILENAME) continue;
-    const rel = (0, import_node_path2.relative)(rootDir, fullPath).split(import_node_path2.sep).join(import_node_path2.posix.sep);
-    const sha = (0, import_node_crypto.createHash)("sha256").update((0, import_node_fs2.readFileSync)(fullPath)).digest("hex");
-    out.push(`${rel}	${sha}`);
+    if (!entry.name.endsWith(".md")) continue;
+    if (entry.name === INDEX_FILENAME) continue;
+    const raw = (0, import_node_fs3.readFileSync)(fullPath, "utf8");
+    let parsed;
+    try {
+      parsed = (0, import_gray_matter.default)(raw);
+    } catch (err) {
+      failures.push({
+        file: fullPath,
+        reason: `YAML frontmatter parse error: ${err.message}`,
+        issues: []
+      });
+      continue;
+    }
+    const result = NodeFrontmatterSchema.safeParse(parsed.data);
+    if (!result.success) {
+      failures.push({
+        file: fullPath,
+        reason: "frontmatter does not match NodeFrontmatterSchema",
+        issues: result.error.issues
+      });
+      continue;
+    }
+    const relPath = toPosixRel(rootDir, fullPath);
+    out.push({
+      path: fullPath,
+      filename: entry.name,
+      relPath,
+      relDir: import_node_path3.posix.dirname(relPath) === "." ? "" : import_node_path3.posix.dirname(relPath),
+      frontmatter: result.data,
+      body: parsed.content
+    });
   }
 }
-
-// src/lib/lint-state.ts
-init_cjs_shims();
-var import_node_fs8 = require("fs");
-var import_node_path8 = require("path");
-
-// src/lib/fs-atomic.ts
-init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path3 = require("path");
-function atomicWriteJson(file, data) {
-  (0, import_node_fs3.mkdirSync)((0, import_node_path3.dirname)(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  (0, import_node_fs3.writeFileSync)(tmp, `${JSON.stringify(data, null, 2)}
-`);
-  (0, import_node_fs3.renameSync)(tmp, file);
+function toPosixRel(rootDir, fullPath) {
+  return (0, import_node_path3.relative)(rootDir, fullPath).split(import_node_path3.sep).join(import_node_path3.posix.sep);
 }
-function readJsonValidated(file, schema2, fallback) {
-  if (!(0, import_node_fs3.existsSync)(file)) return fallback;
-  try {
-    const raw = JSON.parse((0, import_node_fs3.readFileSync)(file, "utf8"));
-    const parsed = schema2.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    return fallback;
-  } catch {
-    return fallback;
+function formatFailures(failures) {
+  const lines = [`Invalid node frontmatter in ${failures.length} file(s):`];
+  for (const f of failures) {
+    lines.push(`  ${f.file}: ${f.reason}`);
+    for (const issue of f.issues) {
+      lines.push(`    - ${formatIssue(issue)}`);
+    }
   }
+  return lines.join("\n");
 }
-
-// src/lib/lint.ts
-init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path5 = require("path");
+function formatIssue(issue) {
+  const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+  return `${path}: ${issue.message}`;
+}
+function slugify(input) {
+  const slug = input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug || "untitled";
+}
 
 // src/lib/redirects.ts
 init_cjs_shims();
 var import_node_fs4 = require("fs");
 var import_node_path4 = require("path");
+var REDIRECTS_FILENAME = ".redirects.json";
 var RedirectsLedgerSchema = external_exports.record(external_exports.string(), external_exports.array(external_exports.string()));
+function readRedirectsLedger(nodesDir) {
+  const file = (0, import_node_path4.join)(nodesDir, REDIRECTS_FILENAME);
+  if (!(0, import_node_fs4.existsSync)(file)) return {};
+  try {
+    const parsed = RedirectsLedgerSchema.safeParse(JSON.parse((0, import_node_fs4.readFileSync)(file, "utf8")));
+    return parsed.success ? parsed.data : {};
+  } catch {
+    return {};
+  }
+}
+function resolveRedirect(ledger, live, id) {
+  if (live.has(id)) return [id];
+  const out = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Set();
+  const stack = [id];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (seen.has(current)) continue;
+    seen.add(current);
+    const successors = ledger[current];
+    if (!successors) continue;
+    for (const next of successors) {
+      if (live.has(next)) out.add(next);
+      else if (!seen.has(next)) stack.push(next);
+    }
+  }
+  return [...out].sort();
+}
+
+// src/lib/lint.ts
+function runLint(opts) {
+  const nodes = readAllNodes(opts.nodesDir);
+  const errors = [];
+  const findings = [];
+  const idSet = new Set(nodes.map((n) => n.frontmatter.id));
+  const incomingRefs = /* @__PURE__ */ new Map();
+  for (const node of nodes) {
+    for (const ref of edgeRefs(node)) {
+      let set2 = incomingRefs.get(ref);
+      if (!set2) {
+        set2 = /* @__PURE__ */ new Set();
+        incomingRefs.set(ref, set2);
+      }
+      set2.add(node.frontmatter.id);
+    }
+  }
+  const ledger = readRedirectsLedger(opts.nodesDir);
+  for (const node of nodes) {
+    for (const ref of edgeRefs(node)) {
+      if (idSet.has(ref)) continue;
+      const live = resolveRedirect(ledger, idSet, ref);
+      if (live.length > 0) {
+        findings.push({
+          rule: "redirected-edge",
+          file: node.path,
+          message: `edge to retired node ${ref}; superseded by ${live.join(", ")}`,
+          action: `Repoint the edge to ${live.join(", ")}; ${ref} was split or retired and only the redirect ledger still resolves it.`
+        });
+      } else {
+        errors.push({
+          rule: "dangling-edge",
+          file: node.path,
+          message: `references unknown node ${ref}`,
+          action: "Remove the broken reference from the frontmatter or create the missing node."
+        });
+      }
+    }
+  }
+  for (const node of nodes) {
+    const mismatch = checkSlugId(node);
+    if (mismatch) {
+      errors.push({
+        rule: "slug-id-mismatch",
+        file: node.path,
+        message: mismatch,
+        action: "Fix the id so it is canonical (id == <kind>-<slug>) and rename the file so filename == <id>.md. Directory placement is topical and not constrained by kind."
+      });
+    }
+  }
+  for (const dir of foldersUnder(opts.nodesDir)) {
+    if (!(0, import_node_fs5.existsSync)((0, import_node_path5.join)(dir, INDEX_FILENAME))) {
+      errors.push({
+        rule: "missing-folder-index",
+        file: dir,
+        message: `folder ${import_node_path5.posix.normalize((0, import_node_path5.relative)(opts.nodesDir, dir).split(import_node_path5.sep).join(import_node_path5.posix.sep)) || "."} has no index.md`,
+        action: "Run `npx kenkeep index rebuild` to regenerate the per-folder index nodes."
+      });
+    }
+  }
+  const clusters = /* @__PURE__ */ new Map();
+  for (const node of nodes) {
+    for (const tag of node.frontmatter.tags) {
+      const key = normalizeTag(tag);
+      if (!key) continue;
+      let entry = clusters.get(key);
+      if (!entry) {
+        entry = { original: /* @__PURE__ */ new Set(), nodeIds: /* @__PURE__ */ new Set() };
+        clusters.set(key, entry);
+      }
+      entry.original.add(tag);
+      entry.nodeIds.add(node.frontmatter.id);
+    }
+  }
+  for (const entry of clusters.values()) {
+    if (entry.original.size >= 2) {
+      const members = [...entry.original].sort().join(", ");
+      findings.push({
+        rule: "tag-near-duplicate",
+        file: "",
+        message: `tag cluster {${members}} affects ${entry.nodeIds.size} node(s)`,
+        action: "Pick a canonical tag and normalize the affected nodes."
+      });
+    }
+  }
+  for (const node of nodes) {
+    const outgoing = edgeRefs(node).length;
+    const incoming = incomingRefs.get(node.frontmatter.id);
+    const incomingFromOthers = incoming ? [...incoming].filter((src) => src !== node.frontmatter.id).length : 0;
+    if (outgoing === 0 && incomingFromOthers === 0) {
+      findings.push({
+        rule: "orphan",
+        file: node.path,
+        message: `orphan node ${node.frontmatter.id}`,
+        action: "Add cross-links to neighboring nodes, or accept that this node legitimately stands alone."
+      });
+    }
+  }
+  errors.sort(compareEntries);
+  findings.sort(compareEntries);
+  return { errors, findings };
+}
+function edgeRefs(node) {
+  return [...node.frontmatter.relates_to, ...node.frontmatter.depends_on];
+}
+function checkSlugId(node) {
+  const { id, kind } = node.frontmatter;
+  if (id.trim() === "") {
+    return "leaf has an empty id; every leaf must carry a stable id";
+  }
+  const prefix = `${kind}-`;
+  if (!id.startsWith(prefix)) {
+    return `id ${id} does not start with kind prefix ${prefix}`;
+  }
+  const bare = id.slice(prefix.length);
+  const canonicalBare = slugify(bare);
+  if (bare !== canonicalBare) {
+    return `id ${id} is not canonical; expected ${kind}-${canonicalBare}`;
+  }
+  const expectedFilename = `${id}.md`;
+  if (node.filename !== expectedFilename) {
+    return `filename ${node.filename} does not match expected ${expectedFilename}`;
+  }
+  return null;
+}
+function foldersUnder(nodesDir) {
+  if (!(0, import_node_fs5.existsSync)(nodesDir)) return [];
+  const out = [];
+  const walk = (dir) => {
+    out.push(dir);
+    for (const entry of (0, import_node_fs5.readdirSync)(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) walk((0, import_node_path5.join)(dir, entry.name));
+    }
+  };
+  walk(nodesDir);
+  return out;
+}
+function normalizeTag(tag) {
+  return tag.toLowerCase().replace(/[^a-z0-9]+/g, "").replace(/s$/, "");
+}
+function compareEntries(a, b) {
+  if (a.rule !== b.rule) return a.rule < b.rule ? -1 : 1;
+  if (a.file !== b.file) return a.file < b.file ? -1 : 1;
+  if (a.message !== b.message) return a.message < b.message ? -1 : 1;
+  return 0;
+}
 
 // src/lib/paths.ts
 init_cjs_shims();
@@ -10675,218 +10920,81 @@ function lintStateFile(stateDir) {
 function readLintState(file) {
   return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
 }
-
-// src/lib/state.ts
-init_cjs_shims();
-var STATE_LOCK_OPTIONS = { stale: 30 * 60 * 1e3, realpath: false };
-function readState(file) {
-  return readJsonValidated(file, StateFileSchema, { schema_version: 1 });
-}
-function writeState(file, state) {
+function writeLintState(file, state) {
   atomicWriteJson(file, state);
 }
-
-// src/lib/session-start.ts
-var DEFAULT_NUDGE_THRESHOLD = 20;
-var DEFAULT_STALE_DAYS = 7;
-var KK_NAVIGATION_DIRECTIVE = "> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.";
-function buildSessionStartContext(ctx) {
-  const now = ctx.now ?? (() => /* @__PURE__ */ new Date());
-  const threshold = ctx.threshold ?? DEFAULT_NUDGE_THRESHOLD;
-  const staleDays = ctx.staleDays ?? DEFAULT_STALE_DAYS;
-  const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kkDir);
-  const liveHash = computeNodesHash(ctx.nodesDir);
-  const indexStale = !missing && frontmatterHash !== null && frontmatterHash !== liveHash;
-  const summary = summarizePendingSessions(ctx.sessionsDir);
-  const pending = summary.pending;
-  const state = readState(ctx.stateFile);
-  const nowDate = now();
-  const shouldNudge = pending >= threshold;
-  const oldestAgeDays = summary.oldestCapturedAt === null ? 0 : Math.max(
-    0,
-    Math.floor((nowDate.getTime() - summary.oldestCapturedAt.getTime()) / 864e5)
-  );
-  const loud = shouldNudge && (pending >= threshold && oldestAgeDays >= staleDays || pending >= 2 * threshold);
-  const lines = [];
-  const trimmedBody = indexBody.trim();
-  lines.push(trimmedBody);
-  lines.push("");
-  lines.push(
-    "> kenkeep nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user."
-  );
-  if (!trimmedBody.includes(KK_NAVIGATION_DIRECTIVE)) {
-    lines.push("");
-    lines.push(KK_NAVIGATION_DIRECTIVE);
-  }
-  if (indexStale) {
-    lines.push("");
-    lines.push(
-      `> kenkeep index is stale, run \`npx kenkeep index rebuild\` to refresh (live hash differs from ENTRY.md \`nodes_hash\`).`
+async function runLintTick(startCwd, harnessTag) {
+  const PACKAGE_TAG = "[kenkeep]";
+  const root = findRepoRoot(startCwd);
+  const paths = repoPaths(root);
+  if (!(0, import_node_fs8.existsSync)(paths.installedVersionFile)) return;
+  try {
+    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
+    const stateFile = lintStateFile(paths.stateDir);
+    const state = readLintState(stateFile);
+    const threshold = settings.lintEveryNSessions;
+    const nextCount = state.sessions_since_last_lint + 1;
+    if (nextCount < threshold) {
+      writeLintState(stateFile, { ...state, sessions_since_last_lint: nextCount });
+      return;
+    }
+    process.stderr.write("\u{1F50D} kenkeep Lint: Running knowledge base lint\u2026\n");
+    const result = runLint({ nodesDir: paths.nodesDir });
+    writeLintState(stateFile, {
+      schema_version: 1,
+      sessions_since_last_lint: 0,
+      last_lint_at: (/* @__PURE__ */ new Date()).toISOString(),
+      last_errors: result.errors.length,
+      last_findings: result.findings.length
+    });
+    process.stderr.write("\u{1F9F9} kenkeep Lint: Knowledge base lint complete.\n");
+  } catch (err) {
+    process.stderr.write(
+      `${PACKAGE_TAG} lint tick error (${harnessTag}): ${err instanceof Error ? err.message : String(err)}
+`
     );
   }
-  if (shouldNudge) {
-    const oldestPhrase = oldestAgeDays === 0 ? "captured today" : `oldest pending: ${oldestAgeDays} day(s)`;
-    const copyPaste = "Run `/kk-curate` (or `npx kenkeep curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.";
-    lines.push("");
-    if (loud) {
-      lines.push("> \u{1F6A8} kenkeep curation queue is overdue");
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    } else {
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    }
-  }
-  let lintNudged = false;
-  if (ctx.lintStateFile !== void 0) {
-    const lintState = readLintState(ctx.lintStateFile);
-    if (lintState.last_errors > 0 || lintState.last_findings > 0) {
-      lines.push("");
-      lines.push(
-        `> Last kenkeep lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`npx kenkeep lint --verbose\` for details.`
-      );
-      lintNudged = true;
-    }
-  }
-  if (shouldNudge) {
-    writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
-  }
-  return {
-    additionalContext: lines.join("\n") + "\n",
-    nudged: shouldNudge,
-    lintNudged,
-    indexMissing: missing,
-    indexStale,
-    pendingSessions: pending,
-    candidateCount: summary.candidateCount
-  };
-}
-function loadIndex(kkDir) {
-  const base = kkDir.replace(/[\\/]$/, "");
-  const entryFile = `${base}/ENTRY.md`;
-  const indexFile = (0, import_node_fs9.existsSync)(entryFile) ? entryFile : `${base}/INDEX.md`;
-  if (!(0, import_node_fs9.existsSync)(indexFile)) {
-    return {
-      content: stubIndex(),
-      frontmatterHash: null,
-      missing: true
-    };
-  }
-  const raw = (0, import_node_fs9.readFileSync)(indexFile, "utf8");
-  const parsed = (0, import_gray_matter2.default)(raw);
-  const result = IndexFrontmatterSchema.safeParse(parsed.data);
-  const hash = result.success ? normalizeNodesHash(result.data.nodes_hash) : null;
-  return {
-    content: parsed.content.trimStart(),
-    frontmatterHash: hash,
-    missing: false
-  };
-}
-function stubIndex() {
-  return [
-    "# kenkeep",
-    "",
-    "_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `npx kenkeep node add` to seed it._"
-  ].join("\n");
-}
-function normalizeNodesHash(value) {
-  return value.startsWith("sha256:") ? value.slice(7) : value;
-}
-function summarizePendingSessions(sessionsDir) {
-  if (!(0, import_node_fs9.existsSync)(sessionsDir)) {
-    return { pending: 0, candidateCount: 0, oldestCapturedAt: null };
-  }
-  let pending = 0;
-  let candidateCount = 0;
-  let oldest = null;
-  for (const name of (0, import_node_fs9.readdirSync)(sessionsDir)) {
-    if (!name.endsWith(".md")) continue;
-    const file = (0, import_node_path9.join)(sessionsDir, name);
-    try {
-      const parsed = (0, import_gray_matter2.default)((0, import_node_fs9.readFileSync)(file, "utf8"));
-      const fm = SessionLogFrontmatterSchema.safeParse(parsed.data);
-      if (!fm.success) continue;
-      const status = fm.data.proposal_status;
-      if (status !== "pending" && status !== "done") continue;
-      const data = parsed.data;
-      if (typeof data.curator_processed_at === "string") continue;
-      pending += 1;
-      if (status === "done") {
-        const proposals = fm.data.proposals;
-        candidateCount += (proposals?.practice?.length ?? 0) + (proposals?.map?.length ?? 0);
-      }
-      const ms = Date.parse(fm.data.captured_at);
-      if (Number.isFinite(ms)) {
-        const captured = new Date(ms);
-        if (oldest === null || captured.getTime() < oldest.getTime()) {
-          oldest = captured;
-        }
-      }
-    } catch {
-    }
-  }
-  return { pending, candidateCount, oldestCapturedAt: oldest };
 }
 
-// src/harnesses/claude/hooks/kk-session-start.ts
-var PACKAGE_TAG = "[kenkeep]";
-var HARD_DEADLINE_MS = 1e3;
+// src/lib/stdin.ts
+init_cjs_shims();
+function readStdin() {
+  return new Promise((resolve2) => {
+    if (process.stdin.isTTY) {
+      resolve2("");
+      return;
+    }
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve2(data));
+    process.stdin.on("error", () => resolve2(""));
+  });
+}
+
+// src/harnesses/codex/hooks/kk-lint-tick.ts
 async function main() {
   if (process.env["KENKEEP_BUILDER_INTERNAL"] === "1") return;
-  const deadline = setTimeout(() => process.exit(0), HARD_DEADLINE_MS);
-  deadline.unref();
   const raw = await readStdin();
   let input = {};
   if (raw.trim().length > 0) {
     try {
       input = JSON.parse(raw);
     } catch (err) {
-      const paths2 = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic("claude:kk-session-start", "parse", err, paths2.logsDir);
+      const paths = repoPaths(findRepoRoot(process.cwd()));
+      appendHookDiagnostic("codex:kk-lint-tick", "parse", err, paths.logsDir);
       input = {};
     }
   }
   const startCwd = typeof input.cwd === "string" && input.cwd.length > 0 ? input.cwd : process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
-  if (!(0, import_node_fs10.existsSync)(paths.installedVersionFile)) return;
-  try {
-    process.stderr.write("\u{1F4D6} kenkeep Index: Loading knowledge base\u2026\n");
-    const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-    const result = buildSessionStartContext({
-      kkDir: paths.kkDir,
-      nodesDir: paths.nodesDir,
-      sessionsDir: paths.sessionsDir,
-      stateFile: (0, import_node_path10.join)(paths.stateDir, "state.json"),
-      lintStateFile: lintStateFile(paths.stateDir),
-      threshold: settings.curationThreshold
-    });
-    const statusLine = result.nudged ? `\u{1F6A8} kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kk-curate` : `\u{1F4CB} kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
-    process.stdout.write(
-      `${JSON.stringify({
-        systemMessage: statusLine,
-        hookSpecificOutput: {
-          hookEventName: "SessionStart",
-          additionalContext: result.additionalContext
-        }
-      })}
-`
-    );
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}
-`
-    );
-  }
+  await runLintTick(startCwd, "codex:kk-lint-tick");
 }
 void main().catch((err) => {
   try {
     const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic("claude:kk-session-start", "uncaught", err, paths.logsDir);
+    appendHookDiagnostic("codex:kk-lint-tick", "uncaught", err, paths.logsDir);
   } catch {
   }
   process.exit(0);

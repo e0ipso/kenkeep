@@ -70,10 +70,18 @@ function parseFm(path: string): Record<string, unknown> {
 /** A byte-snapshot of the whole nodes tree: relPath -> sha256 of contents. */
 function snapshotTree(nodesDir: string): Map<string, string> {
   const snap = new Map<string, string>();
-  for (const leaf of collectLeaves(nodesDir)) {
-    const hash = createHash('sha256').update(readFileSync(leaf)).digest('hex');
-    snap.set(relative(nodesDir, leaf), hash);
-  }
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else {
+        const hash = createHash('sha256').update(readFileSync(full)).digest('hex');
+        snap.set(relative(nodesDir, full), hash);
+      }
+    }
+  };
+  if (existsSync(nodesDir)) walk(nodesDir);
   return snap;
 }
 
@@ -110,6 +118,41 @@ async function makeFlatKb(sandbox: string): Promise<string> {
     relates_to: [],
     depends_on: [],
   });
+  return nodesDir;
+}
+
+/**
+ * Builds a nested-tree KB fixture whose leaf carries `schema_version: 0`:
+ * `detectSchemaVersion` reads the minimum leaf version, so the tree reads as 0
+ * — a migration is pending (< NODE_SCHEMA_VERSION) but not the flat-to-tree
+ * step (≠ 1), hitting the step-gate refusal in both place modes.
+ */
+async function makeNestedKbAtVersionZero(sandbox: string): Promise<string> {
+  await exec('git', ['init', '-q'], { cwd: sandbox });
+  await exec('node', [cliPath, 'init', '--harnesses', 'claude'], {
+    cwd: sandbox,
+    env: { ...process.env, NO_COLOR: '1' },
+  });
+  const nodesDir = join(sandbox, NODES_REL);
+  const templateIndex = join(nodesDir, 'index.md');
+  if (existsSync(templateIndex)) rmSync(templateIndex);
+
+  mkdirSync(join(nodesDir, 'topic'), { recursive: true });
+  writeFileSync(
+    join(nodesDir, 'topic', 'note-zero.md'),
+    matter.stringify('# note-zero\n\nBody of note-zero.', {
+      schema_version: 0,
+      id: 'note-zero',
+      title: 'note-zero',
+      kind: 'practice',
+      tags: ['t'],
+      derived_from: [],
+      relates_to: [],
+      depends_on: [],
+      confidence: 'high',
+      summary: 'summary for note-zero',
+    })
+  );
   return nodesDir;
 }
 
@@ -255,6 +298,66 @@ describe('place (deterministic migration primitive)', () => {
     // No topical folder was ever created.
     expect(existsSync(join(nodesDir, 'workflow'))).toBe(false);
     expect(existsSync(join(nodesDir, 'ghost'))).toBe(false);
+  });
+
+  it('apply refuses on a current v2 tree before reading the placement document, leaving zero filesystem changes', async () => {
+    const nodesDir = await makeFlatKb(sandbox);
+    // Bring the KB to the current schema version via the normal flow.
+    const plan = {
+      placements: [
+        { id: 'practice-alpha', targetFolder: 'core' },
+        { id: 'map-beta', targetFolder: 'core' },
+        { id: 'practice-gamma', targetFolder: 'core' },
+      ],
+      folders: [{ folder: 'core', summary: 'core notes' }],
+    };
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(planPath, JSON.stringify(plan));
+    expect((await runCli(sandbox, ['place', 'apply', '--input', planPath])).exitCode).toBe(0);
+    expect(detectSchemaVersion(nodesDir)).toBe(NODE_SCHEMA_VERSION);
+
+    // The step gate fires before the input is even read: /dev/null is never a
+    // factor, and the refusal points the caller at the dispatch primitive.
+    const before = snapshotTree(nodesDir);
+    const res = await runCli(sandbox, ['place', 'apply', '--input', '/dev/null']);
+    expect(res.exitCode).toBe(1);
+    expect(res.stderr).toMatch(new RegExp(`already at schema_version ${NODE_SCHEMA_VERSION}`));
+    expect(res.stderr).toMatch(/kenkeep migrate status/);
+
+    // Zero filesystem changes: every file under nodes/ is byte-identical.
+    const after = snapshotTree(nodesDir);
+    expect([...after.entries()].sort()).toEqual([...before.entries()].sort());
+    expect(detectSchemaVersion(nodesDir)).toBe(NODE_SCHEMA_VERSION);
+  });
+
+  it('inventory and apply both refuse when the pending migration starts from a version other than 1', async () => {
+    const nodesDir = await makeNestedKbAtVersionZero(sandbox);
+    expect(detectSchemaVersion(nodesDir)).toBe(0);
+    const before = snapshotTree(nodesDir);
+
+    // Inventory: pending (0 < NODE_SCHEMA_VERSION) but not this primitive's
+    // step — refuse, naming what the registry knows about the detected version.
+    const inv = await runCli(sandbox, ['place', 'inventory']);
+    expect(inv.exitCode).toBe(1);
+    expect(inv.stderr).toMatch(/no migration step is registered from schema_version 0/);
+    expect(inv.stderr).toMatch(/flat-to-tree \(1 -> 2\)/);
+    expect(inv.stderr).toMatch(/kenkeep migrate status/);
+
+    // Apply: same gate, even with a syntactically valid placement document.
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({ placements: [{ id: 'note-zero', targetFolder: 'elsewhere' }] })
+    );
+    const ap = await runCli(sandbox, ['place', 'apply', '--input', planPath]);
+    expect(ap.exitCode).toBe(1);
+    expect(ap.stderr).toMatch(/no migration step is registered from schema_version 0/);
+    expect(ap.stderr).toMatch(/kenkeep migrate status/);
+
+    // Neither refusal touched the tree.
+    const after = snapshotTree(nodesDir);
+    expect([...after.entries()].sort()).toEqual([...before.entries()].sort());
+    expect(detectSchemaVersion(nodesDir)).toBe(0);
   });
 
   it('inventory emits the flat leaves as JSON when a migration is due, and reports nothing to do when current', async () => {

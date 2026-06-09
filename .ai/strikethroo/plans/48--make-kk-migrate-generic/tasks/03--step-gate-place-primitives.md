@@ -2,7 +2,7 @@
 id: 3
 group: "step-gating"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-06-09
 skills:
   - typescript-node-cli

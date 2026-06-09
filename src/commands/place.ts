@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { log } from '../lib/log.js';
-import { detectSchemaVersion } from '../lib/migrate.js';
+import { detectSchemaVersion, MIGRATION_STEPS } from '../lib/migrate.js';
 import { writePlacements, type Placement } from '../lib/migrate-flat-to-tree.js';
 import { reconcileFolderSummaries, reconcilePlacements } from '../lib/migrate-place.js';
 import { readAllNodesFlat } from '../lib/migrate-read.js';
@@ -9,6 +9,33 @@ import { stampFolderSummary } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 import { readStdin } from '../lib/stdin.js';
+
+/**
+ * Step-gate refusal shared by both place modes: `place` implements only the
+ * flat-to-tree (1 -> 2) migration step, so any detected on-disk version other
+ * than exactly 1 is refused before anything is read or written. The message
+ * names the step actually pending from the detected version (when the registry
+ * has one) so the caller is sent to the right step instead of left guessing,
+ * and always points at `kenkeep migrate status` for the pending chain.
+ */
+function stepGateRefusal(mode: 'inventory' | 'apply', current: number | null): string {
+  let reason: string;
+  if (current === null) {
+    reason = 'no knowledge base found under nodes/';
+  } else if (current >= NODE_SCHEMA_VERSION) {
+    reason = `the knowledge base is already at schema_version ${current}`;
+  } else {
+    const pending = MIGRATION_STEPS.find(s => s.from === current);
+    reason = pending
+      ? `the step pending from schema_version ${current} is '${pending.id}' (${pending.from} -> ${pending.to})`
+      : `no migration step is registered from schema_version ${current}`;
+  }
+  return (
+    `place ${mode}: refusing to run: ${reason}. ` +
+    'place implements only the flat-to-tree (1 -> 2) step; ' +
+    'run `kenkeep migrate status` for the pending chain.'
+  );
+}
 
 /**
  * Deterministic, LLM-free inventory primitive for the v1->v2 migration. Detects
@@ -35,6 +62,12 @@ export async function runPlaceInventory(): Promise<number> {
   if (current >= NODE_SCHEMA_VERSION) {
     log.plain(`Knowledge base is already at schema_version ${current}; nothing to do.`);
     return 0;
+  }
+  if (current !== 1) {
+    // Step gate: a migration is pending, but not the one this primitive
+    // implements — refuse rather than emit an inventory another step owns.
+    log.error(stepGateRefusal('inventory', current));
+    return 1;
   }
 
   // Migration is due: emit the flat leaves as JSON for the skill to cluster.
@@ -92,6 +125,17 @@ const PlacementInputSchema = z.object({
  */
 export async function runPlaceApply(opts: PlaceApplyOptions = {}): Promise<number> {
   const paths = repoPaths(findRepoRoot());
+
+  // Step gate, before the placement document is even read: this primitive
+  // implements only the flat-to-tree (1 -> 2) step, so unless the detected
+  // on-disk version is exactly 1 — no KB, already current, or another step
+  // pending — it refuses with zero filesystem changes. There is no "nothing to
+  // do" exit-0 path for apply: it is meaningless without a valid plan to apply.
+  const current = detectSchemaVersion(paths.nodesDir);
+  if (current !== 1) {
+    log.error(stepGateRefusal('apply', current));
+    return 1;
+  }
 
   const raw = opts.input ? readFileSync(opts.input, 'utf8') : await readStdin();
   if (raw.trim() === '') {

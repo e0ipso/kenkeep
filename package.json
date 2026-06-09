@@ -57,15 +57,6 @@
     "prepublishOnly": "npm run build",
     "prepare": "husky"
   },
-  "lint-staged": {
-    "*.{ts,js,mjs,cjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ]
-  },
   "dependencies": {
     "commander": "^13.0.0",
     "execa": "^9.5.2",

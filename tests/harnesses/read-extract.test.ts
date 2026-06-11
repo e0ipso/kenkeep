@@ -39,17 +39,20 @@ describe('extractClaudeReads', () => {
 });
 
 describe('extractCursorReads', () => {
-  it('returns input.path of ReadFile blocks under message.content, ignoring search tools', () => {
+  it('returns input.path of Read/ReadFile blocks under message.content, ignoring search tools', () => {
+    // cursor-agent emits `Read` (current, e.g. CLI 2026.06.x) and `ReadFile`
+    // (older builds); both carry the path at input.path. Search tools ignored.
     const text = JSON.stringify({
       message: {
         role: 'assistant',
         content: [
+          { type: 'tool_use', name: 'Read', input: { offset: 0, limit: 1, path: '/r/a.md' } },
           { type: 'tool_use', name: 'ReadFile', input: { limit: 1, offset: 0, path: '/r/b.md' } },
           { type: 'tool_use', name: 'rg', input: { path: '/r', pattern: 'x' } },
         ],
       },
     });
-    expect(extractCursorReads(text)).toEqual(['/r/b.md']);
+    expect(extractCursorReads(text)).toEqual(['/r/a.md', '/r/b.md']);
   });
 });
 

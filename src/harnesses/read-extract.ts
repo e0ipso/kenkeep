@@ -35,10 +35,14 @@ interface ContentMessage {
 
 /**
  * Walks Anthropic-style `tool_use` content blocks (Claude and Cursor share this
- * shape) for a given read tool name, returning the value at `pathKey` of each
+ * shape) for a set of read tool names, returning the value at `pathKey` of each
  * matching block's `input`.
  */
-function extractContentBlockReads(text: string, toolName: string, pathKey: string): string[] {
+function extractContentBlockReads(
+  text: string,
+  toolNames: ReadonlySet<string>,
+  pathKey: string
+): string[] {
   const out: string[] = [];
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
@@ -53,7 +57,11 @@ function extractContentBlockReads(text: string, toolName: string, pathKey: strin
     if (!Array.isArray(content)) continue;
     for (const block of content as ContentBlock[]) {
       if (!block || typeof block !== 'object') continue;
-      if (block.type === 'tool_use' && block.name === toolName) {
+      if (
+        block.type === 'tool_use' &&
+        typeof block.name === 'string' &&
+        toolNames.has(block.name)
+      ) {
         const path = readStringField(block.input, pathKey);
         if (path !== null) out.push(path);
       }
@@ -62,17 +70,25 @@ function extractContentBlockReads(text: string, toolName: string, pathKey: strin
   return out;
 }
 
+/** Claude Code read tool name(s). Claude's reader is `Read`, path at `input.file_path`. */
+const CLAUDE_READ_TOOLS = new Set(['Read']);
+
 /** Claude Code: `tool_use` blocks named `Read`, path at `input.file_path`. */
 export function extractClaudeReads(text: string): string[] {
-  return extractContentBlockReads(text, 'Read', 'file_path');
+  return extractContentBlockReads(text, CLAUDE_READ_TOOLS, 'file_path');
 }
 
 /**
- * Cursor: `message.content[]` `tool_use` blocks named `ReadFile`, path at
- * `input.path` (verified against a real on-disk agent transcript).
+ * Cursor read tool name(s). cursor-agent emits `Read` (current, e.g. CLI
+ * 2026.06.x) and `ReadFile` (older builds); both carry the path at `input.path`
+ * (measured against real on-disk agent transcripts). Matching only `ReadFile`
+ * silently dropped every read on builds that use `Read`.
  */
+const CURSOR_READ_TOOLS = new Set(['Read', 'ReadFile']);
+
+/** Cursor: `message.content[]` `tool_use` blocks named `Read`/`ReadFile`, path at `input.path`. */
 export function extractCursorReads(text: string): string[] {
-  return extractContentBlockReads(text, 'ReadFile', 'path');
+  return extractContentBlockReads(text, CURSOR_READ_TOOLS, 'path');
 }
 
 interface RolloutLine {

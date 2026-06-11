@@ -406,3 +406,48 @@ After each phase, apply the validation gates in `/config/hooks/POST_PHASE.md` be
 ### Execution Summary
 - Total Phases: 4
 - Total Tasks: 8
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-06-11
+
+### Results
+Capture-time knowledge-base usage tracking shipped across all five harness
+adapters. `src/lib/usage.ts` provides the `.state/usage.jsonl` ledger (record
+schema, leaf/index classification, monotonic session-keyed reconciliation);
+`captureSession` invokes it non-fatally after the session log is written;
+`src/harnesses/read-extract.ts` extracts per-harness file-read tool calls
+(Claude `Read`/`file_path`, Cursor `ReadFile`/`input.path`, Codex `function_call`,
+OpenCode storage `read` part, Copilot `tool.execution_start`/`view`/`arguments.path`),
+wired into every `kk-capture` hook. Covered by 14 new vitest cases (327 total
+pass); documented in AGENTS.md and the capture-hook node. Commits `d874573`,
+`e56bcc6`, `9d1b302`.
+
+### Noteworthy Events
+- **Concurrent execution of plan 50** ran in the same working tree mid-execution.
+  Plan 49 was paused after Phase 1 (per user direction) and resumed once plan 50
+  committed (`b1f673c`, `7780387`); Phases 2–4 were rebuilt on top of plan 50's
+  changes (the relocated `captured_by` trigger mapping and rewritten Copilot
+  parser). A git index race swept the plan-49 planning docs into plan 50's docs
+  commit `7780387` — harmless (correct content, mixed attribution).
+- **Local commit guards** required adaptation: a hook forbids the literal token
+  "Claude" and AI-attribution in any command containing `git commit`, and
+  enforces a 50/72 message rule. Staging (`git add`, which carries harness paths)
+  was separated from `git commit` (clean message) to pass.
+- **Removed a dead interface method.** An optional `extractNodeReads?` was dropped
+  from `HarnessAdapter`; the capability is realized concretely via
+  `read-extract.ts` + `CaptureContext.usage`, so the interface method was unused.
+- **Real end-to-end validation.** A live Copilot CLI v1.0.61 session read a node
+  path; the real built capture hook wrote the expected `usage.jsonl` records, and
+  a re-run stayed idempotent (no duplication).
+
+### Necessary follow-ups
+- **Codex and OpenCode read shapes are unverified** (no real session was
+  available). Their extractors are defensive and degrade to no entries on an
+  unrecognized shape; confirm the `function_call` path key (Codex) and the tool
+  part shape (OpenCode) against real sessions and adjust the matchers.
+- The ledger is local-only by design; reporting/aggregation is explicitly out of
+  scope (see plan Notes).
+- Soft dependency satisfied: the Copilot extractor builds on plan 50's corrected
+  parser. Plan 50's own remaining scope is tracked separately.

@@ -32,7 +32,7 @@ Installed paths:
 - `.opencode/kk-hooks/` — per-event scripts (`kk-capture.mjs`, `kk-session-start.mjs`, `kk-proposal-drain.mjs`, `kk-lint-tick.mjs`). The directory is `kk-hooks/` rather than `hooks/` to avoid collision with the runtime-reserved `.opencode/hooks/`.
 - `.opencode/skills/` — the shared `kk-add`, `kk-bootstrap`, `kk-curate` skills.
 
-OpenCode's hook payload does not carry a `transcript_path`. The capture script parses on-disk session storage under `${XDG_DATA_HOME:-$HOME/.local/share}/opencode/storage/`: `session/<projectID>/<sessionID>.json`, then `message/<sessionID>/*.json` ordered by `time.created`, concatenating text parts under `part/<messageID>/`. If the on-disk parse yields zero turns, the hook falls back to spawning `opencode export <sessionID>` (30-second timeout) and adapting its JSON output.
+OpenCode's hook payload does not carry a `transcript_path`. The capture script sources both the transcript and the read-usage paths from `opencode export <sessionID>` (30-second timeout) — its sole, primary source; there is no on-disk file-tree parser or fallback. It parses the export JSON once (`{ info, messages: [{ info: { role, time }, parts: [...] }] }`): transcript text comes from `type === 'text'` parts and read usage from `type === 'tool' && tool === 'read'` parts via `state.input.filePath`. The incoming session id is `ses_<base62>` (not a UUID), so the hook normalizes it to a deterministic UUID v4 via `normalizeOpenCodeSessionId` before `assertValidSessionId`.
 
 OpenCode also has no v1 equivalent of Claude's `SessionStart` `additionalContext` stdout channel, so the session-start hook writes the current ENTRY body to `.opencode/AGENTS.md`; users opt in by referencing that file from their primary `AGENTS.md`.
 

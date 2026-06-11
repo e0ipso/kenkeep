@@ -2,7 +2,7 @@
 id: 4
 group: "opencode-docs"
 dependencies: [3]
-status: "pending"
+status: "completed"
 created: 2026-06-11
 skills:
   - technical-writing

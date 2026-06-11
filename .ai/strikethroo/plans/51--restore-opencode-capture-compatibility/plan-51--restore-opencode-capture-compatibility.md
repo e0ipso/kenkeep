@@ -277,9 +277,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 003: Rewrite OpenCode capture hook to export-primary — transcript, usage, deadline, file-tree removal (depends on: 001, 002) — `completed`
 
-### Phase 3: Documentation
+### Phase 3: Documentation ✅
 **Parallel Tasks:**
-- Task 004: OpenCode export-primary + ses_ normalization docs (depends on: 003)
+- ✔️ Task 004: OpenCode export-primary + ses_ normalization docs (depends on: 003) — `completed`
 
 ### Post-phase Actions
 After each phase, apply the validation gates in `/config/hooks/POST_PHASE.md` before starting the next phase.

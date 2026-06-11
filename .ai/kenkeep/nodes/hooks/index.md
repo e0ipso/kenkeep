@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:ce5fbcb111d3f3db5ac89d90779f9082eb79637ca6a95efd25a685fce0030dfd'
+nodes_hash: 'sha256:763e5873fe9031fac0b2eb6b07926efddd8d34561089bc009071c2648471c442'
 node_count: 7
 summary: >-
   the capture, session-start, and proposal-drain hooks, how they are built, and
@@ -23,7 +23,7 @@ _None._
 ## Components (what exists)
 - Open [**kk-proposal-drain (extraction hook)**](hooks/map-proposal-drain-hook.md) to learn about: Async SessionStart hook that sweeps pending _sessions/ and extracts proposals; the Claude adapter's hook is intentionally a no-op -- extraction runs inline during /kk-curate instead. #hooks #extraction #llm #async #claude #billing
 - Open [**kk-session-start.mjs (consume hook)**](hooks/map-session-start-hook.md) to learn about: Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may append curate nudge, emits additionalContext. #hooks #consume #sessionstart #index
-- Open [**kk-capture.mjs (capture hook)**](hooks/map-capture-hook.md) to learn about: Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline. Wired per-harness. #hooks #capture
+- Open [**kk-capture.mjs (capture hook)**](hooks/map-capture-hook.md) to learn about: Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline (OpenCode 8s). Wired per-harness. #hooks #capture
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) to learn about: tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory. #build #hooks #tsup #templates #cjs
 
 ## By topic
@@ -43,7 +43,7 @@ _None._
 ### #build
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory.
 ### #capture
-- Open [**kk-capture.mjs (capture hook)**](hooks/map-capture-hook.md) — Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline. Wired per-harness.
+- Open [**kk-capture.mjs (capture hook)**](hooks/map-capture-hook.md) — Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline (OpenCode 8s). Wired per-harness.
 - Open [**Session log (_sessions/*.md)**](state/map-session-log.md) — Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases.
 ### #cjs
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory.

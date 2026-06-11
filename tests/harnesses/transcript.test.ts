@@ -1,9 +1,7 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getHarness } from '../../src/harnesses/registry.js';
-import { parseOpenCodeTranscript } from '../../src/harnesses/opencode/transcript.js';
 import { normalizeCursorConversationId } from '../../src/harnesses/cursor/session-id.js';
 import { renderRoleTagged } from '../../src/lib/transcript-render.js';
 
@@ -225,65 +223,6 @@ describe('claude transcript parsing edge cases', () => {
     expect(claude.parseTranscript(jsonl).interleaved).toEqual([
       { role: 'agent', text: 'Reading file...' },
     ]);
-  });
-});
-
-describe('opencode transcript parsing (on-disk storage tree)', () => {
-  const cleanup: string[] = [];
-  afterEach(() => {
-    for (const p of cleanup) rmSync(p, { recursive: true, force: true });
-    cleanup.length = 0;
-  });
-
-  function makeStorage(): string {
-    const root = mkdtempSync(join(tmpdir(), 'kk-opencode-storage-'));
-    cleanup.push(root);
-    return root;
-  }
-
-  function writeJson(path: string, value: unknown): void {
-    mkdirSync(join(path, '..'), { recursive: true });
-    writeFileSync(path, JSON.stringify(value));
-  }
-
-  it('parses a two-turn exchange ordered by time.created across out-of-order files', () => {
-    const storage = makeStorage();
-    const sessionId = 'sess-123';
-    const projectId = 'proj-abc';
-
-    mkdirSync(join(storage, 'session', projectId), { recursive: true });
-    writeJson(join(storage, 'session', projectId, `${sessionId}.json`), {
-      id: sessionId,
-      projectID: projectId,
-      time: { created: 100, updated: 200 },
-    });
-
-    const messageDir = join(storage, 'message', sessionId);
-    mkdirSync(messageDir, { recursive: true });
-    // Write the assistant message first on disk to prove ordering is by time.
-    writeJson(join(messageDir, 'z.json'), { id: 'm2', role: 'assistant', time: { created: 120 } });
-    writeJson(join(messageDir, 'a.json'), { id: 'm1', role: 'user', time: { created: 110 } });
-
-    writeJson(join(storage, 'part', 'm1', 'p1.json'), {
-      id: 'p1',
-      type: 'text',
-      text: 'hello opencode',
-    });
-    writeJson(join(storage, 'part', 'm2', 'p1.json'), {
-      id: 'p1',
-      type: 'text',
-      text: 'hi there',
-    });
-
-    expect(parseOpenCodeTranscript(storage, sessionId).interleaved).toEqual([
-      { role: 'user', text: 'hello opencode' },
-      { role: 'agent', text: 'hi there' },
-    ]);
-  });
-
-  it('returns empty interleaved when the message dir is missing', () => {
-    const storage = makeStorage();
-    expect(parseOpenCodeTranscript(storage, 'nonexistent').interleaved).toEqual([]);
   });
 });
 

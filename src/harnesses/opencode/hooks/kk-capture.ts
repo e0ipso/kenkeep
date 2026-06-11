@@ -1,11 +1,11 @@
 /**
  * session.idle handler for the OpenCode adapter.
  *
- * Parses the on-disk OpenCode session storage into a role-tagged
- * transcript and feeds it through the shared capture pipeline. When the
- * disk parse yields zero turns or the session directory is missing,
- * falls back to spawning `opencode export <sessionID>` and parsing its
- * JSON output through the same shape adapter.
+ * Sources the transcript and read usage from `opencode export <sessionID>`:
+ * spawns the export CLI, parses its JSON document once, shapes the messages
+ * into a role-tagged transcript, extracts the read-tool paths, and feeds both
+ * through the shared capture pipeline. Export is the sole, primary source —
+ * there is no on-disk file-tree fallback.
  *
  * Always exits 0 so a stalled lookup never blocks the plugin's event
  * loop (per `feedback_hide_cosmetic_shell_errors`).
@@ -21,10 +21,13 @@ import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import type { RoleTaggedTranscript } from '../../types.js';
-import { defaultOpenCodeStorageDir, parseOpenCodeTranscript } from '../transcript.js';
+import { normalizeOpenCodeSessionId } from '../session-id.js';
 import { extractOpenCodeReads } from '../../read-extract.js';
 
-const HARD_DEADLINE_MS = 1000;
+// Measured `opencode export` latency is 1.4–3.0s (exceeds the previous 1s
+// deadline). 8s leaves comfortable headroom; safe because plugins/kk.ts spawns
+// the capture child fire-and-forget without awaiting it.
+const HARD_DEADLINE_MS = 8000;
 const EXPORT_TIMEOUT_MS = 30_000;
 const PACKAGE_TAG = '[kenkeep]';
 
@@ -58,15 +61,20 @@ async function main(): Promise<void> {
   const paths = repoPaths(root);
 
   try {
-    const sessionId = assertValidSessionId(payload['session_id']);
-    const storageDir = defaultOpenCodeStorageDir();
+    // The plugin passes the raw `ses_...` session id (see plugins/kk.ts);
+    // normalize it to the UUID-shaped form the session log expects, then
+    // validate. A genuinely bad value still throws into the catch below.
+    const rawId = payload['session_id'];
+    const normalized = typeof rawId === 'string' ? normalizeOpenCodeSessionId(rawId) : rawId;
+    const sessionId = assertValidSessionId(normalized);
 
-    let transcript = parseOpenCodeTranscript(storageDir, sessionId);
-    if (transcript.interleaved.length === 0) {
-      const fromExport = exportFallback(sessionId);
-      if (fromExport) transcript = fromExport;
-    }
+    const exportJson = runOpenCodeExport(sessionId);
+    if (!exportJson) return;
+
+    const transcript = shapeExportedTranscript(exportJson);
     if (transcript.interleaved.length === 0) return;
+
+    const readPaths = extractOpenCodeReads(exportJson);
 
     const tmpRoot = mkdtempSync(join(tmpdir(), 'kk-opencode-'));
     const transcriptFile = join(tmpRoot, 'transcript.json');
@@ -87,8 +95,7 @@ async function main(): Promise<void> {
         nodesDir: paths.nodesDir,
         kkDir: paths.kkDir,
         usageFile: paths.usageFile,
-        // TODO(plan-51 task-003): pass the parsed `opencode export` JSON here
-        readPaths: extractOpenCodeReads(undefined),
+        readPaths,
       },
     });
     process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
@@ -100,13 +107,12 @@ async function main(): Promise<void> {
 }
 
 /**
- * Falls back to `opencode export <sessionID>` when the disk parse fails.
- * OpenCode's export CLI returns a JSON document with messages and parts;
- * we coerce it through the same parser shape by writing it into a
- * temporary storage tree, then re-running the disk parser against the
- * tree. This keeps a single transcript-extraction path.
+ * Runs `opencode export <sessionID>` and returns the parsed JSON document
+ * (the raw `{ info, messages }` shape) or `null` when the CLI is unavailable,
+ * the export fails, or the output is not valid JSON. The `opencode --version`
+ * probe avoids hanging when the binary is absent.
  */
-function exportFallback(sessionId: string): RoleTaggedTranscript | null {
+function runOpenCodeExport(sessionId: string): unknown | null {
   try {
     execFileSync('opencode', ['--version'], { timeout: 5000, stdio: 'ignore' });
   } catch {
@@ -117,19 +123,16 @@ function exportFallback(sessionId: string): RoleTaggedTranscript | null {
     encoding: 'utf8',
   });
   if (run.status !== 0 || !run.stdout) return null;
-  let exported: unknown;
   try {
-    exported = JSON.parse(run.stdout);
+    return JSON.parse(run.stdout) as unknown;
   } catch {
     return null;
   }
-  return shapeExportedTranscript(exported);
 }
 
 interface ExportedMessage {
-  role?: 'user' | 'assistant' | string;
+  info?: { role?: string; time?: { created?: number } };
   parts?: Array<{ type?: string; text?: string }>;
-  time?: { created?: number };
 }
 
 interface ExportedSession {
@@ -138,8 +141,12 @@ interface ExportedSession {
 
 /**
  * Coerces the `opencode export` JSON shape into a role-tagged transcript.
- * The export format documents a `messages: [{ role, parts: [{ type, text }] }]`
- * structure; we only consume `type === 'text'` parts.
+ *
+ * Shape measured against OpenCode v1.17.3 `opencode export`: the document is
+ * `{ info, messages: [{ info: { role, time: { created } }, parts: [...] }] }`.
+ * The role lives at `message.info.role` ("user" | "assistant") and the sort
+ * timestamp at `message.info.time.created` (epoch ms) — NOT on `message`
+ * directly. Only `type === 'text'` parts carry transcript text.
  */
 function shapeExportedTranscript(json: unknown): RoleTaggedTranscript {
   const out: RoleTaggedTranscript = { interleaved: [] };
@@ -147,10 +154,11 @@ function shapeExportedTranscript(json: unknown): RoleTaggedTranscript {
   const session = json as ExportedSession;
   if (!Array.isArray(session.messages)) return out;
   const sorted = [...session.messages].sort(
-    (a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0)
+    (a, b) => (a.info?.time?.created ?? 0) - (b.info?.time?.created ?? 0)
   );
   for (const message of sorted) {
-    if (message.role !== 'user' && message.role !== 'assistant') continue;
+    const role = message.info?.role;
+    if (role !== 'user' && role !== 'assistant') continue;
     const parts = Array.isArray(message.parts) ? message.parts : [];
     const text = parts
       .filter(p => p.type === 'text' && typeof p.text === 'string')
@@ -158,7 +166,7 @@ function shapeExportedTranscript(json: unknown): RoleTaggedTranscript {
       .filter(s => s.length > 0)
       .join('\n');
     if (!text) continue;
-    out.interleaved.push({ role: message.role === 'user' ? 'user' : 'agent', text });
+    out.interleaved.push({ role: role === 'user' ? 'user' : 'agent', text });
   }
   return out;
 }

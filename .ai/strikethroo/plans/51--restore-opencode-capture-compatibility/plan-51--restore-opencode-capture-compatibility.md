@@ -273,9 +273,9 @@ graph TD
 - ✔️ Task 001: OpenCode export-parts read extractor (+ test) — `completed`
 - ✔️ Task 002: OpenCode session-id normalizer (+ test) — `completed`
 
-### Phase 2: Capture hook rewrite
+### Phase 2: Capture hook rewrite ✅
 **Parallel Tasks:**
-- Task 003: Rewrite OpenCode capture hook to export-primary — transcript, usage, deadline, file-tree removal (depends on: 001, 002)
+- ✔️ Task 003: Rewrite OpenCode capture hook to export-primary — transcript, usage, deadline, file-tree removal (depends on: 001, 002) — `completed`
 
 ### Phase 3: Documentation
 **Parallel Tasks:**

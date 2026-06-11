@@ -2,7 +2,7 @@
 id: 3
 group: "opencode-capture"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-06-11
 skills:
   - typescript

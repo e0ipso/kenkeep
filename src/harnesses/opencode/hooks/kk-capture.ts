@@ -11,7 +11,7 @@
  * loop (per `feedback_hide_cosmetic_shell_errors`).
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput, type TranscriptParser } from '../../../lib/capture.js';
@@ -68,7 +68,10 @@ async function main(): Promise<void> {
     const normalized = typeof rawId === 'string' ? normalizeOpenCodeSessionId(rawId) : rawId;
     const sessionId = assertValidSessionId(normalized);
 
-    const exportJson = runOpenCodeExport(sessionId);
+    // `opencode export` keys on the ORIGINAL `ses_...` id; the normalized UUID
+    // (`sessionId`) is only the kenkeep session-log identity. `rawId` is a
+    // string here — otherwise `assertValidSessionId` above would have thrown.
+    const exportJson = runOpenCodeExport(typeof rawId === 'string' ? rawId : sessionId);
     if (!exportJson) return;
 
     const transcript = shapeExportedTranscript(exportJson);
@@ -111,6 +114,13 @@ async function main(): Promise<void> {
  * (the raw `{ info, messages }` shape) or `null` when the CLI is unavailable,
  * the export fails, or the output is not valid JSON. The `opencode --version`
  * probe avoids hanging when the binary is absent.
+ *
+ * The export is captured by redirecting the child's stdout to a temp FILE
+ * rather than a pipe: on OpenCode v1.17.3 the CLI exits before fully flushing
+ * its stdout to a pipe, so `spawnSync({ encoding: 'utf8' })` returns truncated,
+ * unparseable JSON (measured: ~145 KB of a ~230 KB document, every run). A file
+ * fd flushes completely, so the full document is captured. Verified end-to-end
+ * against a real OpenCode v1.17.3 session.
  */
 function runOpenCodeExport(sessionId: string): unknown | null {
   try {
@@ -118,15 +128,28 @@ function runOpenCodeExport(sessionId: string): unknown | null {
   } catch {
     return null;
   }
-  const run = spawnSync('opencode', ['export', sessionId], {
-    timeout: EXPORT_TIMEOUT_MS,
-    encoding: 'utf8',
-  });
-  if (run.status !== 0 || !run.stdout) return null;
+  const tmpRoot = mkdtempSync(join(tmpdir(), 'kk-oc-export-'));
+  const exportPath = join(tmpRoot, 'export.json');
+  const fd = openSync(exportPath, 'w');
+  let status: number | null;
   try {
-    return JSON.parse(run.stdout) as unknown;
+    const run = spawnSync('opencode', ['export', sessionId], {
+      timeout: EXPORT_TIMEOUT_MS,
+      stdio: ['ignore', fd, 'ignore'],
+    });
+    status = run.status;
+  } finally {
+    closeSync(fd);
+  }
+  try {
+    if (status !== 0) return null;
+    const raw = readFileSync(exportPath, 'utf8');
+    if (raw.length === 0) return null;
+    return JSON.parse(raw) as unknown;
   } catch {
     return null;
+  } finally {
+    rmSync(tmpRoot, { recursive: true, force: true });
   }
 }
 

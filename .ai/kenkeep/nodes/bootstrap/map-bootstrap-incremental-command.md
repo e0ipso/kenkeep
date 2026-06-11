@@ -8,7 +8,6 @@ tags:
   - bootstrap
   - deterministic
 derived_from:
-  - docs/cli-reference.md
   - docs/installation.md
   - docs/daily-use.md
 relates_to:

@@ -10,7 +10,6 @@ tags:
 derived_from:
   - docs/installation.md
   - docs/daily-use.md
-  - docs/cli-reference.md
 relates_to:
   - map-bootstrap-incremental-command
   - practice-bootstrap-never-overwrites-existing-nodes

@@ -8,7 +8,6 @@ tags:
   - settings
   - model
 derived_from:
-  - docs/cli-reference.md
   - docs/internals/architecture.md
 relates_to:
   - map-curate-command

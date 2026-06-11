@@ -9,7 +9,6 @@ tags:
   - scope
 derived_from:
   - docs/installation.md
-  - docs/cli-reference.md
 relates_to: []
 depends_on: []
 confidence: high

@@ -8,7 +8,6 @@ tags:
   - curate
   - skill
 derived_from:
-  - docs/cli-reference.md
   - docs/daily-use.md
   - docs/how-it-works.md
 relates_to:

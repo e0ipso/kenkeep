@@ -10,7 +10,6 @@ tags:
   - cursor
   - opencode
 derived_from:
-  - docs/cli-reference.md
   - docs/installation.md
 relates_to:
   - map-harness-adapter

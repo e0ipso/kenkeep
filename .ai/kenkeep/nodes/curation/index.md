@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:80992e58dbf1c13ea00fc1443e774313a437b6551696c832986b8ed4467d13a0'
+nodes_hash: 'sha256:bf426da70a0e68d7c1d68c1a23c4a0dd4eccb4339357f9bcfba4f44f3d8aa94b'
 node_count: 8
 summary: >-
   the curator pipeline that turns proposals into nodes, including conflict

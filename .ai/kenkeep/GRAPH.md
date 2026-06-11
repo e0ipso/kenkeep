@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:b192dd8edde36c3f445cc83e0bdbdb937aad5e102d58c12a599b5c56fed3a10a'
+nodes_hash: 'sha256:163b56837ee0804a75fdb62b0a1dbc679040f600c3fcf7028252e43875ede0cd'
 node_count: 58
 ---
 # kenkeep Graph
@@ -14,7 +14,7 @@ Total nodes: 58
 - **path:** bootstrap/map-bootstrap-incremental-command.md
 - **tags:** cli, bootstrap, deterministic
 - **relates_to:** map-kk-bootstrap-skill, map-bootstrap-state-file, practice-bootstrap-never-overwrites-existing-nodes, practice-dont-run-llm-pipelines-in-ci
-- **derived_from:** docs/cli-reference.md, docs/installation.md, docs/daily-use.md
+- **derived_from:** docs/installation.md, docs/daily-use.md
 
 ## map-bootstrap-state-file
 
@@ -59,7 +59,7 @@ Total nodes: 58
 - **path:** config-and-prompts/map-config-yaml.md
 - **tags:** config, settings, model
 - **relates_to:** map-curate-command, map-bootstrap-incremental-command, map-proposal-drain-hook
-- **derived_from:** docs/cli-reference.md, docs/internals/architecture.md
+- **derived_from:** docs/internals/architecture.md
 
 ## map-conflict-files
 
@@ -94,7 +94,7 @@ Total nodes: 58
 - **path:** curation/map-curate-command.md
 - **tags:** cli, curate, skill
 - **relates_to:** map-curator-action, map-conflict-files, practice-curator-never-auto-resolves-contradictions
-- **derived_from:** docs/cli-reference.md, docs/daily-use.md, docs/how-it-works.md
+- **derived_from:** docs/daily-use.md, docs/how-it-works.md
 
 ## map-curator-action
 
@@ -173,7 +173,7 @@ Total nodes: 58
 - **path:** bootstrap/map-kk-bootstrap-skill.md
 - **tags:** skill, bootstrap, agent
 - **relates_to:** map-bootstrap-incremental-command, practice-bootstrap-never-overwrites-existing-nodes, practice-bootstrap-is-supervised-and-judgmental
-- **derived_from:** docs/installation.md, docs/daily-use.md, docs/cli-reference.md
+- **derived_from:** docs/installation.md, docs/daily-use.md
 
 ## map-node-frontmatter
 
@@ -289,7 +289,7 @@ Total nodes: 58
 - **path:** bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md
 - **tags:** bootstrap, nodes, safety
 - **relates_to:** map-kk-bootstrap-skill, map-bootstrap-incremental-command
-- **derived_from:** docs/installation.md, docs/daily-use.md, docs/cli-reference.md, .claude/skills/kk-bootstrap/SKILL.md
+- **derived_from:** docs/installation.md, docs/daily-use.md, .claude/skills/kk-bootstrap/SKILL.md
 
 ## practice-bump-prompt-version-comment
 
@@ -391,7 +391,7 @@ Total nodes: 58
 - **path:** harnesses/practice-explicit-harness-flag-outside-claude.md
 - **tags:** harness, cli, codex, cursor, opencode
 - **relates_to:** map-harness-adapter, map-cursor-harness-adapter, map-config-yaml
-- **derived_from:** docs/cli-reference.md, docs/installation.md
+- **derived_from:** docs/installation.md
 
 ## practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters
 
@@ -422,7 +422,7 @@ Total nodes: 58
 - **title:** init does not install husky/lint-staged/secretlint/commitlint
 - **path:** cli/practice-init-does-not-install-commit-tooling.md
 - **tags:** init, install, scope
-- **derived_from:** docs/installation.md, docs/cli-reference.md
+- **derived_from:** docs/installation.md
 
 ## practice-inside-the-kenkeep-source-repo-run-the-cli-from-dist-not-via-npx
 

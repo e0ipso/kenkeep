@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:6cdc93535a7b091c04513b0215ed8851eecced8a8bac17758363f4c930416ba0'
+nodes_hash: 'sha256:5026019c4ca053c15fd6a5e59e36408f94b322e03fa3ce85c6ad7184fb0d8e66'
 node_count: 4
 summary: >-
   config.yaml project settings and the prompt templates, their versioning, and

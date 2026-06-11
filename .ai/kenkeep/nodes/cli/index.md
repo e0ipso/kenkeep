@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:b8fa8d34015e8a14245b3ee28bc40c25aabb7d54612eaca36da65251f53d2f08'
+nodes_hash: 'sha256:604601fabcac0d6f362e2028d5b0a5b7c41f3e3b0ffb8d9a6a7d65de93be3454'
 node_count: 4
 summary: >-
   the CLI init and upgrade commands, AGENTS.md pointer injection, and how to run

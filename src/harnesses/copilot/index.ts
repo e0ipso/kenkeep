@@ -35,6 +35,7 @@ function copilotAdapterPaths(root: string): HarnessPaths {
 export const copilotAdapter: HarnessAdapter = {
   id: 'copilot',
   launchBinary: 'copilot',
+  launchArgsPrefix: ['-p'],
   hooks: copilotHookSpecs,
   paths: copilotAdapterPaths,
   install: opts => installCopilot(opts),

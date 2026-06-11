@@ -32,6 +32,7 @@ function openCodePaths(root: string): HarnessPaths {
 export const openCodeAdapter: HarnessAdapter = {
   id: 'opencode',
   launchBinary: 'opencode',
+  launchArgsPrefix: ['run'],
   hooks: openCodeHookSpecs,
   paths: openCodePaths,
   install: opts => installOpenCode(opts),

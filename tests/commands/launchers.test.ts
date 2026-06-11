@@ -15,8 +15,9 @@ import { launchSkill } from '../../src/lib/launch-skill.js';
  * actually spawned and the test process is never terminated.
  *
  * The contract we are pinning down: the launcher exec's `<harness-binary>
- * -p "/kk-<skill> …"` with `KENKEEP_BUILDER_INTERNAL=1` set on the child env
- * and `stdio: 'inherit'`. Plus the deprecation alias must write a
+ * <harness-specific-args> "/kk-<skill> …"` with `KENKEEP_BUILDER_INTERNAL=1`
+ * set on the child env and `stdio: 'inherit'`. Most harnesses use `-p`, but
+ * OpenCode uses `run`. Plus the deprecation alias must write a
  * `[deprecated]` notice to stderr before launching.
  */
 
@@ -127,7 +128,7 @@ describe('launchSkill', () => {
     const { spawnFn, captured } = makeFakeSpawn();
     const exitFn = vi.fn((_code: number) => undefined as never);
     launchSkill({ skill: 'kk-curate', harness: 'codex', spawnFn, exitFn });
-    expect(captured[0]!.args.args).toEqual(['-p', '/kk-curate']);
+    expect(captured[0]!.args.args).toEqual(['exec', '/kk-curate']);
     expect(captured[0]!.args.binary).toBe('codex');
   });
 
@@ -144,6 +145,22 @@ describe('launchSkill', () => {
       launchSkill({ skill: 'kk-add', harness, spawnFn, exitFn });
       expect(captured[0]!.args.binary, `harness ${harness}`).toBe(expectedBinary);
     }
+  });
+
+  it('uses opencode run instead of -p for the opencode harness', () => {
+    const { spawnFn, captured } = makeFakeSpawn();
+    const exitFn = vi.fn((_code: number) => undefined as never);
+    launchSkill({ skill: 'kk-curate', harness: 'opencode', spawnFn, exitFn });
+    expect(captured[0]!.args.binary).toBe('opencode');
+    expect(captured[0]!.args.args).toEqual(['run', '/kk-curate']);
+  });
+
+  it('uses codex exec instead of -p for the codex harness', () => {
+    const { spawnFn, captured } = makeFakeSpawn();
+    const exitFn = vi.fn((_code: number) => undefined as never);
+    launchSkill({ skill: 'kk-curate', harness: 'codex', spawnFn, exitFn });
+    expect(captured[0]!.args.binary).toBe('codex');
+    expect(captured[0]!.args.args).toEqual(['exec', '/kk-curate']);
   });
 });
 

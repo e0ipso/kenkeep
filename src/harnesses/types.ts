@@ -127,11 +127,19 @@ export interface HarnessAdapter {
   /**
    * Name of the executable the CLI launcher commands (`bootstrap`,
    * `curate`, `node add`) should `spawn` to dispatch a slash-command into
-   * this harness via its non-interactive (`-p "/kk-…"`) entrypoint. Looked
-   * up on `PATH`. Examples: `claude`, `codex`, `agent` (Cursor),
-   * `opencode`.
+   * this harness. Looked up on `PATH`. Examples: `claude`, `codex`,
+   * `agent` (Cursor), `opencode`.
    */
   readonly launchBinary: string;
+
+  /**
+   * Prefix argv elements the launcher prepends before the slash-command
+   * payload when spawning the harness binary. The harness-neutral launcher
+   * appends the slash payload (e.g. `/kk-curate`) as the final positional.
+   * Examples: `['-p']` (Claude, Cursor, Copilot), `['exec']` (Codex),
+   * `['run']` (OpenCode).
+   */
+  readonly launchArgsPrefix: readonly string[];
 
   /** Hook lifecycle declarations this adapter actually registers. */
   readonly hooks: readonly HookSpec[];

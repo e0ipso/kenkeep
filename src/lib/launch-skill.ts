@@ -42,6 +42,22 @@ export interface LaunchSkillOptions {
 }
 
 /**
+ * Builds the full argv array for a harness launch. The prefix is the
+ * harness-specific entrypoint (e.g. `['-p']`, `['exec']`, `['run']`).
+ * The slash payload is the skill name plus optional trailing arguments.
+ * Shared across all adapters; each harness only declares its prefix.
+ */
+export function buildLaunchArgs(
+  prefix: readonly string[],
+  skill: string,
+  passedArgs?: string
+): string[] {
+  const passed = passedArgs?.trim() ?? '';
+  const slashPayload = passed.length > 0 ? `/${skill} ${passed}` : `/${skill}`;
+  return [...prefix, slashPayload];
+}
+
+/**
  * Resolves the active harness, builds the slash-command argv, and spawns
  * the harness binary with the user's stdio inherited (so Ctrl-C, TTY
  * prompts, and the harness's rich output flow naturally). Exits the
@@ -62,9 +78,7 @@ export function launchSkill(opts: LaunchSkillOptions): void {
   });
 
   const binary = harness.launchBinary;
-  const passed = opts.passedArgs?.trim() ?? '';
-  const slashPayload = passed.length > 0 ? `/${opts.skill} ${passed}` : `/${opts.skill}`;
-  const args: string[] = ['-p', slashPayload];
+  const args = buildLaunchArgs(harness.launchArgsPrefix, opts.skill, opts.passedArgs);
 
   const spawnImpl = opts.spawnFn ?? spawn;
   const exitImpl = opts.exitFn ?? ((code: number): never => process.exit(code));

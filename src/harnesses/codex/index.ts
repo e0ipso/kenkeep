@@ -29,6 +29,7 @@ function codexPaths(root: string): HarnessPaths {
 export const codexAdapter: HarnessAdapter = {
   id: 'codex',
   launchBinary: 'codex',
+  launchArgsPrefix: ['exec'],
   hooks: codexHookSpecs,
   paths: codexPaths,
   install: opts => installCodex(opts),

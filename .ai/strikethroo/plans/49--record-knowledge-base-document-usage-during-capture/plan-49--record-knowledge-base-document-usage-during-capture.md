@@ -388,12 +388,12 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 002: Adapter read-extraction contract + shared capture invocation (depends on: 001)
 
-### Phase 3: Per-adapter extractors
+### ✅ Phase 3: Per-adapter extractors
 **Parallel Tasks:**
-- Task 003: Claude + Cursor read extractors + hook wiring (depends on: 002)
-- Task 004: Codex read extractor + hook wiring (depends on: 002)
-- Task 005: Copilot read extractor + hook wiring (depends on: 002)
-- Task 006: OpenCode read extractor + hook wiring (depends on: 002)
+- ✔️ Task 003: Claude + Cursor read extractors + hook wiring (depends on: 002)
+- ✔️ Task 004: Codex read extractor + hook wiring (depends on: 002)
+- ✔️ Task 005: Copilot read extractor + hook wiring (depends on: 002)
+- ✔️ Task 006: OpenCode read extractor + hook wiring (depends on: 002)
 
 ### Phase 4: Verification & documentation
 **Parallel Tasks:**

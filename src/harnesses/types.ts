@@ -163,16 +163,6 @@ export interface HarnessAdapter {
   renderTranscript(t: RoleTaggedTranscript): string;
 
   /**
-   * Extracts the file paths the agent opened via read tool calls from this
-   * harness's raw transcript text, for knowledge-base usage tracking. Returns
-   * `[]` when the transcript exposes no reads. Parallel to `parseTranscript`:
-   * each adapter owns its native tool-call shape. Adapters whose raw source is
-   * not a single text blob (e.g. OpenCode's on-disk part tree) may leave this
-   * undefined and extract read paths in their capture hook instead.
-   */
-  extractNodeReads?(rawText: string): string[];
-
-  /**
    * Spawn the harness's headless LLM driver (e.g. `claude -p`) and validate
    * the structured result against the provided Zod schema. The adapter
    * reads its per-harness knobs from `opts.harnessOpts`.

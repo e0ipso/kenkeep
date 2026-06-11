@@ -22,6 +22,7 @@ import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import type { RoleTaggedTranscript } from '../../types.js';
 import { defaultOpenCodeStorageDir, parseOpenCodeTranscript } from '../transcript.js';
+import { extractOpenCodeReads } from '../../read-extract.js';
 
 const HARD_DEADLINE_MS = 1000;
 const EXPORT_TIMEOUT_MS = 30_000;
@@ -82,6 +83,12 @@ async function main(): Promise<void> {
     await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parser,
+      usage: {
+        nodesDir: paths.nodesDir,
+        kkDir: paths.kkDir,
+        usageFile: paths.usageFile,
+        readPaths: extractOpenCodeReads(storageDir, sessionId),
+      },
     });
     process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
   } catch (err) {

@@ -13,6 +13,7 @@ import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import { parseTranscriptJsonl } from '../transcript.js';
+import { extractClaudeReads } from '../../read-extract.js';
 
 const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[kenkeep]';
@@ -72,6 +73,12 @@ async function main(): Promise<void> {
     await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseTranscriptJsonl,
+      usage: {
+        nodesDir: paths.nodesDir,
+        kkDir: paths.kkDir,
+        usageFile: paths.usageFile,
+        extractReads: extractClaudeReads,
+      },
     });
     process.stdout.write(
       `${JSON.stringify({ systemMessage: '💾 kenkeep Capture: Session transcript saved.' })}\n`

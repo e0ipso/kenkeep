@@ -38,16 +38,19 @@ export interface CaptureContext {
   parseTranscript: TranscriptParser;
   now?: () => Date;
   /**
-   * Optional knowledge-base usage tracking. When present, the file paths the
-   * agent read this turn (`readPaths`, surfaced by the harness adapter from its
-   * raw transcript) are classified against `nodesDir` and reconciled into
-   * `usageFile` after the session log is written. Best-effort and non-fatal.
+   * Optional knowledge-base usage tracking. After the session log is written,
+   * the file paths the agent read this turn are classified against `nodesDir`
+   * and reconciled into `usageFile`. Read paths come from either `extractReads`
+   * (run on the raw transcript text — the text-based harnesses) or a
+   * precomputed `readPaths` (e.g. OpenCode, whose raw tool parts are not in the
+   * transcript text). Best-effort and non-fatal.
    */
   usage?: {
-    readPaths: string[];
     nodesDir: string;
     kkDir: string;
     usageFile: string;
+    extractReads?: (rawText: string) => string[];
+    readPaths?: string[];
   };
 }
 
@@ -114,16 +117,21 @@ export async function captureSession(
 
   const sessionLogPath = writeSessionLog(ctx.sessionsDir, filename, body);
 
-  if (ctx.usage && ctx.usage.readPaths.length > 0) {
+  if (ctx.usage) {
     try {
-      await recordUsage({
-        usageFile: ctx.usage.usageFile,
-        nodesDir: ctx.usage.nodesDir,
-        kkDir: ctx.usage.kkDir,
-        sessionId,
-        usedAt: capturedAt,
-        readPaths: ctx.usage.readPaths,
-      });
+      const readPaths =
+        ctx.usage.readPaths ??
+        (ctx.usage.extractReads ? ctx.usage.extractReads(transcriptText) : []);
+      if (readPaths.length > 0) {
+        await recordUsage({
+          usageFile: ctx.usage.usageFile,
+          nodesDir: ctx.usage.nodesDir,
+          kkDir: ctx.usage.kkDir,
+          sessionId,
+          usedAt: capturedAt,
+          readPaths,
+        });
+      }
     } catch (err) {
       // Usage tracking is best-effort: it must never fail or alter capture.
       process.stderr.write(

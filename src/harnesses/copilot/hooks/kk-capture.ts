@@ -24,6 +24,7 @@ import { readStdin } from '../../../lib/stdin.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import { copilotHome } from '../hooks-config.js';
 import { parseCopilotTranscript } from '../transcript.js';
+import { extractCopilotReads } from '../../read-extract.js';
 
 const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[kenkeep]';
@@ -89,6 +90,12 @@ async function main(): Promise<void> {
     await captureSession(input, {
       sessionsDir: paths.sessionsDir,
       parseTranscript: parseCopilotTranscript,
+      usage: {
+        nodesDir: paths.nodesDir,
+        kkDir: paths.kkDir,
+        usageFile: paths.usageFile,
+        extractReads: extractCopilotReads,
+      },
     });
     process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
   } catch (err) {

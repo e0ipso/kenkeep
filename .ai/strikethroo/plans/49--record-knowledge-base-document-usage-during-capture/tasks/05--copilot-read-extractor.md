@@ -2,7 +2,7 @@
 id: 5
 group: "usage-adapters"
 dependencies: [2]
-status: "pending"
+status: "completed"
 created: 2026-06-11
 skills:
   - typescript

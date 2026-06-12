@@ -6,7 +6,7 @@ import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
 import { errCheck, ok, type DoctorCheckResult, type NamedDoctorCheck } from '../types.js';
 import { openCodeHookSpecs } from './hook-spec.js';
-import { openCodePaths } from './install.js';
+import { OPENCODE_INSTRUCTIONS_ENTRY, OPENCODE_PLUGIN_ENTRY, openCodePaths } from './install.js';
 
 const exec = promisify(execFile);
 export const OPENCODE_PLUGIN_MARKER = '// kenkeep plugin';
@@ -16,6 +16,7 @@ export async function openCodeDoctorChecks(paths: RepoPaths): Promise<NamedDocto
   return [
     { name: 'opencode CLI on PATH', result: await checkOpenCodeCli() },
     { name: 'OpenCode plugin installed', result: checkPlugin(locs.pluginFile) },
+    { name: 'OpenCode plugin registered', result: checkPluginRegistered(locs.configFile) },
     {
       name: 'OpenCode kk-hooks installed',
       result: checkKbHooks(locs.kkHooksDir),
@@ -55,6 +56,44 @@ function checkPlugin(pluginFile: string): DoctorCheckResult {
     );
   }
   return ok('plugin marker present');
+}
+
+/**
+ * OpenCode loads plugins only when declared in a config `plugin` array
+ * (verified on 1.17.3); an unregistered plugin file is silently inert, so
+ * this check is what separates "installed" from "actually running".
+ */
+function checkPluginRegistered(configFile: string): DoctorCheckResult {
+  if (!existsSync(configFile)) {
+    return errCheck(
+      `no ${configFile}. OpenCode only loads declared plugins; ` +
+        `re-run \`npx kenkeep init --harnesses opencode --upgrade\`.`
+    );
+  }
+  try {
+    const config = JSON.parse(readFileSync(configFile, 'utf8')) as {
+      plugin?: unknown;
+      instructions?: unknown;
+    };
+    const plugins = Array.isArray(config.plugin) ? config.plugin : [];
+    const instructions = Array.isArray(config.instructions) ? config.instructions : [];
+    const missing: string[] = [];
+    if (!plugins.includes(OPENCODE_PLUGIN_ENTRY)) {
+      missing.push(`"${OPENCODE_PLUGIN_ENTRY}" in plugin`);
+    }
+    if (!instructions.includes(OPENCODE_INSTRUCTIONS_ENTRY)) {
+      missing.push(`"${OPENCODE_INSTRUCTIONS_ENTRY}" in instructions`);
+    }
+    if (missing.length === 0) {
+      return ok('plugin and instructions entries present');
+    }
+    return errCheck(
+      `missing from ${configFile}: ${missing.join(', ')}. ` +
+        `Re-run \`npx kenkeep init --harnesses opencode --upgrade\` or add them manually.`
+    );
+  } catch (e) {
+    return errCheck(`unparseable ${configFile}: ${(e as Error).message.split('\n')[0]}`);
+  }
 }
 
 function checkKbHooks(kkHooksDir: string): DoctorCheckResult {

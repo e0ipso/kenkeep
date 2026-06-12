@@ -130,4 +130,61 @@ describe('opencode plugin dispatch (installed artifacts)', () => {
     const hooks = await mod.default({ directory: sandbox });
     expect(hooks.event).toBeUndefined();
   });
+
+  it('init registers the plugin and instructions in .opencode/opencode.json (OpenCode loads only declared entries)', () => {
+    const config = JSON.parse(
+      readFileSync(join(sandbox, '.opencode', 'opencode.json'), 'utf8')
+    ) as { plugin?: string[]; instructions?: string[] };
+    expect(config.plugin).toContain('./plugins/kk.mjs');
+    expect(config.instructions).toContain('.opencode/AGENTS.md');
+  });
+});
+
+describe('registerOpenCodePlugin (config merge)', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = makeSandbox('ai-kk-oc-register-');
+  });
+  afterEach(() => cleanSandbox(dir));
+
+  async function register(file: string): Promise<void> {
+    const { registerOpenCodePlugin } = await import('../../src/harnesses/opencode/install.js');
+    registerOpenCodePlugin(file);
+  }
+
+  it('creates the config when absent and is idempotent', async () => {
+    const file = join(dir, 'opencode.json');
+    await register(file);
+    await register(file);
+    const config = JSON.parse(readFileSync(file, 'utf8')) as {
+      plugin: string[];
+      instructions: string[];
+    };
+    expect(config.plugin).toEqual(['./plugins/kk.mjs']);
+    expect(config.instructions).toEqual(['.opencode/AGENTS.md']);
+  });
+
+  it('appends to existing arrays and preserves other keys', async () => {
+    const file = join(dir, 'opencode.json');
+    writeFileSync(
+      file,
+      JSON.stringify({ model: 'x/y', plugin: ['safety'], instructions: ['docs/style.md'] }, null, 2)
+    );
+    await register(file);
+    const config = JSON.parse(readFileSync(file, 'utf8')) as {
+      model: string;
+      plugin: string[];
+      instructions: string[];
+    };
+    expect(config.model).toBe('x/y');
+    expect(config.plugin).toEqual(['safety', './plugins/kk.mjs']);
+    expect(config.instructions).toEqual(['docs/style.md', '.opencode/AGENTS.md']);
+  });
+
+  it('leaves an unparseable config untouched', async () => {
+    const file = join(dir, 'opencode.json');
+    writeFileSync(file, '{ this is not json');
+    await register(file);
+    expect(readFileSync(file, 'utf8')).toBe('{ this is not json');
+  });
 });

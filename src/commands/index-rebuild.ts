@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
+import { ensureAgentsKkBlock } from '../lib/agents-block.js';
 import {
   generateGraph,
   generateIndex,
@@ -98,6 +99,13 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   }
   writeGraph(graphFile, graph);
   written.push(graphFile);
+
+  // Keep the AGENTS.md pointer block tracking the current directive wording;
+  // a no-op when the bytes already match, so it stages only on real change.
+  const agentsFile = join(root, 'AGENTS.md');
+  if (ensureAgentsKkBlock(agentsFile)) {
+    written.push(agentsFile);
+  }
 
   log.success(
     `Regenerated ${index.folders.size} index.md file(s) and GRAPH.md from ${index.nodeCount} node(s).`

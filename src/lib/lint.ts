@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
+import { checkAgentsKkBlock } from './agents-block.js';
 import { INDEX_FILENAME, readAllNodes, slugify, type NodeFile } from './nodes.js';
 import { readRedirectsLedger, resolveRedirect } from './redirects.js';
 
@@ -9,7 +10,8 @@ export type LintRule =
   | 'slug-id-mismatch'
   | 'tag-near-duplicate'
   | 'orphan'
-  | 'missing-folder-index';
+  | 'missing-folder-index'
+  | 'agents-kb-block';
 
 export interface LintEntry {
   rule: LintRule;
@@ -25,6 +27,14 @@ export interface LintResult {
 
 export interface LintOptions {
   nodesDir: string;
+  /**
+   * Repo root, enabling the `agents-kb-block` drift check (AGENTS.md carries
+   * the kenkeep pointer block and its target exists). Omitted by callers
+   * that lint a bare nodes tree with no surrounding repo.
+   */
+  root?: string;
+  /** `.ai/kenkeep` dir, required alongside `root` for the block check. */
+  kkDir?: string;
 }
 
 export function runLint(opts: LintOptions): LintResult {
@@ -144,6 +154,20 @@ export function runLint(opts: LintOptions): LintResult {
   }
 
   errors.sort(compareEntries);
+  // Agents-file lobby drift (warn-only): the AGENTS.md pointer block is how
+  // agents-file surfaces discover the knowledge base; a populated tree whose
+  // lobby is missing degrades discoverability silently.
+  if (opts.root && opts.kkDir) {
+    for (const issue of checkAgentsKkBlock(opts.root, opts.kkDir, nodes.length)) {
+      findings.push({
+        rule: 'agents-kb-block',
+        file: issue.file,
+        message: issue.message,
+        action: issue.action,
+      });
+    }
+  }
+
   findings.sort(compareEntries);
 
   return { errors, findings };

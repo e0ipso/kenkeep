@@ -9,7 +9,7 @@ export interface LintCommandOptions {
 export async function runLintCommand(opts: LintCommandOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
-  const result: LintResult = runLintLib({ nodesDir: paths.nodesDir });
+  const result: LintResult = runLintLib({ nodesDir: paths.nodesDir, root, kkDir: paths.kkDir });
 
   log.info(`Lint ${root}`);
   printCounts(result);

@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync
 import { dirname, join } from 'node:path';
 import { refreshClaudeTemplates } from '../harnesses/claude/install.js';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
+import { ensureAgentsKkBlock } from '../lib/agents-block.js';
 import { copyTree } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
 import { detectSchemaVersion } from '../lib/migrate.js';
@@ -9,7 +10,6 @@ import { MIGRATE_COMMAND_HINT } from '../lib/migrate-guidance.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { ensureKbignore } from '../lib/kkignore-stub.js';
 import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
-import { KK_NAVIGATION_DIRECTIVE } from '../lib/session-start.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -25,19 +25,6 @@ interface InstalledVersion {
   installed_at: string;
   harnesses: string[];
 }
-
-const AGENTS_BLOCK_START = '<!-- >>> kenkeep:kk-index >>> -->';
-const AGENTS_BLOCK_END = '<!-- <<< kenkeep:kk-index <<< -->';
-// The static kk-index pointer block. It enters the knowledge base at the entry
-// catalog and then reuses the exact descent wording shipped by the
-// SessionStart hook, so the always-on file surface and the hook surface share
-// one source of truth and cannot drift. The descent body itself is never
-// re-typed here; it comes from KK_NAVIGATION_DIRECTIVE.
-const AGENTS_POINTER = [
-  'Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the entry catalog of the knowledge base. Enter there and descend before designing a non-trivial change:',
-  '',
-  KK_NAVIGATION_DIRECTIVE,
-].join('\n');
 
 const KENKEEP_GITIGNORE_LINES = ['_sessions/', '_logs/', '.state/', '!.state/installed-version'];
 
@@ -91,7 +78,7 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // 4. Write .ai/kenkeep/.gitignore and update AGENTS.md. The project's
   //    root .gitignore is intentionally untouched.
   ensureKbGitignore(paths.kkGitignoreFile);
-  updateAgentsMd(join(root, 'AGENTS.md'));
+  ensureAgentsKkBlock(join(root, 'AGENTS.md'));
 
   // 4b. Emit `.kkignore` stub. Never overwrites: user-edited scope is sacred.
   const kkignore = ensureKbignore(root);
@@ -191,7 +178,7 @@ async function runUpgrade(
   copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
   ensureKbGitignore(paths.kkGitignoreFile);
-  updateAgentsMd(join(root, 'AGENTS.md'));
+  ensureAgentsKkBlock(join(root, 'AGENTS.md'));
 
   const kkignore = ensureKbignore(root);
   if (kkignore.written) {
@@ -246,29 +233,4 @@ function ensureKbGitignore(file: string): void {
   if (existsSync(file)) return;
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, `${KENKEEP_GITIGNORE_LINES.join('\n')}\n`);
-}
-
-function ensureTrailingNewline(s: string): string {
-  return s.endsWith('\n') ? s : `${s}\n`;
-}
-
-function updateAgentsMd(file: string): void {
-  const block = `${AGENTS_BLOCK_START}\n${AGENTS_POINTER}\n${AGENTS_BLOCK_END}`;
-  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
-
-  if (existing.includes(AGENTS_BLOCK_START)) {
-    const before = existing.slice(0, existing.indexOf(AGENTS_BLOCK_START));
-    const afterStart = existing.indexOf(AGENTS_BLOCK_END);
-    const afterRaw = afterStart >= 0 ? existing.slice(afterStart + AGENTS_BLOCK_END.length) : '';
-    const after = afterRaw.startsWith('\n') ? afterRaw.slice(1) : afterRaw;
-    writeFileSync(file, ensureTrailingNewline(`${before}${block}\n${after}`));
-    return;
-  }
-
-  if (existing.length === 0) {
-    writeFileSync(file, `${block}\n`);
-    return;
-  }
-  const sep = existing.endsWith('\n') ? '' : '\n';
-  writeFileSync(file, `${existing}${sep}\n${block}\n`);
 }

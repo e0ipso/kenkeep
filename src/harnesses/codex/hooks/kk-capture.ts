@@ -23,10 +23,24 @@ import { extractCodexReads } from '../../read-extract.js';
 const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[kenkeep]';
 
-/** Codex emits only a Stop event; map it to the canonical capture trigger. */
+/**
+ * Codex capture events mapped to canonical triggers. `Stop` fires per turn;
+ * `PreCompact` (added to Codex by 0.139) fires before context compaction —
+ * the same about-to-lose-context moment the Claude and Cursor adapters
+ * capture on.
+ */
 export const CODEX_EVENT_TO_TRIGGER = {
   Stop: 'stop',
+  PreCompact: 'pre_compact',
 } as const satisfies Record<string, CaptureTrigger>;
+
+function triggerFor(payload: Record<string, unknown>): CaptureTrigger {
+  const event = payload['event'] ?? payload['hook_event_name'];
+  if (typeof event === 'string' && event in CODEX_EVENT_TO_TRIGGER) {
+    return CODEX_EVENT_TO_TRIGGER[event as keyof typeof CODEX_EVENT_TO_TRIGGER];
+  }
+  return 'stop';
+}
 
 async function main(): Promise<void> {
   if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
@@ -65,7 +79,7 @@ async function main(): Promise<void> {
     const input: HookInput = {
       session_id: sessionId,
       transcript_path: rolloutPath,
-      trigger: CODEX_EVENT_TO_TRIGGER.Stop,
+      trigger: triggerFor(payload),
       ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
     };
     process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');

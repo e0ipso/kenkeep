@@ -54,15 +54,17 @@ describe('cursor adapter shape', () => {
 });
 
 describe('codex adapter shape', () => {
-  it('exposes documented paths and declares Stop/SessionStart only', () => {
+  it('exposes documented paths and declares Stop/PreCompact/SessionStart', () => {
     const paths = codexAdapter.paths('/repo');
     expect(paths.hooksDir).toBe('/repo/.codex/hooks');
     expect(paths.skillsDir).toBe('/repo/.agents/skills');
     const events = new Set(codexAdapter.hooks.map(h => h.event));
     expect(events.has('Stop')).toBe(true);
     expect(events.has('SessionStart')).toBe(true);
+    // Codex emits no SessionEnd; PreCompact exists since Codex 0.139 and
+    // carries the about-to-compact capture, matching Claude and Cursor.
     expect(events.has('SessionEnd')).toBe(false);
-    expect(events.has('PreCompact')).toBe(false);
+    expect(events.has('PreCompact')).toBe(true);
   });
 });
 

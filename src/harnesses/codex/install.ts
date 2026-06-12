@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { copyTree } from '../../lib/fs-atomic.js';
 import { installSharedSkills } from '../../lib/install-skills.js';
+import { log } from '../../lib/log.js';
 import type { HarnessInstallOptions } from '../types.js';
 import { codexHookSpecs } from './hook-spec.js';
 import { writeCodexHooks } from './hooks-config.js';
@@ -48,5 +49,10 @@ export async function installCodex(opts: HarnessInstallOptions): Promise<void> {
       ...(spec.async ? { async: true } : {}),
       ...(spec.matcher ? { matcher: spec.matcher } : {}),
     }))
+  );
+  // Codex refuses to execute non-managed hooks until the user reviews and
+  // trusts them; without this step the whole pipeline is silently inert.
+  log.info(
+    'Codex requires one-time hook trust: run /hooks inside a Codex session and trust the kenkeep entries, or capture will be silently skipped.'
   );
 }

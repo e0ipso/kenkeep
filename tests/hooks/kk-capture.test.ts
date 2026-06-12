@@ -343,6 +343,36 @@ describe.each(harnessCases)('kk-capture hook (spawned) [$id]', hc => {
   });
 });
 
+describe('kk-capture hook (spawned) [codex PreCompact]', () => {
+  let sandbox: string;
+  let home: string;
+
+  beforeEach(async () => {
+    sandbox = makeSandbox();
+    home = makeSandbox('ai-kk-codex-home-');
+    await gitInit(sandbox);
+    await runCli(sandbox, ['init', '--harnesses', 'codex']);
+  });
+  afterEach(() => {
+    cleanSandbox(sandbox);
+    cleanSandbox(home);
+  });
+
+  it('maps the PreCompact event to the pre_compact trigger', async () => {
+    writeCodexRollout(home, CODEX_SESS, SUBSTANTIAL_USER, SUBSTANTIAL_AGENT);
+    const result = await runHook(
+      join(repoRoot, 'dist/hooks/codex/kk-capture.cjs'),
+      sandbox,
+      { session_id: CODEX_SESS, event: 'PreCompact', cwd: sandbox },
+      { CODEX_HOME: home }
+    );
+    expect(result.exitCode).toBe(0);
+    const logs = sessionLogs(sandbox);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(readSessionLog(sandbox, logs[0] as string)).toContain('captured_by: pre_compact');
+  });
+});
+
 // Behaviors specific to the Claude entrypoint: stdin robustness and the
 // cursory pre-filter that the per-harness suites left to the lib unit. These
 // exercise the shared capture pipeline through the spawned hook so the lib

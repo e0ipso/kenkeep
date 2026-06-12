@@ -12,15 +12,13 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
-import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
-import { readStdin } from '../../../lib/stdin.js';
+import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import { parseCodexTranscript } from '../transcript.js';
 import { extractCodexReads } from '../../read-extract.js';
 
-const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[kenkeep]';
 
 /**
@@ -42,64 +40,53 @@ function triggerFor(payload: Record<string, unknown>): CaptureTrigger {
   return 'stop';
 }
 
-async function main(): Promise<void> {
-  if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
+runHookEntry({
+  tag: 'codex:kk-capture',
+  deadlineMs: 1000,
+  requirePayload: true,
+  main: async payload => {
+    const startCwd =
+      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
+        ? (payload['cwd'] as string)
+        : process.cwd();
+    const root = findRepoRoot(startCwd);
+    const paths = repoPaths(root);
 
-  const deadline = setTimeout(() => process.exit(0), HARD_DEADLINE_MS);
-  deadline.unref();
-
-  const raw = await readStdin();
-  if (raw.trim().length === 0) return;
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(raw) as Record<string, unknown>;
-  } catch (err) {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('codex:kk-capture', 'parse', err, paths.logsDir);
-    return;
-  }
-
-  const startCwd =
-    typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-      ? (payload['cwd'] as string)
-      : process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
-
-  try {
-    const sessionId = assertValidSessionId(payload['session_id']);
-    const homeRoot = process.env['CODEX_HOME'] ?? join(homedir(), '.codex');
-    const rolloutPath = locateRollout(homeRoot, sessionId);
-    if (rolloutPath === null) {
-      // The rollout JSONL may not have been flushed yet, or the session
-      // happened on a different machine. Exit silently per
-      // feedback_hide_cosmetic_shell_errors.
-      return;
+    try {
+      const sessionId = assertValidSessionId(payload['session_id']);
+      const homeRoot = process.env['CODEX_HOME'] ?? join(homedir(), '.codex');
+      const rolloutPath = locateRollout(homeRoot, sessionId);
+      if (rolloutPath === null) {
+        // The rollout JSONL may not have been flushed yet, or the session
+        // happened on a different machine. Exit silently per
+        // feedback_hide_cosmetic_shell_errors.
+        return;
+      }
+      const input: HookInput = {
+        session_id: sessionId,
+        transcript_path: rolloutPath,
+        trigger: triggerFor(payload),
+        ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
+      };
+      process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
+      await captureSession(input, {
+        sessionsDir: paths.sessionsDir,
+        parseTranscript: parseCodexTranscript,
+        usage: {
+          nodesDir: paths.nodesDir,
+          kkDir: paths.kkDir,
+          usageFile: paths.usageFile,
+          extractReads: extractCodexReads,
+        },
+      });
+      process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
+    } catch (err) {
+      process.stderr.write(
+        `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`
+      );
     }
-    const input: HookInput = {
-      session_id: sessionId,
-      transcript_path: rolloutPath,
-      trigger: triggerFor(payload),
-      ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
-    };
-    process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-    await captureSession(input, {
-      sessionsDir: paths.sessionsDir,
-      parseTranscript: parseCodexTranscript,
-      usage: {
-        nodesDir: paths.nodesDir,
-        kkDir: paths.kkDir,
-        usageFile: paths.usageFile,
-        extractReads: extractCodexReads,
-      },
-    });
-    process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`
-    );
-  }
-}
+  },
+});
 
 /**
  * Locates the Codex rollout JSONL for `sessionId`. Tries today's UTC date
@@ -181,13 +168,3 @@ function findBySessionMeta(dir: string, sessionId: string): string | null {
   }
   return null;
 }
-
-void main().catch((err: unknown) => {
-  try {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('codex:kk-capture', 'uncaught', err, paths.logsDir);
-  } catch {
-    // Outside any project / cannot resolve paths — nothing to log to.
-  }
-  process.exit(0);
-});

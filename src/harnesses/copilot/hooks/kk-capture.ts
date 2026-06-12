@@ -17,16 +17,14 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
-import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
+import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
-import { readStdin } from '../../../lib/stdin.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import { copilotHome } from '../hooks-config.js';
 import { parseCopilotTranscript } from '../transcript.js';
 import { extractCopilotReads } from '../../read-extract.js';
 
-const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[kenkeep]';
 
 /** Maps Copilot's native event names to the canonical capture trigger. */
@@ -43,74 +41,53 @@ function pickString(payload: Record<string, unknown>, ...keys: string[]): string
   return undefined;
 }
 
-async function main(): Promise<void> {
-  if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
+runHookEntry({
+  tag: 'copilot:kk-capture',
+  deadlineMs: 1000,
+  requirePayload: true,
+  main: async payload => {
+    const startCwd = pickString(payload, 'cwd') ?? process.cwd();
+    const root = findRepoRoot(startCwd);
+    const paths = repoPaths(root);
+    // No-op silently when this repo is not a kenkeep project. The user-level
+    // ~/.copilot/hooks/kk.json fires for every repo where the user runs
+    // copilot, so this guard keeps the hook inert outside initialized repos.
+    if (!existsSync(paths.installedVersionFile)) return;
 
-  const deadline = setTimeout(() => process.exit(0), HARD_DEADLINE_MS);
-  deadline.unref();
-
-  const raw = await readStdin();
-  if (raw.trim().length === 0) return;
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(raw) as Record<string, unknown>;
-  } catch (err) {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('copilot:kk-capture', 'parse', err, paths.logsDir);
-    return;
-  }
-
-  const startCwd = pickString(payload, 'cwd') ?? process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
-  // No-op silently when this repo is not a kenkeep project. The user-level
-  // ~/.copilot/hooks/kk.json fires for every repo where the user runs
-  // copilot, so this guard keeps the hook inert outside initialized repos.
-  if (!existsSync(paths.installedVersionFile)) return;
-
-  try {
-    const sessionId = assertValidSessionId(pickString(payload, 'sessionId', 'session_id'));
-    const eventsFile = join(copilotHome(), 'session-state', sessionId, 'events.jsonl');
-    if (!existsSync(eventsFile)) {
-      // The transcript may not be flushed yet, or the session ran elsewhere.
-      return;
+    try {
+      const sessionId = assertValidSessionId(pickString(payload, 'sessionId', 'session_id'));
+      const eventsFile = join(copilotHome(), 'session-state', sessionId, 'events.jsonl');
+      if (!existsSync(eventsFile)) {
+        // The transcript may not be flushed yet, or the session ran elsewhere.
+        return;
+      }
+      const event = pickString(payload, 'hook_event_name', 'event', 'type');
+      const trigger: CaptureTrigger =
+        (event !== undefined
+          ? COPILOT_EVENT_TO_TRIGGER[event as keyof typeof COPILOT_EVENT_TO_TRIGGER]
+          : undefined) ?? 'stop';
+      const input: HookInput = {
+        session_id: sessionId,
+        transcript_path: eventsFile,
+        trigger,
+        cwd: startCwd,
+      };
+      process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
+      await captureSession(input, {
+        sessionsDir: paths.sessionsDir,
+        parseTranscript: parseCopilotTranscript,
+        usage: {
+          nodesDir: paths.nodesDir,
+          kkDir: paths.kkDir,
+          usageFile: paths.usageFile,
+          extractReads: extractCopilotReads,
+        },
+      });
+      process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
+    } catch (err) {
+      process.stderr.write(
+        `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`
+      );
     }
-    const event = pickString(payload, 'hook_event_name', 'event', 'type');
-    const trigger: CaptureTrigger =
-      (event !== undefined
-        ? COPILOT_EVENT_TO_TRIGGER[event as keyof typeof COPILOT_EVENT_TO_TRIGGER]
-        : undefined) ?? 'stop';
-    const input: HookInput = {
-      session_id: sessionId,
-      transcript_path: eventsFile,
-      trigger,
-      cwd: startCwd,
-    };
-    process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-    await captureSession(input, {
-      sessionsDir: paths.sessionsDir,
-      parseTranscript: parseCopilotTranscript,
-      usage: {
-        nodesDir: paths.nodesDir,
-        kkDir: paths.kkDir,
-        usageFile: paths.usageFile,
-        extractReads: extractCopilotReads,
-      },
-    });
-    process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`
-    );
-  }
-}
-
-void main().catch((err: unknown) => {
-  try {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('copilot:kk-capture', 'uncaught', err, paths.logsDir);
-  } catch {
-    // Outside any project / cannot resolve paths — nothing to log to.
-  }
-  process.exit(0);
+  },
 });

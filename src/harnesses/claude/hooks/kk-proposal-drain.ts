@@ -7,22 +7,15 @@
  * Configured in `.claude/settings.json` with `"async": true` so its stdout
  * does not flow back into the parent session.
  */
-import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
+import { runHookEntry } from '../../../lib/hook-entry.js';
 
-async function main(): Promise<void> {
-  // Recursion guard: the drain itself spawns `claude -p`, which fires
-  // SessionStart again inside the child. KENKEEP_BUILDER_INTERNAL=1 is set on
-  // every child by runHeadlessClaude.
-  if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
-}
-
-void main().catch((err: unknown) => {
-  try {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('claude:kk-proposal-drain', 'uncaught', err, paths.logsDir);
-  } catch {
-    // Outside any project / cannot resolve paths — nothing to log to.
-  }
-  process.exit(0);
+runHookEntry({
+  tag: 'claude:kk-proposal-drain',
+  // No deadline — this hook is async and intentionally a no-op.
+  // Recursion guard in the scaffold handles KENKEEP_BUILDER_INTERNAL.
+  main: async () => {
+    // Recursion guard: the drain itself spawns `claude -p`, which fires
+    // SessionStart again inside the child. KENKEEP_BUILDER_INTERNAL=1 is set on
+    // every child by runHeadlessClaude.
+  },
 });

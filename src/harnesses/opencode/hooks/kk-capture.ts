@@ -15,8 +15,7 @@ import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput, type TranscriptParser } from '../../../lib/capture.js';
-import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
-import { readStdin } from '../../../lib/stdin.js';
+import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
@@ -27,7 +26,6 @@ import { extractOpenCodeReads } from '../../read-extract.js';
 // Measured `opencode export` latency is 1.4–3.0s (exceeds the previous 1s
 // deadline). 8s leaves comfortable headroom; safe because plugins/kk.ts spawns
 // the capture child fire-and-forget without awaiting it.
-const HARD_DEADLINE_MS = 8000;
 const EXPORT_TIMEOUT_MS = 30_000;
 const PACKAGE_TAG = '[kenkeep]';
 
@@ -36,78 +34,67 @@ export const OPENCODE_EVENT_TO_TRIGGER = {
   'session.idle': 'stop',
 } as const satisfies Record<string, CaptureTrigger>;
 
-async function main(): Promise<void> {
-  if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
+runHookEntry({
+  tag: 'opencode:kk-capture',
+  deadlineMs: 8000,
+  requirePayload: true,
+  main: async payload => {
+    const startCwd =
+      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
+        ? (payload['cwd'] as string)
+        : process.cwd();
+    const root = findRepoRoot(startCwd);
+    const paths = repoPaths(root);
 
-  const deadline = setTimeout(() => process.exit(0), HARD_DEADLINE_MS);
-  deadline.unref();
+    try {
+      // The plugin passes the raw `ses_...` session id (see plugins/kk.ts);
+      // normalize it to the UUID-shaped form the session log expects, then
+      // validate. A genuinely bad value still throws into the catch below.
+      const rawId = payload['session_id'];
+      const normalized = typeof rawId === 'string' ? normalizeOpenCodeSessionId(rawId) : rawId;
+      const sessionId = assertValidSessionId(normalized);
 
-  const raw = await readStdin();
-  if (raw.trim().length === 0) return;
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(raw) as Record<string, unknown>;
-  } catch (err) {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('opencode:kk-capture', 'parse', err, paths.logsDir);
-    return;
-  }
+      // `opencode export` keys on the ORIGINAL `ses_...` id; the normalized UUID
+      // (`sessionId`) is only the kenkeep session-log identity. `rawId` is a
+      // string here — otherwise `assertValidSessionId` above would have thrown.
+      const exportJson = runOpenCodeExport(typeof rawId === 'string' ? rawId : sessionId);
+      if (!exportJson) return;
 
-  const startCwd =
-    typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-      ? (payload['cwd'] as string)
-      : process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
+      const transcript = shapeExportedTranscript(exportJson);
+      if (transcript.interleaved.length === 0) return;
 
-  try {
-    // The plugin passes the raw `ses_...` session id (see plugins/kk.ts);
-    // normalize it to the UUID-shaped form the session log expects, then
-    // validate. A genuinely bad value still throws into the catch below.
-    const rawId = payload['session_id'];
-    const normalized = typeof rawId === 'string' ? normalizeOpenCodeSessionId(rawId) : rawId;
-    const sessionId = assertValidSessionId(normalized);
+      const readPaths = extractOpenCodeReads(exportJson);
 
-    // `opencode export` keys on the ORIGINAL `ses_...` id; the normalized UUID
-    // (`sessionId`) is only the kenkeep session-log identity. `rawId` is a
-    // string here — otherwise `assertValidSessionId` above would have thrown.
-    const exportJson = runOpenCodeExport(typeof rawId === 'string' ? rawId : sessionId);
-    if (!exportJson) return;
+      const tmpRoot = mkdtempSync(join(tmpdir(), 'kk-opencode-'));
+      const transcriptFile = join(tmpRoot, 'transcript.json');
+      writeFileSync(transcriptFile, JSON.stringify(transcript));
 
-    const transcript = shapeExportedTranscript(exportJson);
-    if (transcript.interleaved.length === 0) return;
-
-    const readPaths = extractOpenCodeReads(exportJson);
-
-    const tmpRoot = mkdtempSync(join(tmpdir(), 'kk-opencode-'));
-    const transcriptFile = join(tmpRoot, 'transcript.json');
-    writeFileSync(transcriptFile, JSON.stringify(transcript));
-
-    const parser: TranscriptParser = text => JSON.parse(text) as RoleTaggedTranscript;
-    const input: HookInput = {
-      session_id: sessionId,
-      transcript_path: transcriptFile,
-      trigger: OPENCODE_EVENT_TO_TRIGGER['session.idle'],
-      ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
-    };
-    process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-    await captureSession(input, {
-      sessionsDir: paths.sessionsDir,
-      parseTranscript: parser,
-      usage: {
-        nodesDir: paths.nodesDir,
-        kkDir: paths.kkDir,
-        usageFile: paths.usageFile,
-        readPaths,
-      },
-    });
-    process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`
-    );
-  }
-}
+      const parser: TranscriptParser = text => JSON.parse(text) as RoleTaggedTranscript;
+      const input: HookInput = {
+        session_id: sessionId,
+        transcript_path: transcriptFile,
+        trigger: OPENCODE_EVENT_TO_TRIGGER['session.idle'],
+        ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
+      };
+      process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
+      await captureSession(input, {
+        sessionsDir: paths.sessionsDir,
+        parseTranscript: parser,
+        usage: {
+          nodesDir: paths.nodesDir,
+          kkDir: paths.kkDir,
+          usageFile: paths.usageFile,
+          readPaths,
+        },
+      });
+      process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
+    } catch (err) {
+      process.stderr.write(
+        `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`
+      );
+    }
+  },
+});
 
 /**
  * Runs `opencode export <sessionID>` and returns the parsed JSON document
@@ -198,13 +185,3 @@ function shapeExportedTranscript(json: unknown): RoleTaggedTranscript {
   }
   return out;
 }
-
-void main().catch((err: unknown) => {
-  try {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('opencode:kk-capture', 'uncaught', err, paths.logsDir);
-  } catch {
-    // Outside any project / cannot resolve paths — nothing to log to.
-  }
-  process.exit(0);
-});

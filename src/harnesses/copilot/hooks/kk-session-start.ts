@@ -11,58 +11,36 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { appendHookDiagnostic } from '../../../lib/hook-diagnostic.js';
+import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { readStdin } from '../../../lib/stdin.js';
 import { writeCopilotInstructionsSentinel } from '../hooks-config.js';
 
-const HARD_DEADLINE_MS = 1000;
 const PACKAGE_TAG = '[kenkeep]';
 
-async function main(): Promise<void> {
-  if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
+runHookEntry({
+  tag: 'copilot:kk-session-start',
+  deadlineMs: 1000,
+  main: async payload => {
+    const startCwd =
+      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
+        ? (payload['cwd'] as string)
+        : process.cwd();
+    const root = findRepoRoot(startCwd);
+    const paths = repoPaths(root);
+    if (!existsSync(paths.installedVersionFile)) return;
 
-  const deadline = setTimeout(() => process.exit(0), HARD_DEADLINE_MS);
-  deadline.unref();
-
-  const raw = await readStdin();
-  let input: { cwd?: unknown } = {};
-  if (raw.trim().length > 0) {
     try {
-      input = JSON.parse(raw) as { cwd?: unknown };
+      process.stderr.write('📖 kenkeep Index: Refreshing Copilot instructions…\n');
+      await writeCopilotInstructionsSentinel({
+        dir: join(root, '.copilot'),
+        hooksDir: join(root, '.copilot', 'hooks'),
+        skillsDir: join(root, '.github', 'skills'),
+      });
+      process.stderr.write('🧠 kenkeep Index: Copilot instructions refreshed.\n');
     } catch (err) {
-      const paths = repoPaths(findRepoRoot(process.cwd()));
-      appendHookDiagnostic('copilot:kk-session-start', 'parse', err, paths.logsDir);
-      input = {};
+      process.stderr.write(
+        `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`
+      );
     }
-  }
-  const startCwd =
-    typeof input.cwd === 'string' && input.cwd.length > 0 ? input.cwd : process.cwd();
-  const root = findRepoRoot(startCwd);
-  const paths = repoPaths(root);
-  if (!existsSync(paths.installedVersionFile)) return;
-
-  try {
-    process.stderr.write('📖 kenkeep Index: Refreshing Copilot instructions…\n');
-    await writeCopilotInstructionsSentinel({
-      dir: join(root, '.copilot'),
-      hooksDir: join(root, '.copilot', 'hooks'),
-      skillsDir: join(root, '.github', 'skills'),
-    });
-    process.stderr.write('🧠 kenkeep Index: Copilot instructions refreshed.\n');
-  } catch (err) {
-    process.stderr.write(
-      `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`
-    );
-  }
-}
-
-void main().catch((err: unknown) => {
-  try {
-    const paths = repoPaths(findRepoRoot(process.cwd()));
-    appendHookDiagnostic('copilot:kk-session-start', 'uncaught', err, paths.logsDir);
-  } catch {
-    // Outside any project / cannot resolve paths — nothing to log to.
-  }
-  process.exit(0);
+  },
 });

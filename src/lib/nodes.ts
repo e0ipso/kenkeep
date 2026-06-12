@@ -23,6 +23,14 @@ import {
 /** Filename of a generated per-folder index node. Never a leaf. */
 export const INDEX_FILENAME = 'index.md';
 
+/**
+ * Rough chars-per-token divisor shared by every token estimator (index-gen
+ * stats, rebalance split decisions). One constant so the estimate that
+ * triggers a folder split can never silently diverge from the estimate the
+ * index reports.
+ */
+export const CHARS_PER_TOKEN = 4;
+
 export interface NodeFile {
   /** Absolute path to the leaf file on disk. */
   path: string;

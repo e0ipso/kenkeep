@@ -3,6 +3,7 @@ import { atomicWriteFile } from './fs-atomic.js';
 import { join, posix } from 'node:path';
 import matter from 'gray-matter';
 import {
+  CHARS_PER_TOKEN,
   computeNodesHash,
   hashLeaves,
   INDEX_FILENAME,
@@ -11,8 +12,6 @@ import {
 } from './nodes.js';
 import { GraphFrontmatterSchema, IndexFrontmatterSchema, NODE_SCHEMA_VERSION } from './schemas.js';
 import { KK_NAVIGATION_DIRECTIVE } from './session-start.js';
-
-const CHARS_PER_TOKEN = 4;
 
 /**
  * The single embedded descent directive rendered into every generated body
@@ -73,6 +72,11 @@ export interface GeneratedIndex {
   /** Global hash over the whole leaf set (excludes generated index.md). */
   nodesHash: string;
   nodeCount: number;
+  /**
+   * The leaf set the generation ran over, exposed so callers that need both
+   * the metrics and the leaves (rebalance) avoid a second full tree walk.
+   */
+  nodes: NodeFile[];
   /**
    * Non-root folders (POSIX relDir) that rendered the Title-cased name fallback
    * because they carry no self-preserved `summary`. The "warn, never block"
@@ -581,7 +585,7 @@ export function generateIndex(nodesDir: string, entryFile?: string): GeneratedIn
     .filter(dir => dir !== '' && !harvestedSummaries.has(dir))
     .sort((a, b) => a.localeCompare(b));
 
-  return { folders, rootCatalog, nodesHash: hash, nodeCount, foldersMissingSummary };
+  return { folders, rootCatalog, nodesHash: hash, nodeCount, nodes, foldersMissingSummary };
 }
 
 function distinctTagCount(leaves: NodeFile[]): number {

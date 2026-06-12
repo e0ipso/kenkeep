@@ -1,5 +1,5 @@
 import { generateIndex, type FolderMetrics } from './index-gen.js';
-import { readAllNodes, type NodeFile } from './nodes.js';
+import { CHARS_PER_TOKEN, type NodeFile } from './nodes.js';
 
 /**
  * Deterministic, LLM-free rebalance thresholds. All decisions in this module
@@ -102,8 +102,7 @@ export interface FolderMetricEntry {
   metrics: FolderMetrics;
 }
 
-/** Estimated token size of one leaf, mirroring index-gen's estimator. */
-const CHARS_PER_TOKEN = 4;
+/** Estimated token size of one leaf, using the shared estimator divisor. */
 function estimateLeafTokens(node: NodeFile): number {
   const chars = node.frontmatter.title.length + node.frontmatter.summary.length + node.body.length;
   return Math.max(0, Math.ceil(chars / CHARS_PER_TOKEN));
@@ -178,6 +177,7 @@ export function evaluateRebalance(nodesDir: string): RebalanceDecision {
     relDir: f.relDir,
     metrics: f.metrics,
   }));
-  const leaves = readAllNodes(nodesDir);
-  return decideRebalance(folders, leaves);
+  // generateIndex already walked the tree; reuse its leaf set instead of a
+  // second full read on the curate hot path.
+  return decideRebalance(folders, index.nodes);
 }

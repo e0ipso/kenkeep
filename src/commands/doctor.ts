@@ -5,6 +5,7 @@ import yaml from 'js-yaml';
 import { getHarness, hasHarness } from '../harnesses/registry.js';
 import { log } from '../lib/log.js';
 import {
+  CHARS_PER_TOKEN,
   computeNodesHash,
   formatIssue,
   InvalidNodeFrontmatterError,
@@ -89,6 +90,10 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     {
       name: 'ENTRY.md is fresh',
       result: checkIndexFreshness(join(paths.kkDir, 'ENTRY.md'), paths.nodesDir),
+    },
+    {
+      name: 'ENTRY.md stays small',
+      result: checkEntrySize(join(paths.kkDir, 'ENTRY.md')),
     },
     { name: 'node frontmatter valid', result: frontmatterCheck.result },
     { name: 'derived_from references resolve', result: danglingResult },
@@ -258,6 +263,32 @@ function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
     return recorded === computeNodesHash(nodesDir)
       ? ok(`fresh (${fm.data.node_count} node(s))`)
       : warn('stale (nodes_hash drift); run `npx kenkeep index rebuild`.');
+  } catch (e) {
+    return warn(`unreadable: ${(e as Error).message}`);
+  }
+}
+
+/**
+ * Estimated token budget for the always-injected entry catalog. The PRD's
+ * design target is "a few hundred to a couple thousand tokens"; warn well
+ * past that so a tree whose branch list has outgrown the launchpad role
+ * gets a deterministic nudge toward rebalance/summary tightening before it
+ * quietly taxes every session.
+ */
+const ENTRY_TOKEN_WARN_THRESHOLD = 2500;
+
+function checkEntrySize(indexFile: string): CheckResult {
+  if (!existsSync(indexFile)) return warn('ENTRY.md missing; run `npx kenkeep index rebuild`.');
+  try {
+    const body = matter(readFileSync(indexFile, 'utf8')).content;
+    const tokens = Math.ceil(body.length / CHARS_PER_TOKEN);
+    return tokens <= ENTRY_TOKEN_WARN_THRESHOLD
+      ? ok(`~${tokens} token(s) injected per session`)
+      : warn(
+          `~${tokens} token(s) — the always-injected catalog exceeds the ` +
+            `${ENTRY_TOKEN_WARN_THRESHOLD}-token design target. Tighten branch summaries or ` +
+            `let rebalance merge sparse branches.`
+        );
   } catch (e) {
     return warn(`unreadable: ${(e as Error).message}`);
   }

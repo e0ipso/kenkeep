@@ -142,6 +142,8 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
 /**
  * Collects every `derived_from` entry whose target does not exist on disk.
  * A reference resolves if any of these match:
+ *   - It is a URL (provenance pointing at external docs — bootstrap and
+ *     curation legitimately record web sources; never an on-disk target).
  *   - It is a bare filename and exists under `_sessions/`.
  *   - It is a repo-relative path and exists when resolved against `root`.
  *   - It is an absolute path and exists as-is.
@@ -164,6 +166,7 @@ export function collectDanglingDerivedFrom(
 
 function resolvesOnDisk(ref: string, root: string, sessionsDir: string): boolean {
   if (ref.length === 0) return false;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(ref)) return true;
   if (isAbsolute(ref) && existsSync(ref)) return true;
   if (existsSync(join(root, ref))) return true;
   if (!ref.includes('/') && existsSync(join(sessionsDir, ref))) return true;

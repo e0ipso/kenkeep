@@ -138,6 +138,11 @@ describe('opencode plugin dispatch (installed artifacts)', () => {
     expect(config.plugin).toContain('./plugins/kk.mjs');
     expect(config.instructions).toContain('.opencode/AGENTS.md');
   });
+
+  it('init ignores the generated AGENTS.md via .opencode/.gitignore', () => {
+    const gitignore = readFileSync(join(sandbox, '.opencode', '.gitignore'), 'utf8');
+    expect(gitignore.split('\n')).toContain('/AGENTS.md');
+  });
 });
 
 describe('registerOpenCodePlugin (config merge)', () => {
@@ -186,5 +191,57 @@ describe('registerOpenCodePlugin (config merge)', () => {
     writeFileSync(file, '{ this is not json');
     await register(file);
     expect(readFileSync(file, 'utf8')).toBe('{ this is not json');
+  });
+});
+
+describe('ensureOpenCodeGitignore', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = makeSandbox('ai-kk-oc-gitignore-');
+  });
+  afterEach(() => cleanSandbox(dir));
+
+  const BLOCK = [
+    '# >>> kenkeep:opencode-generated >>>',
+    '/AGENTS.md',
+    '# <<< kenkeep:opencode-generated <<<',
+  ].join('\n');
+
+  async function ensure(file: string): Promise<void> {
+    const { ensureOpenCodeGitignore } = await import('../../src/harnesses/opencode/install.js');
+    ensureOpenCodeGitignore(file);
+  }
+
+  it('creates the file with the managed block when absent and is byte-stable across runs', async () => {
+    const file = join(dir, '.gitignore');
+    await ensure(file);
+    const first = readFileSync(file, 'utf8');
+    await ensure(file);
+    expect(readFileSync(file, 'utf8')).toBe(first);
+    expect(first).toBe(`${BLOCK}\n`);
+  });
+
+  it('appends the block while preserving existing lines', async () => {
+    const file = join(dir, '.gitignore');
+    writeFileSync(file, 'node_modules\npackage.json\n');
+    await ensure(file);
+    expect(readFileSync(file, 'utf8')).toBe(`node_modules\npackage.json\n\n${BLOCK}\n`);
+  });
+
+  it('adds a missing trailing newline before appending', async () => {
+    const file = join(dir, '.gitignore');
+    writeFileSync(file, 'node_modules');
+    await ensure(file);
+    expect(readFileSync(file, 'utf8')).toBe(`node_modules\n\n${BLOCK}\n`);
+  });
+
+  it('replaces an existing block in place and preserves surrounding content', async () => {
+    const file = join(dir, '.gitignore');
+    writeFileSync(
+      file,
+      `node_modules\n# >>> kenkeep:opencode-generated >>>\n/STALE.md\n# <<< kenkeep:opencode-generated <<<\nbun.lock\n`
+    );
+    await ensure(file);
+    expect(readFileSync(file, 'utf8')).toBe(`node_modules\n${BLOCK}\nbun.lock\n`);
   });
 });

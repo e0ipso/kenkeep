@@ -22,8 +22,27 @@ export function openCodePaths(root: string) {
     skillsDir: join(dir, 'skills'),
     pluginFile: join(dir, 'plugins', 'kk.mjs'),
     configFile: join(dir, 'opencode.json'),
+    gitignoreFile: join(dir, '.gitignore'),
   };
 }
+
+/**
+ * Sentinel markers around the kenkeep-managed block in
+ * `.opencode/.gitignore`, mirroring the AGENTS.md pointer block
+ * (`agents-block.ts`). `.opencode/.gitignore` is frequently a user/host-owned
+ * file (OpenCode and bun write one), so we delimit our lines instead of
+ * appending bare entries: the block can be replaced in place on upgrade and
+ * lifted cleanly on uninstall, and a reader can see the lines are ours.
+ */
+export const OPENCODE_GITIGNORE_START = '# >>> kenkeep:opencode-generated >>>';
+export const OPENCODE_GITIGNORE_END = '# <<< kenkeep:opencode-generated <<<';
+
+/**
+ * The managed ignore entries. `/AGENTS.md` is anchored with a leading slash
+ * so it matches only `.opencode/AGENTS.md` and not an `AGENTS.md` a consumer
+ * might keep elsewhere under `.opencode/` (e.g. inside a skill).
+ */
+export const OPENCODE_GITIGNORE_BODY = '/AGENTS.md';
 
 /**
  * The plugin reference registered in the project config, resolved by
@@ -83,6 +102,47 @@ export function registerOpenCodePlugin(configFile: string): void {
 }
 
 /**
+ * Idempotently writes the kenkeep-managed ignore block into
+ * `.opencode/.gitignore`, keeping the generated `AGENTS.md` out of commits.
+ * That file is rewritten by the session-start hook on every run, so
+ * committing it produces churn and leaks one machine's session context into
+ * the repo. We scope the rule to `.opencode/.gitignore` rather than touching
+ * the project's root `.gitignore`, consistent with init's "root .gitignore
+ * is never touched" policy.
+ *
+ * Merge semantics mirror `ensureAgentsKkBlock`: creates the file when
+ * absent, replaces an existing block in place (so the entries track upgrades),
+ * appends when no block exists, and preserves all user content outside the
+ * markers.
+ */
+export function ensureOpenCodeGitignore(gitignoreFile: string): void {
+  const block = `${OPENCODE_GITIGNORE_START}\n${OPENCODE_GITIGNORE_BODY}\n${OPENCODE_GITIGNORE_END}`;
+  const existing = existsSync(gitignoreFile) ? readFileSync(gitignoreFile, 'utf8') : '';
+
+  let next: string;
+  if (existing.includes(OPENCODE_GITIGNORE_START)) {
+    const before = existing.slice(0, existing.indexOf(OPENCODE_GITIGNORE_START));
+    const afterStart = existing.indexOf(OPENCODE_GITIGNORE_END);
+    const afterRaw =
+      afterStart >= 0 ? existing.slice(afterStart + OPENCODE_GITIGNORE_END.length) : '';
+    const after = afterRaw.startsWith('\n') ? afterRaw.slice(1) : afterRaw;
+    next = ensureTrailingNewline(`${before}${block}\n${after}`);
+  } else if (existing.length === 0) {
+    next = `${block}\n`;
+  } else {
+    const sep = existing.endsWith('\n') ? '' : '\n';
+    next = `${existing}${sep}\n${block}\n`;
+  }
+
+  if (next === existing) return;
+  atomicWriteFile(gitignoreFile, next);
+}
+
+function ensureTrailingNewline(s: string): string {
+  return s.endsWith('\n') ? s : `${s}\n`;
+}
+
+/**
  * Copies the OpenCode-specific template tree into the consumer repo and
  * registers the plugin in `.opencode/opencode.json` (OpenCode does not
  * auto-discover plugin files by location).
@@ -108,6 +168,7 @@ export async function installOpenCode(opts: HarnessInstallOptions): Promise<void
   }
 
   registerOpenCodePlugin(paths.configFile);
+  ensureOpenCodeGitignore(paths.gitignoreFile);
 
   installSharedSkills(opts.templatesDir, paths.skillsDir);
 }

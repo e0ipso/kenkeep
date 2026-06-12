@@ -1,0 +1,42 @@
+name: host-drift
+
+# Weekly token-free probe of the LATEST harness CLIs against kenkeep's
+# integration contracts. Deliberately separate from per-push CI: a failure
+# here means "a harness host changed its contract", attributable to the
+# host release — never to a kenkeep commit. No model calls, no API keys;
+# only the pre-auth slice of each contract is probed (see
+# scripts/host-drift-probe.mjs for per-harness coverage and limits).
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install latest harness CLIs
+        run: |
+          npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
+          curl -fsSL https://cursor.com/install | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
+      - name: Probe host contracts
+        run: node scripts/host-drift-probe.mjs

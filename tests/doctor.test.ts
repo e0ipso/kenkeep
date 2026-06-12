@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
 const exec = promisify(execFile);
 
@@ -23,18 +23,28 @@ describe('doctor', () => {
     expect(result.stdout + result.stderr).toContain('installed-version');
   });
 
-  it('passes core checks after init', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const result = await runCli(sandbox, ['doctor']);
-    expect(result.exitCode).toBe(0);
-    const combined = result.stdout + result.stderr;
-    expect(combined).toContain('Node.js >= 22');
-    expect(combined).toContain('installed-version');
-    expect(combined).toContain('.gitignore lists kenkeep paths');
-    expect(combined).toContain('settings file is valid');
-    expect(combined).toContain('Claude skills installed');
-    expect(combined).toContain('kk-add, kk-bootstrap, kk-curate');
-  });
+  // Parametrized over every adapter with stub binaries on PATH: the suite
+  // must not require any real harness CLI (parity — no adapter is a more
+  // equal citizen in CI), and every adapter's doctorChecks() implementation
+  // gets exercised, not just the first registered one.
+  it.each(['claude', 'codex', 'copilot', 'cursor', 'opencode'])(
+    'passes core checks after init [%s]',
+    async id => {
+      const stubBin = writeHarnessBinaryStubs(sandbox);
+      const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+      if (id === 'copilot') env['COPILOT_HOME'] = join(sandbox, 'copilot-home');
+      await runCli(sandbox, ['init', '--harnesses', id], env);
+      const result = await runCli(sandbox, ['doctor'], env);
+      expect(result.exitCode).toBe(0);
+      const combined = result.stdout + result.stderr;
+      expect(combined).toContain('Node.js >= 22');
+      expect(combined).toContain('installed-version');
+      expect(combined).toContain('.gitignore lists kenkeep paths');
+      expect(combined).toContain('settings file is valid');
+      expect(combined).toContain('skills installed');
+      expect(combined).toContain('kk-add, kk-bootstrap, kk-curate, kk-migrate');
+    }
+  );
 
   it('flags nodes with invalid frontmatter and skips the dangling check', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);

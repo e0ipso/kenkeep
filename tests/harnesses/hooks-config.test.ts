@@ -284,15 +284,23 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     expect(parsed.version).toBe(1);
     expect(Object.keys(parsed.hooks).sort()).toEqual(['agentStop', 'sessionEnd', 'sessionStart']);
 
-    const kkHooksDir = join(root, '.copilot', 'kk-hooks');
     for (const entries of Object.values(parsed.hooks) as Array<
-      Array<{ type: string; bash: string; timeoutSec: number; env: Record<string, string> }>
+      Array<{ type: string; bash: string; timeoutSec: number; env?: Record<string, string> }>
     >) {
       for (const entry of entries) {
         expect(entry.type).toBe('command');
-        expect(entry.bash.startsWith(`node ${kkHooksDir}`)).toBe(true);
+        // Repo-agnostic walk-up command: the config is user-global, so it
+        // must contain no per-repo absolute path (a second repo's init would
+        // otherwise stomp the first), and it must locate the session repo's
+        // own script copy from the session cwd upward.
+        expect(entry.bash).toContain('.copilot/kk-hooks/');
+        expect(entry.bash).toContain('exec node');
+        expect(entry.bash).not.toContain(root);
         expect(entry.timeoutSec).toBe(30);
-        expect(entry.env.KENKEEP_BUILDER_INTERNAL).toBe('1');
+        // No static recursion-guard env: stamping KENKEEP_BUILDER_INTERNAL=1
+        // here would no-op every hook in every live session. The guard rides
+        // the headless runner's child env instead.
+        expect(entry.env).toBeUndefined();
       }
     }
     expect(parsed.hooks.sessionStart).toHaveLength(2);

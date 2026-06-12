@@ -37,13 +37,33 @@ interface CopilotHookConfig {
 }
 
 /**
- * Renders the aggregated `{ version, hooks }` Copilot hook document from
- * `copilotHookSpecs`. Each entry's `bash` command is `node <abs-script>`
- * where the script lives under `<dir>/kk-hooks/`; the `payload` blob
- * supplies `type`, `timeoutSec`, and `env`. Entries are grouped by event in
- * declaration order so the output is deterministic.
+ * Builds the hook `bash` command for one script. Copilot's hook config is
+ * user-global (`~/.copilot/hooks/`), but it runs each command with the
+ * SESSION's cwd (verified against Copilot CLI 1.0.61), so the command walks
+ * up from `$PWD` to the nearest directory carrying the script and `exec`s
+ * that repo's own copy. Properties this buys over the old absolute-path
+ * form (`node /abs/path/in/one/repo/...`):
+ *   - byte-identical config for every repo, so a second repo's `init` no
+ *     longer stomps the first repo's wiring;
+ *   - sessions started in a repo subdirectory still find the hooks;
+ *   - every repo runs its own installed script version (no skew, and a
+ *     deleted repo cannot break the others);
+ *   - sessions outside any kenkeep repo no-op silently.
+ * `exec` keeps stdin (the hook payload JSON) flowing to the node process.
  */
-function renderHookConfig(kkHooksDir: string): CopilotHookConfig {
+function walkUpCommand(scriptPath: string): string {
+  const rel = `.copilot/kk-hooks/${scriptPath}`;
+  return `d="$PWD"; while [ "$d" != "/" ]; do s="$d/${rel}"; [ -f "$s" ] && exec node "$s"; d="$(dirname "$d")"; done; :`;
+}
+
+/**
+ * Renders the aggregated `{ version, hooks }` Copilot hook document from
+ * `copilotHookSpecs`. Each entry's `bash` command resolves the script via
+ * `walkUpCommand`; the `payload` blob supplies `type`, `timeoutSec`, and
+ * optionally `env`/`cwd`. Entries are grouped by event in declaration order
+ * so the output is deterministic.
+ */
+function renderHookConfig(): CopilotHookConfig {
   const hooks: Record<string, CopilotHookCommand[]> = {};
   for (const spec of copilotHookSpecs) {
     const payload = spec.payload ?? {};
@@ -52,7 +72,7 @@ function renderHookConfig(kkHooksDir: string): CopilotHookConfig {
       typeof payload['timeoutSec'] === 'number' ? (payload['timeoutSec'] as number) : 30;
     const cmd: CopilotHookCommand = {
       type,
-      bash: `node ${join(kkHooksDir, spec.scriptPath)}`,
+      bash: walkUpCommand(spec.scriptPath),
       timeoutSec,
     };
     const env = payload['env'];
@@ -82,8 +102,7 @@ function atomicWriteText(file: string, body: string): void {
  * re-running produces identical bytes.
  */
 export async function writeCopilotHookConfig(paths: HarnessPaths): Promise<void> {
-  const kkHooksDir = join(paths.dir, 'kk-hooks');
-  const config = renderHookConfig(kkHooksDir);
+  const config = renderHookConfig();
   const body = `${JSON.stringify(config, null, 2)}\n`;
 
   const projectFile = join(paths.hooksDir ?? join(paths.dir, 'hooks'), 'kk.json');

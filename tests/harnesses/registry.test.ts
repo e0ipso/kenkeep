@@ -82,8 +82,12 @@ describe('copilot adapter shape', () => {
       expect(hook.payload).toMatchObject({
         type: 'command',
         timeoutSec: 30,
-        env: { KENKEEP_BUILDER_INTERNAL: '1' },
       });
+      // The payload must NOT carry a static recursion-guard env: the config
+      // is user-global and applies to every session, so stamping the guard
+      // here turned every hook into a no-op in live sessions. The guard
+      // rides the headless runner's child env instead.
+      expect(hook.payload).not.toHaveProperty('env');
     }
   });
 });

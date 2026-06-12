@@ -7,15 +7,16 @@ import type { HookSpec } from '../types.js';
 const DEFAULT_HOOK_TIMEOUT_SECONDS = 30;
 
 /**
- * Recursion-guard env propagated to every hook command. When the headless
- * runner spawns a `copilot` child it sets this var, and the hook commands
- * early-exit when they see it, so a headless invocation cannot re-trigger
- * capture or drain.
+ * Note on the recursion guard: the hook entries deliberately carry NO static
+ * `env`. The old config stamped `KENKEEP_BUILDER_INTERNAL=1` on every entry,
+ * which made every hook script early-exit in EVERY session — live ones
+ * included — so capture/injection/drain were no-ops in production. The guard
+ * belongs on the headless runner's child env (`runHeadlessCopilot` sets it),
+ * from where Copilot's hook subprocesses inherit it, suppressing hooks for
+ * kenkeep-internal sessions only.
  */
-const HOOK_ENV: Record<string, string> = { KENKEEP_BUILDER_INTERNAL: '1' };
-
 function payload(): Record<string, unknown> {
-  return { type: 'command', timeoutSec: DEFAULT_HOOK_TIMEOUT_SECONDS, env: { ...HOOK_ENV } };
+  return { type: 'command', timeoutSec: DEFAULT_HOOK_TIMEOUT_SECONDS };
 }
 
 /**

@@ -29,7 +29,7 @@ schema_version: 1
 curationThreshold: 5
 logsRetentionDays: 30
 lintEveryNSessions: 50
-cliDefaultHarness: claude   # optional; one of claude, codex, opencode
+cliDefaultHarness: claude   # optional; one of claude, codex, copilot, cursor, opencode
 ```
 
 Keys:
@@ -43,16 +43,22 @@ Keys:
 
 ## Model and effort selection
 
-Three optional `{ name, effort }` objects pick the model family and effort level for each headless-driver subprocess. Both sub-keys are required when the object is present; when unset, neither flag is passed and the harness CLI's default applies.
+Three optional model-selection objects pick the model and effort level for each headless-driver subprocess. Each object is keyed by a `harness` discriminator; only the variant matching the active adapter is consumed. When unset, the harness CLI's default applies.
 
 ```yaml
-proposalModel: { name: haiku, effort: low }
-curatorModel:  { name: opus,  effort: max }
-bootstrapModel: { name: sonnet, effort: high }
+proposalModel:
+  harness: claude
+  name: haiku        # haiku | sonnet | opus
+  effort: low        # low | medium | high | xhigh | max
+
+# Per-harness shapes:
+#   claude:   { harness: claude, name: haiku|sonnet|opus, effort: low|medium|high|xhigh|max }
+#   codex:    { harness: codex, model: <id>, reasoningEffort: <str>? }
+#   opencode: { harness: opencode, model: <id>, agent: <str>? }
+#   cursor:   { harness: cursor, model: <id> }
+#   copilot:  { harness: copilot, model: <id> }
 ```
 
 - `proposalModel` — passed on proposal-drain spawns.
 - `curatorModel` — passed on `curate` spawns.
 - `bootstrapModel` — passed on `bootstrap-incremental` spawns. Also honored on a best-effort basis by the agent-driven `/kk-bootstrap` skill, but the skill ignores `bootstrapModel.effort` because the `Task` tool has no `effort` parameter.
-
-Accepted `name`: `haiku`, `sonnet`, `opus`. Accepted `effort`: `low`, `medium`, `high`, `xhigh`, `max`.

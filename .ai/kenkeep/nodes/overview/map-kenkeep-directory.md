@@ -28,7 +28,7 @@ summary: >-
 
 # `.ai/kenkeep/` directory layout
 
-Created by `init`. Same layout across all three harnesses.
+Created by `init`. Same layout across all five harnesses.
 
 | Path | Purpose |
 |---|---|

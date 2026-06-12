@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:d8f806f8cf4acb51191f936e2a98f07cf76a7bd6f33b47f238febffaeaadd500'
+nodes_hash: 'sha256:041193d91dac8a0861ecb567d2c7b6227bc5d5a1bc0c5e1434dd14aca594f06f'
 node_count: 2
 summary: >-
   the kenkeep npm package, what it does, and the on-disk .ai/kenkeep/ directory

@@ -8,7 +8,7 @@ tags:
   - confidence
   - calibration
 derived_from:
-  - .claude/skills/kk-bootstrap/SKILL.md
+  - src/templates-source/skills/kk-bootstrap/SKILL.md
   - docs/internals/schemas.md
 relates_to:
   - map-kk-bootstrap-skill

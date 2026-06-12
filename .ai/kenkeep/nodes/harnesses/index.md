@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:33b2355b6f3833279fde7e867726f58c5329d6682bb4cb6b7e1a68bc8de60820'
+nodes_hash: 'sha256:afb1d0c0b8cafa14cd8e6f45672b064359604709b1c26bf218752eea42bf4c3f'
 node_count: 12
 summary: >-
   the per-runtime harness adapters (claude, codex, cursor, opencode, copilot)
@@ -20,7 +20,7 @@ _None._
 - Open [**Pass --harness explicitly outside an active harness session**](practice-explicit-harness-flag-outside-claude.md) to learn about: Claude and Cursor export in-session env markers; Codex and OpenCode do not. From those sessions or a plain shell, pass --harness explicitly or set cliDefaultHarness. #harness #cli #codex #cursor #opencode
 - Open [**Adapters never reach into each other's directories**](practice-adapters-never-cross-directories.md) to learn about: Anything shared lives under src/lib, src/commands, or src/templates-source/skills. Per-adapter code stays under src/harnesses/<id>/. #adapter #architecture #isolation
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) to learn about: When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal. #harnesses #cross-harness #abstractions #architecture
-- Open [**Cursor sessionStart additional_context is silently dropped**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) to learn about: Cursor's sessionStart hook writes additional_context but it never reaches the model due to a confirmed race condition (May 2026). #cursor #harness #hooks #gotcha #context-injection
+- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) to learn about: The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream. kenkeep now injects via additional_context AND the AGENTS.md sentinel as a belt-and-braces pair. #cursor #harness #hooks #context-injection
 - Open [**LLM-backed migrations require explicit --harness flag**](practice-llm-backed-migrations-require-explicit-harness-flag.md) to learn about: Migrations that cluster nodes with an LLM must fail fast if the user did not pass --harness explicitly. #migration #cli #harness #llm
 
 ## Components (what exists)
@@ -47,12 +47,12 @@ _None._
 - Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
 ### #cursor
 - Open [**Cursor harness adapter**](map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts from agent-transcripts/; Read and ReadFile both count for usage.
-- Open [**Cursor sessionStart additional_context is silently dropped**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — Cursor's sessionStart hook writes additional_context but it never reaches the model due to a confirmed race condition (May 2026).
+- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream. kenkeep now injects via additional_context AND the AGENTS.md sentinel as a belt-and-braces pair.
 - Open [**Pass --harness explicitly outside an active harness session**](practice-explicit-harness-flag-outside-claude.md) — Claude and Cursor export in-session env markers; Codex and OpenCode do not. From those sessions or a plain shell, pass --harness explicitly or set cliDefaultHarness.
 ### #architecture
 - Open [**Adapters never reach into each other's directories**](practice-adapters-never-cross-directories.md) — Anything shared lives under src/lib, src/commands, or src/templates-source/skills. Per-adapter code stays under src/harnesses/<id>/.
 - Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
-- Open [**Hook behavior changes must be applied to all four harness adapters**](../hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the four adapters has its own copy of every hook.
+- Open [**Hook behavior changes must be applied to every harness adapter**](../hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook.
 ### #codex
 - Open [**Pass --harness explicitly outside an active harness session**](practice-explicit-harness-flag-outside-claude.md) — Claude and Cursor export in-session env markers; Codex and OpenCode do not. From those sessions or a plain shell, pass --harness explicitly or set cliDefaultHarness.
 - Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
@@ -75,13 +75,11 @@ _None._
 ### #abstractions
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.
 ### #context-injection
-- Open [**Cursor sessionStart additional_context is silently dropped**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — Cursor's sessionStart hook writes additional_context but it never reaches the model due to a confirmed race condition (May 2026).
+- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream. kenkeep now injects via additional_context AND the AGENTS.md sentinel as a belt-and-braces pair.
 ### #cross-harness
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.
 ### #events
 - Open [**Don't translate event names across harness adapters**](practice-no-event-translation-across-adapters.md) — HookEvent is opaque string; each adapter declares the event names its host runtime emits natively. No global enum, no translation.
-### #gotcha
-- Open [**Cursor sessionStart additional_context is silently dropped**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — Cursor's sessionStart hook writes additional_context but it never reaches the model due to a confirmed race condition (May 2026).
 ### #harnesses
 - Open [**Add hermetic end-to-end capture tests per harness**](../hooks/practice-add-hermetic-end-to-end-capture-tests-per-harness.md) — Unit tests alone miss capture regressions; each harness needs a hermetic integration test that exercises the built hook end-to-end.
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.

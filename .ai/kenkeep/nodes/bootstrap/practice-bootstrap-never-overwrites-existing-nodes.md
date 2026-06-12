@@ -10,7 +10,7 @@ tags:
 derived_from:
   - docs/installation.md
   - docs/daily-use.md
-  - .claude/skills/kk-bootstrap/SKILL.md
+  - src/templates-source/skills/kk-bootstrap/SKILL.md
 relates_to:
   - map-kk-bootstrap-skill
   - map-bootstrap-incremental-command

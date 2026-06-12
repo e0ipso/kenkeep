@@ -24,11 +24,11 @@ summary: >-
 
 Per-adapter code lives strictly under `src/harnesses/<id>/`. Anything shared — paths under `.ai/kenkeep/`, the curator pipeline, the node schema, the secret scanner, the shared SKILL.md tree — lives in the harness-neutral modules under `src/lib/` or `src/commands/`, or under `src/templates-source/skills/`.
 
-**Why:** every adapter must compile, lint, and pass tests independently. Letting the Claude adapter import from `src/harnesses/codex/` (or vice versa) couples release schedules and produces weird breakages when a future adapter is added. Three adapters ship today (claude, codex, opencode); a fourth should slot in without touching any of the existing three.
+**Why:** every adapter must compile, lint, and pass tests independently. Letting the Claude adapter import from `src/harnesses/codex/` (or vice versa) couples release schedules and produces weird breakages when a future adapter is added. Five adapters ship today (claude, codex, copilot, cursor, opencode); a sixth should slot in without touching any of the existing five.
 
 **How to apply:**
 
 - New cross-cutting logic? Find or create a home under `src/lib/` or `src/commands/`.
-- New shared skill content? Put it under `src/templates-source/skills/`. All three harnesses install identical SKILL.md bytes from this tree.
+- New shared skill content? Put it under `src/templates-source/skills/`. All five harnesses install identical SKILL.md bytes from this tree.
 - New per-adapter behavior? Stays under `src/harnesses/<id>/`. The `HarnessAdapter` interface in `src/harnesses/types.ts` is the only contract the rest of the system relies on.
 - Tests for an adapter go under `tests/harnesses/<id>/`.

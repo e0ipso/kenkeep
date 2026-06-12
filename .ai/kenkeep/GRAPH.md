@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:45c59824176d289d4390a2be6f635c8f27abb98a002e58a7c15986c68f182574'
+nodes_hash: 'sha256:9d60a05af22d4c593dc1e198a8703481f8fe2310e20c54da27c908753adaaf7d'
 node_count: 68
 ---
 # kenkeep Graph
@@ -234,7 +234,7 @@ Total nodes: 68
 - **title:** kk-proposal-drain (extraction hook)
 - **path:** hooks/map-proposal-drain-hook.md
 - **tags:** hooks, extraction, llm, async, claude, billing
-- **relates_to:** map-session-log, map-proposal-candidate-schema, practice-recursion-guard-kenkeep-builder-internal, map-curate-command, map-claude-harness, map-codex-harness, map-cursor-harness-adapter, map-opencode-harness
+- **relates_to:** map-session-log, map-proposal-candidate-schema, practice-recursion-guard-kenkeep-builder-internal, map-curate-command, map-claude-harness, map-codex-harness, map-copilot-harness-adapter, map-cursor-harness-adapter, map-opencode-harness
 - **derived_from:** docs/internals/hooks.md, docs/internals/architecture.md
 
 ## map-session-log
@@ -296,7 +296,7 @@ Total nodes: 68
 - **path:** bootstrap/practice-bootstrap-is-supervised-and-judgmental.md
 - **tags:** bootstrap, supervision, sampling
 - **relates_to:** map-kk-bootstrap-skill
-- **derived_from:** docs/installation.md, docs/daily-use.md, .claude/skills/kk-bootstrap/SKILL.md
+- **derived_from:** docs/installation.md, docs/daily-use.md, src/templates-source/skills/kk-bootstrap/SKILL.md
 
 ## practice-bootstrap-never-overwrites-existing-nodes
 
@@ -305,7 +305,7 @@ Total nodes: 68
 - **path:** bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md
 - **tags:** bootstrap, nodes, safety
 - **relates_to:** map-kk-bootstrap-skill, map-bootstrap-incremental-command
-- **derived_from:** docs/installation.md, docs/daily-use.md, .claude/skills/kk-bootstrap/SKILL.md
+- **derived_from:** docs/installation.md, docs/daily-use.md, src/templates-source/skills/kk-bootstrap/SKILL.md
 
 ## practice-bump-prompt-version-comment
 
@@ -323,7 +323,7 @@ Total nodes: 68
 - **path:** bootstrap/practice-confidence-default-medium-bootstrap.md
 - **tags:** bootstrap, confidence, calibration
 - **relates_to:** map-kk-bootstrap-skill, map-node-frontmatter
-- **derived_from:** .claude/skills/kk-bootstrap/SKILL.md, docs/internals/schemas.md
+- **derived_from:** src/templates-source/skills/kk-bootstrap/SKILL.md, docs/internals/schemas.md
 
 ## practice-consumers-are-responsible-for-secret-hygiene
 
@@ -378,9 +378,9 @@ Total nodes: 68
 ## practice-cursor-sessionstart-additional-context-is-silently-dropped
 
 - **kind:** practice
-- **title:** Cursor sessionStart additional_context is silently dropped
+- **title:** Cursor sessionStart additional_context delivery was fixed upstream
 - **path:** harnesses/practice-cursor-sessionstart-additional-context-is-silently-dropped.md
-- **tags:** cursor, harness, hooks, gotcha, context-injection
+- **tags:** cursor, harness, hooks, context-injection
 - **relates_to:** map-cursor-harness-adapter
 
 ## practice-determinism-contract
@@ -428,7 +428,7 @@ Total nodes: 68
 ## practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters
 
 - **kind:** practice
-- **title:** Hook behavior changes must be applied to all four harness adapters
+- **title:** Hook behavior changes must be applied to every harness adapter
 - **path:** hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md
 - **tags:** harness, hooks, architecture, drift
 

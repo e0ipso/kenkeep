@@ -1,24 +1,24 @@
 ---
 schema_version: 2
 id: practice-cursor-sessionstart-additional-context-is-silently-dropped
-title: Cursor sessionStart additional_context is silently dropped
+title: Cursor sessionStart additional_context delivery was fixed upstream
 kind: practice
 tags:
   - cursor
   - harness
   - hooks
-  - gotcha
   - context-injection
 derived_from: []
 relates_to:
   - map-cursor-harness-adapter
 confidence: high
 summary: >-
-  Cursor's sessionStart hook writes additional_context but it never reaches the
-  model due to a confirmed race condition (May 2026).
+  The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream.
+  kenkeep now injects via additional_context AND the AGENTS.md sentinel as a
+  belt-and-braces pair.
 ---
-As of May 2026, Cursor's `sessionStart` hook accepts the `additional_context` field in its JSON output and logs it as "merged successfully," but the content is silently dropped before the agent window is created due to a race condition. Multiple forum reports confirm this behavior.
+The `additional_context` silent-drop bug existed approximately May 2026: Cursor logged the field as "merged successfully" but dropped it before the agent window was created. Cursor fixed this upstream.
 
-The Cursor adapter in this project currently relies on `additional_context` to inject the knowledge base index and queue status into the model's context. As a result, the model in Cursor does not actually receive the knowledge base index via the hook — it only receives it if the user has the static pointer in AGENTS.md and opens the ENTRY.md file explicitly.
+Live end-to-end measurement on cursor-agent (2026-06-12) with secret-codeword payloads at 12 KB and 60 KB confirmed that `sessionStart` `additional_context` now reliably reaches the model.
 
-The only reliable mechanism for injecting persistent context into Cursor's model at session start is static rules files under `.cursor/rules/`.
+The Cursor adapter in this project injects the knowledge base index via `additional_context` in the hook response AND via an AGENTS.md sentinel block (belt-and-braces). Both channels are active. The `.cursor/rules/` fallback is no longer the only reliable path.

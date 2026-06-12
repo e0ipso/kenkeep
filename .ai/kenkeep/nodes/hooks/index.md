@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:3d4ad85f2129dd583d3814d2a73307dee380655eb0fd421566989db814d8e8f8'
+nodes_hash: 'sha256:6840fc8ffb39825db71c33993c4afa7980ba6f6e3eba4120a304754a47d385fa'
 node_count: 9
 summary: >-
   the capture, session-start, and proposal-drain hooks, how they are built, and
@@ -18,7 +18,7 @@ _None._
 ## Conventions (how we build)
 - Open [**CLI launchers must set KENKEEP_BUILDER_INTERNAL=1 on the harness child**](practice-recursion-guard-kenkeep-builder-internal.md) to learn about: The CLI launchers (bootstrap, curate, node add) and the proposal-drain hook must set KENKEEP_BUILDER_INTERNAL=1 on the harness child they exec so the nested session's SessionStart hooks do not re-fire. #recursion #hooks #env
 - Open [**Add hermetic end-to-end capture tests per harness**](practice-add-hermetic-end-to-end-capture-tests-per-harness.md) to learn about: Unit tests alone miss capture regressions; each harness needs a hermetic integration test that exercises the built hook end-to-end. #testing #hooks #capture #harnesses
-- Open [**Hook behavior changes must be applied to all four harness adapters**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) to learn about: Fixing hook logic in one harness does not fix the others; each of the four adapters has its own copy of every hook. #harness #hooks #architecture #drift
+- Open [**Hook behavior changes must be applied to every harness adapter**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) to learn about: Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook. #harness #hooks #architecture #drift
 - Open [**Hook status messages include kk prefix after emoji**](practice-hook-status-messages-include-kk-prefix-after-emoji.md) to learn about: All user-facing hook messages follow the pattern emoji kk Label: message to identify the knowledge base as the source. #hooks #messaging #ux
 - Open [**Shipped skills and hook scripts must be self-contained**](practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) to learn about: Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies. #skills #hooks #cli #packaging
 
@@ -41,7 +41,7 @@ _None._
 ### #architecture
 - Open [**Adapters never reach into each other's directories**](../harnesses/practice-adapters-never-cross-directories.md) — Anything shared lives under src/lib, src/commands, or src/templates-source/skills. Per-adapter code stays under src/harnesses/<id>/.
 - Open [**Harness adapter**](../harnesses/map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
-- Open [**Hook behavior changes must be applied to all four harness adapters**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the four adapters has its own copy of every hook.
+- Open [**Hook behavior changes must be applied to every harness adapter**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook.
 ### #async
 - Open [**kk-proposal-drain (extraction hook)**](map-proposal-drain-hook.md) — Async SessionStart hook that sweeps pending _sessions/ and extracts proposals; the Claude adapter's hook is intentionally a no-op -- extraction runs inline during /kk-curate instead.
 ### #billing
@@ -61,7 +61,7 @@ _None._
 ### #consume
 - Open [**kk-session-start.mjs (consume hook)**](map-session-start-hook.md) — Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may append curate nudge, emits additionalContext.
 ### #drift
-- Open [**Hook behavior changes must be applied to all four harness adapters**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the four adapters has its own copy of every hook.
+- Open [**Hook behavior changes must be applied to every harness adapter**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook.
 ### #env
 - Open [**CLI launchers must set KENKEEP_BUILDER_INTERNAL=1 on the harness child**](practice-recursion-guard-kenkeep-builder-internal.md) — The CLI launchers (bootstrap, curate, node add) and the proposal-drain hook must set KENKEEP_BUILDER_INTERNAL=1 on the harness child they exec so the nested session's SessionStart hooks do not re-fire.
 ### #extraction

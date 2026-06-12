@@ -32,7 +32,15 @@ Each of the three LLM pipelines loads its prompt from a local override path unde
 | Curator | `.config/prompts/curator.md` | `templates/prompts/curator.md` |
 | Bootstrap-incremental | `.config/prompts/bootstrap-incremental.md` | `templates/prompts/bootstrap-incremental.md` |
 
-The agent-driven `/kk-bootstrap` skill is the exception — there is no separate prompt file; edit `.claude/skills/kk-bootstrap/SKILL.md` (or the equivalent path for Codex/OpenCode) instead.
+The agent-driven `/kk-bootstrap` skill is the exception — there is no separate prompt file; edit the installed SKILL.md for your harness instead:
+
+| Harness | Skills path |
+|---|---|
+| Claude | `.claude/skills/kk-bootstrap/SKILL.md` |
+| Codex | `.agents/skills/kk-bootstrap/SKILL.md` |
+| Cursor | `.cursor/skills/kk-bootstrap/SKILL.md` |
+| OpenCode | `.opencode/skills/kk-bootstrap/SKILL.md` |
+| Copilot | `.github/skills/kk-bootstrap/SKILL.md` |
 
 **How to apply:**
 

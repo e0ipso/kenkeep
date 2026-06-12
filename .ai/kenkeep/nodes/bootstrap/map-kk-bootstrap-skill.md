@@ -23,7 +23,7 @@ summary: >-
 
 # `/kk-bootstrap` skill
 
-Supervised, agent-driven, one-pass bootstrap. The skill body lives at `src/templates-source/skills/kk-bootstrap/SKILL.md` (the bytes are identical across all three harnesses; the SKILL.md resolves the active harness at runtime via the `/tmp/kk-detect-harness.mjs` helper).
+Supervised, agent-driven, one-pass bootstrap. The skill body lives at `src/templates-source/skills/kk-bootstrap/SKILL.md` (the bytes are identical across all five harnesses; the SKILL.md resolves the active harness at runtime via the `/tmp/kk-detect-harness.mjs` helper).
 
 ```
 /kk-bootstrap                      # scans docs/ and root *.md

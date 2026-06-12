@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:d0915b1b879d60b4e1f5e70a8c671200c4fdfb9c72d7428c05a13b4d09963c0e'
+nodes_hash: 'sha256:3cf33b3455cfa7df3c0815ca0c866a8c40ea6a007d574ce86e4c7399c6c05038'
 node_count: 6
 summary: >-
   seeding the knowledge base from existing docs via /kk-bootstrap and the

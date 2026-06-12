@@ -23,7 +23,7 @@ summary: >-
 `init` writes:
 
 - `.ai/kenkeep/` — knowledge base scaffold.
-- The harness's hooks and skills (`.claude/`, `.codex/`, `.opencode/`).
+- The harness's hooks and skills (`.claude/`, `.agents/`, `.cursor/`, `.opencode/`, `.copilot/kk-hooks/` + `.github/skills/` for Copilot).
 - A managed block in the repo `.gitignore` for runtime state files.
 
 It does **not** install or patch husky, lint-staged, secretlint, or commitlint. It also does not patch the project `package.json` — a `package.json` at the repo root is no longer required at all.

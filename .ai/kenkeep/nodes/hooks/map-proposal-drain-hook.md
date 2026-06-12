@@ -20,6 +20,7 @@ relates_to:
   - map-curate-command
   - map-claude-harness
   - map-codex-harness
+  - map-copilot-harness-adapter
   - map-cursor-harness-adapter
   - map-opencode-harness
 depends_on: []

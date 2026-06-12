@@ -27,6 +27,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
 const ENV_DETECTORS = [
+  { env: 'CURSOR_AGENT', value: '1', harness: 'cursor' },
   { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
   { env: 'CLAUDECODE', value: '1', harness: 'claude' },
 ];

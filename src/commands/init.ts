@@ -169,16 +169,19 @@ async function runUpgrade(
 ): Promise<void> {
   if (!existsSync(paths.installedVersionFile)) {
     throw new Error(
-      'Not initialized. Run `npx kenkeep init --harnesses claude` for a first-time install.'
+      'Not initialized. Run `npx kenkeep init --harnesses <id[,id,...]>` for a first-time install.'
     );
   }
   const current = packageVersion();
   log.info(`Upgrading in ${root} to ${current}`);
 
   // Force-refresh shipped templates for the Claude adapter before re-running
-  // its installer. Other adapters that need a similar pre-step can expose it
-  // through their own modules.
-  refreshClaudeTemplates({ root, paths, templatesDir, upgrade: true });
+  // its installer — only when Claude is actually selected; a codex-only repo
+  // must not grow a .claude/ directory on upgrade. Other adapters that need a
+  // similar pre-step can expose it through their own modules.
+  if (opts.harnesses.includes('claude')) {
+    refreshClaudeTemplates({ root, paths, templatesDir, upgrade: true });
+  }
 
   for (const id of opts.harnesses) {
     const adapter = getHarness(id);

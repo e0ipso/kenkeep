@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dump } from 'js-yaml';
-import type { CaptureTrigger } from './schemas.js';
+import type { CaptureTrigger, ProposalStatus } from './schemas.js';
 
 export interface SessionLogInput {
   sessionId: string;
@@ -9,7 +9,8 @@ export interface SessionLogInput {
   capturedAt: string;
   transcriptHash: string;
   body: string;
-  proposalStatus?: 'pending' | 'skipped';
+  /** Initial queue state at capture time; the worker owns 'done'/'failed'. */
+  proposalStatus?: Extract<ProposalStatus, 'pending' | 'skipped'>;
   proposalError?: string | null;
   proposalCompletedAt?: string | null;
 }

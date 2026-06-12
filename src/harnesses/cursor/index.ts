@@ -10,11 +10,17 @@ import { parseCursorTranscript, renderCursorTranscript } from './transcript.js';
 
 /**
  * Returns true when the process appears to be running inside a Cursor
- * agent session. `CURSOR_VERSION` is set by the Cursor runtime; Claude
- * sessions that leak `CLAUDE_PROJECT_DIR` are excluded because the Claude
- * adapter is checked first when `CLAUDECODE=1`.
+ * agent session. cursor-agent (verified against 2026.06 builds) exports
+ * `CURSOR_AGENT=1` to shell tools — it never sets `CURSOR_VERSION` in the
+ * environment (that name exists only as a hook stdin JSON field), so the
+ * old check made detection dead and plain `npx kenkeep <launcher>` from a
+ * Cursor session fell through to the claude fallback. `CURSOR_VERSION` is
+ * kept as a secondary signal for hosts that do export it. Claude sessions
+ * are excluded because the claude adapter is checked first when
+ * `CLAUDECODE=1` (registry order).
  */
 function detectCursorFromEnv(env: NodeJS.ProcessEnv): boolean {
+  if (env['CURSOR_AGENT'] === '1') return true;
   const version = env['CURSOR_VERSION'];
   return typeof version === 'string' && version.length > 0;
 }

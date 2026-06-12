@@ -82,7 +82,7 @@ export async function runNodeWriteCommand(
   const paths = repoPaths(root);
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
-      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.'
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
     );
     return 1;
   }

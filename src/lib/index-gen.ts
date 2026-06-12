@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { atomicWriteFile } from './fs-atomic.js';
 import { join, posix } from 'node:path';
 import matter from 'gray-matter';
 import {
@@ -687,10 +688,12 @@ export function generateGraph(nodesDir: string): GeneratedGraph {
   return { content, nodesHash: hash, nodeCount: nodes.length };
 }
 
+// tmp+rename: ENTRY.md is the SessionStart injection payload; an interrupted
+// rebuild must never leave a truncated catalog behind.
 export function writeIndex(file: string, content: string): void {
-  writeFileSync(file, content);
+  atomicWriteFile(file, content);
 }
 
 export function writeGraph(file: string, generated: GeneratedGraph): void {
-  writeFileSync(file, generated.content);
+  atomicWriteFile(file, generated.content);
 }

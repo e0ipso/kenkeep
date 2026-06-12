@@ -39,7 +39,9 @@ async function main(): Promise<void> {
     .command('init')
     .description('First-time setup: copy templates, register harness hooks, record version.')
     .requiredOption(
-      '-h, --harnesses <list>',
+      // No -h short alias: it would shadow Commander's built-in -h/--help,
+      // turning `init -h` into a confusing "argument missing" error.
+      '--harnesses <list>',
       `comma-separated list of harnesses to wire up (supported: ${listHarnessIds().join(', ')})`,
       (value: string) =>
         value
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
     .command('status')
     .description('Show pending session logs and kenkeep stats.')
     .action(async () => {
-      await runStatus();
+      process.exit(await runStatus());
     });
 
   program

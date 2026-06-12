@@ -160,9 +160,11 @@ describe('status', () => {
 
   afterEach(() => cleanSandbox(sandbox));
 
-  it('warns when uninitialized', async () => {
+  it('warns and exits nonzero when uninitialized', async () => {
     const result = await runCli(sandbox, ['status']);
-    expect(result.exitCode).toBe(0);
+    // Exit 1 so `npx kenkeep status && ...` can detect an uninitialized
+    // repo, consistent with every other user-facing command.
+    expect(result.exitCode).toBe(1);
     expect(result.stdout + result.stderr).toContain('not initialized');
   });
 

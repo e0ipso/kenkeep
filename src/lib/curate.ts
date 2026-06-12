@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { atomicWriteFile } from './fs-atomic.js';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { deriveNodeId } from './nodes.js';
@@ -114,7 +115,9 @@ export function markSessionsProcessed(sessions: PendingSession[], runId: string,
     data['curator_processed_at'] = now.toISOString();
     data['curator_run_id'] = runId;
     const serialized = matter.stringify(parsed.content, data);
-    writeFileSync(s.filePath, serialized);
+    // tmp+rename: a crash mid-write must not truncate the session log into an
+    // unparseable file the next sweep would silently drop.
+    atomicWriteFile(s.filePath, serialized);
   }
 }
 

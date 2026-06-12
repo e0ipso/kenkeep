@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { resolveActiveHarness } from '../harnesses/detect.js';
+import { log } from './log.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
@@ -86,6 +87,15 @@ export function launchSkill(opts: LaunchSkillOptions): void {
   const child = spawnImpl(binary, args, {
     stdio: 'inherit',
     env: { ...process.env, KENKEEP_BUILDER_INTERNAL: '1' },
+  });
+
+  // Without this, a missing binary surfaces as an unhandled 'error' event
+  // and a raw ENOENT stack trace instead of an actionable message.
+  child.on('error', err => {
+    log.error(
+      `could not launch '${binary}' (${err.message}). Is the ${harness.id} CLI installed and on PATH?`
+    );
+    exitImpl(1);
   });
 
   child.on('close', code => {

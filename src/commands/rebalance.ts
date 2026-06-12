@@ -29,7 +29,7 @@ export async function runRebalanceTrigger(): Promise<number> {
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
-      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.'
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
     );
     return 1;
   }
@@ -65,7 +65,7 @@ export async function runRebalanceMove(opts: RebalanceMoveOptions = {}): Promise
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
-      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.'
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
     );
     return 1;
   }

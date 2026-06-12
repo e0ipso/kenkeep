@@ -10,7 +10,7 @@ export async function runLogsPrune(): Promise<number> {
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
-      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.'
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
     );
     return 1;
   }

@@ -43,7 +43,7 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
 
   if (!existsSync(paths.installedVersionFile)) {
     log.error(
-      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.'
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
     );
     return 1;
   }

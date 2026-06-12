@@ -1,6 +1,7 @@
 import matter from 'gray-matter';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { atomicWriteFile } from './fs-atomic.js';
 import { join } from 'node:path';
 import type { ZodSchema } from 'zod';
 import { ProposalOutputSchema } from './schemas.js';
@@ -239,7 +240,9 @@ export function writeSessionLogFrontmatter(
   if (patch.proposals) data['proposals'] = patch.proposals;
   const body = updateProposalBody(parsed.content, patch);
   const serialized = matter.stringify(body, data);
-  writeFileSync(file, serialized);
+  // tmp+rename: a crash mid-write must not truncate the session log into an
+  // unparseable file the next sweep would silently drop.
+  atomicWriteFile(file, serialized);
 }
 
 export function updateProposalBody(content: string, patch: FrontmatterPatch): string {

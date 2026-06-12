@@ -5,13 +5,15 @@ import { log } from '../lib/log.js';
 import { readAllNodes } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 
-export async function runStatus(): Promise<void> {
+export async function runStatus(): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
 
   if (!existsSync(paths.installedVersionFile)) {
-    log.warn('kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses claude`.');
-    return;
+    log.warn(
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
+    );
+    return 1;
   }
 
   const installed = JSON.parse(readFileSync(paths.installedVersionFile, 'utf8')) as {
@@ -32,10 +34,17 @@ export async function runStatus(): Promise<void> {
   log.plain(`  Session logs (pending):  ${sessionStats.pending}`);
   log.plain(`  Session logs (done):     ${sessionStats.done}`);
   log.plain(`  Session logs (failed):   ${sessionStats.failed}`);
+  log.plain(`  Session logs (skipped):  ${sessionStats.skipped}`);
+  return 0;
 }
 
-function scanSessions(dir: string): { pending: number; done: number; failed: number } {
-  const out = { pending: 0, done: 0, failed: 0 };
+function scanSessions(dir: string): {
+  pending: number;
+  done: number;
+  failed: number;
+  skipped: number;
+} {
+  const out = { pending: 0, done: 0, failed: 0, skipped: 0 };
   if (!existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {
     if (!name.endsWith('.md')) continue;
@@ -48,6 +57,9 @@ function scanSessions(dir: string): { pending: number; done: number; failed: num
           break;
         case 'failed':
           out.failed += 1;
+          break;
+        case 'skipped':
+          out.skipped += 1;
           break;
         default:
           out.pending += 1;

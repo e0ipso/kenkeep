@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateIndex, writeIndex } from '../../src/lib/index-gen.js';
+import { SessionLogFrontmatterSchema } from '../../src/lib/schemas.js';
 import {
   DEFAULT_NUDGE_THRESHOLD,
   KK_NAVIGATION_DIRECTIVE,
@@ -55,6 +56,7 @@ interface SeedOptions {
   capturedAt?: string;
   practiceCount?: number;
   mapCount?: number;
+  proposalStatus?: string;
 }
 
 function seedSession(
@@ -72,7 +74,7 @@ function seedSession(
     captured_by: 'stop',
     captured_at: capturedAt,
     transcript_hash: `sha256:${sessionId}`,
-    proposal_status: 'done',
+    proposal_status: opts.proposalStatus ?? 'done',
     proposal_completed_at: capturedAt,
     proposal_error: null,
     proposal_log: null,
@@ -269,5 +271,25 @@ describe('pending-session accounting', () => {
     expect(summary.pending).toBe(2);
     expect(summary.candidateCount).toBe(6);
     expect(summary.oldestCapturedAt?.toISOString()).toBe('2026-05-05T10:00:00.000Z');
+  });
+
+  it('excludes skipped and failed sessions from the pending queue by status, not by schema failure', () => {
+    // 'skipped' is a valid schema status (cursory-session pre-filter); it must
+    // parse cleanly and stay out of the queue via the status filter so it
+    // remains visible to consumers like `status` rather than being dropped as
+    // an unreadable file.
+    seedSession(harness, 'skip', false, { proposalStatus: 'skipped' });
+    seedSession(harness, 'fail', false, { proposalStatus: 'failed' });
+    seedSession(harness, 'live', false, { practiceCount: 1 });
+
+    // The skipped log must be schema-valid (not invisible-by-parse-failure).
+    const skippedRaw = matter(
+      readFileSync(join(harness.sessionsDir, 'session-skip.md'), 'utf8')
+    ).data;
+    expect(SessionLogFrontmatterSchema.safeParse(skippedRaw).success).toBe(true);
+
+    const summary = summarizePendingSessions(harness.sessionsDir);
+    expect(summary.pending).toBe(1);
+    expect(summary.candidateCount).toBe(1);
   });
 });

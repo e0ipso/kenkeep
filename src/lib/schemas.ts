@@ -11,7 +11,7 @@ export const NODE_SCHEMA_VERSION = 2;
 export const CaptureTriggerSchema = z.enum(['stop', 'session_end', 'pre_compact', 'manual']);
 export type CaptureTrigger = z.infer<typeof CaptureTriggerSchema>;
 
-export const ProposalStatusSchema = z.enum(['pending', 'done', 'failed']);
+export const ProposalStatusSchema = z.enum(['pending', 'done', 'failed', 'skipped']);
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
 
 export const SessionLogFrontmatterSchema = z.object({

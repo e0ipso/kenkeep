@@ -3,12 +3,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
+import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
 import { errCheck, ok, type NamedDoctorCheck, type DoctorCheckResult } from '../types.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
 import { claudePaths } from './install.js';
 
 const exec = promisify(execFile);
-const EXPECTED_SKILLS = ['kk-add', 'kk-bootstrap', 'kk-curate'];
 
 export async function claudeDoctorChecks(paths: RepoPaths): Promise<NamedDoctorCheck[]> {
   const locs = claudePaths(paths.root);

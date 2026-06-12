@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
+import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
 import {
   errCheck,
   ok,
@@ -15,7 +16,6 @@ import { copilotHome } from './hooks-config.js';
 import { copilotPaths } from './install.js';
 
 const exec = promisify(execFile);
-const EXPECTED_SKILLS = ['kk-add', 'kk-bootstrap', 'kk-curate'];
 const COPILOT_DOCS_URL = 'https://github.com/github/copilot-cli';
 const SENTINEL_START = '<!-- kk:start -->';
 const SENTINEL_END = '<!-- kk:end -->';

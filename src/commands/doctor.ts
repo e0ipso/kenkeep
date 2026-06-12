@@ -220,7 +220,7 @@ function installedHarnessIds(file: string): string[] {
 
 function checkInstalled(file: string): CheckResult {
   if (!existsSync(file)) {
-    return err('missing. Run `npx kenkeep init --harnesses claude` from the repo root.');
+    return err('missing. Run `npx kenkeep init --harnesses <id[,id,...]>` from the repo root.');
   }
   let parsed: { version?: string };
   try {

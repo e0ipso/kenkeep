@@ -3,12 +3,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
+import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
 import { errCheck, ok, type DoctorCheckResult, type NamedDoctorCheck } from '../types.js';
 import { openCodeHookSpecs } from './hook-spec.js';
 import { openCodePaths } from './install.js';
 
 const exec = promisify(execFile);
-const EXPECTED_SKILLS = ['kk-add', 'kk-bootstrap', 'kk-curate'];
 export const OPENCODE_PLUGIN_MARKER = '// kenkeep plugin';
 
 export async function openCodeDoctorChecks(paths: RepoPaths): Promise<NamedDoctorCheck[]> {

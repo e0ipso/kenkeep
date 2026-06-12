@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
+import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
 import {
   errCheck,
   ok,
@@ -14,7 +15,6 @@ import { codexHookSpecs } from './hook-spec.js';
 import { codexPaths } from './install.js';
 
 const exec = promisify(execFile);
-const EXPECTED_SKILLS = ['kk-add', 'kk-bootstrap', 'kk-curate'];
 const TOML_HOOKS_HEADER = /^\s*\[hooks\b/m;
 
 export async function codexDoctorChecks(paths: RepoPaths): Promise<NamedDoctorCheck[]> {

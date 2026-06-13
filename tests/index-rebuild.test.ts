@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
 const exec = promisify(execFile);
 
@@ -191,10 +191,16 @@ describe('index rebuild', () => {
 
 describe('doctor: stale ENTRY detection', () => {
   let sandbox: string;
+  // doctor's claude adapter probes `claude --version`; a stub on PATH lets
+  // the CLI check pass hermetically (CI ships no real harness binary) so the
+  // asserted exit code reflects only the staleness warning.
+  let env: NodeJS.ProcessEnv;
   beforeEach(async () => {
     sandbox = makeSandbox();
     await exec('git', ['init', '-q'], { cwd: sandbox });
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    env = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
   });
   afterEach(() => cleanSandbox(sandbox));
 
@@ -203,7 +209,7 @@ describe('doctor: stale ENTRY detection', () => {
     expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
     // Drift: add another node without rebuilding.
     writeNode(sandbox, 'map', 'map-bar');
-    const doc = await runCli(sandbox, ['doctor']);
+    const doc = await runCli(sandbox, ['doctor'], env);
     expect(doc.exitCode).toBe(0); // warning, not error
     expect(doc.stdout + doc.stderr).toContain('stale');
   });

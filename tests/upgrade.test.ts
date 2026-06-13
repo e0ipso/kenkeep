@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
 const exec = promisify(execFile);
 
@@ -164,13 +164,18 @@ describe('doctor: installed-version currency', () => {
   afterEach(() => cleanSandbox(sandbox));
 
   it('warns when installed-version is older than the package', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    // doctor's claude adapter probes `claude --version`; provide a stub on
+    // PATH so the CLI check passes hermetically (CI has no real harness
+    // binary) and the asserted exit code reflects only the version warning.
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
     const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
     const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
     installed.version = '0.0.0-test-old';
     writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
 
-    const result = await runCli(sandbox, ['doctor']);
+    const result = await runCli(sandbox, ['doctor'], env);
     expect(result.exitCode).toBe(0);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/installed-version/);

@@ -79,9 +79,18 @@
     "SSH_AUTH_SOCK": "/ssh-agent",
     "LC_ALL": "C.UTF-8"
   },
+  "forwardPorts": [34490],
+  "portsAttributes": {
+    "34490": {
+      "label": "t3",
+      "onAutoForward": "silent"
+    }
+  },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   "postCreateCommand": "true",
-  "postStartCommand": "opencode upgrade; claude upgrade; copilot update; agent update",
+  "postStartCommand": {
+    "upgrades": "opencode upgrade; claude upgrade; copilot update; agent update"
+  },
   "waitFor": "postStartCommand"
 }

@@ -26,7 +26,7 @@ interface InstalledVersion {
   harnesses: string[];
 }
 
-const KENKEEP_GITIGNORE_LINES = ['_sessions/', '_logs/', '.state/', '!.state/installed-version'];
+const KENKEEP_GITIGNORE_LINES = ['_sessions/', '_logs/', '.state/*', '!.state/installed-version'];
 
 export async function runInit(opts: InitOptions): Promise<void> {
   validateHarnesses(opts.harnesses);

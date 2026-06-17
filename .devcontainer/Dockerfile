@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   man-db \
   unzip \
   gnupg2 \
+  gawk \
   gh \
   iptables \
   ipset \
@@ -48,7 +49,9 @@ RUN mkdir -p \
     /home/$USERNAME/.local/state \
     /home/$USERNAME/.local/bin \
     /home/$USERNAME/.claude \
-  && chown -R $USERNAME:$USERNAME /home/$USERNAME/.config /home/$USERNAME/.local /home/$USERNAME/.claude
+    /home/$USERNAME/.codex \
+  && chown -R $USERNAME:$USERNAME /home/$USERNAME/.config /home/$USERNAME/.local /home/$USERNAME/.claude /home/$USERNAME/.codex
+
 
 # Set `DEVCONTAINER` environment variable to help with orientation
 ENV DEVCONTAINER=true
@@ -81,3 +84,10 @@ RUN npm i -g @github/copilot
 
 # Install Cursor
 RUN curl https://cursor.com/install -fsS | bash
+
+# Install Codex
+RUN curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 CODEX_INSTALL_DIR=/usr/local/share/npm-global/bin sh
+
+# Install t3
+RUN npm i -g t3
+

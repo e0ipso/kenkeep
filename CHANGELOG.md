@@ -1,3 +1,9 @@
+## [1.5.1](https://github.com/e0ipso/kenkeep/compare/v1.5.0...v1.5.1) (2026-06-17)
+
+### Bug Fixes
+
+* **init:** use .state/* so installed-version is re-includable ([886d005](https://github.com/e0ipso/kenkeep/commit/886d005547b88f57d18ee09be7b2685571e73dcf))
+
 ## [1.5.0](https://github.com/e0ipso/kenkeep/compare/v1.4.0...v1.5.0) (2026-06-13)
 
 ### Features

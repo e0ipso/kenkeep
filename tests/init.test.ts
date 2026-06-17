@@ -111,12 +111,29 @@ describe('init', () => {
     const kkBody = readFileSync(kkGitignore, 'utf8');
     expect(kkBody).toContain('_sessions/');
     expect(kkBody).toContain('_logs/');
-    expect(kkBody).toContain('.state/');
+    expect(kkBody).toContain('.state/*');
     expect(kkBody).toContain('!.state/installed-version');
 
     const projectBody = readFileSync(projectGitignore, 'utf8');
     expect(projectBody).toBe('node_modules\n');
     expect(projectBody).not.toContain('kenkeep');
+  });
+
+  it('lets `git add .ai/kenkeep/` stage .state/installed-version', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+
+    const { stdout } = await exec('git', ['status', '--short', '--untracked-files=all'], {
+      cwd: sandbox,
+    });
+    // Pre-condition: installed-version is untracked before the add.
+    expect(stdout).toContain('.ai/kenkeep/.state/installed-version');
+
+    await exec('git', ['add', '.ai/kenkeep/'], { cwd: sandbox });
+
+    const { stdout: after } = await exec('git', ['diff', '--cached', '--name-only'], {
+      cwd: sandbox,
+    });
+    expect(after).toContain('.ai/kenkeep/.state/installed-version');
   });
 
   it('refuses to overwrite when already initialized', async () => {

@@ -37,13 +37,28 @@ The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_AGENT=1
 
 | Harness | Capture events | Notable |
 |---|---|---|
-| Claude | `Stop`, `SessionEnd`, `PreCompact` | (none) |
+| Claude | `Stop`, `SessionEnd`, `PreCompact` | Writes a fence-managed pointer to `AGENTS.md`. Claude Code auto-loads `CLAUDE.md`, not `AGENTS.md`; see [AGENTS.md and CLAUDE.md](#agentsmd-and-claudemd) below. |
 | Codex | `Stop`, `PreCompact` | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write. See [coexistence](installation/codex-toml-hooks-coexistence.md). After first install, run `/hooks` inside a Codex session once to trust the kenkeep hook scripts before they will execute. |
 | Cursor | `stop`, `sessionEnd`, `preCompact` | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter, or you'll double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
 | OpenCode | `session.idle`, `session.created` | No `additionalContext` channel. The session-start hook writes the entry catalog to `.opencode/AGENTS.md`, and `init` registers it in `.opencode/opencode.json`'s `instructions` array so OpenCode loads it natively (no manual reference needed; verified against opencode 1.17.3), alongside the `plugin` entry OpenCode requires to load the hooks. `.opencode/AGENTS.md` is per-user, regenerated every session — add it to your `.gitignore`, never commit it. |
 | Copilot | `sessionEnd`, `agentStop` | Hooks register in the user-level `~/.copilot/hooks/kk.json`. No `additionalContext` channel; the session-start hook writes INDEX into `.github/copilot-instructions.md` under a sentinel block. See [GitHub Copilot CLI](#github-copilot-cli) below. |
 
 If your harness isn't listed above, this tool doesn't support it yet.
+
+### AGENTS.md and CLAUDE.md
+
+`kenkeep init --harnesses claude` writes a fence-managed `kk-index` pointer into a top-level `AGENTS.md`. The runtime catalog injection on `SessionStart` is driven by `.claude/hooks/kk-session-start.cjs`, so every new Claude session still receives `ENTRY.md` and the navigation directive regardless of what static files exist.
+
+However, Claude Code itself does **not** auto-load `AGENTS.md` — it only auto-loads `CLAUDE.md` (and `CLAUDE.local.md`). If your repo already has a top-level `CLAUDE.md` and you want the `AGENTS.md` sentinel honored as a static pointer (for example, for code-review tools, other agents that share `AGENTS.md`, or anyone browsing the repo), import it at the top of `CLAUDE.md`:
+
+```markdown
+@AGENTS.md
+
+# CLAUDE.md
+[project-specific instructions]
+```
+
+See the upstream Claude Code memory docs for details: <https://code.claude.com/docs/en/memory.md>
 
 ### GitHub Copilot CLI
 

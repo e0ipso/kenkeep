@@ -3,9 +3,9 @@
  *
  * Drains the proposal queue by spawning `copilot -p` for each pending
  * session log. Copilot's hook config carries no async mechanism and caps
- * hooks at timeoutSec, so the hook re-spawns itself detached and returns
- * immediately; the drain's headless LLM runs continue in the background
- * child instead of blocking session start.
+ * hooks at timeoutSec, so the hook routes through the async launcher and
+ * returns immediately; the drain's headless LLM runs continue in the detached
+ * worker instead of blocking session start.
  */
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { runProposalDrain } from '../../../lib/proposal-drain.js';
@@ -14,7 +14,7 @@ import { buildCopilotHarnessOpts } from '../opts.js';
 
 runHookEntry({
   tag: 'copilot:kk-proposal-drain',
-  detach: true,
+  asyncLauncher: true,
   main: async payload => {
     const startCwd =
       typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0

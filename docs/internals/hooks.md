@@ -21,6 +21,50 @@ The two `SessionStart` entries are independent: a failure in one does not block 
 
 Every harness wires the same four scripts through its native mechanism: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.opencode/kk-hooks/`; Copilot via `.github/hooks/kk.json` walk-up commands (repo-level; Copilot loads it before user-level `~/.copilot/hooks/`). Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the four scripts are identical across all five harnesses.
 
+## Hook synchrony and the async launcher
+
+Hooks fall into two classes, and the class decides whether a hook may run in the background:
+
+| Hook | Class | Why |
+|---|---|---|
+| `kk-capture` | synchronous context-producer | Must finish writing the session slice before the host moves on; the capture is the only record of the turn. |
+| `kk-session-start` | synchronous context-producer | Returns `additionalContext` the host injects into the session; the value is useless if produced after startup. |
+| `kk-proposal-drain` | asynchronous advisory worker | Spawns headless LLM runs per pending log; long-running and produces nothing the session consumes. |
+| `kk-lint-tick` | asynchronous advisory worker | Runs the tree lint every Nth fire; advisory, surfaced on a later `SessionStart`. |
+
+**Context-producing hooks must stay synchronous and must never be routed through the launcher** — they exist to hand data back to the host. Only the advisory workers run in the background.
+
+How "the background" is achieved depends on what the host supports:
+
+| Harness | Async mechanism |
+|---|---|
+| Claude | native `async: true` in `.claude/settings.json` |
+| OpenCode | plugin async dispatch (the `.opencode/plugins/kk.mjs` shim) |
+| Codex | async launcher (`src/lib/async-launcher.ts`) |
+| Cursor | async launcher |
+| Copilot | async launcher |
+
+Codex, Cursor, and Copilot have no native async hook support — their config writers even drop the spec's `async` flag (Codex writes a 30s `timeout` instead). On those three, non-blocking behavior is guaranteed by the **runtime launcher, not a host flag**. A hook opts in with `runHookEntry({ asyncLauncher: true })`; the launcher then re-spawns the current hook script as a detached, `unref`'d child in its own process group and the parent exits, freeing the host's hook slot. The first invocation does a hard-bounded stdin capture (≤250ms) to carry the payload to the child, then launches and exits *before* any host-dependent or unbounded operation — so a host that holds stdin open without EOF, or enforces a hook timeout, can no longer block or kill the hook before it detaches. (This closed a real defect: the Codex `SessionStart` drain previously awaited an unbounded stdin read before detaching and was killed at Codex's 30s timeout.)
+
+**Launcher guarantees:**
+
+- Frees the host's hook slot immediately (the parent returns before running the work).
+- Survives a host hook-timeout kill: the worker is in its own process group, beyond the reach of a kill aimed at the parent.
+- One named entry point (`asyncLauncher: true`) for every long-running advisory hook.
+
+**Launcher non-guarantees:**
+
+- No user-visible output — the worker's stdout/stderr go nowhere the session shows.
+- No retry — a failed worker is not re-run (drain failures are intentionally not rotated).
+- No ordering or delivery guarantee beyond what the drain's state lock provides.
+
+**Worker diagnostics.** A detached worker is invisible to the host, so it leaves two trails under `.ai/kenkeep/_logs/`:
+
+- `hook-errors-YYYY-MM-DD.log` — one NDJSON line per swallowed hook failure (`{ ts, hook, phase, error }`), written best-effort so a failed diagnostic never surfaces.
+- `proposal/<sessionId>__<ts>.jsonl` — the drain's per-log stream-JSON trace from the headless run.
+
+**Stale-lock interaction.** The drain holds a `proper-lockfile` lock on `state.json` with a 60s stale threshold and an mtime heartbeat while held. If the host kills a detached worker mid-run, the lock it leaves behind is reclaimed by the next drain on acquire (within ~60s) rather than blocking for the old long window — so a killed launcher child degrades to "the next session's drain picks it up," never a wedged queue.
+
 ## Recursion guard
 
 All four hooks exit immediately if `KENKEEP_BUILDER_INTERNAL=1` is set. Two surfaces set this var on the harness child they exec:

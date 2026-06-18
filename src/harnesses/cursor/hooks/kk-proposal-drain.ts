@@ -5,8 +5,8 @@
  * no async hook support and waits for sessionStart hooks before the first
  * turn (measured: a pending backlog stalled session start by up to the full
  * 30s hook timeout, with Cursor killing the hook mid-LLM-run), so the hook
- * re-spawns itself detached and returns immediately; the drain runs in the
- * background child.
+ * routes through the async launcher and returns immediately; the drain runs in
+ * the detached worker.
  */
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { runProposalDrain } from '../../../lib/proposal-drain.js';
@@ -15,7 +15,7 @@ import { buildCursorHarnessOpts } from '../opts.js';
 
 runHookEntry({
   tag: 'cursor:kk-proposal-drain',
-  detach: true,
+  asyncLauncher: true,
   main: async payload => {
     const roots = payload['workspace_roots'];
     const startCwd =

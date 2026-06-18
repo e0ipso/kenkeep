@@ -3,7 +3,7 @@ name: kk-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/kenkeep/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 3 -->
 
 # kk-bootstrap
 
@@ -23,9 +23,30 @@ Before you start, read `.ai/kenkeep/config.yaml` (falling back to `~/.config/ken
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-harness.mjs` on first invocation):
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` and `/tmp/kk-detect-harness.mjs` on first invocation):
 
 ```bash
+if [ ! -f /tmp/kk-detect-root.mjs ]; then
+cat << 'EOF' > /tmp/kk-detect-root.mjs
+#!/usr/bin/env node
+// kk-detect-root: resolves the project root containing .ai/kenkeep.
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+let dir = process.cwd();
+while (true) {
+  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
+    process.stdout.write(dir);
+    process.exit(0);
+  }
+  const parent = dirname(dir);
+  if (parent === dir) {
+    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
+    process.exit(2);
+  }
+  dir = parent;
+}
+EOF
+fi
 if [ ! -f /tmp/kk-detect-harness.mjs ]; then
 cat << 'EOF' > /tmp/kk-detect-harness.mjs
 #!/usr/bin/env node
@@ -42,6 +63,12 @@ const ENV_DETECTORS = [
 function findHint(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
+  }
+  return undefined;
+}
+function findRoot(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--root' && i + 1 < argv.length) return argv[i + 1];
   }
   return undefined;
 }
@@ -71,50 +98,24 @@ function readDefault(root) {
   const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
   return m ? m[1] : undefined;
 }
-const hint = findHint(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const hint = findHint(argv);
 if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
 const fromEnv = detectFromEnv(process.env);
 if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
-const fromDefault = readDefault(findRepoRoot(process.cwd()));
+const fromDefault = readDefault(findRoot(argv) ?? findRepoRoot(process.cwd()));
 if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
 process.stderr.write('kk-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/kenkeep/config.yaml.\n');
 process.exit(2);
 EOF
 fi
-HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint>)
-```
-
-`$HARNESS` is not consumed by `finddocs` or `node write`, but downstream commands in this skill (`index rebuild`) require it.
-
-## Normalize to the repository root
-
-Before reading or writing any `.ai/kenkeep` path, run this block exactly once. It walks upward from the current directory to the installed knowledge base and changes the session shell to that project root, so later relative paths work even when the agent started in a subdirectory:
-
-```bash
-KK_REPO_ROOT=$(node --input-type=module - <<'EOF'
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-let dir = process.cwd();
-while (true) {
-  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
-    process.stdout.write(dir);
-    process.exit(0);
-  }
-  const parent = dirname(dir);
-  if (parent === dir) process.exit(1);
-  dir = parent;
-}
-EOF
-)
-if [ -z "$KK_REPO_ROOT" ]; then
-  echo "No .ai/kenkeep knowledge base found in this directory or its parents." >&2
-  exit 1
-fi
-cd "$KK_REPO_ROOT"
+KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
 pwd
 ```
 
-Treat the printed path as the working directory for every command below.
+`$HARNESS` is not consumed by `finddocs` or `node write`, but downstream commands in this skill (`index rebuild`) require it. Treat the printed path as the working directory for every command below.
 
 ## Steps
 

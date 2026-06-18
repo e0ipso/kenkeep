@@ -73,9 +73,9 @@ describe('copilot adapter shape', () => {
     const paths = copilotAdapter.paths('/repo');
     expect(paths.hooksDir).toBe('/repo/.copilot/hooks');
     expect(paths.skillsDir).toBe('/repo/.github/skills');
-    // settingsFile resolves under the user-level Copilot home, not the repo.
-    expect(paths.settingsFile?.endsWith('/hooks/kk.json')).toBe(true);
-    expect(paths.settingsFile?.startsWith('/repo/')).toBe(false);
+    // settingsFile resolves to the repo-level .github/hooks/kk.json (Copilot
+    // loads repo-level hooks before user-level), never under the user home.
+    expect(paths.settingsFile).toBe('/repo/.github/hooks/kk.json');
     const events = new Set(copilotAdapter.hooks.map(h => h.event));
     expect(events.has('sessionStart')).toBe(true);
     expect(events.has('sessionEnd')).toBe(true);

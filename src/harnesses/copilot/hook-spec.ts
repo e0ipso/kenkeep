@@ -22,7 +22,8 @@ function payload(): Record<string, unknown> {
 /**
  * Canonical hook declarations for the GitHub Copilot CLI adapter. Copilot
  * fires per-event lifecycle hooks configured by a JSON document under
- * `~/.copilot/hooks/`. The list is the source of truth consumed by
+ * `.github/hooks/` (repo-level; Copilot loads it before user-level
+ * `~/.copilot/hooks/`). The list is the source of truth consumed by
  * `writeCopilotHookConfig` (which renders each entry into Copilot's native
  * array-per-event shape using the `payload` blob) and by `doctorChecks`.
  *

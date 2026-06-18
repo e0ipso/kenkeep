@@ -22,23 +22,25 @@ relates_to:
 depends_on: []
 confidence: high
 summary: >-
-  GitHub Copilot CLI adapter; per-event JSON hook config at
-  ~/.copilot/hooks/kk.json; captures on sessionEnd/agentStop from events.jsonl;
-  skills in .github/skills/; no detectFromEnv; session-start ENTRY via a
-  sentinel block in .github/copilot-instructions.md.
+  GitHub Copilot CLI adapter; per-event JSON hook config at the repo-level
+  .github/hooks/kk.json (Copilot loads it before user-level); captures on
+  sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no
+  detectFromEnv; no user-home writes; session-start ENTRY via a sentinel
+  block in .github/copilot-instructions.md.
 ---
 
 # Copilot harness adapter
 
-The Copilot adapter targets the agentic `@github/copilot` binary (the `copilot` command), not `gh copilot` and not the cloud Copilot Coding Agent. Copilot's extension surface is a per-event JSON hook document: one `{ version, hooks }` object whose `hooks` map keys each event name to an array of `{ type, bash, timeoutSec, env }` command entries. The adapter aggregates every event handler into a single file rather than one file per `HookSpec`.
+The Copilot adapter targets the agentic `@github/copilot` binary (the `copilot` command), not `gh copilot` and not the cloud Copilot Coding Agent. Copilot's extension surface is a per-event JSON hook document: one `{ version, hooks }` object whose `hooks` map keys each event name to an array of `{ type, bash, timeoutSec, env }` command entries. The adapter aggregates every event handler into a single file rather than one file per `HookSpec`. Copilot CLI loads hooks from several sources in order (policy, **repository `.github/hooks/*.json`**, user-level `~/.copilot/hooks/`, inline settings, plugins) and combines them; the adapter writes only the repo-level source, so the registration is committed, team-shared, and never touches the user's home directory.
 
 Installed paths:
 
-- `~/.copilot/hooks/kk.json`: the user-level file Copilot actually reads (honors `COPILOT_HOME`). This file is shared across every repo where the user runs `copilot`; the hook scripts no-op silently when the current directory has no `.ai/kenkeep/` project.
-- `.copilot/hooks/kk.json`: a byte-identical in-repo copy committed as a documentation artifact so the registration is visible in source control.
-- `.copilot/kk-hooks/`: the actual hook scripts (`kk-capture.cjs`, `kk-session-start.cjs`, `kk-proposal-drain.cjs`, `kk-lint-tick.cjs`). The directory is `kk-hooks/` rather than `hooks/` so the scripts never collide with the `kk.json` config artifact under `.copilot/hooks/`. The build emits to `kk-hooks/` because the adapter carries a `src/harnesses/copilot/.kk-hooks-output` marker. `.copilot/` is a kenkeep-tool convention: Copilot itself does not read it.
+- `.github/hooks/kk.json`: the **repo-level** file Copilot reads (loaded before user-level). Committed to the repo, shared by the team. `init` writes nothing outside the repository.
+- `.copilot/kk-hooks/`: the actual hook scripts (`kk-capture.cjs`, `kk-session-start.cjs`, `kk-proposal-drain.cjs`, `kk-lint-tick.cjs`). The directory is `kk-hooks/` rather than `hooks/` so the scripts never collide with a config artifact. `.copilot/` is a kenkeep-tool convention: Copilot itself does not read it.
 - `.github/skills/`: the shared `kk-add`, `kk-bootstrap`, `kk-curate` skills, in Copilot's documented project skill location. Living outside `.copilot/` avoids colliding with `.claude/skills/` and `.agents/skills/` in mixed-harness installs.
 - `.github/copilot-instructions.md`: the ENTRY content under a `<!-- kk:start --> ... <!-- kk:end -->` sentinel block (see below).
+
+Migration note: an older `init` wrote `~/.copilot/hooks/kk.json` (user-level). This version does not. If you upgraded from that version, remove the old `~/.copilot/hooks/kk.json` manually; otherwise Copilot loads both files and fires every hook twice.
 
 Capture triggers: `sessionEnd` (mapped to the `session_end` capture trigger) and `agentStop` (mapped to `stop`, the Claude `Stop` analog at each agent-turn boundary). The shared `transcript_hash` dedup keeps one session log per unique transcript even when both fire.
 

@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:afb1d0c0b8cafa14cd8e6f45672b064359604709b1c26bf218752eea42bf4c3f'
+nodes_hash: 'sha256:2172fe1c249903855d149586216b0b985a1bed403fedb7dc7d8fbd7253ec27be'
 node_count: 12
 summary: >-
   the five harness adapters and their isolation rules; read before adding a
@@ -29,7 +29,7 @@ _None._
 - Open [**Claude Code harness adapter**](map-claude-harness.md) to learn about: Claude Code adapter; wires capture to Stop/SessionEnd/PreCompact, registers in .claude/settings.json, installs skills at .claude/skills/. #harness #claude #hooks
 - Open [**Codex CLI harness adapter**](map-codex-harness.md) to learn about: OpenAI Codex CLI adapter; capture and lint tick on Stop only (no SessionEnd/PreCompact); skills under .agents/skills/. #harness #codex #hooks
 - Open [**OpenCode harness adapter**](map-opencode-harness.md) to learn about: OpenCode adapter; plugin shim dispatches session.idle/session.created to kk-hooks/; capture via opencode export with raw ses_ id and temp-file stdout. #harness #opencode #hooks #plugin
-- Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) to learn about: GitHub Copilot CLI adapter; per-event JSON hook config at ~/.copilot/hooks/kk.json; captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; session-start ENTRY via a sentinel block in .github/copilot-instructions.md. #harness #copilot #hooks #adapter
+- Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) to learn about: GitHub Copilot CLI adapter; per-event JSON hook config at the repo-level .github/hooks/kk.json (Copilot loads it before user-level); captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; no user-home writes; session-start ENTRY via a sentinel block in .github/copilot-instructions.md. #harness #copilot #hooks #adapter
 
 ## By topic
 
@@ -42,7 +42,7 @@ _None._
 - Open [**Claude Code harness adapter**](map-claude-harness.md) — Claude Code adapter; wires capture to Stop/SessionEnd/PreCompact, registers in .claude/settings.json, installs skills at .claude/skills/.
 - Open [**Codex CLI harness adapter**](map-codex-harness.md) — OpenAI Codex CLI adapter; capture and lint tick on Stop only (no SessionEnd/PreCompact); skills under .agents/skills/.
 ### #adapter
-- Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) — GitHub Copilot CLI adapter; per-event JSON hook config at ~/.copilot/hooks/kk.json; captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; session-start ENTRY via a sentinel block in .github/copilot-instructions.md.
+- Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) — GitHub Copilot CLI adapter; per-event JSON hook config at the repo-level .github/hooks/kk.json (Copilot loads it before user-level); captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; no user-home writes; session-start ENTRY via a sentinel block in .github/copilot-instructions.md.
 - Open [**Don't translate event names across harness adapters**](practice-no-event-translation-across-adapters.md) — HookEvent is opaque string; each adapter declares the event names its host runtime emits natively. No global enum, no translation.
 - Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
 ### #cursor
@@ -71,7 +71,7 @@ _None._
 - Open [**Surface schema mismatch errors on both init and node-read paths**](../cli/practice-surface-schema-mismatch-errors-on-both-init-and-node-read-paths.md) — Migration schema mismatch errors must be visible both when init runs and when node-reading commands execute.
 ### #copilot
 - Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
-- Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) — GitHub Copilot CLI adapter; per-event JSON hook config at ~/.copilot/hooks/kk.json; captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; session-start ENTRY via a sentinel block in .github/copilot-instructions.md.
+- Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) — GitHub Copilot CLI adapter; per-event JSON hook config at the repo-level .github/hooks/kk.json (Copilot loads it before user-level); captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; no user-home writes; session-start ENTRY via a sentinel block in .github/copilot-instructions.md.
 ### #abstractions
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.
 ### #context-injection

@@ -37,17 +37,15 @@ interface CopilotHookConfig {
 }
 
 /**
- * Builds the hook `bash` command for one script. Copilot's hook config is
- * user-global (`~/.copilot/hooks/`), but it runs each command with the
- * SESSION's cwd (verified against Copilot CLI 1.0.61), so the command walks
- * up from `$PWD` to the nearest directory carrying the script and `exec`s
- * that repo's own copy. Properties this buys over the old absolute-path
- * form (`node /abs/path/in/one/repo/...`):
- *   - byte-identical config for every repo, so a second repo's `init` no
- *     longer stomps the first repo's wiring;
+ * Builds the hook `bash` command for one script. The hook config is
+ * repo-level (`.github/hooks/kk.json`), but Copilot runs each command with
+ * the SESSION's cwd, which may be a subdirectory of the repo. The
+ * walk-up-from-`$PWD` command resolves the session repo's own
+ * `.copilot/kk-hooks/<script>` and `exec`s it, so:
  *   - sessions started in a repo subdirectory still find the hooks;
- *   - every repo runs its own installed script version (no skew, and a
- *     deleted repo cannot break the others);
+ *   - the config carries no per-repo absolute path, so it stays
+ *     byte-identical and portable across machines (a checkout at a
+ *     different path just works);
  *   - sessions outside any kenkeep repo no-op silently.
  * `exec` keeps stdin (the hook payload JSON) flowing to the node process.
  */
@@ -95,21 +93,22 @@ function atomicWriteText(file: string, body: string): void {
 }
 
 /**
- * Renders the aggregated Copilot hook JSON and atomically writes it to both
- * the user-level file Copilot reads (`paths.settingsFile`, i.e.
- * `~/.copilot/hooks/kk.json`) and the in-repo documentation artifact
- * (`<paths.hooksDir>/kk.json`). Both files are byte-identical. Idempotent:
- * re-running produces identical bytes.
+ * Renders the aggregated Copilot hook JSON and atomically writes it to the
+ * **repo-level** file Copilot reads (`paths.settingsFile`, i.e.
+ * `.github/hooks/kk.json`). Copilot CLI loads `.github/hooks/*.json`
+ * before user-level `~/.copilot/hooks/`, so this committed file is the
+ * canonical registration: team-shared, no user-home write, no cross-repo
+ * leakage. Idempotent: re-running produces identical bytes.
  */
 export async function writeCopilotHookConfig(paths: HarnessPaths): Promise<void> {
+  if (!paths.settingsFile) {
+    throw new Error(
+      'writeCopilotHookConfig requires paths.settingsFile (the repo-level .github/hooks/kk.json)'
+    );
+  }
   const config = renderHookConfig();
   const body = `${JSON.stringify(config, null, 2)}\n`;
-
-  const projectFile = join(paths.hooksDir ?? join(paths.dir, 'hooks'), 'kk.json');
-  atomicWriteText(projectFile, body);
-  if (paths.settingsFile) {
-    atomicWriteText(paths.settingsFile, body);
-  }
+  atomicWriteText(paths.settingsFile, body);
 }
 
 /**

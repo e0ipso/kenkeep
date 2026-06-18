@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -14,12 +14,12 @@ import {
 import { KK_NAVIGATION_DIRECTIVE } from '../../src/lib/session-start.js';
 import type { HarnessPaths } from '../../src/harnesses/types.js';
 
-function copilotPaths(root: string, home: string): HarnessPaths {
+function copilotPaths(root: string): HarnessPaths {
   return {
     dir: join(root, '.copilot'),
     hooksDir: join(root, '.copilot', 'hooks'),
     skillsDir: join(root, '.github', 'skills'),
-    settingsFile: join(home, 'hooks', 'kk.json'),
+    settingsFile: join(root, '.github', 'hooks', 'kk.json'),
   };
 }
 
@@ -76,9 +76,11 @@ const roundTrips: HooksRoundTrip[] = [
   },
   {
     id: 'copilot',
-    register: async (root, home) => writeCopilotHookConfig(copilotPaths(root, home)),
-    readCommands: (root, home) => {
-      const parsed = JSON.parse(readFileSync(join(home, 'hooks', 'kk.json'), 'utf8')) as {
+    register: async root => writeCopilotHookConfig(copilotPaths(root)),
+    readCommands: root => {
+      const parsed = JSON.parse(
+        readFileSync(join(root, '.github', 'hooks', 'kk.json'), 'utf8')
+      ) as {
         hooks: Record<string, Array<{ bash: string }>>;
       };
       return Object.values(parsed.hooks).flatMap(entries => entries.map(e => e.bash));
@@ -272,15 +274,12 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     rmSync(home, { recursive: true, force: true });
   });
 
-  it('writes a deterministic { version, hooks } document to both files byte-for-byte', async () => {
-    const paths = copilotPaths(root, home);
+  it('writes a deterministic { version, hooks } document to the repo-level .github/hooks/kk.json only', async () => {
+    const paths = copilotPaths(root);
     await writeCopilotHookConfig(paths);
 
-    const projectFile = join(root, '.copilot', 'hooks', 'kk.json');
-    const userFile = join(home, 'hooks', 'kk.json');
-    expect(readFileSync(projectFile, 'utf8')).toBe(readFileSync(userFile, 'utf8'));
-
-    const parsed = JSON.parse(readFileSync(userFile, 'utf8'));
+    const repoFile = join(root, '.github', 'hooks', 'kk.json');
+    const parsed = JSON.parse(readFileSync(repoFile, 'utf8'));
     expect(parsed.version).toBe(1);
     expect(Object.keys(parsed.hooks).sort()).toEqual(['agentStop', 'sessionEnd', 'sessionStart']);
 
@@ -289,10 +288,10 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     >) {
       for (const entry of entries) {
         expect(entry.type).toBe('command');
-        // Repo-agnostic walk-up command: the config is user-global, so it
-        // must contain no per-repo absolute path (a second repo's init would
-        // otherwise stomp the first), and it must locate the session repo's
-        // own script copy from the session cwd upward.
+        // Repo-agnostic walk-up command: the config is committed in the repo,
+        // so it must contain no per-repo absolute path (a checkout at another
+        // path must still work), and it must locate the session repo's own
+        // script copy from the session cwd upward.
         expect(entry.bash).toContain('.copilot/kk-hooks/');
         expect(entry.bash).toContain('exec node');
         expect(entry.bash).not.toContain(root);
@@ -306,6 +305,11 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     expect(parsed.hooks.sessionStart).toHaveLength(2);
     expect(parsed.hooks.sessionEnd).toHaveLength(2);
     expect(parsed.hooks.agentStop).toHaveLength(1);
+
+    // Nothing is written outside the repo: no user-level ~/.copilot/hooks/kk.json
+    // and no in-repo .copilot/hooks/kk.json artifact.
+    expect(existsSync(join(home, 'hooks', 'kk.json'))).toBe(false);
+    expect(existsSync(join(root, '.copilot', 'hooks', 'kk.json'))).toBe(false);
   });
 
   it('appends a sentinel block, preserves user content, and is zero-diff on re-run', async () => {
@@ -318,7 +322,7 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     mkdirSync(join(root, '.github'), { recursive: true });
     writeFileSync(instructionsFile, 'USER CONTENT HERE\n');
 
-    await writeCopilotInstructionsSentinel(copilotPaths(root, home));
+    await writeCopilotInstructionsSentinel(copilotPaths(root));
     const first = readFileSync(instructionsFile, 'utf8');
     expect(first).toContain('USER CONTENT HERE');
     expect(first).toContain(SENTINEL_START);
@@ -326,7 +330,7 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     expect(first).toContain('Knowledge base index');
     expect(first.split(SENTINEL_START)).toHaveLength(2);
 
-    await writeCopilotInstructionsSentinel(copilotPaths(root, home));
+    await writeCopilotInstructionsSentinel(copilotPaths(root));
     const second = readFileSync(instructionsFile, 'utf8');
     expect(second).toBe(first);
     expect(second.split(SENTINEL_START)).toHaveLength(2);
@@ -342,7 +346,7 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     );
     mkdirSync(join(root, '.github'), { recursive: true });
 
-    await writeCopilotInstructionsSentinel(copilotPaths(root, home));
+    await writeCopilotInstructionsSentinel(copilotPaths(root));
     const body = readFileSync(join(root, '.github', 'copilot-instructions.md'), 'utf8');
     expect(body.split(KK_NAVIGATION_DIRECTIVE)).toHaveLength(2); // exactly one occurrence
   });

@@ -19,7 +19,7 @@ nav_order: 2
 
 The two `SessionStart` entries are independent: a failure in one does not block the other.
 
-Every harness wires the same four scripts through its native mechanism: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.opencode/kk-hooks/`; Copilot via `~/.copilot/hooks/kk.json` walk-up commands. Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the four scripts are identical across all five harnesses.
+Every harness wires the same four scripts through its native mechanism: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.opencode/kk-hooks/`; Copilot via `.github/hooks/kk.json` walk-up commands (repo-level; Copilot loads it before user-level `~/.copilot/hooks/`). Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the four scripts are identical across all five harnesses.
 
 ## Recursion guard
 

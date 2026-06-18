@@ -97,7 +97,7 @@ CI deploys on push to `main`.
 
 ## Adding a new harness adapter
 
-A "harness" is one of the assistant CLIs we drive (Claude Code, Codex CLI, Cursor, OpenCode, GitHub Copilot CLI, ...). Each harness lives under `src/harnesses/<id>/` and ships as a `HarnessAdapter` implementation. Codex and Cursor are the shell-hook reference adapters (`.codex/hooks.json` and `.cursor/hooks.json`); OpenCode uses a plugin shim; Copilot uses a per-event JSON hook document (`~/.copilot/hooks/kk.json`). To wire up a new one (call it `<id>`):
+A "harness" is one of the assistant CLIs we drive (Claude Code, Codex CLI, Cursor, OpenCode, GitHub Copilot CLI, ...). Each harness lives under `src/harnesses/<id>/` and ships as a `HarnessAdapter` implementation. Codex and Cursor are the shell-hook reference adapters (`.codex/hooks.json` and `.cursor/hooks.json`); OpenCode uses a plugin shim; Copilot uses a per-event JSON hook document (`.github/hooks/kk.json`, repo-level). To wire up a new one (call it `<id>`):
 
 1. **Implement `HarnessAdapter`.** The interface lives in [`src/harnesses/types.ts`](src/harnesses/types.ts). Provide `id`, `hooks`, `paths`, `install`, `upgrade`, `parseTranscript`, `renderTranscript`, `runHeadless`, `buildHarnessOpts`, `doctorChecks`, and (optionally) `detectFromEnv`.
 2. **Declare your event vocabulary.** `HookEvent` is opaque `string`; each adapter declares the event names its host runtime actually emits (Claude uses `Stop`/`SessionEnd`/...; Codex reuses Claude names; OpenCode uses `session.idle`/`session.created`). Pick whatever names the runtime exposes natively; do not translate to a global enum.

@@ -64,7 +64,7 @@ kenkeep does **not** scan or redact the transcript. Secrets present in the sessi
 Per `SessionStart`:
 
 1. Recursion guard.
-2. Acquire the `proposal-drain` lock (PID + 30-min TTL). Stale locks are reclaimed.
+2. Acquire the `proposal-drain` lock on `state.json` via `proper-lockfile` (a mkdir-atomic `state.json.lock` directory whose mtime is refreshed on a heartbeat while held; 60s stale threshold). A drain killed mid-run by the host's outer timeout leaves a stale lock that the next drain auto-reclaims on acquire.
 3. Load the prompt (local override first, bundled fallback).
 4. Sweep `_sessions/*.md` for frontmatter with `proposal_status: pending`.
 5. Per pending log: spawn the active harness's headless driver in streaming-JSON mode, stream to `_logs/proposal/<session-id>__<ts>.jsonl`, parse the final `result`, validate against `ProposalOutputSchema`.

@@ -106,7 +106,7 @@ The parallel path additionally writes a `<runId>__<batchN>.draft.json` beside ea
 
 ## Locking
 
-Only the **proposal-drain hook** locks. It holds a `state.json` lock (PID + 30-min TTL, stale locks reclaimed) to keep concurrent SessionStart drains from racing on the pending queue.
+Only the **proposal-drain hook** locks. It holds a `proper-lockfile` lock on `state.json` (a mkdir-atomic `state.json.lock` directory whose mtime is refreshed on a heartbeat while held; 60s stale threshold) to keep concurrent SessionStart drains from racing on the pending queue. A drain SIGKILLed by the host's outer hook timeout can neither run its `finally` release nor `proper-lockfile`'s graceful-exit handler, so the lock only clears once it goes stale; the next drain auto-reclaims it on acquire (recovery within ~60s, vs. the 30-min state-file default used by other locks).
 
 **Curate, bootstrap, and consume do not lock.** Curate and bootstrap each run in a single host harness session per user invocation (single-author by design); the atomic tmp+rename writes inside `node write` and `curate-dedup` provide durability.
 

@@ -100,7 +100,7 @@ Curate and bootstrap take no `state.json` lock; they are single-author by design
 
 - [ ] Run two `curate` launchers in parallel against the same repo (`&` in a shell). Both run to completion; neither errors out with "locked". After both finish, run `index rebuild` and `doctor`. `state.json` and session-log frontmatter both parse cleanly (Zod validation passes), even though one writer's session-stamp updates may have silently lost to the other.
 - [ ] Worst case is some sessions reprocess on the next `curate` run. Confirm: re-run `curate`, verify the unstamped sessions get processed.
-- [ ] The proposal-drain hook still takes its own `proposal-drain` lock (independent surface). Trigger two `SessionStart` events in quick succession against the same repo; the second drain skips while the first holds the lock and reclaims it after the 30-min TTL on the next run.
+- [ ] The proposal-drain hook still takes its own `proposal-drain` lock (independent surface; `proper-lockfile` on `state.json`, 60s stale threshold). Trigger two `SessionStart` events in quick succession against the same repo; the second drain skips while the first holds the lock. Simulate an interrupted drain by killing the holder; within ~60s the stale lock is auto-reclaimed on the next drain (`DrainSummary.recoveredStaleLock === true`).
 
 ## 9. Settings file
 

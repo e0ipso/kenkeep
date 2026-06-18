@@ -184,12 +184,11 @@ Generated `index.md` files are excluded so the hash isn't self-referential: a re
 ```json
 {
   "schema_version": 1,
-  "lock": { "name": "...", "pid": 12345, "acquired_at": "...", "ttl_ms": 1800000 },
   "last_nudged_at": "2026-05-11T10:00:00Z"
 }
 ```
 
-`lock` is `null` when no lock is held. Validated by `StateFileSchema`. Gitignored.
+Validated by `StateFileSchema`. Gitignored. The file carries only `last_nudged_at`; the proposal-drain lock is a separate `proper-lockfile` directory (`state.json.lock`, 60s stale threshold), not a field in this JSON.
 
 ### `.state/bootstrap-state.json`
 

@@ -1,6 +1,6 @@
 import matter from 'gray-matter';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { atomicWriteFile } from './fs-atomic.js';
 import { join } from 'node:path';
 import type { ZodSchema } from 'zod';
@@ -8,12 +8,29 @@ import { ProposalOutputSchema } from './schemas.js';
 import lockfile from 'proper-lockfile';
 import { findRepoRoot, packageTemplatesDir, repoPaths, type RepoPaths } from './paths.js';
 import { resolveSettings, type EffectiveSettings } from './settings.js';
-import { STATE_LOCK_OPTIONS } from './state.js';
 import { compactStamp } from './time.js';
 
 export const DEFAULT_MAX_ENTRIES = Infinity;
 export const DEFAULT_TIMEOUT_MS = 60_000;
 export const MAX_PROPOSAL_ERROR_LEN = 500;
+
+/**
+ * Lock options for the proposal drain's hold on `state.json`.
+ *
+ * The drain runs inside a host SessionStart hook whose outer runner may
+ * SIGKILL the process on timeout (or the host may crash). A SIGKILLed drain
+ * can neither run its `finally` release nor proper-lockfile's graceful-exit
+ * handler, so the lock only clears once it goes stale. proper-lockfile
+ * refreshes the lockfile mtime on a heartbeat (every `stale/2`) while the
+ * drainer is alive, so a live drain stays fresh however long it runs; a
+ * killed drain's lock becomes stale after this window and the next drain
+ * auto-reclaims it (proper-lockfile removes stale locks on acquire).
+ *
+ * 60s is far below the 30-min state-file default, yet well above the 30s
+ * heartbeat so a live drain is never falsely declared stale. Recovery lands
+ * within about a minute of the kill instead of blocking the queue for 30 min.
+ */
+export const PROPOSAL_DRAIN_LOCK_OPTIONS = { stale: 60_000, realpath: false } as const;
 
 export type ProposalRunner = <T>(
   promptBody: string,
@@ -51,6 +68,12 @@ export interface DrainSummary {
   processed: DrainEntryResult[];
   remaining: number;
   reason?: string;
+  /**
+   * True when the drain acquired a lock that was stale on arrival — i.e. a
+   * prior drain was interrupted (SIGKILLed or crashed) before releasing. Lets
+   * the hook layer log a recovery diagnostic. Only set on `status: 'completed'`.
+   */
+  recoveredStaleLock?: boolean;
 }
 
 export const TRANSCRIPT_PLACEHOLDER = '[TRANSCRIPT PLACEHOLDER, substituted at runtime]';
@@ -66,18 +89,34 @@ interface PendingSessionLog {
  * `proposal_status: 'pending'` up to `maxEntries`, and writes the outcome
  * back into the same frontmatter (`done` or `failed`). No retries: a failed
  * log stays `failed` until a human intervenes.
+ *
+ * Lock recovery: the lock uses a short stale threshold
+ * (`PROPOSAL_DRAIN_LOCK_OPTIONS.stale`) so a drain killed mid-run by the
+ * host's outer timeout is auto-reclaimed by the next drain once it goes
+ * stale, instead of blocking the queue for the 30-min state-file default. A
+ * stale lock detected on arrival is reported via `recoveredStaleLock`.
  */
 export async function drainProposalQueue(ctx: DrainContext): Promise<DrainSummary> {
   const maxEntries = ctx.maxEntries ?? DEFAULT_MAX_ENTRIES;
   const timeoutMs = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const stateFile = join(ctx.paths.stateDir, 'state.json');
 
+  // Detect a stale lock left by an interrupted prior drain BEFORE acquiring.
+  // proper-lockfile auto-reclaims it during the lock() below; the flag is
+  // surfaced so the hook layer can log a recovery diagnostic.
+  const recoveredStaleLock = isStaleLockPresent(stateFile);
+
   let release: (() => Promise<void>) | undefined;
   try {
-    release = await lockfile.lock(stateFile, STATE_LOCK_OPTIONS);
+    release = await lockfile.lock(stateFile, PROPOSAL_DRAIN_LOCK_OPTIONS);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ELOCKED') {
-      return { status: 'locked', processed: [], remaining: countPending(ctx.paths.sessionsDir) };
+      return {
+        status: 'locked',
+        processed: [],
+        remaining: countPending(ctx.paths.sessionsDir),
+        reason: lockHeldDetail(stateFile),
+      };
     }
     throw err;
   }
@@ -103,7 +142,46 @@ export async function drainProposalQueue(ctx: DrainContext): Promise<DrainSummar
   }
 
   const remaining = countPending(ctx.paths.sessionsDir);
-  return { status: 'completed', processed, remaining };
+  return { status: 'completed', processed, remaining, recoveredStaleLock };
+}
+
+function lockDirOf(stateFile: string): string {
+  return `${stateFile}.lock`;
+}
+
+/**
+ * Reports whether a stale proposal-drain lock directory is sitting on
+ * `state.json` right now — i.e. a prior drain was interrupted (SIGKILLed or
+ * crashed) before releasing. proper-lockfile will auto-reclaim it on the next
+ * `lock()` call. Best-effort: a missing or fresh lock returns false; any stat
+ * error is treated as "no stale lock".
+ */
+function isStaleLockPresent(stateFile: string): boolean {
+  try {
+    const st = statSync(lockDirOf(stateFile));
+    return st.mtimeMs < Date.now() - PROPOSAL_DRAIN_LOCK_OPTIONS.stale;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Builds a human-readable detail string for the ELOCKED case: the lock age and
+ * an estimate of when an interrupted holder's lock would auto-recover. When
+ * the lock directory cannot be stat'd (e.g. it was just released between the
+ * failed acquire and this read), returns a generic fallback.
+ */
+function lockHeldDetail(stateFile: string): string {
+  try {
+    const st = statSync(lockDirOf(stateFile));
+    const now = Date.now();
+    const ageMs = now - st.mtimeMs;
+    const ageSec = Math.round(ageMs / 1000);
+    const recoversInSec = Math.round(Math.max(0, PROPOSAL_DRAIN_LOCK_OPTIONS.stale - ageMs) / 1000);
+    return `age ${ageSec}s; auto-recovers in ~${recoversInSec}s if the holder was killed`;
+  } catch {
+    return 'another drain is running';
+  }
 }
 
 function listPending(sessionsDir: string): PendingSessionLog[] {
@@ -300,8 +378,16 @@ export async function runProposalDrain(opts: ProposalDrainOpts): Promise<void> {
       harnessOpts: opts.buildHarnessOpts(settings),
     });
     if (summary.status === 'locked') {
-      process.stderr.write('🔒 kenkeep Proposals: Drain already in progress.\n');
+      const detail = summary.reason ? ` (${summary.reason})` : '';
+      process.stderr.write(
+        `🔒 kenkeep Proposals: Drain lock held${detail}; skipping this run, the next session start retries.\n`
+      );
       return;
+    }
+    if (summary.recoveredStaleLock) {
+      process.stderr.write(
+        `${PACKAGE_TAG} proposal drain: recovered a stale lock from an interrupted prior run.\n`
+      );
     }
     const failed = summary.processed.filter(p => p.status === 'failed');
     if (failed.length > 0) {

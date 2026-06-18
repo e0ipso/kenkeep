@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:1e5ed1243b4a5c1845c7c9170c3ea8fc6999bc14ed8f3a053f6bcdebe5f0362d'
+nodes_hash: 'sha256:731dbb7e4239449d48496e8c93a25d8b635e64e1aa8e10a7938cd3ec271a9808'
 node_count: 2
 summary: >-
   session logs and runtime state files; read when changing capture state, locks,
@@ -20,16 +20,16 @@ _None yet._
 
 ## Components (what exists)
 - Open [**Session log (_sessions/*.md)**](map-session-log.md) to learn about: Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases. #session #capture #state #schema
-- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) to learn about: Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks reclaimed) and last_nudged_at. #state #lock #schema
+- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) to learn about: Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field. #state #lock #schema
 
 ## By topic
 
 ### #schema
-- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks reclaimed) and last_nudged_at.
+- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 - Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — Schema migrations are handled by one generic migrate command that detects the current schema and dispatches the appropriate step, not by separate commands per bump.
 ### #state
-- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks reclaimed) and last_nudged_at.
+- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 - Open [**.state/bootstrap-state.json (per-doc hash cache)**](../bootstrap/map-bootstrap-state-file.md) — Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs. Gitignored.
 - Open [**Session log (_sessions/*.md)**](map-session-log.md) — Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases.
 ### #capture
@@ -37,6 +37,6 @@ _None yet._
 - Open [**Add hermetic end-to-end capture tests per harness**](../hooks/practice-add-hermetic-end-to-end-capture-tests-per-harness.md) — Unit tests alone miss capture regressions; each harness needs a hermetic integration test that exercises the built hook end-to-end.
 - Open [**Session log (_sessions/*.md)**](map-session-log.md) — Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases.
 ### #lock
-- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks reclaimed) and last_nudged_at.
+- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 ### #session
 - Open [**Session log (_sessions/*.md)**](map-session-log.md) — Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases.

@@ -36,7 +36,7 @@ summary: >-
 Asynchronous hook fired on `SessionStart`. Pipeline for Codex, Cursor, and OpenCode adapters:
 
 1. Recursion guard: exit if `KENKEEP_BUILDER_INTERNAL=1`.
-2. Acquire the `proposal-drain` lock in `state.json` (PID + 30-min TTL). Stale locks are reclaimed.
+2. Acquire the proposal-drain lock on `state.json` via `proper-lockfile` (a `mkdir`-atomic `state.json.lock` directory whose mtime is refreshed on a heartbeat while held; 60s stale threshold). A drain killed mid-run by the host's outer timeout leaves a stale lock that the next drain auto-reclaims on acquire (`DrainSummary.recoveredStaleLock`); the ELOCKED path reports lock age + ETA.
 3. Load the prompt: local override at `.ai/kenkeep/.config/prompts/proposal-extract.md` first, bundled fallback otherwise.
 4. Sweep `_sessions/*.md` for frontmatter with `proposal_status: pending` and process each one.
 5. Per log: spawn the adapter's headless runner (e.g. `codex exec`, `agent -p`, `opencode run`), stream to `_logs/proposal/<session-id>__<ts>.jsonl`, parse the final `result`, validate against `ProposalOutputSchema`.

@@ -12,11 +12,13 @@ derived_from:
   - docs/internals/schemas.md
 relates_to:
   - map-bootstrap-state-file
+  - map-proposal-drain-hook
 depends_on: []
 confidence: high
 summary: >-
-  Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks
-  reclaimed) and last_nudged_at.
+  Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock
+  is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON
+  field.
 ---
 
 # `.state/state.json`
@@ -26,19 +28,18 @@ Gitignored runtime state, validated by `StateFileSchema`.
 ```json
 {
   "schema_version": 1,
-  "lock": { "name": "...", "pid": 12345, "acquired_at": "...", "ttl_ms": 1800000 },
   "last_nudged_at": "2026-05-11T10:00:00Z"
 }
 ```
 
-`lock` is `null` when no lock is held. Three named locks (one at a time):
+The file carries only `last_nudged_at`. There is **no `lock` field** in the JSON — the proposal-drain lock is a sidecar `proper-lockfile` directory (`state.json.lock`), not a field in this file.
 
-- `proposal-drain` — prevents concurrent `SessionStart` drains racing on the queue.
-- `curator` — prevents duplicate proposals from concurrent `curate` runs.
-- `bootstrap-incremental` — same, for the bootstrap CLI.
+`last_nudged_at` is written by `kk-session-start` after it appends the curate nudge to the session's `additionalContext`. Recorded for audit purposes; no throttle is applied.
 
-`curate` and `bootstrap-incremental` use **distinct** lock names, so they do not block each other.
+## The proposal-drain lock
 
-TTL is 30 minutes; stale locks are reclaimed. Manual recovery: clear the `lock` field manually if a process died without releasing.
+Only the **proposal-drain hook** locks `state.json`. It uses `proper-lockfile` (a `mkdir`-atomic `state.json.lock` directory whose mtime is refreshed on a heartbeat while held; `PROPOSAL_DRAIN_LOCK_OPTIONS.stale` = 60s). A drain SIGKILLed by the host's outer hook timeout can neither run its `finally` release nor `proper-lockfile`'s graceful-exit handler, so the lock only clears once it goes stale; the next drain auto-reclaims it on acquire (recovery within ~60s). `DrainSummary.recoveredStaleLock` flags a reclaimed stale lock; the ELOCKED path reports lock age + ETA.
 
-`last_nudged_at` is written by `kk-session-start.mjs` after it appends the curate nudge to the session's `additionalContext`. Recorded for audit purposes; no throttle is applied.
+**Curate, bootstrap, and consume do not lock `state.json`.** Curate and bootstrap each run in a single host harness session per invocation (single-author by design); the atomic tmp+rename writes inside `node write` and `curate-dedup` provide durability. `node write` does take a `proper-lockfile` lock, but on the separate `bootstrap-state.json` (with retries, to serialise concurrent `--source-doc` writers); `reconcileUsage` locks `usage.jsonl`. Neither touches `state.json`.
+
+Manual recovery (rare): remove the `.ai/kenkeep/.state/state.json.lock` directory if a stale lock somehow persists past the 60s window.

@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:6840fc8ffb39825db71c33993c4afa7980ba6f6e3eba4120a304754a47d385fa'
+nodes_hash: 'sha256:d408d51d2bfd6953c2e9216bd8b8610a8df955634406bf1a8b60b34b5dcb7ca6'
 node_count: 9
 summary: >-
   the capture, session-start, drain, and lint-tick hooks and how they are built;

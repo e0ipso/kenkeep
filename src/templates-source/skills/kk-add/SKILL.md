@@ -3,7 +3,7 @@ name: kk-add
 description: Capture a kenkeep node manually from the current session. Writes a new node directly under `.ai/kenkeep/nodes/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 3 -->
+<!-- Version: 4 -->
 
 # kk-add
 
@@ -77,6 +77,36 @@ HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint>)
 ```
 
 `$HARNESS` is not consumed by `node write`, but other kenkeep commands invoked downstream still require it.
+
+## Normalize to the repository root
+
+Before reading or writing any `.ai/kenkeep` path, run this block exactly once. It walks upward from the current directory to the installed knowledge base and changes the session shell to that project root, so later relative paths work even when the agent started in a subdirectory:
+
+```bash
+KK_REPO_ROOT=$(node --input-type=module - <<'EOF'
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+let dir = process.cwd();
+while (true) {
+  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
+    process.stdout.write(dir);
+    process.exit(0);
+  }
+  const parent = dirname(dir);
+  if (parent === dir) process.exit(1);
+  dir = parent;
+}
+EOF
+)
+if [ -z "$KK_REPO_ROOT" ]; then
+  echo "No .ai/kenkeep knowledge base found in this directory or its parents." >&2
+  exit 1
+fi
+cd "$KK_REPO_ROOT"
+pwd
+```
+
+Treat the printed path as the working directory for every command below.
 
 ## Capture the node
 

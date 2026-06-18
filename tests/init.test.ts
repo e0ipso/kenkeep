@@ -54,6 +54,18 @@ describe('init', () => {
     expect(existsSync(join(sandbox, '.ai/kenkeep/_proposed'))).toBe(false);
   });
 
+  it('installs skills that normalize subdirectory sessions to the repo root', async () => {
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(result.exitCode).toBe(0);
+
+    for (const skill of ['kk-add', 'kk-bootstrap', 'kk-curate', 'kk-migrate']) {
+      const body = readFileSync(join(sandbox, `.claude/skills/${skill}/SKILL.md`), 'utf8');
+      expect(body).toContain('## Normalize to the repository root');
+      expect(body).toContain('cd "$KK_REPO_ROOT"');
+      expect(body).toContain('Treat the printed path as the working directory');
+    }
+  });
+
   it('stamps installed-version with current package version', async () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(result.exitCode).toBe(0);

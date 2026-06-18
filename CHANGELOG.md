@@ -1,3 +1,12 @@
+## [1.5.3](https://github.com/e0ipso/kenkeep/compare/v1.5.2...v1.5.3) (2026-06-18)
+
+### Bug Fixes
+
+* **hooks:** harden launch path into a canonical async launcher ([#52](https://github.com/e0ipso/kenkeep/issues/52)) ([2dce8bf](https://github.com/e0ipso/kenkeep/commit/2dce8bf06b3590d6876b9181db778df0fa9a804b))
+* **hooks:** route lint-tick via async launcher ([e177ff8](https://github.com/e0ipso/kenkeep/commit/e177ff87d5104057f37c6af8b6cd184c27025f08)), closes [#52](https://github.com/e0ipso/kenkeep/issues/52)
+* make async hooks really async ([c5bde59](https://github.com/e0ipso/kenkeep/commit/c5bde5961eeac7c277ccbe18a800e2277890a629))
+* **proposal-drain:** recover stale lock quickly after an interrupted run ([#51](https://github.com/e0ipso/kenkeep/issues/51)) ([c073666](https://github.com/e0ipso/kenkeep/commit/c073666efb4386ab9bd2f70cd5a9c9d95b3ce93d))
+
 ## [1.5.2](https://github.com/e0ipso/kenkeep/compare/v1.5.1...v1.5.2) (2026-06-18)
 
 ### Bug Fixes

@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:3cf33b3455cfa7df3c0815ca0c866a8c40ea6a007d574ce86e4c7399c6c05038'
+nodes_hash: 'sha256:add324a66b86cb418a6229244d2b41beadaffbb18309bad98f2ece6b76b9f2ac'
 node_count: 6
 summary: >-
   seeding the knowledge base from existing docs via /kk-bootstrap; read when
@@ -58,14 +58,14 @@ _None._
 ### #sampling
 - Open [**Bootstrap is supervised and judgmental, not exhaustive**](practice-bootstrap-is-supervised-and-judgmental.md) — /kk-bootstrap samples, follows cross-references, and stops to ask when scope is unclear. Don't read every doc end-to-end.
 ### #schema
-- Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks reclaimed) and last_nudged_at.
+- Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 - Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — Schema migrations are handled by one generic migrate command that detects the current schema and dispatches the appropriate step, not by separate commands per bump.
 ### #skill
 - Open [**curate (CLI command + /kk-curate skill)**](../curation/map-curate-command.md) — Runs the curator on processed session logs. Applies add/modify/contradict/drop actions directly to nodes/. /kk-curate is the in-session equivalent.
 - Open [**/kk-bootstrap skill**](map-kk-bootstrap-skill.md) — Supervised, agent-driven first-pass bootstrap. Surveys docs, writes practice/map nodes directly under nodes/. Reviewer accepts via git commit.
 ### #state
-- Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state. Holds one lock at a time (30-min TTL, stale locks reclaimed) and last_nudged_at.
+- Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 - Open [**.state/bootstrap-state.json (per-doc hash cache)**](map-bootstrap-state-file.md) — Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs. Gitignored.
 - Open [**Session log (_sessions/*.md)**](../state/map-session-log.md) — Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per session_id; frontmatter tracks capture, proposal, and curator phases.
 ### #supervision

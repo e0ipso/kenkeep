@@ -37,7 +37,7 @@ Deterministic, hash-aware bootstrap from existing markdown docs. Chunks candidat
 
 Collision behavior matches the `/kk-bootstrap` skill: never overwrites an existing node. Collisions are skipped and reported.
 
-Locking: takes the `bootstrap-incremental` lock in `state.json` (distinct from `curator`, so the two do not block each other).
+Locking: the command itself takes no `state.json` lock (single-author). The `node write` primitive it drives does take a `proper-lockfile` lock, but on the separate `bootstrap-state.json` (with retries, to serialise concurrent `--source-doc` hash-map writers) — not on `state.json`.
 
 Per-spawn model selection from `bootstrapModel: { name, effort }` in `config.yaml`.
 

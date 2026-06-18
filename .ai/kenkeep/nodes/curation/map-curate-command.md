@@ -38,6 +38,6 @@ At end-of-run, regenerates `ENTRY.md` and `GRAPH.md` deterministically (no LLM).
 
 The in-session equivalent is the `/kk-curate` skill. The skill runs the CLI, then walks any pending conflict files with the user (Accept / Reject / Keep as record) and applies the chosen resolution. Conflict resolution always goes through the user; the curator never auto-resolves.
 
-Locking: takes the `curator` lock in `state.json` (30-min TTL). Distinct from the `bootstrap-incremental` lock, so the two CLIs do not block each other.
+Locking: none. `curate` is single-author (one host session per invocation) and takes no `state.json` lock; running two `curate` invocations concurrently may silently drop one writer's session-stamp update (no data corruption, but some sessions reprocess on the next run). The atomic tmp+rename writes inside `curate-dedup` provide durability.
 
 Per-spawn model selection from `curatorModel: { name, effort }` in `config.yaml`.

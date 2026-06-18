@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:9d60a05af22d4c593dc1e198a8703481f8fe2310e20c54da27c908753adaaf7d'
+nodes_hash: 'sha256:fe0912e468f14b9dd4aa8b1a5c50217a77f6b22212de2ddf1f7a1ee869e2edb8'
 node_count: 68
 ---
 # kenkeep Graph
@@ -261,7 +261,7 @@ Total nodes: 68
 - **title:** .state/state.json (lock + nudge state)
 - **path:** state/map-state-file.md
 - **tags:** state, lock, schema
-- **relates_to:** map-bootstrap-state-file
+- **relates_to:** map-bootstrap-state-file, map-proposal-drain-hook
 - **derived_from:** docs/internals/architecture.md, docs/internals/schemas.md
 
 ## map-update-agents-md-kk-index-pointer-injection-into-agents-md

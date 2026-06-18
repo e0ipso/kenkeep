@@ -1,5 +1,5 @@
 import matter from 'gray-matter';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -177,4 +177,107 @@ describe('kk-proposal-drain hook (spawned)', () => {
     }
     expect(status).toBe('failed');
   }, 30_000);
+});
+
+/**
+ * Harness-agnostic regression for the async hook launcher (plan 52 / issue #52).
+ *
+ * Confirmed root cause (reproduced against the pre-fix code): `runHookEntry`
+ * (src/lib/hook-entry.ts) awaited an unbounded stdin read BEFORE re-spawning the
+ * detached worker, and that read (src/lib/stdin.ts) resolved only on stdin
+ * 'end'/'error' (or immediately when isTTY). When a host spawns the hook with
+ * its stdin held open and never sends EOF, the parent blocked in the read, never
+ * reached the detach, and was killed by the host's hook timeout before it could
+ * free the slot. This is a property of the launch path, not of any single
+ * harness: Codex, Cursor, and Copilot route through the identical launcher path.
+ *
+ * The fix (async launcher, src/lib/async-launcher.ts) launches the detached
+ * worker before any host-dependent or unbounded operation — only a hard-bounded
+ * payload capture precedes it — so the parent frees the slot regardless of the
+ * host's stdin/timeout behavior.
+ *
+ * These cases assert that invariant: the parent frees the host slot before a
+ * bounded timeout while the drain completes in a detached child. The
+ * fast-return-with-completed-work assertion prevents a "return fast but skip the
+ * drain" regression from making them green falsely.
+ */
+describe('kk-proposal-drain launch path: held-open stdin without EOF', () => {
+  const harnesses = [
+    { name: 'codex', binary: 'codex', payload: (s: string) => ({ cwd: s }) },
+    { name: 'cursor', binary: 'agent', payload: (s: string) => ({ workspace_roots: [s] }) },
+    { name: 'copilot', binary: 'copilot', payload: (s: string) => ({ cwd: s }) },
+  ] as const;
+
+  let sandbox: string;
+  beforeEach(async () => {
+    sandbox = makeSandbox();
+    const { execFile: ef } = await import('node:child_process');
+    await new Promise<void>((res, rej) =>
+      ef('git', ['init', '-q'], { cwd: sandbox }, err => (err ? rej(err) : res()))
+    );
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+  });
+  afterEach(() => cleanSandbox(sandbox));
+
+  describe.each(harnesses)('$name detach-reliant harness', ({ name, binary, payload }) => {
+    it('frees the host slot before EOF and still drains in a detached child', async () => {
+      if (process.platform === 'win32') return;
+      const drainHook = join(repoRoot, `dist/hooks/${name}/kk-proposal-drain.cjs`);
+      expect(existsSync(drainHook)).toBe(true);
+      const file = seedSession(sandbox, `${name}-held-open`);
+
+      // Failing stub named after the harness binary: sleeps 3s (long enough to
+      // prove the parent did not wait for it) then exits non-zero (so the
+      // detached child marks the pending log 'failed' — observable completion).
+      const stubDir = join(sandbox, `stub-${name}`);
+      mkdirSync(stubDir, { recursive: true });
+      writeFileSync(join(stubDir, binary), '#!/bin/sh\nsleep 3\nexit 1\n', { mode: 0o755 });
+      const env = { PATH: `${stubDir}:${dirname(process.execPath)}:/usr/bin` };
+
+      // Stands in for a real host hook timeout (Codex uses 30s; we bound far
+      // tighter so the block surfaces quickly).
+      const HOST_TIMEOUT_MS = 2500;
+      const start = Date.now();
+      const child = spawn(process.execPath, [drainHook], {
+        cwd: sandbox,
+        env: { ...process.env, NO_COLOR: '1', ...env },
+        stdio: ['pipe', 'ignore', 'ignore'],
+      });
+      // Write the payload but NEVER end stdin: emulate a host that holds the
+      // hook's stdin open without sending EOF.
+      child.stdin.write(JSON.stringify(payload(sandbox)));
+
+      const exitedBeforeTimeout = await new Promise<boolean>(res => {
+        const timer = setTimeout(() => res(false), HOST_TIMEOUT_MS);
+        child.on('exit', () => {
+          clearTimeout(timer);
+          res(true);
+        });
+      });
+      const parentMs = Date.now() - start;
+      if (!exitedBeforeTimeout) {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // already gone
+        }
+      }
+
+      // Invariant: the parent frees the host slot before the timeout.
+      expect(exitedBeforeTimeout).toBe(true);
+      expect(parentMs).toBeLessThan(HOST_TIMEOUT_MS);
+
+      // Not a fast return that skips work: the detached child drains to
+      // completion in the background (failing stub => 'failed').
+      const logFile = join(sandbox, '.ai/kenkeep/_sessions', file);
+      let status = '';
+      const deadline = Date.now() + 15_000;
+      while (Date.now() < deadline) {
+        status = matter(readFileSync(logFile, 'utf8')).data['proposal_status'] as string;
+        if (status !== 'pending') break;
+        await new Promise(r => setTimeout(r, 250));
+      }
+      expect(status).toBe('failed');
+    }, 30_000);
+  });
 });

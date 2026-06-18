@@ -2,16 +2,21 @@
  * Shared scaffold for kenkeep hook entry points.
  *
  * Owns: the KENKEEP_BUILDER_INTERNAL recursion guard; the optional hard-deadline
- * timer with a diagnostic log on fire; stdin reading (or detach-pattern stdin
- * resolution when `detach: true`); JSON parsing with a 'parse' diagnostic on
- * non-empty unparseable input; the outer `.catch` block with an 'uncaught'
+ * timer with a diagnostic log on fire; stdin reading (or async-launcher payload
+ * resolution when `asyncLauncher: true`); JSON parsing with a 'parse' diagnostic
+ * on non-empty unparseable input; the outer `.catch` block with an 'uncaught'
  * diagnostic and `process.exit(0)`.
  *
  * Per-adapter hook files keep only their unique logic (cwd/root resolution,
  * pipeline invocation) inside the `main` callback.
  */
+import {
+  isLauncherChild,
+  launchDetachedWorker,
+  launcherPayload,
+  LAUNCHER_STDIN_DEADLINE_MS,
+} from './async-launcher.js';
 import { appendHookDiagnostic } from './hook-diagnostic.js';
-import { detachedPayload, detachSelf, isDetachedChild } from './hook-detach.js';
 import { findRepoRoot, repoPaths } from './paths.js';
 import { readStdin } from './stdin.js';
 
@@ -29,14 +34,20 @@ export interface HookEntryOptions {
   deadlineMs?: number;
 
   /**
-   * When `true`, use the detach-pattern for stdin: if this process is the
-   * detached background child read from `KENKEEP_HOOK_PAYLOAD`; otherwise read
-   * from stdin, then re-spawn a detached child carrying the raw payload and
-   * return immediately so the host hook slot is freed.
+   * When `true`, route this long-running, non-context hook through the canonical
+   * async launcher (`async-launcher.ts`) on harnesses that lack native async.
    *
-   * Applies only to hooks that need it (Codex, Copilot, Cursor proposal-drain).
+   * The launcher child (identified by the launcher marker) reads its payload
+   * from the launcher env var and runs the work inline. The first invocation
+   * launches that detached child *before* any unbounded or host-dependent
+   * operation — a best-effort bounded stdin capture is the only thing that
+   * precedes the launch — then exits, freeing the host hook slot regardless of
+   * the host's stdin or timeout behavior.
+   *
+   * Use only for advisory workers (proposal drain, lint tick), never for
+   * context-producing hooks that must return data to the host.
    */
-  detach?: boolean;
+  asyncLauncher?: boolean;
 
   /**
    * When `true`, return early (without calling `main`) if stdin is empty.
@@ -61,7 +72,7 @@ export interface HookEntryOptions {
  * Returns `void`; the function is fire-and-forget (call without `await`).
  */
 export function runHookEntry(options: HookEntryOptions): void {
-  const { tag, deadlineMs, detach = false, requirePayload = false, main } = options;
+  const { tag, deadlineMs, asyncLauncher = false, requirePayload = false, main } = options;
 
   async function run(): Promise<void> {
     // Recursion guard: prevent re-entry when our own headless runners
@@ -88,11 +99,27 @@ export function runHookEntry(options: HookEntryOptions): void {
       deadline.unref();
     }
 
-    // Stdin acquisition — honour the detach pattern when requested.
+    // Stdin acquisition — route through the async launcher when requested.
     let raw: string;
-    if (detach) {
-      raw = isDetachedChild() ? detachedPayload() : await readStdin();
-      if (!isDetachedChild() && detachSelf(raw)) return;
+    if (asyncLauncher) {
+      if (isLauncherChild()) {
+        // The detached worker: take the payload the parent captured.
+        raw = launcherPayload();
+      } else {
+        // Capture the payload with a hard bound so the launch never waits on a
+        // host that holds stdin open without EOF, then launch the detached
+        // worker before any host-dependent or unbounded operation and exit so
+        // the host hook slot frees immediately. The detached child is in its
+        // own process group, so a host hook-timeout kill cannot reach it; no
+        // parent-side deadline is needed because the parent does not run the
+        // work.
+        const captured = await readStdin({ deadlineMs: LAUNCHER_STDIN_DEADLINE_MS });
+        if (launchDetachedWorker(captured)) {
+          process.exit(0);
+        }
+        // Re-spawn impossible (no script path): fall back to inline work.
+        raw = captured;
+      }
     } else {
       raw = await readStdin();
     }

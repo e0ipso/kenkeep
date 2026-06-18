@@ -1,3 +1,9 @@
+## [1.5.2](https://github.com/e0ipso/kenkeep/compare/v1.5.1...v1.5.2) (2026-06-18)
+
+### Bug Fixes
+
+* **proposal-drain:** recover stale lock quickly after an interrupted run ([#51](https://github.com/e0ipso/kenkeep/issues/51)) ([718ca37](https://github.com/e0ipso/kenkeep/commit/718ca37ad76445534a11b8762e11a5bdb4ed910c))
+
 ## [1.5.1](https://github.com/e0ipso/kenkeep/compare/v1.5.0...v1.5.1) (2026-06-17)
 
 ### Bug Fixes

@@ -4,18 +4,20 @@ import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js'
 import { copilotDoctorChecks } from './doctor.js';
 import { runHeadlessCopilot } from './headless.js';
 import { copilotHookSpecs } from './hook-spec.js';
-import { copilotHome } from './hooks-config.js';
 import { installCopilot } from './install.js';
 import { buildCopilotHarnessOpts } from './opts.js';
 import { parseCopilotTranscript, renderCopilotTranscript } from './transcript.js';
 
 /**
  * GitHub Copilot CLI (`@github/copilot`) harness adapter. Copilot's
- * extension surface is a per-event JSON hook config under
- * `~/.copilot/hooks/`; the adapter aggregates every event handler into a
- * single `kk.json` document. Hook scripts live under `.copilot/kk-hooks/`
- * (a kenkeep-tool convention; Copilot does not read `.copilot/`), and
- * skills install to Copilot's documented `.github/skills/` location.
+ * extension surface is a per-event JSON hook config; the adapter
+ * aggregates every event handler into a single `kk.json` document written
+ * to the **repo-level** `.github/hooks/kk.json` (Copilot loads
+ * `.github/hooks/*.json` before user-level `~/.copilot/hooks/`). Hook
+ * scripts live under `.copilot/kk-hooks/` (a kenkeep-tool convention;
+ * Copilot does not read `.copilot/`), and skills install to Copilot's
+ * documented `.github/skills/` location. No file is written outside the
+ * repository.
  *
  * `detectFromEnv` is intentionally omitted: Copilot exports no in-session
  * env var. Callers select the adapter via `--harness copilot` (CLI),
@@ -28,7 +30,7 @@ function copilotAdapterPaths(root: string): HarnessPaths {
     dir,
     hooksDir: join(dir, 'hooks'),
     skillsDir: join(root, '.github', 'skills'),
-    settingsFile: join(copilotHome(), 'hooks', 'kk.json'),
+    settingsFile: join(root, '.github', 'hooks', 'kk.json'),
   };
 }
 

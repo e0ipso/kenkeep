@@ -75,7 +75,6 @@
     "source=${localEnv:HOME}/.codex/prompts,target=/home/node/.codex/prompts,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.copilot/config.json,target=/home/node/.copilot/config.json,readonly,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.copilot/hooks,target=/home/node/.copilot/hooks,readonly,type=bind,consistency=cached",
 
     "source=${localEnv:HOME}/.cursor/cli-config.json,target=/home/node/.cursor/cli-config.json,readonly,type=bind,consistency=cached",
 

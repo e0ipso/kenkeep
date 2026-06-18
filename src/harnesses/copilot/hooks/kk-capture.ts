@@ -49,9 +49,10 @@ runHookEntry({
     const startCwd = pickString(payload, 'cwd') ?? process.cwd();
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
-    // No-op silently when this repo is not a kenkeep project. The user-level
-    // ~/.copilot/hooks/kk.json fires for every repo where the user runs
-    // copilot, so this guard keeps the hook inert outside initialized repos.
+    // No-op silently when this repo is not a kenkeep project. The repo-level
+    // .github/hooks/kk.json only exists in initialized repos, but the hook
+    // command walks up from the session cwd, so this guard keeps it inert
+    // when invoked outside any kenkeep repo.
     if (!existsSync(paths.installedVersionFile)) return;
 
     try {

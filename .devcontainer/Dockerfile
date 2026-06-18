@@ -50,7 +50,8 @@ RUN mkdir -p \
     /home/$USERNAME/.local/bin \
     /home/$USERNAME/.claude \
     /home/$USERNAME/.codex \
-  && chown -R $USERNAME:$USERNAME /home/$USERNAME/.config /home/$USERNAME/.local /home/$USERNAME/.claude /home/$USERNAME/.codex
+    /home/$USERNAME/.copilot \
+  && chown -R $USERNAME:$USERNAME /home/$USERNAME/.config /home/$USERNAME/.local /home/$USERNAME/.claude /home/$USERNAME/.codex /home/$USERNAME/.copilot
 
 
 # Set `DEVCONTAINER` environment variable to help with orientation

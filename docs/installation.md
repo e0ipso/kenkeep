@@ -41,7 +41,7 @@ The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_AGENT=1
 | Codex | `Stop`, `PreCompact` | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write. See [coexistence](installation/codex-toml-hooks-coexistence.md). After first install, run `/hooks` inside a Codex session once to trust the kenkeep hook scripts before they will execute. |
 | Cursor | `stop`, `sessionEnd`, `preCompact` | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter, or you'll double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
 | OpenCode | `session.idle`, `session.created` | No `additionalContext` channel. The session-start hook writes the entry catalog to `.opencode/AGENTS.md`, and `init` registers it in `.opencode/opencode.json`'s `instructions` array so OpenCode loads it natively (no manual reference needed; verified against opencode 1.17.3), alongside the `plugin` entry OpenCode requires to load the hooks. `.opencode/AGENTS.md` is per-user, regenerated every session — add it to your `.gitignore`, never commit it. |
-| Copilot | `sessionEnd`, `agentStop` | Hooks register in the user-level `~/.copilot/hooks/kk.json`. No `additionalContext` channel; the session-start hook writes INDEX into `.github/copilot-instructions.md` under a sentinel block. See [GitHub Copilot CLI](#github-copilot-cli) below. |
+| Copilot | `sessionEnd`, `agentStop` | Hooks register in the repo-level `.github/hooks/kk.json` (Copilot loads it before any user-level hooks). No `additionalContext` channel; the session-start hook writes INDEX into `.github/copilot-instructions.md` under a sentinel block. See [GitHub Copilot CLI](#github-copilot-cli) below. |
 
 If your harness isn't listed above, this tool doesn't support it yet.
 
@@ -76,8 +76,7 @@ npx kenkeep --harness copilot doctor
 What `init` writes:
 
 - `.copilot/kk-hooks/kk-{capture,session-start,proposal-drain,lint-tick}.cjs`: the adapter's hook scripts. `.copilot/` is a kenkeep-tool convention (Copilot itself does not read it); it mirrors `.claude/`, `.codex/`, and `.opencode/`.
-- `~/.copilot/hooks/kk.json`: the per-event hook config Copilot actually reads. This is a **user-level** file shared across every repo where you run `copilot`; the hook scripts no-op silently when the current directory has no `.ai/kenkeep/` project, so installing in one repo does not disturb work in another.
-- `.copilot/hooks/kk.json`: a byte-identical in-repo copy of the hook config, committed so the registration is visible in source control.
+- `.github/hooks/kk.json`: the per-event hook config Copilot actually reads. This is a **repo-level** file (Copilot loads `.github/hooks/*.json` before user-level `~/.copilot/hooks/`), so it is committed to the repo and shared by the team. `init` writes nothing outside the repository — no user-home mutation. If you previously ran an older `init` that wrote `~/.copilot/hooks/kk.json`, remove that file manually; otherwise Copilot will run both and fire every hook twice.
 - `.github/skills/kk-{add,bootstrap,curate}/`: the shared skills, in Copilot's documented project skill location. This avoids colliding with `.claude/skills/` and `.agents/skills/` in mixed-harness installs.
 - `.github/copilot-instructions.md`: the INDEX content under a `<!-- kk:start --> ... <!-- kk:end -->` sentinel block (see below).
 

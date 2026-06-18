@@ -25,7 +25,7 @@ export async function copilotDoctorChecks(paths: RepoPaths): Promise<NamedDoctor
   return [
     { name: 'copilot CLI on PATH', result: await checkCopilotCli() },
     { name: 'Copilot auth', result: checkCopilotAuth() },
-    { name: 'Copilot hooks registered', result: checkCopilotHooks() },
+    { name: 'Copilot hooks registered', result: checkCopilotHooks(locs.settingsFile) },
     { name: 'Copilot hook scripts installed', result: checkCopilotHookScripts(locs.kkHooksDir) },
     { name: 'Copilot skills installed', result: checkCopilotSkills(locs.skillsDir) },
     {
@@ -58,8 +58,7 @@ function checkCopilotAuth(): DoctorCheckResult {
   );
 }
 
-function checkCopilotHooks(): DoctorCheckResult {
-  const hookFile = join(copilotHome(), 'hooks', 'kk.json');
+function checkCopilotHooks(hookFile: string): DoctorCheckResult {
   if (!existsSync(hookFile)) {
     return errCheck(`no ${hookFile}. Run \`npx kenkeep init --harnesses copilot --upgrade\`.`);
   }

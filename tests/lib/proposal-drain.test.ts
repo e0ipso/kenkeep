@@ -1,13 +1,24 @@
 import matter from 'gray-matter';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import lockfile from 'proper-lockfile';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { repoPaths, type RepoPaths } from '../../src/lib/paths.js';
 import { renderSessionLog } from '../../src/lib/session-log.js';
-import { drainProposalQueue, type ProposalRunner } from '../../src/lib/proposal-drain.js';
-import { STATE_LOCK_OPTIONS } from '../../src/lib/state.js';
+import {
+  drainProposalQueue,
+  PROPOSAL_DRAIN_LOCK_OPTIONS,
+  type ProposalRunner,
+} from '../../src/lib/proposal-drain.js';
 
 // The proposal-drain engine is custom business logic with no integration-level
 // coverage: the spawned `kk-proposal-drain` hook returns early in every
@@ -172,7 +183,7 @@ describe('drainProposalQueue', () => {
 
   it('returns status=locked and leaves the queue untouched when another process holds the lock', async () => {
     seedSession(harness, 's2', '[USER]: hi');
-    const release = await lockfile.lock(harness.stateFile, STATE_LOCK_OPTIONS);
+    const release = await lockfile.lock(harness.stateFile, PROPOSAL_DRAIN_LOCK_OPTIONS);
     try {
       const summary = await drainProposalQueue({
         paths: harness.paths,
@@ -181,9 +192,43 @@ describe('drainProposalQueue', () => {
       });
       expect(summary.status).toBe('locked');
       expect(summary.remaining).toBe(1);
+      // A fresh, held lock is reported with an actionable reason (age + ETA to
+      // auto-recovery if the holder was killed), not a bare "in progress".
+      expect(summary.reason).toMatch(/auto-recovers|another drain is running/);
+      // Nothing was processed while the lock was held.
+      expect(summary.processed).toHaveLength(0);
     } finally {
       await release();
     }
+  });
+
+  it('auto-reclaims a stale lock left by an interrupted prior drain and processes the queue', async () => {
+    const file = seedSession(harness, 'stale-recover', '[USER]: hi');
+    const lockDir = `${harness.stateFile}.lock`;
+    // Simulate a SIGKILLed prior drain: a leftover lock directory whose mtime
+    // is older than the stale threshold (no live holder, no heartbeat to
+    // refresh it). proper-lockfile must reclaim it on the next acquire.
+    mkdirSync(lockDir);
+    const oldTime = new Date(Date.now() - PROPOSAL_DRAIN_LOCK_OPTIONS.stale * 2);
+    utimesSync(lockDir, oldTime, oldTime);
+    expect(existsSync(lockDir)).toBe(true);
+
+    const summary = await drainProposalQueue({
+      paths: harness.paths,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner: successRunner(),
+    });
+
+    expect(summary.status).toBe('completed');
+    expect(summary.recoveredStaleLock).toBe(true);
+    expect(summary.processed).toHaveLength(1);
+    expect(summary.processed[0]?.status).toBe('done');
+    expect(summary.remaining).toBe(0);
+    // The drain reclaimed the stale lock and released it on exit, so no lock
+    // directory is left behind for the next run.
+    expect(existsSync(lockDir)).toBe(false);
+    const after = matter(readFileSync(join(harness.sessionsDir, file), 'utf8'));
+    expect(after.data['proposal_status']).toBe('done');
   });
 
   it('respects maxEntries and leaves remaining pending logs untouched', async () => {

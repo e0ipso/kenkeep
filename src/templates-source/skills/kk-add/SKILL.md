@@ -3,7 +3,7 @@ name: kk-add
 description: Capture a kenkeep node manually from the current session. Writes a new node directly under `.ai/kenkeep/nodes/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 5 -->
+<!-- Version: 2 -->
 
 # kk-add
 

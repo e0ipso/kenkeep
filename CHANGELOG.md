@@ -1,3 +1,9 @@
+## [1.5.4](https://github.com/e0ipso/kenkeep/compare/v1.5.3...v1.5.4) (2026-06-19)
+
+### Bug Fixes
+
+* update vulnerable packages ([b17134e](https://github.com/e0ipso/kenkeep/commit/b17134e3327f4479b7c9be9772b290601092bb6b))
+
 ## [1.5.3](https://github.com/e0ipso/kenkeep/compare/v1.5.2...v1.5.3) (2026-06-18)
 
 ### Bug Fixes

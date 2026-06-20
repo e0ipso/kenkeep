@@ -31,9 +31,9 @@ When a threshold trips, the LLM reworks the affected branches only: split a fold
 
 ## 3. Review (you decide)
 
-The files under `nodes/` are plain markdown. Review them with `git diff`, then keep with `git commit` or drop with `git restore <path>`. These notes shape every future session, so this is the one place a human stays in the loop.
+The files under `nodes/` are plain markdown. Review them with `git diff`, then keep with `git commit` or drop with `git restore <path>`. These notes shape every future session, so this is the one place a human stays in the loop. After a `git restore` that drops a note, run `npx kenkeep index rebuild` so the generated index stops referencing it — committing a `nodes/` change instead refreshes the index through the pre-commit hook.
 
-Rebalance moves land in this same diff (act-and-fold), reviewed alongside the note writes. `git restore` is path-scoped, so you can reject just the moves and keep the writes, or the reverse.
+Rebalance moves land in this same diff (act-and-fold), reviewed alongside the note writes. `git restore` is path-scoped, so you can reject just the moves and keep the writes, or the reverse. Either way, follow a `git restore` with `npx kenkeep index rebuild` to resync the generated index with the on-disk tree.
 
 ## 4. Recall (automatic)
 

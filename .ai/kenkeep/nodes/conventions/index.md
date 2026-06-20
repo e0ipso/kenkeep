@@ -1,6 +1,6 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:e8fd5c6e0a98c451c83f2a52aa891852a9cd182e99571e626200f58d87c068aa'
+nodes_hash: 'sha256:e4c2d65d9742ff3042ec52496c182f5b9f90da5ef153577feae2103986120356'
 node_count: 8
 summary: >-
   commit, release, testing, CI, and writing-style rules; read before committing,

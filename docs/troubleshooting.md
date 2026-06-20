@@ -68,7 +68,7 @@ This deletes `*.jsonl` files older than `logsRetentionDays` (default 30) across 
 
 ## Reviewing changes to `nodes/`
 
-The curator writes directly to `.ai/kenkeep/nodes/<folder>/<id>.md`. Review with `git diff nodes/`, your editor, or a tool like [self-review](https://github.com/e0ipso/self-review). Accept with `git commit` (the pre-commit hook regenerates and stages a fresh INDEX/GRAPH). Reject with `git restore <path>`.
+The curator writes directly to `.ai/kenkeep/nodes/<folder>/<id>.md`. Review with `git diff nodes/`, your editor, or a tool like [self-review](https://github.com/e0ipso/self-review). Accept with `git commit` (the pre-commit hook regenerates and stages a fresh INDEX/GRAPH). Reject with `git restore <path>` — then run `npx kenkeep index rebuild`, because the curator already rebuilt the index over the rejected node and restoring it without committing a `nodes/` change leaves that index stale.
 
 ## Resolving curator contradictions
 

@@ -54,7 +54,7 @@ Quality judgment.
 3. [ ] `_sessions/` shows one `proposal_status: pending` log.
 4. [ ] Open a new session. Wait 30-90s. `_logs/proposal/` has a new `.jsonl`. Log flips to `proposal_status: done`.
 5. [ ] `curate` writes 1-4 nodes under `nodes/` and regenerates `ENTRY.md`. Are these the **right** facts to remember? (Target: ≥80% acceptance.)
-6. [ ] `git diff nodes/` shows the new files. `git add` the ones you want, `git commit`. The pre-commit hook regenerates and stages a fresh `ENTRY.md`/`GRAPH.md` into the same commit. `git restore nodes/<unwanted>.md` to drop the rest.
+6. [ ] `git diff nodes/` shows the new files. `git add` the ones you want, `git commit`. The pre-commit hook regenerates and stages a fresh `ENTRY.md`/`GRAPH.md` into the same commit. `git restore nodes/<unwanted>.md` to drop the rest. (If you `git restore` nodes without committing another `nodes/` change, the hook won't fire — run `npx kenkeep index rebuild` so the generated index drops them too.)
 7. [ ] One more session. Ask Claude "what do you know about this project?" The response references something committed.
 
 If curator output is clearly noise, bump the proposal prompt's `Version:` and tighten "what to skip".
@@ -84,7 +84,7 @@ If curator output is clearly noise, bump the proposal prompt's `Version:` and ti
 
 - [ ] In a sandbox with a small public repo (README + architecture.md), `init` and open Claude Code.
 - [ ] Run `/kk-bootstrap`. Agent reads source docs, writes nodes directly under `nodes/` (topical folders), reports a summary including any collisions skipped.
-- [ ] Walk `git diff nodes/` (or use a tool like [self-review](https://github.com/e0ipso/self-review)). `git commit` the ones you want; `git restore <path>` the rest.
+- [ ] Walk `git diff nodes/` (or use a tool like [self-review](https://github.com/e0ipso/self-review)). `git commit` the ones you want; `git restore <path>` the rest. Bootstrap already rebuilt the index over every written node, so if you `git restore` without committing another `nodes/` change, run `npx kenkeep index rebuild` to drop the removed nodes from the generated index.
 - [ ] No node carries a literal secret or stale TODO from the source docs.
 
 ## 7. `bootstrap` discovery and hash-aware re-run

@@ -171,7 +171,7 @@ Tell the user the migration is staged in the working tree and **no git command w
 git diff
 ```
 
-Leaves moved into their topical folders show as renames (ids and bytes preserved); each created folder's `index.md` carries its authored summary; `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts the migration with `git commit` and rejects it with `git restore` (path-scoped or whole-tree). Do not stage, commit, or restore anything yourself.
+Leaves moved into their topical folders show as renames (ids and bytes preserved); each created folder's `index.md` carries its authored summary; `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts the migration with `git commit` and rejects it with `git restore` (path-scoped or whole-tree). A path-scoped `git restore` that keeps only part of the migration must be followed by `npx kenkeep index rebuild` to resync the generated index with the on-disk tree (a whole-tree `git restore` reverts the generated files too, so it needs no rebuild). Do not stage, commit, or restore anything yourself.
 
 ## Constraints
 

@@ -258,9 +258,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 03: Add focused retrieval, hook, and session-start regression coverage (depends on: 01, 02).
 
-### Phase 4: Documentation
+### ✅ Phase 4: Documentation
 **Parallel Tasks:**
-- Task 04: Document prompt-time injection and the implemented harness support matrix (depends on: 02, 03).
+- ✔️ Task 04: Document prompt-time injection and the implemented harness support matrix (depends on: 02, 03).
 
 ### Post-phase Actions
 - After each phase, run the validation gate in `.ai/strikethroo/config/hooks/POST_PHASE.md` before starting dependent work.

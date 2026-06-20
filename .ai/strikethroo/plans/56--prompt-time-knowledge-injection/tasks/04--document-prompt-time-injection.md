@@ -2,7 +2,7 @@
 id: 4
 group: "prompt-time-knowledge-injection"
 dependencies: [2, 3]
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - documentation

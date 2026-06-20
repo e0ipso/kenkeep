@@ -8,7 +8,7 @@ nav_order: 2
 
 "Hooks" here means scripts the host harness invokes on lifecycle events like `SessionStart` and `Stop`. kenkeep consumes them; it does not expose a hook API of its own for third-party extension.
 
-`init` registers four hook scripts per harness. The Claude Code wiring (`.claude/settings.json`) is the canonical reference:
+`init` registers four shared hook scripts per harness, plus a fifth **prompt-time** hook on the harnesses with a verified native prompt-submit context channel (Claude and Codex). The Claude Code wiring (`.claude/settings.json`) is the canonical reference:
 
 | Script | Event(s) | Mode |
 |---|---|---|
@@ -16,10 +16,11 @@ nav_order: 2
 | `kk-proposal-drain.cjs` | `SessionStart` | async |
 | `kk-session-start.cjs` | `SessionStart` | sync, ≤1s |
 | `kk-lint-tick.cjs` | `SessionEnd` | async — runs lint every `lintEveryNSessions` sessions (default 50) |
+| `kk-prompt-context.cjs` | `UserPromptSubmit` | sync, ≤1s — **Claude and Codex only** |
 
 The two `SessionStart` entries are independent: a failure in one does not block the other.
 
-Every harness wires the same four scripts through its native mechanism: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.opencode/kk-hooks/`; Copilot via `.github/hooks/kk.json` walk-up commands (repo-level; Copilot loads it before user-level `~/.copilot/hooks/`). Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the four scripts are identical across all five harnesses.
+Every harness wires the four shared scripts through its native mechanism: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.opencode/kk-hooks/`; Copilot via `.github/hooks/kk.json` walk-up commands (repo-level; Copilot loads it before user-level `~/.copilot/hooks/`). Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the four shared scripts are identical across all five harnesses. The prompt-time hook is the one exception: it ships only where the host exposes a native prompt-submit context channel (see [Prompt-time injection](#kk-prompt-contextcjs-prompt-time-injection)).
 
 ## Hook synchrony and the async launcher
 
@@ -29,6 +30,7 @@ Hooks fall into two classes, and the class decides whether a hook may run in the
 |---|---|---|
 | `kk-capture` | synchronous context-producer | Must finish writing the session slice before the host moves on; the capture is the only record of the turn. |
 | `kk-session-start` | synchronous context-producer | Returns `additionalContext` the host injects into the session; the value is useless if produced after startup. |
+| `kk-prompt-context` | synchronous context-producer | Returns `additionalContext` the host injects alongside the user prompt; an async hook's stdout is discarded, so it must stay synchronous. |
 | `kk-proposal-drain` | asynchronous advisory worker | Spawns headless LLM runs per pending log; long-running and produces nothing the session consumes. |
 | `kk-lint-tick` | asynchronous advisory worker | Runs the tree lint every Nth fire; advisory, surfaced on a later `SessionStart`. |
 
@@ -132,6 +134,36 @@ Per `SessionStart`:
 
 The staleness line, curation nudge, and lint summary are preserved across all channels. 1s hard deadline; overrun exits 0 so session startup is not blocked.
 
+## `kk-prompt-context.cjs` (prompt-time injection)
+
+`SessionStart` injection orients the agent before any task is known, so it can only inject the root `ENTRY.md` catalog — it cannot select task-relevant leaves. The **prompt-time** hook closes that gap: it fires *after* the user's prompt is known and injects a small, bounded set of the leaf nodes most relevant to that prompt.
+
+Per `UserPromptSubmit`:
+
+1. Recursion guard (`KENKEEP_BUILDER_INTERNAL=1` → exit).
+2. Read the native `prompt` field. Empty or missing → exit 0 with no context.
+3. Resolve the repo root from the payload `cwd`; if the project is not initialized, exit 0.
+4. Call the shared deterministic retrieval core (`src/lib/prompt-retrieval.ts`): read the current on-disk leaf nodes via `readAllNodes`, score each against the prompt (lexical matches in `title`/`tags`/`summary` weighted above body, with a small graph-neighbor boost resolved through `nodes/.redirects.json`), and render a bounded **summaries-plus-links** block.
+5. Emit through the host's native channel — Claude `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"..."}}`; Codex `{"additionalContext":"..."}`. When nothing is relevant, emit nothing.
+
+The payload carries each match's title, id, repo-relative markdown link (`.ai/kenkeep/nodes/<relPath>`), summary, and tags — **never full leaf bodies** — plus a one-line instruction to open the linked node before relying on details and to verify named files/functions/flags against the live tree. Output is bounded by an internal node-count cap and a rendered-character budget (no `config.yaml` setting in the MVP).
+
+**Deterministic, local, and private.** Retrieval makes no LLM call and uses no embeddings, external service, database, persistent store, or long-lived cache. The same prompt and node tree always produce the same ranking. The prompt text is never logged or persisted.
+
+**Synchronous and fail-open.** The hook blocks prompt processing, so it runs with a 1s hard deadline and is **not** routed through the async launcher (an async hook's stdout is discarded). A missing prompt, missing/empty/malformed knowledge base, timeout, or any error yields no injected context — the user's prompt is never blocked or altered.
+
+### Supported harnesses
+
+| Harness | Prompt-time injection | Channel |
+|---|---|---|
+| Claude Code | ✅ | native `UserPromptSubmit` → `hookSpecificOutput.additionalContext` |
+| Codex CLI | ✅ | native `UserPromptSubmit` → `{ additionalContext }` |
+| Cursor | ❌ | no verified native prompt-submit context channel in this repo |
+| OpenCode | ❌ | plugin events list no documented prompt-submit model-context channel |
+| GitHub Copilot CLI | ❌ | `userPromptSubmitted` output is documented as not processed |
+
+Unsupported harnesses register no prompt-time hook and keep their existing `SessionStart` injection unchanged. Support is represented by the adapter declaring a native prompt-submit `HookSpec` (no global event-name translation); to add a harness, verify a current native prompt-context channel with docs and a smoke test, then wire its `kk-prompt-context` hook.
+
 ## Registration shape
 
 After `init`, `.claude/settings.json` carries one block per event (scripts are compiled `.cjs` bundles):
@@ -152,6 +184,9 @@ After `init`, `.claude/settings.json` carries one block per event (scripts are c
     "SessionStart": [
       { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-proposal-drain.cjs", "async": true }] },
       { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-session-start.cjs" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-prompt-context.cjs" }] }
     ]
   }
 }

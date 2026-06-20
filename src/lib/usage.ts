@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { basename, dirname, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from './fs-atomic.js';
 
@@ -36,6 +36,37 @@ function safeResolve(p: string): string {
 }
 
 /**
+ * Explicit resolution contract for read candidates before classification.
+ *
+ * Dedicated read tools emit absolute paths, but command-extracted candidates
+ * (see `extractCommandMarkdownCandidates`) commonly arrive as repo-relative
+ * `.ai/kenkeep/nodes/...` or kk-root-relative `nodes/...`. Those two forms must
+ * resolve deterministically against the known kk root rather than the hook
+ * process cwd (which varies by harness and command shape):
+ *
+ * - absolute candidates: returned unchanged (existing behavior);
+ * - `.ai/kenkeep/nodes/...`: resolved from the repository root implied by
+ *   `kkDir` (`kkDir` is `<root>/.ai/kenkeep`, so the repo root is two levels up);
+ * - `nodes/...`: resolved from `kkDir`;
+ * - any other relative form: returned unchanged so the existing cwd-based
+ *   `resolve` behavior in `safeResolve` still applies.
+ *
+ * This is presentation-only normalization; it never adds fields to
+ * `UsageRecordSchema`.
+ */
+function resolveCandidatePath(readPath: string, kkDir: string): string {
+  if (isAbsolute(readPath)) return readPath;
+  const normalized = readPath.split(sep).join('/');
+  if (normalized === 'nodes' || normalized.startsWith('nodes/')) {
+    return resolve(kkDir, readPath);
+  }
+  if (normalized === '.ai/kenkeep/nodes' || normalized.startsWith('.ai/kenkeep/nodes/')) {
+    return resolve(dirname(dirname(kkDir)), readPath);
+  }
+  return readPath;
+}
+
+/**
  * Classifies a file-read path as a knowledge-base document, or `null` when the
  * read does not target the node tree. A per-folder `index.md` is a branch index
  * named by its kk-root-relative POSIX path; any other `.md` leaf is named by its
@@ -47,7 +78,7 @@ export function classifyRead(
   kkDir: string
 ): ClassifiedRead | null {
   if (!readPath) return null;
-  const node = safeResolve(readPath);
+  const node = safeResolve(resolveCandidatePath(readPath, kkDir));
   const root = safeResolve(nodesDir);
   if (node !== root && !node.startsWith(root + sep)) return null;
   if (!node.endsWith('.md')) return null;

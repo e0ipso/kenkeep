@@ -102,7 +102,7 @@ The parallel path additionally writes a `<runId>__<batchN>.draft.json` beside ea
 | `.state/bootstrap-state.json` | bootstrap | Doc SHA-256 cache. Gitignored. |
 | `conflicts/<run-id>-<n>.md` | curator (write), kk-curate skill (resolve), status (read) | Curator-detected contradictions, one markdown file per conflict. Frontmatter carries `status: pending`; resolution is via `git restore` (Reject / Accept-after-apply) or `git commit` (Keep as record). |
 | `.config/prompts/*` | init | Local prompt overrides. Committed. |
-| `.state/usage.jsonl` | capture | Write-only ledger of which KB documents each session read (`{ document, type, session_id, used_at }`). One line per read occurrence. Gitignored. |
+| `.state/usage.jsonl` | capture | Write-only ledger of which KB documents each session read, from both dedicated read tools and markdown paths named in shell/search commands (`{ document, type, session_id, used_at }`). One line per read occurrence; only `.md` under `nodes/` is recorded. Gitignored. |
 
 ## Locking
 

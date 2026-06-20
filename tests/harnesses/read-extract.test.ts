@@ -2,10 +2,45 @@ import { describe, expect, it } from 'vitest';
 import {
   extractClaudeReads,
   extractCodexReads,
+  extractCommandMarkdownCandidates,
   extractCopilotReads,
   extractCursorReads,
   extractOpenCodeReads,
 } from '../../src/harnesses/read-extract.js';
+
+describe('extractCommandMarkdownCandidates', () => {
+  it('collects markdown path candidates in command order, preserving duplicates', () => {
+    expect(
+      extractCommandMarkdownCandidates(
+        'cat .ai/kenkeep/nodes/a.md nodes/b.md .ai/kenkeep/nodes/a.md'
+      )
+    ).toEqual(['.ai/kenkeep/nodes/a.md', 'nodes/b.md', '.ai/kenkeep/nodes/a.md']);
+  });
+
+  it('strips surrounding quotes and trailing separators, and splits comma-joined args', () => {
+    expect(
+      extractCommandMarkdownCandidates(`sed -n '1,40p' "nodes/x.md"; head nodes/y.md`)
+    ).toEqual(['nodes/x.md', 'nodes/y.md']);
+    expect(extractCommandMarkdownCandidates('cat nodes/a.md,nodes/b.md')).toEqual([
+      'nodes/a.md',
+      'nodes/b.md',
+    ]);
+  });
+
+  it('matches absolute markdown paths and ignores extensions like .md5', () => {
+    expect(extractCommandMarkdownCandidates('cat /repo/.ai/kenkeep/nodes/z.md | rg foo')).toEqual([
+      '/repo/.ai/kenkeep/nodes/z.md',
+    ]);
+    expect(extractCommandMarkdownCandidates('sha256sum nodes/checksum.md5')).toEqual([]);
+  });
+
+  it('returns [] for empty, non-string, or path-free command input without throwing', () => {
+    expect(extractCommandMarkdownCandidates('')).toEqual([]);
+    expect(extractCommandMarkdownCandidates(undefined)).toEqual([]);
+    expect(extractCommandMarkdownCandidates(42)).toEqual([]);
+    expect(extractCommandMarkdownCandidates('ls -la && git status')).toEqual([]);
+  });
+});
 
 describe('extractClaudeReads', () => {
   it('returns file_path of Read tool_use blocks, ignoring other tools and text', () => {
@@ -36,6 +71,21 @@ describe('extractClaudeReads', () => {
   it('returns [] when there are no reads', () => {
     expect(extractClaudeReads('')).toEqual([]);
   });
+
+  it('interleaves Bash command candidates with Read paths in block order, preserving duplicates', () => {
+    const text = JSON.stringify({
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', name: 'Read', input: { file_path: '/r/a.md' } },
+          { type: 'tool_use', name: 'Bash', input: { command: 'cat nodes/b.md nodes/b.md' } },
+          { type: 'tool_use', name: 'Bash', input: { command: 'ls -la' } },
+        ],
+      },
+    });
+    expect(extractClaudeReads(text)).toEqual(['/r/a.md', 'nodes/b.md', 'nodes/b.md']);
+  });
 });
 
 describe('extractCursorReads', () => {
@@ -53,6 +103,20 @@ describe('extractCursorReads', () => {
       },
     });
     expect(extractCursorReads(text)).toEqual(['/r/a.md', '/r/b.md']);
+  });
+
+  it('adds command candidates from shell blocks and .md-naming search blocks, ignoring directory searches', () => {
+    const text = JSON.stringify({
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', name: 'Shell', input: { command: 'sed -n 1,5p nodes/a.md' } },
+          { type: 'tool_use', name: 'Grep', input: { path: '/r/b.md', pattern: 'x' } },
+          { type: 'tool_use', name: 'Grep', input: { path: '/r', pattern: 'x' } },
+        ],
+      },
+    });
+    expect(extractCursorReads(text)).toEqual(['nodes/a.md', '/r/b.md']);
   });
 });
 
@@ -78,6 +142,36 @@ describe('extractCodexReads', () => {
     ].join('\n');
     expect(extractCodexReads(text)).toEqual(['/r/c.md']);
   });
+
+  it('extracts candidates from shell commands given as a string or an argv array', () => {
+    const text = [
+      JSON.stringify({
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'shell',
+          arguments: JSON.stringify({ command: 'cat nodes/c.md' }),
+        },
+      }),
+      JSON.stringify({
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'shell',
+          arguments: JSON.stringify({ command: ['bash', '-lc', 'head .ai/kenkeep/nodes/d.md'] }),
+        },
+      }),
+      JSON.stringify({
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'shell',
+          arguments: 'not json',
+        },
+      }),
+    ].join('\n');
+    expect(extractCodexReads(text)).toEqual(['nodes/c.md', '.ai/kenkeep/nodes/d.md']);
+  });
 });
 
 describe('extractCopilotReads', () => {
@@ -94,6 +188,21 @@ describe('extractCopilotReads', () => {
       }),
     ].join('\n');
     expect(extractCopilotReads(text)).toEqual(['/r/d.md']);
+  });
+
+  it('extracts candidates from shell command execution events, ignoring malformed lines', () => {
+    const text = [
+      JSON.stringify({
+        type: 'tool.execution_start',
+        data: { toolName: 'bash', arguments: { command: 'cat nodes/d.md' } },
+      }),
+      'not json',
+      JSON.stringify({
+        type: 'tool.execution_start',
+        data: { toolName: 'bash', arguments: { command: 'grep -n foo .' } },
+      }),
+    ].join('\n');
+    expect(extractCopilotReads(text)).toEqual(['nodes/d.md']);
   });
 });
 
@@ -117,5 +226,21 @@ describe('extractOpenCodeReads', () => {
   it('returns [] for an empty object or absent messages', () => {
     expect(extractOpenCodeReads({})).toEqual([]);
     expect(extractOpenCodeReads(undefined)).toEqual([]);
+  });
+
+  it('interleaves read paths with bash command candidates in document order', () => {
+    const exportJson = {
+      messages: [
+        {
+          role: 'assistant',
+          parts: [
+            { type: 'tool', tool: 'read', state: { input: { filePath: '/r/e.md' } } },
+            { type: 'tool', tool: 'bash', state: { input: { command: 'cat nodes/f.md' } } },
+            { type: 'tool', tool: 'bash', state: { input: { command: 'ls -la' } } },
+          ],
+        },
+      ],
+    };
+    expect(extractOpenCodeReads(exportJson)).toEqual(['/r/e.md', 'nodes/f.md']);
   });
 });

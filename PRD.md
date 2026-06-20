@@ -249,7 +249,7 @@ A `kk-lint-tick` hook rides each harness's session-boundary event. Most fires on
 
 ### 9.12 Usage instrumentation
 
-At capture time the builder appends to a gitignored ledger at `.ai/kenkeep/.state/usage.jsonl`, recording which knowledge base documents were read during the captured session (a leaf's node id, or a branch `index.md`'s path). This is **write-only instrumentation today** - no decision logic consumes it yet. It is reserved as a future signal for pruning, rebalance, or curation prioritization, and is captured now so the data exists when those features are built.
+At capture time the builder appends to a gitignored ledger at `.ai/kenkeep/.state/usage.jsonl`, recording which knowledge base documents were read during the captured session (a leaf's node id, or a branch `index.md`'s path). The signal is two-fold: dedicated file-read tool calls, plus markdown file paths an agent visibly named in shell/search commands (`cat`, `sed`, `head`, `rg`, `grep`, …) — Codex in particular reads through shell. The usage layer remains the safety filter: only `.md` files under `.ai/kenkeep/nodes/` become records, and the persisted shape is unchanged (`{ document, type, session_id, used_at }`). Command coverage means explicit file-path candidates in tool input only; directory-only searches, glob expansion, shell stdout, and arbitrary prose are not attributed to individual documents. This is **write-only instrumentation today** - no decision logic consumes it yet. It is reserved as a future signal for pruning, rebalance, or curation prioritization, and is captured now so the data exists when those features are built.
 
 ## 10. Failure modes the user sees
 

@@ -1,13 +1,49 @@
 /**
- * Per-harness extractors that surface the file paths an agent opened via read
- * tool calls in a harness's raw transcript. These feed knowledge-base usage
- * tracking (`src/lib/usage.ts` decides which paths are knowledge-base
- * documents). Each extractor returns the read paths in order and preserves
- * duplicates, so repeated reads of the same file are counted repeatedly. Only
- * explicit file-open read tools count; search/shell tools are ignored. Every
+ * Per-harness extractors that surface the file paths an agent accessed in a
+ * harness's raw transcript. These feed knowledge-base usage tracking
+ * (`src/lib/usage.ts` decides which paths are knowledge-base documents). Each
+ * extractor returns paths in transcript/export order and preserves duplicates,
+ * so repeated reads of the same file are counted repeatedly. Two signals count:
+ * explicit file-open read tools (path taken directly from the tool input) and
+ * markdown path candidates visibly named in shell/search command strings
+ * (`cat`, `sed`, `head`, `rg`, `grep`, …) via `extractCommandMarkdownCandidates`.
+ * Read-tool and command-derived candidates are interleaved in raw order. The
+ * usage layer remains the authoritative filter for which candidates are actual
+ * `.ai/kenkeep/nodes/` documents, so extraction stays broad and never executes
+ * commands, expands globs, parses stdout, or reads arbitrary prose. Every
  * extractor is defensive: malformed lines and unrecognized shapes yield no
  * entries rather than throwing, so usage extraction can never break capture.
  */
+
+/**
+ * Path-like token matcher for command strings: a maximal run of path characters
+ * that ends in `.md`. The negative class drops surrounding shell quotes,
+ * pipes/redirects/separators, assignment (`=`), and list commas, so quoted and
+ * comma-joined arguments split into clean candidates. `\b` after `.md` avoids
+ * matching extensions like `.md5`. Order and duplicates are preserved.
+ */
+const COMMAND_MD_CANDIDATE = /[^\s'"`|&;<>(){}=,]+\.md\b/g;
+
+/**
+ * Collects markdown path candidates visibly named in a shell/search command
+ * string, in command order with duplicates preserved. This is a conservative,
+ * token-oriented scan — it never executes commands, expands globs, parses
+ * stdout, or infers paths from prose. Downstream classification
+ * (`src/lib/usage.ts`) decides which candidates are knowledge-base documents,
+ * so it is safe (and intended) to return non-node candidates too. Non-string or
+ * empty input yields no candidates and never throws.
+ */
+export function extractCommandMarkdownCandidates(command: unknown): string[] {
+  if (typeof command !== 'string' || command.length === 0) return [];
+  const out: string[] = [];
+  COMMAND_MD_CANDIDATE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = COMMAND_MD_CANDIDATE.exec(command)) !== null) {
+    out.push(match[0]);
+  }
+  return out;
+}
+
 function readStringField(input: unknown, key: string): string | null {
   if (!input || typeof input !== 'object') return null;
   const value = (input as Record<string, unknown>)[key];
@@ -18,6 +54,33 @@ function firstStringField(input: unknown, keys: string[]): string | null {
   for (const key of keys) {
     const value = readStringField(input, key);
     if (value !== null) return value;
+  }
+  return null;
+}
+
+/**
+ * Coerces a command-argument value into a single command string. Shell tools
+ * carry the command either as a string (`"cat x"`) or as an argv array
+ * (`["bash","-lc","cat x"]`, common in Codex); the array form is joined with
+ * spaces so the candidate scanner sees the whole command. Anything else
+ * (numbers, objects, empty) yields `null`.
+ */
+function commandText(value: unknown): string | null {
+  if (typeof value === 'string') return value.length > 0 ? value : null;
+  if (Array.isArray(value)) {
+    const parts = value.filter((v): v is string => typeof v === 'string');
+    if (parts.length > 0) return parts.join(' ');
+  }
+  return null;
+}
+
+/** First non-empty command string found across `keys`, coerced via `commandText`. */
+function firstCommandField(input: unknown, keys: readonly string[]): string | null {
+  if (!input || typeof input !== 'object') return null;
+  const record = input as Record<string, unknown>;
+  for (const key of keys) {
+    const cmd = commandText(record[key]);
+    if (cmd !== null) return cmd;
   }
   return null;
 }
@@ -34,15 +97,26 @@ interface ContentMessage {
 }
 
 /**
- * Walks Anthropic-style `tool_use` content blocks (Claude and Cursor share this
- * shape) for a set of read tool names, returning the value at `pathKey` of each
- * matching block's `input`.
+ * Config for the Anthropic-style `tool_use` content-block walker (Claude and
+ * Cursor share the shape). For each block, in transcript order:
+ *
+ * - a `readTools` block contributes the value at `readPathKey` (a dedicated
+ *   file read — pushed unconditionally; the usage layer filters it);
+ * - otherwise, when `commandKeys` is set and the block is in `commandTools`
+ *   (or `commandTools` is undefined, meaning "any non-read block"), the command
+ *   string is scanned for markdown path candidates;
+ * - otherwise, when `searchPathKeys` is set, an explicit path argument is
+ *   counted only when it names a `.md` file (path-bearing search blocks).
  */
-function extractContentBlockReads(
-  text: string,
-  toolNames: ReadonlySet<string>,
-  pathKey: string
-): string[] {
+interface ContentBlockReadConfig {
+  readTools: ReadonlySet<string>;
+  readPathKey: string;
+  commandTools?: ReadonlySet<string>;
+  commandKeys?: readonly string[];
+  searchPathKeys?: readonly string[];
+}
+
+function extractContentBlockReads(text: string, config: ContentBlockReadConfig): string[] {
   const out: string[] = [];
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
@@ -57,13 +131,23 @@ function extractContentBlockReads(
     if (!Array.isArray(content)) continue;
     for (const block of content as ContentBlock[]) {
       if (!block || typeof block !== 'object') continue;
-      if (
-        block.type === 'tool_use' &&
-        typeof block.name === 'string' &&
-        toolNames.has(block.name)
-      ) {
-        const path = readStringField(block.input, pathKey);
+      if (block.type !== 'tool_use' || typeof block.name !== 'string') continue;
+      const name = block.name;
+      if (config.readTools.has(name)) {
+        const path = readStringField(block.input, config.readPathKey);
         if (path !== null) out.push(path);
+        continue;
+      }
+      if (config.commandKeys && (!config.commandTools || config.commandTools.has(name))) {
+        const command = firstCommandField(block.input, config.commandKeys);
+        if (command !== null) {
+          out.push(...extractCommandMarkdownCandidates(command));
+          continue;
+        }
+      }
+      if (config.searchPathKeys) {
+        const path = firstStringField(block.input, [...config.searchPathKeys]);
+        if (path !== null && path.endsWith('.md')) out.push(path);
       }
     }
   }
@@ -73,9 +157,20 @@ function extractContentBlockReads(
 /** Claude Code read tool name(s). Claude's reader is `Read`, path at `input.file_path`. */
 const CLAUDE_READ_TOOLS = new Set(['Read']);
 
-/** Claude Code: `tool_use` blocks named `Read`, path at `input.file_path`. */
+/** Claude Code shell tool name(s). Claude runs commands via `Bash`, command at `input.command`. */
+const CLAUDE_COMMAND_TOOLS = new Set(['Bash']);
+
+/**
+ * Claude Code: `tool_use` blocks named `Read` (path at `input.file_path`) plus
+ * markdown path candidates named in `Bash` commands (`input.command`).
+ */
 export function extractClaudeReads(text: string): string[] {
-  return extractContentBlockReads(text, CLAUDE_READ_TOOLS, 'file_path');
+  return extractContentBlockReads(text, {
+    readTools: CLAUDE_READ_TOOLS,
+    readPathKey: 'file_path',
+    commandTools: CLAUDE_COMMAND_TOOLS,
+    commandKeys: ['command'],
+  });
 }
 
 /**
@@ -86,9 +181,22 @@ export function extractClaudeReads(text: string): string[] {
  */
 const CURSOR_READ_TOOLS = new Set(['Read', 'ReadFile']);
 
-/** Cursor: `message.content[]` `tool_use` blocks named `Read`/`ReadFile`, path at `input.path`. */
+/**
+ * Cursor: `message.content[]` `tool_use` blocks named `Read`/`ReadFile` (path at
+ * `input.path`), plus markdown candidates from command-bearing shell/search
+ * blocks. Cursor's shell/search tool names vary by build, so command scanning
+ * is shape-driven rather than name-pinned: any non-read block carrying a
+ * `command`/`cmd` string is scanned, and a path-bearing search block counts only
+ * when its `path`/`file_path` argument names a `.md` file (directory searches
+ * are ignored).
+ */
 export function extractCursorReads(text: string): string[] {
-  return extractContentBlockReads(text, CURSOR_READ_TOOLS, 'path');
+  return extractContentBlockReads(text, {
+    readTools: CURSOR_READ_TOOLS,
+    readPathKey: 'path',
+    commandKeys: ['command', 'cmd'],
+    searchPathKeys: ['path', 'file_path'],
+  });
 }
 
 interface RolloutLine {
@@ -96,14 +204,25 @@ interface RolloutLine {
 }
 
 /**
- * Codex read tool names. Codex frequently reads via the `shell` tool (out of
- * scope), so this set covers the dedicated read tools when present. The exact
- * name/argument key is unverified against a real rollout, so the matcher is
- * defensive and yields nothing when Codex reads only via shell.
+ * Codex read tool names. Codex has dedicated readers on some builds; this set
+ * covers them when present. Codex also frequently reads via shell (`cat`,
+ * `sed`, …) — those are now captured separately as command candidates.
  */
 const CODEX_READ_TOOLS = new Set(['read', 'read_file', 'view', 'open_file']);
 
-/** Codex: rollout `function_call` items whose tool name is a dedicated reader. */
+/**
+ * Codex shell tool names. Codex runs commands through a shell-style function
+ * call; the command lives in parsed `arguments` (string or argv array). Names
+ * vary by build, so the set is conservative but covers the observed shapes.
+ */
+const CODEX_COMMAND_TOOLS = new Set(['shell', 'exec_command', 'local_shell', 'container.exec']);
+
+/**
+ * Codex: rollout `function_call`/`tool_call` items. Dedicated reader tools
+ * contribute their `path` argument; shell tools contribute markdown path
+ * candidates named in their command argument. Entries are emitted in rollout
+ * order, preserving duplicates.
+ */
 export function extractCodexReads(text: string): string[] {
   const out: string[] = [];
   for (const rawLine of text.split('\n')) {
@@ -117,14 +236,16 @@ export function extractCodexReads(text: string): string[] {
     }
     const payload = parsed.payload;
     if (!payload) continue;
-    if (
-      (payload.type === 'function_call' || payload.type === 'tool_call') &&
-      typeof payload.name === 'string' &&
-      CODEX_READ_TOOLS.has(payload.name)
-    ) {
+    if (payload.type !== 'function_call' && payload.type !== 'tool_call') continue;
+    if (typeof payload.name !== 'string') continue;
+    if (CODEX_READ_TOOLS.has(payload.name)) {
       const args = parseArgs(payload.arguments);
       const path = firstStringField(args, ['path', 'file_path', 'filePath']);
       if (path !== null) out.push(path);
+    } else if (CODEX_COMMAND_TOOLS.has(payload.name)) {
+      const args = parseArgs(payload.arguments);
+      const command = firstCommandField(args, ['command', 'cmd']);
+      if (command !== null) out.push(...extractCommandMarkdownCandidates(command));
     }
   }
   return out;
@@ -151,8 +272,17 @@ interface CopilotToolEvent {
 const COPILOT_READ_TOOLS = new Set(['view']);
 
 /**
- * Copilot: `events.jsonl` `tool.execution_start` events whose `data.toolName`
- * is a read tool, path at `data.arguments.path` (measured on CLI v1.0.61).
+ * Copilot shell tool name(s). Copilot runs commands via a shell tool with the
+ * command at `data.arguments.command`. Names vary by build, so the set is
+ * conservative but covers the observed shapes.
+ */
+const COPILOT_COMMAND_TOOLS = new Set(['bash', 'shell', 'run_in_terminal', 'exec']);
+
+/**
+ * Copilot: `events.jsonl` `tool.execution_start` events. A read tool
+ * (`data.toolName` in `COPILOT_READ_TOOLS`) contributes `data.arguments.path`;
+ * a shell tool contributes markdown path candidates from
+ * `data.arguments.command`. Emitted in event order, preserving duplicates.
  */
 export function extractCopilotReads(text: string): string[] {
   const out: string[] = [];
@@ -167,9 +297,14 @@ export function extractCopilotReads(text: string): string[] {
     }
     if (event.type !== 'tool.execution_start') continue;
     const name = event.data?.toolName;
-    if (typeof name !== 'string' || !COPILOT_READ_TOOLS.has(name)) continue;
-    const path = readStringField(event.data?.arguments, 'path');
-    if (path !== null) out.push(path);
+    if (typeof name !== 'string') continue;
+    if (COPILOT_READ_TOOLS.has(name)) {
+      const path = readStringField(event.data?.arguments, 'path');
+      if (path !== null) out.push(path);
+    } else if (COPILOT_COMMAND_TOOLS.has(name)) {
+      const command = firstCommandField(event.data?.arguments, ['command', 'cmd']);
+      if (command !== null) out.push(...extractCommandMarkdownCandidates(command));
+    }
   }
   return out;
 }
@@ -183,10 +318,26 @@ interface OpenCodePart {
 /** OpenCode read tool name(s). OpenCode's built-in reader is `read`. */
 const OPENCODE_READ_TOOLS = new Set(['read']);
 
-function openCodePartReadPath(part: OpenCodePart): string | null {
-  if (part.type !== 'tool' || typeof part.tool !== 'string') return null;
-  if (!OPENCODE_READ_TOOLS.has(part.tool)) return null;
-  return firstStringField(part.state?.input, ['filePath', 'path', 'file_path']);
+/** OpenCode shell tool name(s). OpenCode runs commands via `bash`; command at `state.input.command`. */
+const OPENCODE_COMMAND_TOOLS = new Set(['bash', 'shell']);
+
+/**
+ * Candidates from a single OpenCode export part: a `read` tool part contributes
+ * its `state.input` file path; a shell tool part contributes markdown path
+ * candidates named in its `state.input.command`. Non-tool/unknown parts yield
+ * nothing.
+ */
+function openCodePartCandidates(part: OpenCodePart): string[] {
+  if (part.type !== 'tool' || typeof part.tool !== 'string') return [];
+  if (OPENCODE_READ_TOOLS.has(part.tool)) {
+    const path = firstStringField(part.state?.input, ['filePath', 'path', 'file_path']);
+    return path !== null ? [path] : [];
+  }
+  if (OPENCODE_COMMAND_TOOLS.has(part.tool)) {
+    const command = firstCommandField(part.state?.input, ['command', 'cmd']);
+    return command !== null ? extractCommandMarkdownCandidates(command) : [];
+  }
+  return [];
 }
 
 interface OpenCodeMessage {
@@ -200,9 +351,10 @@ interface OpenCodeExport {
 /**
  * OpenCode: walks the parsed `opencode export <id>` document
  * (`{ messages: [{ parts: [...] }] }`, verified against OpenCode v1.17.3) and
- * returns the file path of every `read` tool part in document order, preserving
- * duplicates. Only parts where `type === 'tool' && tool === 'read'` count; the
- * read path is taken from `state.input` (`filePath`/`path`/`file_path`). Any
+ * returns, in document order with duplicates preserved, the file path of every
+ * `read` tool part plus markdown path candidates named in `bash`/`shell` tool
+ * command parts. Read paths come from `state.input`
+ * (`filePath`/`path`/`file_path`); command text from `state.input.command`. Any
  * unrecognized or malformed shape yields no entries.
  */
 export function extractOpenCodeReads(exportJson: unknown): string[] {
@@ -216,8 +368,7 @@ export function extractOpenCodeReads(exportJson: unknown): string[] {
     if (!Array.isArray(parts)) continue;
     for (const part of parts) {
       if (!part || typeof part !== 'object') continue;
-      const path = openCodePartReadPath(part as OpenCodePart);
-      if (path !== null) out.push(path);
+      out.push(...openCodePartCandidates(part as OpenCodePart));
     }
   }
   return out;

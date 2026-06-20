@@ -254,9 +254,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 02: Wire prompt-time hook support for verified native prompt-submit injection channels, initially Claude and Codex unless implementation proves more (depends on: 01).
 
-### Phase 3: Regression Coverage
+### ✅ Phase 3: Regression Coverage
 **Parallel Tasks:**
-- Task 03: Add focused retrieval, hook, and session-start regression coverage (depends on: 01, 02).
+- ✔️ Task 03: Add focused retrieval, hook, and session-start regression coverage (depends on: 01, 02).
 
 ### Phase 4: Documentation
 **Parallel Tasks:**

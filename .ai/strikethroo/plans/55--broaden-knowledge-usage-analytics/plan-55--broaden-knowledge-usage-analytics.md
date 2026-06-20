@@ -227,9 +227,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 001: Add command path candidate extraction (status: completed)
 
-### Phase 2: Harness Coverage
+### ✅ Phase 2: Harness Coverage
 **Parallel Tasks:**
-- Task 002: Wire shell/search extraction across harnesses (depends on: 001)
+- ✔️ Task 002: Wire shell/search extraction across harnesses (depends on: 001) (status: completed)
 
 ### Phase 3: Verification And Documentation
 **Parallel Tasks:**

@@ -2,7 +2,7 @@
 id: 2
 group: "usage-extraction"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - typescript

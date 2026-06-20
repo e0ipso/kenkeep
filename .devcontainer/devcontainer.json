@@ -7,6 +7,11 @@
       "onAutoForward": "silent"
     }
   },
+  "runArgs": [
+    "--hostname=kenkeep-dev",
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW"
+  ],
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
@@ -14,10 +19,6 @@
       "TZ": "${localEnv:TZ:Europe/Madrid}"
     }
   },
-  "runArgs": [
-    "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW"
-  ],
   "customizations": {
     "vscode": {
       "extensions": [

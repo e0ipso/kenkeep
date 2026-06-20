@@ -2,7 +2,7 @@
 id: 1
 group: "prompt-time-knowledge-injection"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - typescript

@@ -246,9 +246,9 @@ graph TD
     T03 --> T04
 ```
 
-### Phase 1: Retrieval Foundation
+### ✅ Phase 1: Retrieval Foundation
 **Parallel Tasks:**
-- Task 01: Build deterministic prompt retrieval and compact payload rendering.
+- ✔️ Task 01: Build deterministic prompt retrieval and compact payload rendering.
 
 ### Phase 2: Harness Integration
 **Parallel Tasks:**

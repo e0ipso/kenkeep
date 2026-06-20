@@ -104,17 +104,6 @@ If execution is blocked, stop and explain why, including guidance on how
 to resolve the blocker (e.g., use execute-blueprint to re-execute a completed
 task, or resolve clarification questions first).
 
-#### Valid Status Transitions
-
-Reference for orchestrators and execution flow:
-
-- `pending` → `in-progress` (execution starts)
-- `in-progress` → `completed` (successful execution)
-- `in-progress` → `failed` (execution error)
-- `failed` → `in-progress` (retry attempt)
-- `pending` → `needs-clarification` (set externally by orchestrator or reviewer)
-- `needs-clarification` → `pending` (clarification resolved, set externally)
-
 ### 5. Validate dependencies
 
 Run `scripts/check-task-dependencies.cjs <plan-id> <task-id>`. The script

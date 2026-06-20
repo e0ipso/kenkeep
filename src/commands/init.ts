@@ -177,6 +177,11 @@ async function runUpgrade(
 
   copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
 
+  // Ship skeleton scripts (e.g. the shared kk-detect-harness helper the kk
+  // skills invoke) into existing repos. Upgrade does not re-copy the whole
+  // skeleton, so copy any missing script without clobbering user-owned files.
+  ensureKkScripts(join(templatesDir, 'kenkeep', 'scripts'), join(paths.kkDir, 'scripts'));
+
   ensureKbGitignore(paths.kkGitignoreFile);
   ensureAgentsKkBlock(join(root, 'AGENTS.md'));
 
@@ -196,6 +201,22 @@ async function runUpgrade(
   log.plain('Run `npx kenkeep doctor` to verify.');
 
   reportSchemaMismatch(paths.nodesDir);
+}
+
+/**
+ * Copies skeleton script files into `.ai/kenkeep/scripts/` for an existing
+ * install. First-time `init` already lands the whole `templates/kenkeep`
+ * skeleton; upgrade only fills in scripts that are missing and never
+ * overwrites a file the user may have edited.
+ */
+function ensureKkScripts(src: string, dst: string): void {
+  if (!existsSync(src)) return;
+  mkdirSync(dst, { recursive: true });
+  for (const name of readdirSync(src)) {
+    const dstPath = join(dst, name);
+    if (existsSync(dstPath)) continue;
+    cpSync(join(src, name), dstPath);
+  }
 }
 
 function copyPromptsPreservingLocal(src: string, dst: string): void {

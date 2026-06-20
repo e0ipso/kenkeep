@@ -45,6 +45,7 @@ describe('init', () => {
       '.ai/kenkeep/.config/prompts/proposal-extract.md',
       '.ai/kenkeep/config.yaml',
       '.ai/kenkeep/.gitignore',
+      '.ai/kenkeep/scripts/kk-detect-harness.mjs',
     ];
 
     for (const rel of expected) {
@@ -163,7 +164,7 @@ describe('init', () => {
     expect(claudeSkill).toBe(codexSkill);
     expect(codexSkill).toBe(cursorSkill);
     expect(cursorSkill).toBe(openCodeSkill);
-    expect(claudeSkill).toContain('/tmp/kk-detect-harness.mjs');
+    expect(claudeSkill).toContain('node .ai/kenkeep/scripts/kk-detect-harness.mjs');
     expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(true);
     expect(existsSync(join(sandbox, '.opencode/kk-hooks/kk-capture.cjs'))).toBe(true);
   });

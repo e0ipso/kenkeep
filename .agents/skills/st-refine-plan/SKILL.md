@@ -74,28 +74,19 @@ reference it when refining the plan.
 
 ### 5. Clarification Loop
 
-**Default to Interactive Clarification.** Only switch to **Autonomous
-Clarification** when the trigger is unambiguous and beyond reasonable doubt.
-Treat ambiguity as a vote for Interactive: asking a question the user
-cannot answer is recoverable; making silent assumptions when the user
-expected to be consulted is not.
-
-Switch to Autonomous Clarification only if at least one of the following
+**Default to Interactive Clarification.** Switch to **Autonomous
+Clarification** only when, beyond reasonable doubt, at least one of these
 holds without interpretation:
 
-- The user's request contains an explicit, unambiguous mode keyword such
-  as "auto", "autonomous", "non-interactive", "without asking me", "don't
-  ask", or equivalent phrasing that names the mode by intent.
-- An upstream orchestrator (for example the `st-full-workflow` skill)
-  has declared autonomous operation for this invocation in the prompt
-  passed to this skill.
-- The skill is invoked in auto mode (for example by the `st-full-workflow`
-  orchestrator or by a caller that explicitly requests autonomous operation).
+- The user's request explicitly names autonomous mode ("auto", "autonomous",
+  "non-interactive", "without asking me", "don't ask", or equivalent).
+- An upstream orchestrator (for example the `st-full-workflow` skill) has
+  declared autonomous operation for this invocation.
 
-If none of the above holds, use Interactive Clarification even when the
-user's presence is uncertain. Do not infer autonomous mode from indirect
-signals such as terse prompts, scripted-looking input, or absence of
-recent user messages.
+Otherwise use Interactive Clarification, even when the user's presence is
+uncertain — treat ambiguity as a vote for Interactive, and never infer
+autonomous mode from indirect signals such as terse prompts, scripted-looking
+input, or absence of recent user messages.
 
 After the clarification loop completes, append all new findings to the
 "Plan Clarifications" section in the plan document using the existing format

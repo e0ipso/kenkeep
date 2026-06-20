@@ -17,7 +17,7 @@ export function detectHarnessFromEnv(env: NodeJS.ProcessEnv = process.env): Harn
 
 /**
  * Hint-aware resolution chain shared between the CLI and the
- * `/tmp/kk-detect-harness.mjs` skill helper. Priority:
+ * `.ai/kenkeep/scripts/kk-detect-harness.mjs` skill helper. Priority:
  *
  *   1. `hint`, when supplied and registered. An unknown hint falls through
  *      silently so a typo does not silently select the wrong adapter; the
@@ -32,9 +32,10 @@ export function detectHarnessFromEnv(env: NodeJS.ProcessEnv = process.env): Harn
  * hint explicitly (`session.idle` env carries no OpenCode signal, but
  * `CLAUDECODE=1` might leak in from the parent shell).
  *
- * The TS implementation here is mirrored by the heredoc in
- * `src/templates-source/skills/kk-curate/SKILL.md`. CI guards drift
- * between the two via `scripts/lint-detect-harness.mjs`.
+ * The TS implementation here is mirrored by the shared detector helper
+ * `src/templates-source/kenkeep/scripts/kk-detect-harness.mjs` (shipped to
+ * `.ai/kenkeep/scripts/`). CI guards drift between the two via
+ * `scripts/lint-detect-harness.mjs`.
  */
 export function resolveWithHint(
   env: NodeJS.ProcessEnv = process.env,

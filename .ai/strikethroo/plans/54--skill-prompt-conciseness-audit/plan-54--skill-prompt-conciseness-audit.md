@@ -223,10 +223,10 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 001: Baseline scope and helper packaging
 
-### Phase 2: Conciseness Refactors
+### ✅ Phase 2: Conciseness Refactors
 **Parallel Tasks:**
-- Task 002: Refactor kk skills and proposal prompt (depends on: 001)
-- Task 003: Refactor Strikethroo skills (depends on: 001)
+- ✔️ Task 002: Refactor kk skills and proposal prompt (depends on: 001)
+- ✔️ Task 003: Refactor Strikethroo skills (depends on: 001)
 
 ### Phase 3: Verification
 **Parallel Tasks:**

@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 1
+  Version: 2
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -52,7 +52,7 @@ This example exists to inoculate against the most common false positive: phantom
 
 **Commentary on why the gate fires (not part of the JSON output):**
 
-The session is meta-only. Its visible work is plan-authoring under `.ai/task-manager/plans/`. The statement "we always want a CI gate before merging" reads rule-shaped, but its subject is the plan's success criteria section, not a project-wide convention. The conservative gate skips the whole session, with no exception for the rule-shaped mid-thread statement. This is the failure mode the gate inoculates against: extracting a phantom project rule from a planning conversation. If the project genuinely adopts a CI-gate rule later, a follow-up session that states the rule in non-planning context will capture it then.
+The session is meta-only — plan-authoring under `.ai/task-manager/plans/` — so the rule-shaped statement "we always want a CI gate before merging" describes the plan's success-criteria section, not a project-wide convention. The conservative gate skips the whole session; if the project genuinely adopts the rule later, a follow-up session that states it in non-planning context captures it then.
 
 ---
 
@@ -124,9 +124,7 @@ Most of the transcript is not knowledge. Do not capture:
 - General programming knowledge (how to write a getter, what dependency injection is, how HTTP works).
 - Restatements of standard framework behavior that anyone reading the docs would know.
 - Anything that could be re-derived by reading the codebase.
-- Maintenance or lifecycle actions: version bumps, deprecations, releases, dependency updates, rebuilds, changelog edits. Record the current state, not the act that produced it.
-- Project story or history - and especially any reference to a plan, ticket, issue, work-order, or task id. That history belongs in git, not the knowledge base.
-- Incidental facts the agent hit once while fixing a one-off problem but that read like a convention. A practice is a rule the project deliberately and repeatedly follows.
+- Maintenance or lifecycle actions, project story or history (especially any reference to a plan, ticket, issue, work-order, or task id), and incidental one-off facts dressed up as conventions — all covered by the **Durability filter** below.
 
 The signal for capture is: **did the user have to teach the agent something the agent couldn't have known from the codebase or from general knowledge? Or did the user introduce a named thing that didn't exist in the project's vocabulary before?** Everything else is noise. When in doubt, skip.
 
@@ -142,10 +140,6 @@ Many corrective signals look like rules but only apply to the immediate change. 
 Pair this filter with a confidence-bias rule: **when a corrective signal does not generalize to a project-level rule, prefer drop over emitting a low-confidence practice candidate.** A high-confidence project rule is worth a node; a low-confidence guess at a rule is not.
 
 Framing aid: **the rule's *scope*, not its *occasion*, decides task-specificity.** A genuine project-wide rule that the user happens to mention "in this PR" (because that is where the violation was noticed) is still project-wide and is kept. A rule that only constrains code touched in this PR is task-specific and is dropped. Read the corrective signal carefully and ask: would this rule still be true on a different file, in a different change, six months from now? If yes, keep. If no, drop.
-
-### Transition narratives (change-oriented framing)
-
-Even outside corrective signals, transcripts often contain change-oriented framing: "we used to do X", "this was renamed", "we removed the old service", "we migrated to Y". Treat a **transition narrative** as a transcript artifact, not as knowledge. The only retainable content in such a turn is the resulting end-state claim, extracted in present tense. If no clean end-state claim is present, drop the whole turn.
 
 ### Durability filter: principles and facts, not actions or story
 
@@ -254,9 +248,7 @@ Second, the reviewer pointed out a typo in the JSDoc for `assembleHeroCard`: "re
 
 **Commentary on what was dropped (not part of the JSON output):**
 
-The second review comment (the "recieves" typo in `assembleHeroCard`'s JSDoc) is dropped. The drop reason is **task-specific scope**: the comment names one specific docstring in one specific function, and the underlying rule (spell words correctly) is general programming knowledge rather than a project convention. No practice candidate is emitted for it. Producing nothing for that comment is correct; emitting a low-confidence "spell things correctly" practice candidate would be noise.
-
-Notice how the kept candidate's body is written in present tense as an end-state rule. It does not say "the agent used to write single-letter loop variables and was corrected"; it says "loop variables in this codebase use descriptive names". The transition (the rename of `i` to `cardIndex`) is the occasion that surfaced the rule; the rule itself is the captured knowledge.
+The second review comment (the "recieves" typo in `assembleHeroCard`'s JSDoc) is dropped for **task-specific scope** plus general knowledge: it names one docstring in one function, and "spell words correctly" is not a project convention. Emitting a low-confidence "spell things correctly" candidate would be noise.
 
 ---
 

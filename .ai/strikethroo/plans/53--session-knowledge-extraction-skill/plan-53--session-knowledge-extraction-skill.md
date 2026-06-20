@@ -25,7 +25,7 @@ kenkeep currently has two paths for getting knowledge into the base. `kk-add` is
 
 This plan adds a third entry point that sits between them: an **on-demand skill that extracts durable knowledge from the session the user is currently in**, persists the survivors through the existing curate machinery, and **stamps the current session so the deferred pipeline does not reprocess it**. The distinguishing capability is the *source* of candidates — the live context window the agent already holds — not a new kind of extraction or persistence. Because it is a skill running inline in the user's existing context window rather than a hook spawning a headless runner, in-context extraction is the natural mechanism on every harness; the new skill differs from curate's extraction only in that it reads the live session rather than a drained transcript file on disk.
 
-The design is deliberately a **thin front-end on curate**, not a standalone or parallel pipeline. It reuses the existing `proposal-extract` prompt for extraction (preserving its session-disposition gate verbatim) and the existing `curate-dedup` → `node write` → `index rebuild` → rebalance tail for persistence. The only genuinely new logic is: (1) sourcing the transcript from the live context window, (2) resolving the current `session_id` and locating-or-creating its session log, and (3) stamping that log as curator-processed so the capture/drain/curate pipeline skips it. This keeps the new surface area small and avoids the cross-skill drift that a duplicated extraction/persistence path would invite.
+The design is deliberately a **thin front-end on curate**, not a standalone or parallel pipeline. It reuses the existing `proposal-extract` prompt for extraction (preserving its session-disposition gate verbatim) and the existing `curate-dedup` → `node write` → `index rebuild` → rebalance tail for persistence. Realizing that reuse cleanly will most likely require **abstracting curate's input source** — the step that today is hard-wired to read the drained `_sessions/*.md` logs — into a single seam with two implementations: the existing **drained-log source** (the good old curate from session logs) and a new **live-context source** (curation from the current context window). Everything downstream of the seam — extraction gate, dedup, persistence, rebalance — stays source-agnostic and shared; only where the raw session content comes from differs. With that seam in place, the only genuinely new logic is: (1) the live-context source implementation, (2) resolving the current `session_id` and locating-or-creating its session log, and (3) stamping that log as curator-processed so the capture/drain/curate pipeline skips it. This keeps the new surface area small and avoids the cross-skill drift that a duplicated extraction/persistence path would invite.
 
 This approach was chosen over building a self-contained skill because duplicating the extraction and persistence logic would create two code paths that must be kept in lockstep — exactly the drift kenkeep already guards against elsewhere. It was chosen over relaxing the extraction gate because the sessions a user most wants to "process proactively" mid-stream are frequently planning or in-flight sessions, which the gate correctly rejects; loosening it would manufacture phantom conventions. The expected outcome is a proactive, immediate, single-session intake verb that produces the same quality of nodes as curate, stays idempotent with the automatic pipeline, and adds little new machinery.
 
@@ -36,7 +36,7 @@ This approach was chosen over building a self-contained skill because duplicatin
 | Current State | Target State | Why? |
 |---------------|--------------|------|
 | Knowledge intake is either face-value single-node (`kk-add`) or deferred, batched, retrospective (capture → drain → curate). | A third, on-demand path extracts durable knowledge from the current live session and persists it immediately through the curate machinery. | Users want to proactively turn the session they are in into knowledge without waiting for capture and a later curate pass. |
-| Extraction always reads a drained transcript from `_sessions/*.md`. | Extraction can also read the live context window of the current session directly, with no capture → drain → read roundtrip. | The agent already holds the conversation in context; the roundtrip is unnecessary latency for an in-session verb. |
+| Curate's input is hard-wired to the drained `_sessions/*.md` logs. | Curate's input is a **source abstraction** with two implementations — a drained-log source (existing behavior) and a live-context source (new) — feeding the same extraction-and-curation pipeline. | A single source seam lets both intake modes share extraction and persistence instead of forking the pipeline; the agent already holds the live conversation, so the live-context source removes the capture → drain → read roundtrip. |
 | A session processed manually would still be captured on Stop and curated later, reprocessing the same content. | The new skill stamps the current session's log (`curator_processed_at`, `proposal_status`) so the deferred pipeline skips it. | Prevents duplicate nodes and duplicate conflict files from the same session being processed twice. |
 | Extraction quality and gating live entirely in `proposal-extract.md` and curate's action rules. | The new skill inherits those rules unchanged, including the session-disposition gate. | One quality bar across all intake paths; planning/in-flight sessions correctly yield nothing. |
 | Two documented intake paths in the AI-facing docs and knowledge base. | Three intake paths documented, with the new skill's niche (live, on-demand, single-session) and its relationship to curate made explicit. | Users and maintainers need a single source of truth for when to use each path. |
@@ -62,20 +62,25 @@ The work divides into logical components: source the live session, reuse the ext
 
 ```mermaid
 flowchart TD
-    A[Resolve current session<br/>session_id + live transcript] --> B[Extract candidates<br/>reuse proposal-extract.md gate, unchanged]
+    S[Curate input: session-source abstraction] --> A1[Drained-log source<br/>existing /kk-curate input, unchanged]
+    S --> A2[Live-context source<br/>current context window + session_id]
+    A1 --> B[Extract candidates<br/>reuse proposal-extract.md gate, unchanged]
+    A2 --> B
     B -->|gate rejects: nothing| Z[Report 'no durable knowledge'; stop]
     B -->|candidates survive| C[Persist via curate tail<br/>curate-dedup → node write → index rebuild → rebalance]
-    C --> D[Stamp current session log<br/>curator_processed_at + proposal_status]
+    C --> D[Stamp current session log<br/>curator_processed_at + proposal_status<br/>live-context source only]
     D --> E[Report nodes written, placement,<br/>conflicts, drops]
-    A -.harness-specific.-> F[session_id resolution<br/>graceful degradation]
+    A2 -.harness-specific.-> F[session_id resolution<br/>graceful degradation]
     C -.whole-tree.-> G[dedup safety net<br/>against existing nodes]
 ```
 
-### Component 1 — Source the current live session
+### Component 1 — Abstract curate's input source; add a live-context source
 
-**Objective**: Obtain the transcript of the session the user is in, plus its `session_id`, without depending on a drained `_sessions/` file existing yet.
+**Objective**: Introduce a single seam for curate's input and provide the live-context implementation, so the same pipeline can run from either the drained logs or the current context window without forking.
 
-The skill operates on the live context window the agent already holds — there is no need to read a transcript file, because the conversation *is* the context. The skill must, however, resolve the current `session_id` to key the idempotency stamp in Component 4. Resolution is harness-specific — each harness exposes the running session's id through its own runtime convention — and must reuse the existing harness-detection block that the other `kk-*` skills already materialize. When the `session_id` cannot be resolved on the active harness, the skill still extracts and persists, but must clearly report that it could not stamp the session for idempotency (Component 4 covers the consequence). The skill should also account for context compaction: when the live window has been compacted, the available session content may be partial, and the skill reports this rather than implying completeness.
+Curate today is hard-wired to read its raw input from the drained `_sessions/*.md` logs. To let the same extraction-and-curation pipeline serve both intake modes, the plan anticipates introducing a **session-source abstraction**: a single seam that yields the raw session content (and the associated `session_id`) to the downstream stages, with two implementations — a **drained-log source** that preserves today's curate behavior verbatim, and a **live-context source** that reads the session the user is currently in. This abstraction is the load-bearing new structure; everything downstream of it (extraction gate, dedup, persistence, rebalance) is source-agnostic and shared. The drained-log implementation must reproduce existing behavior exactly — extracting and refactoring it behind the seam is additive and must not change `kk-curate`'s observable behavior. Whether the seam is a small shared module, a documented contract, or a parameter on the existing curate flow is an implementation choice for the task phase; the plan fixes the requirement (one source seam, two implementations, one shared downstream) rather than the mechanism.
+
+The live-context source operates on the live context window the agent already holds — there is no need to read a transcript file, because the conversation *is* the context. The skill must, however, resolve the current `session_id` to key the idempotency stamp in Component 4. Resolution is harness-specific — each harness exposes the running session's id through its own runtime convention — and must reuse the existing harness-detection block that the other `kk-*` skills already materialize. When the `session_id` cannot be resolved on the active harness, the skill still extracts and persists, but must clearly report that it could not stamp the session for idempotency (Component 4 covers the consequence). The skill should also account for context compaction: when the live window has been compacted, the available session content may be partial, and the skill reports this rather than implying completeness.
 
 ### Component 2 — Extract candidates with the inherited gate
 
@@ -87,7 +92,7 @@ The skill loads and follows `proposal-extract.md` exactly as the curate pipeline
 
 **Objective**: Turn surviving candidates into reviewed nodes using curate's existing machinery, not a reimplementation.
 
-Surviving candidates are shaped into curator actions (`add` / `modify` / `contradict` / `drop`) under curate's existing action rules and placement logic (`relates_to`, `depends_on`, home-branch selection), then run through the single `curate-dedup` pass across the whole `nodes/` tree, persisted via `node write` (with `--folder` for placed `add`s), and followed by `index rebuild` and the deterministic rebalance act-and-fold phase. Conflicts (`contradict`) are written by the dedup primitive and resolved interactively exactly as in curate. The reuse must be by reference to the same primitives and rules, so the two skills cannot drift; this plan does not duplicate the action-rule prose into a second place that could fall out of sync. The whole-tree dedup pass also serves as the safety net described in Component 4.
+This tail consumes whatever the source abstraction (Component 1) produced and is identical for both the drained-log and live-context sources; nothing here is aware of where the session content originated. Surviving candidates are shaped into curator actions (`add` / `modify` / `contradict` / `drop`) under curate's existing action rules and placement logic (`relates_to`, `depends_on`, home-branch selection), then run through the single `curate-dedup` pass across the whole `nodes/` tree, persisted via `node write` (with `--folder` for placed `add`s), and followed by `index rebuild` and the deterministic rebalance act-and-fold phase. Conflicts (`contradict`) are written by the dedup primitive and resolved interactively exactly as in curate. The reuse must be by reference to the same primitives and rules, so the two skills cannot drift; this plan does not duplicate the action-rule prose into a second place that could fall out of sync. The whole-tree dedup pass also serves as the safety net described in Component 4.
 
 ### Component 4 — Idempotency with the automatic pipeline
 
@@ -126,7 +131,9 @@ The AI-facing docs and `AGENTS.md` are updated to describe three intake paths an
 <summary>Implementation Risks</summary>
 
 - **Drift from `kk-curate`**: copying curate's extraction or persistence logic into the new skill would create two paths that must be kept in lockstep.
-    - **Mitigation**: Reuse the same prompt and the same `curate-dedup` / `node write` / `index rebuild` / rebalance primitives by reference; do not duplicate the action-rule prose into a second authority.
+    - **Mitigation**: Reuse the same prompt and the same `curate-dedup` / `node write` / `index rebuild` / rebalance primitives by reference; converge both intake modes onto one source abstraction with a shared downstream so there is a single pipeline, not two; do not duplicate the action-rule prose into a second authority.
+- **Refactoring the existing source path regresses `kk-curate`**: extracting today's drained-log read behind the new abstraction could subtly change curate's behavior.
+    - **Mitigation**: The drained-log source must be behavior-preserving; validate `/kk-curate` against drained logs produces the same result as before (Self Validation step 2). Keep the refactor additive — no observable change to the existing path.
 - **Per-harness skill-install divergence**: a new skill must be wired into the source-of-truth skills, the build, and each adapter's install path.
     - **Mitigation**: Follow the existing multi-harness skill packaging exactly as `kk-curate`/`kk-add` are wired; verify the skill installs on every adapter.
 - **Routing collision with `kk-add`/`kk-curate`**: an imprecise skill description could cause the harness to invoke the wrong intake skill.
@@ -147,24 +154,26 @@ The AI-facing docs and `AGENTS.md` are updated to describe three intake paths an
 ### Primary Success Criteria
 
 1. A new, installed kenkeep skill extracts durable knowledge from the current live session on demand and persists survivors as reviewed nodes using the existing `curate-dedup` → `node write` → `index rebuild` → rebalance machinery (not a reimplementation).
-2. Extraction uses the existing `proposal-extract.md` with its session-disposition gate unchanged; a non-productive (planning / exploratory / abandoned / unrelated) session results in no nodes written and a clear "no durable knowledge found" report.
-3. After a successful run, the current session's `_sessions/` log is stamped (`curator_processed_at` set and `proposal_status` terminal) keyed by the resolved `session_id`, so the deferred capture → drain → curate pipeline does not reprocess the same session; when the `session_id` cannot be resolved or matched, the skill reports this and relies on the whole-tree dedup safety net.
-4. `kk-add`, `kk-curate`, and the capture/drain/curate hooks are behaviorally unchanged (additive-only).
-5. The skill ships and installs on all five harness adapters, obeys the self-containment rule, and reuses the standard harness-detection block.
-6. AI-facing docs, `AGENTS.md`, and the knowledge base document three intake paths and when to use each, with a skill `description` precise enough to avoid routing collisions.
-7. The existing test suite passes and the new behavior is covered to the project's testing conventions (integration-weighted), including the idempotency stamp and the gate-rejection path.
+2. Curate's input is a single source abstraction with two implementations — a drained-log source and a live-context source — feeding one shared downstream pipeline; the drained-log source reproduces existing `/kk-curate` behavior with no observable change.
+3. Extraction uses the existing `proposal-extract.md` with its session-disposition gate unchanged; a non-productive (planning / exploratory / abandoned / unrelated) session results in no nodes written and a clear "no durable knowledge found" report.
+4. After a successful run, the current session's `_sessions/` log is stamped (`curator_processed_at` set and `proposal_status` terminal) keyed by the resolved `session_id`, so the deferred capture → drain → curate pipeline does not reprocess the same session; when the `session_id` cannot be resolved or matched, the skill reports this and relies on the whole-tree dedup safety net.
+5. `kk-add`, `kk-curate`, and the capture/drain/curate hooks are behaviorally unchanged (additive-only).
+6. The skill ships and installs on all five harness adapters, obeys the self-containment rule, and reuses the standard harness-detection block.
+7. AI-facing docs, `AGENTS.md`, and the knowledge base document three intake paths and when to use each, with a skill `description` precise enough to avoid routing collisions.
+8. The existing test suite passes and the new behavior is covered to the project's testing conventions (integration-weighted), including the idempotency stamp and the gate-rejection path.
 
 ## Self Validation
 
 After all tasks are complete, an executor should verify against the real system, not only by running pre-existing tests:
 
 1. Run the project test suite and confirm it passes, including new coverage for the idempotency stamp (a stamped session is skipped by a subsequent curate pass) and for the gate-rejection path (a planning/exploratory session yields no nodes).
-2. In a scratch checkout, run `init`/`upgrade` for each harness and confirm the new skill is installed in that harness's skills location alongside `kk-add` and `kk-curate`.
-3. Invoke the skill in a session that converged on a durable, project-specific rule; confirm it writes the expected node(s), reports placement/conflicts/drops, and that the corresponding `_sessions/` log is stamped with `curator_processed_at` and a terminal `proposal_status`.
-4. Invoke the skill in a planning/in-flight session; confirm it writes nothing and reports "no durable knowledge found".
-5. After step 3, run the normal curate path over pending logs and confirm the already-processed session is skipped (no duplicate nodes, no duplicate conflict files); confirm the dedup safety net collapses any near-duplicate if the stamp could not be applied.
-6. Grep the new skill source and confirm it references the shared extraction prompt and the shared curate primitives rather than embedding a duplicate copy of the action rules.
-7. Open the updated docs/`AGENTS.md` and the new knowledge-base node and confirm the three intake paths and the idempotency contract are described.
+2. Run `/kk-curate` over pending drained logs and confirm it behaves exactly as before — the drained-log source, now behind the abstraction, produces the same actions and nodes it did prior to this change.
+3. In a scratch checkout, run `init`/`upgrade` for each harness and confirm the new skill is installed in that harness's skills location alongside `kk-add` and `kk-curate`.
+4. Invoke the skill in a session that converged on a durable, project-specific rule; confirm it writes the expected node(s), reports placement/conflicts/drops, and that the corresponding `_sessions/` log is stamped with `curator_processed_at` and a terminal `proposal_status`.
+5. Invoke the skill in a planning/in-flight session; confirm it writes nothing and reports "no durable knowledge found".
+6. After step 4, run the normal curate path over pending logs and confirm the already-processed session is skipped (no duplicate nodes, no duplicate conflict files); confirm the dedup safety net collapses any near-duplicate if the stamp could not be applied.
+7. Grep the new skill source and confirm it references the shared extraction prompt and the shared curate primitives — and the shared source abstraction — rather than embedding a duplicate copy of the action rules or a second extraction/persistence path.
+8. Open the updated docs/`AGENTS.md` and the new knowledge-base node and confirm the three intake paths and the idempotency contract are described.
 
 ## Documentation
 
@@ -190,10 +199,10 @@ After all tasks are complete, an executor should verify against the real system,
 
 ## Integration Strategy
 
-The skill is added as a new, self-contained skill in the skills source-of-truth directory and wired into the build and each adapter's install path exactly as the existing intake skills are. It composes existing primitives by reference (extraction prompt + curate tail) and adds only session sourcing and the idempotency stamp. Because backwards compatibility is not required and the change is additive, no compatibility shims are needed and the existing `kk-add`, `kk-curate`, and hook behaviors are left untouched.
+The skill is added as a new, self-contained skill in the skills source-of-truth directory and wired into the build and each adapter's install path exactly as the existing intake skills are. The likely structural change is introducing the session-source abstraction: the existing drained-log read is refactored behind a single source seam (behavior-preserving), and the new live-context source is added as the second implementation, both feeding the shared extraction-and-curation tail. The skill composes existing primitives by reference (extraction prompt + curate tail) and adds only the live-context source, session-id resolution, and the idempotency stamp. Because backwards compatibility is not required and the change is additive, no compatibility shims are needed and the existing `kk-add`, `kk-curate`, and hook behaviors are left untouched.
 
 ## Notes
 
 - Out of scope: changing the capture hook's strict session-id validation, changing the drain-as-no-op design on the adapters that use it, loosening the extraction disposition gate, and any modification to `kk-add` or `kk-curate` behavior.
-- Framing invariant: the new skill is a *thin front-end on curate* whose only distinctive responsibilities are sourcing the live session and stamping it for idempotency. Resist reimplementing extraction or persistence; resist loosening the gate.
+- Framing invariant: the new skill is a *thin front-end on curate* whose only distinctive responsibilities are providing the live-context source and stamping the session for idempotency. The enabling structure is a single session-source abstraction with two implementations (drained-log, live-context) feeding one shared downstream. Resist reimplementing extraction or persistence; resist forking the pipeline; resist loosening the gate.
 - The most valuable time to run the skill is at the end of a session that converged on durable, project-specific knowledge; mid-task planning sessions are expected to yield nothing by design.

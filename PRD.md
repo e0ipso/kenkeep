@@ -286,6 +286,6 @@ The system is working if, after three months of use on a real project:
 
 ## 13. Open questions deferred to implementation or v2
 
-- For very large KBs, should the index injection be filtered by current task, or is the branch-bounded `ENTRY.md` sufficient? (Defer; decide based on real usage.)
+- For very large KBs, should the index injection be filtered by current task, or is the branch-bounded `ENTRY.md` sufficient? (Resolved: task relevance is delivered by a separate **prompt-time injection** surface rather than by filtering the session-start `ENTRY.md`. The `UserPromptSubmit` hook on harnesses with a native prompt-context channel — Claude Code and Codex today — ranks the current leaf nodes against the user's prompt and injects a bounded summaries-plus-links block; branch-bounded `ENTRY.md` orientation stays unchanged at session start. See [docs/internals/hooks.md](docs/internals/hooks.md).)
 - Should incremental bootstrap detect overlap with existing accepted nodes (curator-style modify/contradict logic) instead of always producing additions? (Deferred; v1 produces additions only and relies on the reviewer to catch duplicates.)
 - Should `usage.jsonl` graduate from instrumentation to an input for pruning/rebalance/curation prioritization, and on what policy? (Deferred until there is enough real usage data to design against.)

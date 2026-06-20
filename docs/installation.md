@@ -35,15 +35,17 @@ npx kenkeep --harness <id> doctor
 
 The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_AGENT=1`). **Codex, OpenCode, and Copilot export no in-session env var**, so when invoking from outside a session, or from inside a Codex/OpenCode/Copilot session, pass `--harness <id>` explicitly, or set `cliDefaultHarness` in `.ai/kenkeep/config.yaml`.
 
-| Harness | Capture events | Notable |
-|---|---|---|
-| Claude | `Stop`, `SessionEnd`, `PreCompact` | Writes a fence-managed pointer to `AGENTS.md`. Claude Code auto-loads `CLAUDE.md`, not `AGENTS.md`; see [AGENTS.md and CLAUDE.md](#agentsmd-and-claudemd) below. |
-| Codex | `Stop`, `PreCompact` | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write. See [coexistence](installation/codex-toml-hooks-coexistence.md). After first install, run `/hooks` inside a Codex session once to trust the kenkeep hook scripts before they will execute. |
-| Cursor | `stop`, `sessionEnd`, `preCompact` | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter, or you'll double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
-| OpenCode | `session.idle`, `session.created` | No `additionalContext` channel. The session-start hook writes the entry catalog to `.opencode/AGENTS.md`, and `init` registers it in `.opencode/opencode.json`'s `instructions` array so OpenCode loads it natively (no manual reference needed; verified against opencode 1.17.3), alongside the `plugin` entry OpenCode requires to load the hooks. `.opencode/AGENTS.md` is per-user, regenerated every session — add it to your `.gitignore`, never commit it. |
-| Copilot | `sessionEnd`, `agentStop` | Hooks register in the repo-level `.github/hooks/kk.json` (Copilot loads it before any user-level hooks). No `additionalContext` channel; the session-start hook writes INDEX into `.github/copilot-instructions.md` under a sentinel block. See [GitHub Copilot CLI](#github-copilot-cli) below. |
+| Harness | Capture events | Prompt-time injection | Notable |
+|---|---|---|---|
+| Claude | `Stop`, `SessionEnd`, `PreCompact` | ✅ `UserPromptSubmit` | Writes a fence-managed pointer to `AGENTS.md`. Claude Code auto-loads `CLAUDE.md`, not `AGENTS.md`; see [AGENTS.md and CLAUDE.md](#agentsmd-and-claudemd) below. |
+| Codex | `Stop`, `PreCompact` | ✅ `UserPromptSubmit` | A pre-existing `[hooks]` table in `.codex/config.toml` makes `init` refuse to write. See [coexistence](installation/codex-toml-hooks-coexistence.md). After first install, run `/hooks` inside a Codex session once to trust the kenkeep hook scripts before they will execute. |
+| Cursor | `stop`, `sessionEnd`, `preCompact` | — | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter, or you'll double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
+| OpenCode | `session.idle`, `session.created` | — | No `additionalContext` channel. The session-start hook writes the entry catalog to `.opencode/AGENTS.md`, and `init` registers it in `.opencode/opencode.json`'s `instructions` array so OpenCode loads it natively (no manual reference needed; verified against opencode 1.17.3), alongside the `plugin` entry OpenCode requires to load the hooks. `.opencode/AGENTS.md` is per-user, regenerated every session — add it to your `.gitignore`, never commit it. |
+| Copilot | `sessionEnd`, `agentStop` | — | Hooks register in the repo-level `.github/hooks/kk.json` (Copilot loads it before any user-level hooks). No `additionalContext` channel; the session-start hook writes INDEX into `.github/copilot-instructions.md` under a sentinel block. See [GitHub Copilot CLI](#github-copilot-cli) below. |
 
 If your harness isn't listed above, this tool doesn't support it yet.
+
+**Prompt-time injection** is a second, task-aware knowledge surface: after you submit a prompt, kenkeep ranks the current leaf nodes against it and injects a small, bounded list of the most relevant node summaries and links. It is available today only on the harnesses with a verified native prompt-submit context channel (Claude Code and Codex); the others continue to rely on session-start `ENTRY.md` orientation only. The injected entries are summaries-plus-links — open the linked node before relying on details. See [Internals → Hooks → Prompt-time injection](internals/hooks.md#kk-prompt-contextcjs-prompt-time-injection).
 
 ### AGENTS.md and CLAUDE.md
 

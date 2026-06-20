@@ -26,14 +26,18 @@ Triage flows INDEX (layer 1) to grep (layer 2) to full read (layer 3). Each laye
 
 This shape parallels [`thedotmack/claude-mem`](https://github.com/thedotmack/claude-mem)'s `mem-search` skill, whose `search` to `timeline` to `get_observations` workflow is the same three layers over a different memory store.
 
-## Why the SessionStart payload is the only viable surface
+## Why the SessionStart payload carries the directive
 
 The directive lives in the additional-context payload built by [`src/lib/session-start.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/session-start.ts) and nowhere else, for surface reachability:
 
-- **It is the only artifact auto-injected into every consumer session**, across all five supported harnesses (Claude Code, Codex CLI, Cursor, OpenCode, GitHub Copilot CLI). Every consumer sees it at session start without lifting a finger.
-- **Every other candidate surface needs a voluntary file-open first.** The consumer knowledge base's own `README.md`, the project's [`how-it-works.md`](../how-it-works.md) and [`daily-use.md`](../daily-use.md), the Jekyll site at `mateuaguilo.com/kenkeep`, the package `README.md`: all require opening a file before reading the directive. That voluntary open is precisely the speculative read the directive suppresses.
+- **SessionStart is the only artifact auto-injected into every consumer session**, across all five supported harnesses (Claude Code, Codex CLI, Cursor, OpenCode, GitHub Copilot CLI). Every consumer sees it at session start without lifting a finger — and it fires before any task is known, so it carries the orientation directive rather than task-specific results.
+- **Every other static candidate surface needs a voluntary file-open first.** The consumer knowledge base's own `README.md`, the project's [`how-it-works.md`](../how-it-works.md) and [`daily-use.md`](../daily-use.md), the Jekyll site at `mateuaguilo.com/kenkeep`, the package `README.md`: all require opening a file before reading the directive. That voluntary open is precisely the speculative read the directive suppresses.
 
 {% include callout.html variant="warning" content="The directive ships unconditionally on every SessionStart, regardless of knowledge base size, staleness, or pending session count." %}
+
+### Prompt-time injection complements, not replaces, this surface
+
+On harnesses with a verified native prompt-submit context channel (Claude Code and Codex), a second auto-injected surface fires *after* the user's prompt is known: the prompt-time hook (`kk-prompt-context`) injects a small, bounded set of the leaf nodes most relevant to that prompt as summaries-plus-links. It does **not** carry or replace the navigation directive — it is a deterministic retrieval shortcut that gives the agent direct, task-specific candidates instead of relying solely on the three-layer descent above. SessionStart `ENTRY.md` orientation, the directive, staleness warnings, and curation nudges are unchanged. See [Hooks → Prompt-time injection](hooks.md#kk-prompt-contextcjs-prompt-time-injection).
 
 ## Why `-C 2`
 

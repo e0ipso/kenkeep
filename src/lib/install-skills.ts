@@ -7,7 +7,13 @@ import { join } from 'node:path';
  * had already drifted (every one omitted kk-migrate while init shipped it).
  * Must match the directories under `src/templates-source/skills/`.
  */
-export const EXPECTED_SKILLS = ['kk-add', 'kk-bootstrap', 'kk-curate', 'kk-migrate'] as const;
+export const EXPECTED_SKILLS = [
+  'kk-add',
+  'kk-bootstrap',
+  'kk-curate',
+  'kk-migrate',
+  'kk-session-extract',
+] as const;
 
 /**
  * Copies the shared SKILL.md tree at `templates/skills/` into the

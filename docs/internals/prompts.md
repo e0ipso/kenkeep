@@ -9,7 +9,7 @@ nav_order: 4
 The knowledge base's LLM work runs in **two places**:
 
 1. **The proposal-drain hook** spawns the active harness's headless driver to turn each captured session log into a structured proposal. Its prompt loads from a local override path, falling back to the bundled template. Edit `.ai/kenkeep/.config/prompts/proposal-extract.md` to customize; delete it to revert.
-2. **The kk-bootstrap, kk-curate, and kk-add skills** run inside the host harness session (via `<harness> -p "/kk-<name>"` or invoked directly). Their prompts live in the skill itself: edit `.claude/skills/kk-<name>/SKILL.md` (and the `.codex/`, `.cursor/`, `.opencode/` equivalents).
+2. **The kk-bootstrap, kk-curate, kk-session-extract, and kk-add skills** run inside the host harness session (via `<harness> -p "/kk-<name>"` or invoked directly). Their prompts live in the skill itself: edit `.claude/skills/kk-<name>/SKILL.md` (and the `.codex/`, `.cursor/`, `.opencode/` equivalents).
 
 {% include callout.html variant="note" content="On the Claude adapter the proposal-drain hook is a no-op: extraction runs inline during `/kk-curate`." %}
 
@@ -21,6 +21,7 @@ The knowledge base's LLM work runs in **two places**:
 |---|---|
 | **`proposal-extract.md`** (v1 in the bundled template) | Converts a captured transcript into structured practice and map candidates. Run by `kk-proposal-drain` via the headless driver. |
 | **`kk-curate/SKILL.md`** | Reads pending session logs, drafts add/modify/contradict/drop actions in-session, hands the merged set to `curate-dedup`, walks contradictions with the user. (This is the curator logic; there is no separate `curator.md`.) |
+| **`kk-session-extract/SKILL.md`** | Applies `proposal-extract.md` to the visible live session, stages proposals via `session-log stage-live`, then runs the shared curation tail with `curate-dedup --session-id` scoped to the staged log. |
 | **`kk-bootstrap/SKILL.md`** | Enumerates source markdown via `finddocs`, drafts node bodies inline, persists via `node write`. |
 | **`kk-add/SKILL.md`** | Conversationally gathers fields, persists via `node write`. |
 
@@ -28,6 +29,7 @@ The knowledge base's LLM work runs in **two places**:
 |---|---|---|
 | Proposal extraction | `templates/prompts/proposal-extract.md` | `.config/prompts/proposal-extract.md` |
 | Curate skill | `src/templates-source/skills/kk-curate/SKILL.md` (regenerated into `.claude/skills/kk-curate/SKILL.md` etc.) | edit the per-harness copy directly |
+| Live session extract skill | `src/templates-source/skills/kk-session-extract/SKILL.md` (regenerated similarly) | edit the per-harness copy directly |
 | Bootstrap skill | `src/templates-source/skills/kk-bootstrap/SKILL.md` (regenerated similarly) | edit the per-harness copy directly |
 | Manual-add skill | `src/templates-source/skills/kk-add/SKILL.md` (regenerated similarly) | edit the per-harness copy directly |
 

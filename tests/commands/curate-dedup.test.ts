@@ -224,6 +224,78 @@ describe('runCurateDedupCommand (session stamps)', () => {
   });
 });
 
+const FILTERED_SESSION_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+
+describe('runCurateDedupCommand (scoped session stamping)', () => {
+  let sandbox: Sandbox;
+  let originalWrite: typeof process.stdout.write;
+
+  beforeEach(() => {
+    sandbox = makeSandbox();
+    originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+  });
+
+  afterEach(() => {
+    process.stdout.write = originalWrite;
+    rmSync(sandbox.root, { recursive: true, force: true });
+  });
+
+  it('stamps only the filtered session when --session-id is supplied', async () => {
+    const fileA = seedPendingSession(
+      sandbox.sessionsDir,
+      FILTERED_SESSION_ID,
+      '2026-05-12T10:00:00Z'
+    );
+    const fileB = seedPendingSession(sandbox.sessionsDir, 'beta-other', '2026-05-12T10:01:00Z');
+
+    const code = await runCurateDedupCommand({
+      input: inputFixture,
+      output: sandbox.outputPath,
+      runId: FIXED_RUN_ID,
+      sessionsDir: sandbox.sessionsDir,
+      conflictsDir: sandbox.conflictsDir,
+      now: FIXED_NOW,
+      sessionId: FILTERED_SESSION_ID,
+    });
+    expect(code).toBe(0);
+
+    const parsedA = matter(readFileSync(join(sandbox.sessionsDir, fileA), 'utf8'));
+    expect(parsedA.data['curator_processed_at']).toBe(FIXED_NOW.toISOString());
+    const parsedB = matter(readFileSync(join(sandbox.sessionsDir, fileB), 'utf8'));
+    expect(parsedB.data['curator_processed_at']).toBeUndefined();
+  });
+
+  it('fails before writes when the filtered session is missing or not done', async () => {
+    seedPendingSession(sandbox.sessionsDir, 'beta-other', '2026-05-12T10:01:00Z');
+    const code = await runCurateDedupCommand({
+      input: inputFixture,
+      output: sandbox.outputPath,
+      runId: FIXED_RUN_ID,
+      sessionsDir: sandbox.sessionsDir,
+      conflictsDir: sandbox.conflictsDir,
+      now: FIXED_NOW,
+      sessionId: FILTERED_SESSION_ID,
+    });
+    expect(code).not.toBe(0);
+    expect(existsSync(sandbox.outputPath)).toBe(false);
+  });
+
+  it('rejects non-UUID session ids', async () => {
+    const code = await runCurateDedupCommand({
+      input: inputFixture,
+      output: sandbox.outputPath,
+      runId: FIXED_RUN_ID,
+      sessionsDir: sandbox.sessionsDir,
+      conflictsDir: sandbox.conflictsDir,
+      now: FIXED_NOW,
+      sessionId: 'not-a-uuid',
+    });
+    expect(code).not.toBe(0);
+    expect(existsSync(sandbox.outputPath)).toBe(false);
+  });
+});
+
 describe('runCurateDedupCommand (home_folder passthrough)', () => {
   let sandbox: Sandbox;
   let originalWrite: typeof process.stdout.write;

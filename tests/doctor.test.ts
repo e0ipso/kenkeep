@@ -42,7 +42,7 @@ describe('doctor', () => {
       expect(combined).toContain('.gitignore lists kenkeep paths');
       expect(combined).toContain('settings file is valid');
       expect(combined).toContain('skills installed');
-      expect(combined).toContain('kk-add, kk-bootstrap, kk-curate, kk-migrate');
+      expect(combined).toContain('kk-add, kk-bootstrap, kk-curate, kk-migrate, kk-session-extract');
     }
   );
 

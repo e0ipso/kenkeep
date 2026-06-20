@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import matter from 'gray-matter';
 import type { CaptureTrigger } from './schemas.js';
 import {
   buildSessionLogFilename,
@@ -120,19 +122,95 @@ export async function captureSession(
     userChars <= CURSORY_MAX_USER_CHARS &&
     agentChars <= CURSORY_MAX_AGENT_CHARS;
 
+  interface CuratedPreserve {
+    curatorProcessedAt: string;
+    curatorRunId?: string | undefined;
+    proposalStatus?: 'done' | 'failed' | 'skipped' | undefined;
+    proposalCompletedAt?: string | null | undefined;
+    proposalError?: string | null | undefined;
+    proposals?: { practice: unknown[]; map: unknown[] } | undefined;
+    topics?: string[] | undefined;
+  }
+
+  let curatedPreserve: CuratedPreserve | undefined;
+  if (existingFilename) {
+    const existingPath = join(ctx.sessionsDir, existingFilename);
+    try {
+      const parsed = matter(readFileSync(existingPath, 'utf8'));
+      const data = parsed.data as Record<string, unknown>;
+      if (
+        typeof data['curator_processed_at'] === 'string' &&
+        data['curator_processed_at'].length > 0
+      ) {
+        const preserve: CuratedPreserve = {
+          curatorProcessedAt: data['curator_processed_at'],
+        };
+        if (typeof data['curator_run_id'] === 'string') {
+          preserve.curatorRunId = data['curator_run_id'];
+        }
+        if (typeof data['proposal_status'] === 'string') {
+          preserve.proposalStatus = data['proposal_status'] as NonNullable<
+            CuratedPreserve['proposalStatus']
+          >;
+        }
+        if (data['proposal_completed_at'] !== undefined) {
+          preserve.proposalCompletedAt = data['proposal_completed_at'] as string | null;
+        }
+        if (data['proposal_error'] !== undefined) {
+          preserve.proposalError = data['proposal_error'] as string | null;
+        }
+        if (data['proposals'] && typeof data['proposals'] === 'object') {
+          const proposals = data['proposals'] as { practice?: unknown; map?: unknown };
+          preserve.proposals = {
+            practice: Array.isArray(proposals.practice) ? proposals.practice : [],
+            map: Array.isArray(proposals.map) ? proposals.map : [],
+          };
+        }
+        if (Array.isArray(data['topics'])) {
+          preserve.topics = data['topics'] as string[];
+        }
+        curatedPreserve = preserve;
+      }
+    } catch {
+      // Best-effort: if the existing log cannot be read, refresh as today.
+    }
+  }
+
+  const curatedInput = curatedPreserve
+    ? {
+        ...(curatedPreserve.proposalStatus !== undefined
+          ? { proposalStatus: curatedPreserve.proposalStatus }
+          : {}),
+        ...(curatedPreserve.proposalCompletedAt !== undefined
+          ? { proposalCompletedAt: curatedPreserve.proposalCompletedAt }
+          : {}),
+        ...(curatedPreserve.proposalError !== undefined
+          ? { proposalError: curatedPreserve.proposalError }
+          : {}),
+        ...(curatedPreserve.proposals !== undefined
+          ? { proposals: curatedPreserve.proposals }
+          : {}),
+        curatorProcessedAt: curatedPreserve.curatorProcessedAt,
+        ...(curatedPreserve.curatorRunId !== undefined
+          ? { curatorRunId: curatedPreserve.curatorRunId }
+          : {}),
+        ...(curatedPreserve.topics !== undefined ? { topics: curatedPreserve.topics } : {}),
+      }
+    : isCursory
+      ? {
+          proposalStatus: 'skipped' as const,
+          proposalError: 'cursory_session',
+          proposalCompletedAt: capturedAt,
+        }
+      : {};
+
   const body = renderSessionLog({
     sessionId,
     capturedBy: trigger,
     capturedAt,
     transcriptHash: hash,
     body: slice,
-    ...(isCursory
-      ? {
-          proposalStatus: 'skipped' as const,
-          proposalError: 'cursory_session',
-          proposalCompletedAt: capturedAt,
-        }
-      : {}),
+    ...curatedInput,
   });
 
   const sessionLogPath = writeSessionLog(ctx.sessionsDir, filename, body);

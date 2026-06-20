@@ -11,7 +11,7 @@
 //   - src/harnesses/registry.ts    (REGISTERED harness ids)
 //   - src/harnesses/claude/index.ts, codex/index.ts, opencode/index.ts
 //     (each adapter's detectFromEnv body; we scan for `env['VAR']`)
-//   - src/templates-source/skills/kk-curate/SKILL.md (heredoc body)
+//   - src/templates-source/skills/*/SKILL.md (heredoc bodies)
 //
 // Output:
 //   - exit 0 with `detect-harness lint OK` on a match
@@ -29,7 +29,7 @@ const root = resolve(here, '..');
 
 const registryFile = join(root, 'src/harnesses/registry.ts');
 const harnessesDir = join(root, 'src/harnesses');
-const skillFile = join(root, 'src/templates-source/skills/kk-curate/SKILL.md');
+const skillsDir = join(root, 'src/templates-source/skills');
 
 function fail(msg) {
   process.stderr.write(`${msg}\n`);
@@ -39,6 +39,23 @@ function fail(msg) {
 function readFile(path) {
   if (!existsSync(path)) fail(`required file missing: ${path}`);
   return readFileSync(path, 'utf8');
+}
+
+function listSkillFilesWithHeredoc() {
+  if (!existsSync(skillsDir)) fail(`required directory missing: ${skillsDir}`);
+  const out = [];
+  for (const entry of readdirSync(skillsDir)) {
+    const skillFile = join(skillsDir, entry, 'SKILL.md');
+    if (!existsSync(skillFile) || !statSync(skillFile).isFile()) continue;
+    const text = readFileSync(skillFile, 'utf8');
+    if (/cat <<\s*'EOF'\s*>\s*\/tmp\/kk-detect-harness\.mjs/.test(text)) {
+      out.push(skillFile);
+    }
+  }
+  if (out.length === 0) {
+    fail(`no SKILL.md files with detect-harness heredoc found under ${skillsDir}`);
+  }
+  return out.sort();
 }
 
 // 1. Registered harness ids: parse src/harnesses/registry.ts for the
@@ -82,10 +99,10 @@ function readEnvDetectorsFromTs() {
   return out;
 }
 
-// 3. From the heredoc inside kk-curate/SKILL.md: extract REGISTERED and
+// 3. From each heredoc inside a shared SKILL.md: extract REGISTERED and
 //    ENV_DETECTORS. The heredoc spans from `cat << 'EOF' > /tmp/kk-detect-harness.mjs`
 //    to the matching `EOF` token.
-function readFromHeredoc() {
+function readFromHeredoc(skillFile) {
   const text = readFile(skillFile);
   const match = text.match(
     /cat <<\s*'EOF'\s*>\s*\/tmp\/kk-detect-harness\.mjs\s*\n([\s\S]*?)\n\s*EOF/
@@ -113,10 +130,6 @@ function readFromHeredoc() {
   return { registered, detectors };
 }
 
-const tsRegistered = readRegisteredFromTs();
-const tsDetectors = readEnvDetectorsFromTs();
-const { registered: heredocRegistered, detectors: heredocDetectors } = readFromHeredoc();
-
 function diffSets(label, a, b, aLabel, bLabel) {
   const onlyInA = [...a].filter(x => !b.has(x)).sort();
   const onlyInB = [...b].filter(x => !a.has(x)).sort();
@@ -127,13 +140,30 @@ function diffSets(label, a, b, aLabel, bLabel) {
   return true;
 }
 
+const tsRegistered = readRegisteredFromTs();
+const tsDetectors = readEnvDetectorsFromTs();
+const skillFiles = listSkillFilesWithHeredoc();
+
 let mismatched = false;
-mismatched =
-  diffSets('registered harness ids', tsRegistered, heredocRegistered, registryFile, skillFile) ||
-  mismatched;
-mismatched =
-  diffSets('env detectors', tsDetectors, heredocDetectors, 'TS adapter sources', skillFile) ||
-  mismatched;
+for (const skillFile of skillFiles) {
+  const { registered: heredocRegistered, detectors: heredocDetectors } = readFromHeredoc(skillFile);
+  mismatched =
+    diffSets(
+      `registered harness ids (${skillFile})`,
+      tsRegistered,
+      heredocRegistered,
+      registryFile,
+      skillFile
+    ) || mismatched;
+  mismatched =
+    diffSets(
+      `env detectors (${skillFile})`,
+      tsDetectors,
+      heredocDetectors,
+      'TS adapter sources',
+      skillFile
+    ) || mismatched;
+}
 
 if (mismatched) {
   process.stderr.write(

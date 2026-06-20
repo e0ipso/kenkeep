@@ -3,7 +3,7 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 3 -->
 
 # kk-curate
 
@@ -106,7 +106,7 @@ For each session log with `proposal_status: pending`, extract proposals inline i
 
 ## 1. Enumerate pending session logs
 
-Use `Glob` (or `ls`) to list `.ai/kenkeep/sessions/*.md`. For each file, `Read` its frontmatter and keep only those whose:
+Use `Glob` (or `ls`) to list `.ai/kenkeep/_sessions/*.md`. For each file, `Read` its frontmatter and keep only those whose:
 
 - `proposal_status: done`, AND
 - `curator_processed_at` is unset (no key, or empty string).

@@ -26,7 +26,7 @@ src/
 
 ## Two CLI shapes
 
-- **Deterministic primitives:** `init`, `doctor`, `status`, `lint`, `finddocs`, `node write`, `curate-dedup`, `index rebuild`, `logs prune`. No LLM. Pure Node helpers; skills compose them, CI/scripts may call them directly.
+- **Deterministic primitives:** `init`, `doctor`, `status`, `lint`, `finddocs`, `node write`, `session-log stage-live`, `session-log update-proposals`, `curate-dedup`, `index rebuild`, `logs prune`. No LLM. Pure Node helpers; skills compose them, CI/scripts may call them directly.
 - **Launchers:** `bootstrap`, `curate`, `node add`. Thin wrappers that exec `<harness> -p "/kk-<name>"` with `KENKEEP_BUILDER_INTERNAL=1` set on the child. The LLM call runs in the host harness session, not in a subprocess spawned by this CLI.
 
 **Model config:** the proposal-drain hook's model and effort are set via `proposalModel: { name, effort }` in `config.yaml`. Curate and bootstrap run under whatever model the host harness session uses.
@@ -108,7 +108,16 @@ The parallel path additionally writes a `<runId>__<batchN>.draft.json` beside ea
 
 Only the **proposal-drain hook** locks. It holds a `proper-lockfile` lock on `state.json` (a mkdir-atomic `state.json.lock` directory whose mtime is refreshed on a heartbeat while held; 60s stale threshold) to keep concurrent SessionStart drains from racing on the pending queue. A drain SIGKILLed by the host's outer hook timeout can neither run its `finally` release nor `proper-lockfile`'s graceful-exit handler, so the lock only clears once it goes stale; the next drain auto-reclaims it on acquire (recovery within ~60s, vs. the 30-min state-file default used by other locks).
 
-**Curate, bootstrap, and consume do not lock.** Curate and bootstrap each run in a single host harness session per user invocation (single-author by design); the atomic tmp+rename writes inside `node write` and `curate-dedup` provide durability.
+**Curate, bootstrap, and consume do not lock.** Curate, `/kk-session-extract`, and bootstrap each run in a single host harness session per user invocation (single-author by design); the atomic tmp+rename writes inside `node write`, `session-log stage-live`, and `curate-dedup` provide durability.
+
+### Live session extraction
+
+`/kk-session-extract` reuses the session-log boundary instead of a parallel pipeline:
+
+1. The in-host skill applies `proposal-extract.md` to the visible live context.
+2. `session-log stage-live` validates proposal JSON and writes or updates `_sessions/*.md` with `proposal_status: done` and `captured_by: manual`.
+3. The skill drafts curator actions and calls `curate-dedup --session-id <staged-id>` so only the staged log is stamped; unrelated done logs remain for `/kk-curate`.
+4. When capture later rewrites the same `session_id`, it preserves `curator_processed_at`, `curator_run_id`, and terminal proposal fields if the log was already curated.
 
 {% capture concurrency %}
 Running two `curate` (or `bootstrap`) launchers against the same repo concurrently is **unsupported**. The second writer's session-stamp update may silently lose to the first: no data corruption, but some sessions reprocess on the next run.
@@ -174,6 +183,7 @@ An index node body carries: an embedded one-line descent directive (from the sin
 |---|---|
 | Change extraction | `src/templates-source/prompts/proposal-extract.md` |
 | Change curate | `src/templates-source/skills/kk-curate/SKILL.md` (dedup primitive logic in `src/commands/curate-dedup.ts`) |
+| Change live session extract | `src/templates-source/skills/kk-session-extract/SKILL.md` (`session-log stage-live` in `src/commands/session-log-stage-live.ts`) |
 | Change bootstrap | `src/templates-source/skills/kk-bootstrap/SKILL.md` (discovery primitive in `src/commands/finddocs.ts`, write primitive in `src/commands/node-write.ts`) |
 | Change manual node add | `src/templates-source/skills/kk-add/SKILL.md` |
 | New CLI subcommand | `src/commands/<name>.ts` + wire in `src/cli.ts` |

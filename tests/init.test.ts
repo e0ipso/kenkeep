@@ -37,6 +37,7 @@ describe('init', () => {
       '.claude/skills/kk-bootstrap/SKILL.md',
       '.claude/skills/kk-curate/SKILL.md',
       '.claude/skills/kk-migrate/SKILL.md',
+      '.claude/skills/kk-session-extract/SKILL.md',
       '.claude/hooks/kk-capture.cjs',
       '.claude/hooks/kk-proposal-drain.cjs',
       '.claude/hooks/kk-session-start.cjs',

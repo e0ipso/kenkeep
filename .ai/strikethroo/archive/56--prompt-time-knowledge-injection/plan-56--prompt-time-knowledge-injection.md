@@ -270,3 +270,32 @@ graph TD
 ### Execution Summary
 - Total Phases: 4
 - Total Tasks: 4
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-06-20
+
+### Results
+
+Delivered deterministic prompt-time knowledge injection for the MVP harnesses (Claude Code and Codex):
+
+- **Retrieval core** (`src/lib/prompt-retrieval.ts`): a pure, one-shot module that reads the live `nodes/` tree via `readAllNodes`, scores each leaf against the prompt (title/tags/summary weighted above body, with a small graph-neighbor boost resolved through `nodes/.redirects.json`), and renders a bounded summaries-plus-links block. Bounded by an internal node-count cap (5) and rendered-character budget (1800); no LLM, embeddings, external service, persistent store, or prompt logging. Covered by `tests/lib/prompt-retrieval.test.ts`.
+- **Harness wiring**: synchronous `UserPromptSubmit` hooks `kk-prompt-context` for Claude (`hookSpecificOutput.additionalContext`) and Codex (`{ additionalContext }`), with a 1s hard deadline and fail-open behavior on missing prompt/KB, malformed KB, or error. The capability is represented by each adapter declaring a native prompt-submit `HookSpec` (no global event translation), so `install` and `doctor` pick it up automatically. Cursor, OpenCode, and Copilot are intentionally left unregistered.
+- **Regression coverage**: `tests/hooks/kk-prompt-context.test.ts` (built-bundle integration for both harnesses, body exclusion, unrelated/empty/missing-prompt and missing-KB fail-open, recursion guard) and `tests/harnesses/prompt-time-support.test.ts` (support-matrix assertions). Existing session-start tests continue to assert `ENTRY.md`, nudges, and stale-index warnings are unchanged.
+- **Documentation**: `docs/internals/hooks.md` (new prompt-time section + tables + registration example), `docs/internals/kk-navigation.md` (reframed "only viable surface"), `docs/installation.md` (prompt-time column + note), `AGENTS.md` (prompt-time pipeline bullet for the wired harnesses), and `PRD.md` §13 (task-filtered-injection open question marked resolved).
+
+Final validation: `npm run build`, `npm test` (422 passing across 53 files), `npm run typecheck`, and `npm run lint` all green.
+
+### Noteworthy Events
+
+- **Capability representation**: rather than adding a new `HarnessAdapter` boolean field (which would be dead code), prompt-time support is represented by the presence of a native prompt-submit `HookSpec`. This is consumed by the existing `install` and `doctor` machinery, satisfying the "optional capability" requirement without unused state.
+- **"Unrelated" prompt nuance**: a smoke test against the dogfooded KB showed a prompt like "deploy kubernetes…cluster" still matched clustering-related nodes because the literal token `cluster` appears in them — expected lexical behavior. Deterministic omission of low-relevance nodes is verified with a controlled fixture in the unit suite.
+- **Templates are gitignored build output**: regenerated `templates/**` hook bundles are not tracked; only `src/harnesses/<id>/hooks/` sources are committed, per project convention. The build was re-run after each source change.
+- No prompt templates (`src/templates-source/prompts/*.md`) were edited, so no prompt-version bump or changelog note was required. No schema-version bump (no on-disk shape change).
+
+### Necessary follow-ups
+
+- Cursor, OpenCode, and Copilot can gain prompt-time injection later by verifying a current native prompt-context channel (official docs + smoke test) and wiring their `kk-prompt-context` hook — the retrieval core is harness-agnostic and ready.
+- Retrieval is intentionally lexical for the MVP; semantic recall remains a future improvement and must not introduce embeddings or external services.
+- Internal `maxNodes`/`maxChars` defaults could later graduate to optional `config.yaml` settings (strict schema + docs + tests), which would not require a schema-version bump.

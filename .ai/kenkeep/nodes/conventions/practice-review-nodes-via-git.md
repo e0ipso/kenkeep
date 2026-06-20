@@ -27,7 +27,7 @@ summary: >-
 Every path that writes to `nodes/` (the curator, `/kk-bootstrap`, `bootstrap-incremental`, `node add`, manual hand-edits) lands changes in the working tree for review with `git diff`. There is no separate review UI.
 
 - **Accept** — `git add nodes/<folder>/<file>.md && git commit`.
-- **Reject** — `git restore nodes/<folder>/<file>.md` (or delete the file if it's a new addition).
+- **Reject** — `git restore nodes/<folder>/<file>.md` (or delete the file if it's a new addition). When the writer already rebuilt the index over the node (the curator and `/kk-bootstrap` both do), rejecting it without committing another `nodes/` change leaves the generated index stale — run `npx kenkeep index rebuild` afterward to drop it from `ENTRY.md`/`GRAPH.md` and the per-folder `index.md` tree.
 - **Tooling** — `git diff nodes/` or a tool like [self-review](https://github.com/e0ipso/self-review).
 
 **Why:** nodes affect how the agent behaves in every future session, so each one deserves a code-review-grade decision. Reusing the existing git review workflow means no new tools to learn, and the commit history doubles as the timeline of record (this is why node frontmatter carries no timestamps).

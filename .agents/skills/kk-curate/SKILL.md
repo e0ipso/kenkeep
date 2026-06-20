@@ -461,7 +461,7 @@ It prints one JSON line, the structural summary you carry into Step 7:
 {"moves":[{"operation":"...","id":"...","from":"...","to":"...","newIds":["..."],"redirectFrom":"..."}, ...]}
 ```
 
-Capture it. Do not commit, add, or restore anything: the structural moves and the curation leaf writes now sit together in one uncommitted working-tree diff. The human accepts by `git commit` and rejects just the structural moves by path-scoped `git restore`.
+Capture it. Do not commit, add, or restore anything: the structural moves and the curation leaf writes now sit together in one uncommitted working-tree diff. The human accepts by `git commit` and rejects just the structural moves by path-scoped `git restore` — after which they must run `npx kenkeep index rebuild`, since reverting moves leaves the generated index pointing at the old layout.
 
 ## 7. Report the summary, then handle conflicts
 
@@ -470,7 +470,7 @@ Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), th
 **Structural summary (rebalance).** Then print the structural summary from the rebalance phase (Step 6b), distinct from and additional to the content summary above so the human gets a legend for the structural diff:
 
 - If 6b.1 reported no action, print one line: `Rebalance: no structural action (tree balanced).`
-- Otherwise, for each move in the `{"moves":[...]}` summary, print one line naming the operation and the affected branch: a `split-folder` / `merge` / `create-branch` shows `<id>: <from> -> <to>`; a `split-leaf` shows `<old-id> -> <new-id>, <new-id>, ... (redirect recorded)`. Close with: `Review the structural diff with \`git diff --summary\` (R entries are renames); accept by \`git commit\`, reject just the structural moves with a path-scoped \`git restore\`.`
+- Otherwise, for each move in the `{"moves":[...]}` summary, print one line naming the operation and the affected branch: a `split-folder` / `merge` / `create-branch` shows `<id>: <from> -> <to>`; a `split-leaf` shows `<old-id> -> <new-id>, <new-id>, ... (redirect recorded)`. Close with: `Review the structural diff with \`git diff --summary\` (R entries are renames); accept by \`git commit\`, reject just the structural moves with a path-scoped \`git restore\` (then run \`npx kenkeep index rebuild\` to resync the generated index).`
 
 **If `conflicts == 0`**, print the placement lines, the structural summary, and then exactly one summary line, and stop:
 
@@ -549,7 +549,7 @@ After every conflict in a group is decided, move to the next group.
 
 ## 8. Hand off
 
-Tell the user to review the changed nodes and conflict files under `.ai/kenkeep/`. `ENTRY.md` and `GRAPH.md` were refreshed in step 6 (and again by the rebalance move primitive if the rebalance phase acted). Any structural moves from Step 6b sit in the same uncommitted diff; the human accepts everything by `git commit` or rejects just the structural moves with a path-scoped `git restore`.
+Tell the user to review the changed nodes and conflict files under `.ai/kenkeep/`. `ENTRY.md` and `GRAPH.md` were refreshed in step 6 (and again by the rebalance move primitive if the rebalance phase acted). Any structural moves from Step 6b sit in the same uncommitted diff; the human accepts everything by `git commit` or rejects just the structural moves with a path-scoped `git restore`. After any `git restore` that drops a written leaf or reverts a move, they must run `npx kenkeep index rebuild` so `ENTRY.md`/`GRAPH.md` and the per-folder `index.md` tree stop referencing the removed content.
 
 ## Constraints
 

@@ -17,7 +17,7 @@ After install, kenkeep runs itself. Capture and injection happen on their own; t
 4. Inspect the resulting changes under `.ai/kenkeep/nodes/` with `git diff` (or your preferred diff tool, e.g. [self-review](https://github.com/e0ipso/self-review)).
 5. `git commit` what you want to keep; `git restore <path>` to discard.
 
-The pre-commit hook regenerates `ENTRY.md` and `GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes.
+The pre-commit hook regenerates `ENTRY.md` and `GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes. If you `git restore <path>` to discard nodes without committing another `nodes/` change, that hook doesn't fire — run `npx kenkeep index rebuild` so the regenerated index drops the removed nodes too.
 
 That is the entire daily workflow. The rest of this page is reference: the three skills, and the two manual actions you reach for occasionally.
 
@@ -60,7 +60,7 @@ The home folder is chosen in the same pass that links a note to its neighbors. C
 
 Structural upkeep folds into curate as its last phase — no separate command, no extra nudge. A deterministic, LLM-free trigger checks the per-folder metrics with a hysteresis margin; if nothing trips, the phase is skipped. When a threshold trips, the LLM splits a folder, splits a bloated note, merges a sparse branch, or creates a branch for a new topic, on the affected branches only.
 
-The moves land in the **same** diff as the note writes (act-and-fold), reviewed with the gate you already use: `git diff` to inspect, `git commit` to accept, or a path-scoped `git restore <path>` to reject just the moves. They preserve content byte-for-byte, so `git diff --summary` shows them as `R` renames; ids stay stable, so cross references survive. Curate prints a structural summary as a legend for the diff.
+The moves land in the **same** diff as the note writes (act-and-fold), reviewed with the gate you already use: `git diff` to inspect, `git commit` to accept, or a path-scoped `git restore <path>` to reject just the moves. They preserve content byte-for-byte, so `git diff --summary` shows them as `R` renames; ids stay stable, so cross references survive. Curate prints a structural summary as a legend for the diff. If you `git restore` the moves rather than committing them, run `npx kenkeep index rebuild` afterward so the generated index matches the restored layout.
 
 ### Fast path
 

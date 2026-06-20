@@ -2,7 +2,7 @@
 id: 4
 group: "verification"
 dependencies: [2, 3]
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - verification
@@ -70,3 +70,31 @@ Requires completed kk/prompt edits from task 2 and Strikethroo skill edits from 
 Test philosophy for this plan: meaningful tests verify custom business logic, critical paths, and edge cases specific to this application. Test your code, not the framework or library. Favor integration and critical-path coverage over per-method unit tests. Because this plan is primarily a markdown skill/prompt refactor, focused contract checks and existing repository quality gates are more valuable than adding new tests unless helper script behavior changes materially.
 
 </details>
+
+## Verification Results
+
+| File | baseline → post (lines) |
+|---|---|
+| kk-add | 128 → 73 |
+| kk-bootstrap | 282 → 227 |
+| kk-curate (+ batch-agent-prompt 16) | 560 → 423 |
+| kk-migrate | 182 → 127 |
+| kk-session-extract | 167 → 112 |
+| proposal-extract.md | 295 → 287 |
+| st-execute-task | 195 → 184 |
+| st-full-workflow | 413 → 93 |
+| st-refine-plan | 205 → 196 |
+
+- **Forbidden phrases** (`-p mode`, `reference runtime`, `byte-equivalent`, `Plan 44`) across `src/templates-source`, `.claude/.agents/.cursor/.opencode/skills`, `.ai/kenkeep/.config/prompts`: **none**.
+- **Expected references present**: `kk-detect-harness` in the 5 kk skills + the shared helper; `batch-agent-prompt` in `kk-curate` across all mirrors; the `batch-agent-prompt.md` file exists in source, `templates/skills`, and all four installed mirrors (16 lines each).
+- **`npm run build:templates`**: regenerated `templates/` is clean against committed output (no hand-edits).
+- **`npm run lint:detect-harness`**: OK (detector source matches TS adapters).
+- **Byte-equality**: every present kk skill file (and `batch-agent-prompt.md`) in `.claude/.agents/.cursor/.opencode/skills` and `templates/skills` is byte-identical to the canonical source via `cmp` — the pre-existing `.cursor` 1-line drift is now resolved. The shared detector is byte-identical across source, `templates/kenkeep/scripts`, and the `.ai/kenkeep/scripts` dogfood copy.
+- **Schema contract** (`src/lib/schemas.ts`): action enum `add|modify|contradict|drop`, `candidate_origin`, nullable `target_node_id`/`proposed_node`, optional-nullable `home_folder`, optional `depends_on` (default `[]`), `.strict()`, and **no** `suggested_resolution`. kk-curate prose still documents `home_folder` and `depends_on`; the only legacy-key mention in the prompt is the negative "wrapper rejects" note.
+- **Init/upgrade coverage**: `tests/init.test.ts` and `tests/upgrade.test.ts` assert the new `.ai/kenkeep/scripts/kk-detect-harness.mjs` reference and helper install (incl. copy-if-missing + no-overwrite on upgrade).
+- **Documentation**: `CHANGELOG.md` `## Unreleased` gained entries for the proposal-extract Version 2 bump, the kk skill condensation/version bumps, and the shared-detector extraction (the repo's hand-maintained Unreleased block; `refactor` commits do not surface in semantic-release auto-notes, so the human note is required).
+- **Gates**: `npm run lint` ✅, `npm run typecheck` ✅, `npm test` ✅ (378 tests, run via the per-phase pre-commit hook).
+
+### Noteworthy
+- Three knowledge-base nodes still reference the removed `/tmp/kk-detect-harness.mjs` heredoc: `.ai/kenkeep/nodes/harnesses/map-harness-adapter.md`, `.ai/kenkeep/nodes/harnesses/practice-explicit-harness-flag-outside-claude.md`, `.ai/kenkeep/nodes/bootstrap/map-kk-bootstrap-skill.md`. Per the constitution, KB nodes are human-curated (`/kk-curate` + commit), so these are **flagged for a follow-up curation pass**, not edited by this plan.
+- `kk-session-extract` carried the same detection heredoc as the four named skills; it was included in the detector-extraction-only swap (no version bump) to avoid leaving duplicated/divergent code.

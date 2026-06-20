@@ -2,7 +2,7 @@
 id: 2
 group: "kk-prompt-refactor"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - skill-docs

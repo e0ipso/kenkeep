@@ -219,18 +219,18 @@ graph TD
     003 --> 004
 ```
 
-### Phase 1: Baseline and Packaging
+### ✅ Phase 1: Baseline and Packaging
 **Parallel Tasks:**
-- Task 001: Baseline scope and helper packaging
+- ✔️ Task 001: Baseline scope and helper packaging
 
-### Phase 2: Conciseness Refactors
+### ✅ Phase 2: Conciseness Refactors
 **Parallel Tasks:**
-- Task 002: Refactor kk skills and proposal prompt (depends on: 001)
-- Task 003: Refactor Strikethroo skills (depends on: 001)
+- ✔️ Task 002: Refactor kk skills and proposal prompt (depends on: 001)
+- ✔️ Task 003: Refactor Strikethroo skills (depends on: 001)
 
-### Phase 3: Verification
+### ✅ Phase 3: Verification
 **Parallel Tasks:**
-- Task 004: Verify contracts and documentation (depends on: 002, 003)
+- ✔️ Task 004: Verify contracts and documentation (depends on: 002, 003)
 
 ### Post-phase Actions
 
@@ -239,3 +239,28 @@ Run the configured post-phase validation gate after each phase. After Phase 3, c
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 4
+
+---
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-06-20
+
+### Results
+Audited and tightened the `kk-*` and `st-*` skills plus the `proposal-extract` prompt with all behavior contracts preserved (CLI primitives, flags, curator action schema, conflict tokens/outcomes, rebalance operations, proposal output schema, st summary blocks).
+
+- **Shared harness detector extracted.** New canonical helper `src/templates-source/kenkeep/scripts/kk-detect-harness.mjs` (shipped to `.ai/kenkeep/scripts/` by `init`, copied-if-missing on `init --upgrade` via a new `ensureKkScripts` step that never overwrites a user copy). All five kk skills (`add`, `bootstrap`, `curate`, `migrate`, `session-extract`) now invoke it instead of carrying a duplicated detection heredoc. `scripts/lint-detect-harness.mjs` rewritten to diff the helper source against the TS adapters; `detect.ts` and `AGENTS.md` doc pointers updated.
+- **kk skills condensed.** `kk-curate` (Version 4) externalizes its batch sub-agent instructions to `kk-curate/batch-agent-prompt.md` and tightens action/conflict prose; `kk-add` (Version 4) and `kk-bootstrap` (Version 2) get harness-neutral wording; `kk-migrate`/`kk-session-extract` take reference-only swaps (no bump).
+- **`proposal-extract` prompt** (Version 1→2) merges duplicated durability/transition/exclusion guidance into one filter and trims meta-only/second-example commentary; mirrored to the local override.
+- **Strikethroo skills.** `st-full-workflow` rewritten as an orchestrator delegating to `st-create-plan` / `st-generate-tasks` / `st-execute-blueprint` (413→93 lines); `st-execute-task` dropped its non-operational status table; `st-refine-plan` condensed its autonomous-clarification trigger list.
+- Generated `templates/` refreshed via `npm run build:templates`; kk skill edits mirrored byte-identically into `.claude` / `.agents` / `.cursor` / `.opencode`. `CHANGELOG.md` Unreleased updated. Gates: `npm run lint` ✅, `npm run typecheck` ✅, `npm test` ✅ (378 tests).
+
+### Noteworthy Events
+- **Scope +1 skill:** `kk-session-extract` carried the same detection heredoc as the four named skills, so it was included in the detector-extraction-only swap to avoid leaving duplicated/divergent code (no version bump).
+- **Helper packaging gap:** `init --upgrade` does not re-copy the kenkeep skeleton, so a dedicated `ensureKkScripts` copy-if-missing step (with init/upgrade test coverage) was added so existing installs receive the new helper.
+- **Changelog convention:** the repo uses `@semantic-release/changelog` and `refactor` commits are not surfaced in auto-generated release notes, so the prompt/skill version bumps were documented in the hand-maintained `## Unreleased` block.
+- **`.cursor` mirror drift resolved:** the pre-existing 1-line drift in the installed `.cursor` kk skills was eliminated by the re-copy; all present mirrors are now byte-identical to the canonical source.
+
+### Necessary follow-ups
+- **Stale KB nodes (curation):** three knowledge-base nodes still reference the removed `/tmp/kk-detect-harness.mjs` heredoc — `.ai/kenkeep/nodes/harnesses/map-harness-adapter.md`, `.ai/kenkeep/nodes/harnesses/practice-explicit-harness-flag-outside-claude.md`, and `.ai/kenkeep/nodes/bootstrap/map-kk-bootstrap-skill.md`. Per the kenkeep constitution these are human-curated (`/kk-curate` + commit), so they were intentionally left untouched and are flagged for a follow-up curation pass.

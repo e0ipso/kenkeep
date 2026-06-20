@@ -3,7 +3,7 @@ name: kk-add
 description: Capture a kenkeep node manually from the current session. Writes a new node directly under `.ai/kenkeep/nodes/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 3 -->
+<!-- Version: 4 -->
 
 # kk-add
 
@@ -15,64 +15,10 @@ Before invoking, skim `.ai/kenkeep/ENTRY.md` (already in context) and grep `node
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-harness.mjs` on first invocation):
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
-if [ ! -f /tmp/kk-detect-harness.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-harness.mjs
-#!/usr/bin/env node
-// kk-detect-harness: resolves the active knowledge base harness id.
-// Mirrors src/harnesses/detect.ts resolveWithHint priority.
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
-const ENV_DETECTORS = [
-  { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
-  { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-];
-function findHint(argv) {
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
-  }
-  return undefined;
-}
-function detectFromEnv(env) {
-  if (env.CLAUDECODE === '1') return 'claude';
-  for (const d of ENV_DETECTORS) {
-    if (d.value === '*nonempty*') {
-      if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
-    } else if (env[d.env] === d.value) return d.harness;
-  }
-  return undefined;
-}
-function findRepoRoot(start) {
-  let dir = start;
-  while (true) {
-    if (existsSync(join(dir, '.ai', 'kenkeep'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-function readDefault(root) {
-  if (!root) return undefined;
-  const config = join(root, '.ai', 'kenkeep', 'config.yaml');
-  if (!existsSync(config)) return undefined;
-  const text = readFileSync(config, 'utf8');
-  const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
-  return m ? m[1] : undefined;
-}
-const hint = findHint(process.argv.slice(2));
-if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
-const fromEnv = detectFromEnv(process.env);
-if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
-const fromDefault = readDefault(findRepoRoot(process.cwd()));
-if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
-process.stderr.write('kk-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/kenkeep/config.yaml.\n');
-process.exit(2);
-EOF
-fi
-HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint>)
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
 ```
 
 `$HARNESS` is not consumed by `node write`, but other kenkeep commands invoked downstream still require it.
@@ -105,7 +51,7 @@ If a dispatch primitive is available:
 
 5. On validation failure, do **not** abort. Fall back to the inline drafting path below on this same invocation; the user-visible summary is unchanged either way.
 
-If no dispatch primitive is available, skip directly to the inline drafting path below — this is today's shipped behaviour and is preserved byte-equivalent.
+If no dispatch primitive is available, skip directly to the inline drafting path below and draft the node body inline in this session — the default path, with identical user-visible behaviour.
 
 ### Inline drafting + `node write` (default and fallback)
 

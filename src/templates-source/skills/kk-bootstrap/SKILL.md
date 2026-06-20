@@ -3,7 +3,7 @@ name: kk-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/kenkeep/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 1 -->
+<!-- Version: 2 -->
 
 # kk-bootstrap
 
@@ -23,65 +23,10 @@ Before you start, read `.ai/kenkeep/config.yaml` (falling back to `~/.config/ken
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-harness.mjs` on first invocation):
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
-if [ ! -f /tmp/kk-detect-harness.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-harness.mjs
-#!/usr/bin/env node
-// kk-detect-harness: resolves the active knowledge base harness id.
-// Mirrors src/harnesses/detect.ts resolveWithHint priority.
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
-const ENV_DETECTORS = [
-  { env: 'CURSOR_AGENT', value: '1', harness: 'cursor' },
-  { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
-  { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-];
-function findHint(argv) {
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
-  }
-  return undefined;
-}
-function detectFromEnv(env) {
-  if (env.CLAUDECODE === '1') return 'claude';
-  for (const d of ENV_DETECTORS) {
-    if (d.value === '*nonempty*') {
-      if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
-    } else if (env[d.env] === d.value) return d.harness;
-  }
-  return undefined;
-}
-function findRepoRoot(start) {
-  let dir = start;
-  while (true) {
-    if (existsSync(join(dir, '.ai', 'kenkeep'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-function readDefault(root) {
-  if (!root) return undefined;
-  const config = join(root, '.ai', 'kenkeep', 'config.yaml');
-  if (!existsSync(config)) return undefined;
-  const text = readFileSync(config, 'utf8');
-  const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
-  return m ? m[1] : undefined;
-}
-const hint = findHint(process.argv.slice(2));
-if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
-const fromEnv = detectFromEnv(process.env);
-if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
-const fromDefault = readDefault(findRepoRoot(process.cwd()));
-if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
-process.stderr.write('kk-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/kenkeep/config.yaml.\n');
-process.exit(2);
-EOF
-fi
-HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint>)
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
 ```
 
 `$HARNESS` is not consumed by `finddocs` or `node write`, but downstream commands in this skill (`index rebuild`) require it.
@@ -171,7 +116,7 @@ mkdir -p .ai/kenkeep/_logs/bootstrap
 LOG_DIR="$(pwd)/.ai/kenkeep/_logs/bootstrap"
 ```
 
-Now probe your own tool surface: **if your runtime exposes a sub-agent / task dispatch primitive that runs in a separate context window and returns a structured result, use the parallel path below; otherwise use the inline fallback path that follows it.** Recursion into yourself, or shelling out to another instance of your own CLI in `-p`-style headless mode, does **not** count — that is not genuine delegation and you must take the fallback in that case.
+Now probe your own tool surface: **if your runtime exposes a sub-agent / task dispatch primitive that runs in a separate context window and returns a structured result, use the parallel path below; otherwise use the inline fallback path that follows it.** Recursion into yourself, or a headless child of your own host, does **not** count — that is not genuine delegation and you must take the fallback in that case.
 
 Probe and fallback live in the same section so you never enter a half-state: if at any moment you are unsure whether the dispatch primitive exists on your tool surface, take the fallback.
 
@@ -179,7 +124,7 @@ Probe and fallback live in the same section so you never enter a half-state: if 
 
 This path dispatches the drafting of one candidate doc per sub-agent and reaps the JSON drafts at the end. The unit of parallelism is **one candidate doc**.
 
-**Concurrency cap: ≤5 sub-agents per orchestrator turn.** If your filtered working set has N > 5 docs, issue them in waves of up to 5: dispatch wave 1, await all results in the collector, dispatch wave 2, and so on. The reference runtime tops out near ~10 concurrent agents; holding the cap at 5 leaves headroom for the orchestrator's own tool calls and bounds rate-limit risk.
+**Concurrency cap: ≤5 sub-agents per orchestrator turn.** If your filtered working set has N > 5 docs, issue them in waves of up to 5: dispatch wave 1, await all results in the collector, dispatch wave 2, and so on. The cap leaves headroom for the orchestrator's own tool calls and bounds rate-limit risk.
 
 **Orchestrator turn — for each batch (numbered `<batchN>` starting at 1):**
 

@@ -7,69 +7,14 @@ description: Run any pending knowledge-base migration by querying the determinis
 
 # kk-migrate
 
-You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no `-p` spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
+You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no headless spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-harness.mjs` on first invocation):
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
-if [ ! -f /tmp/kk-detect-harness.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-harness.mjs
-#!/usr/bin/env node
-// kk-detect-harness: resolves the active knowledge base harness id.
-// Mirrors src/harnesses/detect.ts resolveWithHint priority.
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
-const ENV_DETECTORS = [
-  { env: 'CURSOR_AGENT', value: '1', harness: 'cursor' },
-  { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
-  { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-];
-function findHint(argv) {
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
-  }
-  return undefined;
-}
-function detectFromEnv(env) {
-  if (env.CLAUDECODE === '1') return 'claude';
-  for (const d of ENV_DETECTORS) {
-    if (d.value === '*nonempty*') {
-      if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
-    } else if (env[d.env] === d.value) return d.harness;
-  }
-  return undefined;
-}
-function findRepoRoot(start) {
-  let dir = start;
-  while (true) {
-    if (existsSync(join(dir, '.ai', 'kenkeep'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-function readDefault(root) {
-  if (!root) return undefined;
-  const config = join(root, '.ai', 'kenkeep', 'config.yaml');
-  if (!existsSync(config)) return undefined;
-  const text = readFileSync(config, 'utf8');
-  const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
-  return m ? m[1] : undefined;
-}
-const hint = findHint(process.argv.slice(2));
-if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
-const fromEnv = detectFromEnv(process.env);
-if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
-const fromDefault = readDefault(findRepoRoot(process.cwd()));
-if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
-process.stderr.write('kk-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/kenkeep/config.yaml.\n');
-process.exit(2);
-EOF
-fi
-HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint>)
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
 ```
 
 `$HARNESS` is not consumed by the `place` primitives, but `index rebuild` (the closing command of the flat-to-tree procedure) requires it.
@@ -175,7 +120,7 @@ Leaves moved into their topical folders show as renames (ids and bytes preserved
 
 ## Constraints
 
-- **In-host only.** The judgment work runs in this session. There is no sub-agent and no `-p` spawn; do not dispatch one.
+- **In-host only.** The judgment work runs in this session. There is no sub-agent and no headless spawn; do not dispatch one.
 - **Never write node files directly.** Every file mutation goes through a step's deterministic primitive — in flat-to-tree, every leaf relocation and every folder-summary stamp goes through `place apply`. You only author the JSON documents the primitives consume.
 - **Never invoke git.** Not `add`, not `commit`, not `restore`. The migration is left as an uncommitted diff for the human to accept or reject.
 - **Ids and edges are sacred.** Every leaf keeps its exact id and every edge; a primitive's validation aborts before any write if a plan would drop, rename, or omit one.

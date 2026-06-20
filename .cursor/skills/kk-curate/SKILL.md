@@ -3,7 +3,7 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 4 -->
 
 # kk-curate
 
@@ -11,64 +11,10 @@ You are the curator. Read pending session logs in this session, decide an action
 
 ## Resolve the active harness
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-harness.mjs` on first invocation):
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
-if [ ! -f /tmp/kk-detect-harness.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-harness.mjs
-#!/usr/bin/env node
-// kk-detect-harness: resolves the active knowledge base harness id.
-// Mirrors src/harnesses/detect.ts resolveWithHint priority.
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
-const ENV_DETECTORS = [
-  { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
-  { env: 'CLAUDECODE', value: '1', harness: 'claude' },
-];
-function findHint(argv) {
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--hint' && i + 1 < argv.length) return argv[i + 1];
-  }
-  return undefined;
-}
-function detectFromEnv(env) {
-  if (env.CLAUDECODE === '1') return 'claude';
-  for (const d of ENV_DETECTORS) {
-    if (d.value === '*nonempty*') {
-      if (typeof env[d.env] === 'string' && env[d.env].length > 0) return d.harness;
-    } else if (env[d.env] === d.value) return d.harness;
-  }
-  return undefined;
-}
-function findRepoRoot(start) {
-  let dir = start;
-  while (true) {
-    if (existsSync(join(dir, '.ai', 'kenkeep'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-function readDefault(root) {
-  if (!root) return undefined;
-  const config = join(root, '.ai', 'kenkeep', 'config.yaml');
-  if (!existsSync(config)) return undefined;
-  const text = readFileSync(config, 'utf8');
-  const m = text.match(/^cliDefaultHarness:\s*(\S+)/m);
-  return m ? m[1] : undefined;
-}
-const hint = findHint(process.argv.slice(2));
-if (hint && REGISTERED.includes(hint)) { process.stdout.write(hint); process.exit(0); }
-const fromEnv = detectFromEnv(process.env);
-if (fromEnv) { process.stdout.write(fromEnv); process.exit(0); }
-const fromDefault = readDefault(findRepoRoot(process.cwd()));
-if (fromDefault && REGISTERED.includes(fromDefault)) { process.stdout.write(fromDefault); process.exit(0); }
-process.stderr.write('kk-detect-harness: could not resolve. Pass --hint <id> or set cliDefaultHarness in .ai/kenkeep/config.yaml.\n');
-process.exit(2);
-EOF
-fi
-HARNESS=$(node /tmp/kk-detect-harness.mjs --hint <hint>)
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
 ```
 
 `$HARNESS` is not consumed by `curate-dedup` or `node write`, but `index rebuild` requires it.
@@ -105,7 +51,7 @@ For each session log with `proposal_status: pending`, extract proposals inline i
 
 ## 1. Enumerate pending session logs
 
-Use `Glob` (or `ls`) to list `.ai/kenkeep/sessions/*.md`. For each file, `Read` its frontmatter and keep only those whose:
+Use `Glob` (or `ls`) to list `.ai/kenkeep/_sessions/*.md`. For each file, `Read` its frontmatter and keep only those whose:
 
 - `proposal_status: done`, AND
 - `curator_processed_at` is unset (no key, or empty string).
@@ -131,13 +77,11 @@ mkdir -p .ai/kenkeep/_logs/curator
 
 ### Choose path: parallel sub-agent dispatch vs. inline sequential
 
-Probe your own tool surface. If your runtime exposes a primitive that delegates work to a sub-agent / task running in a separate context window, take the **parallel path**. Otherwise, take the **inline path**. Do not invent a primitive that does not exist — if your only "delegation" option is recursion into yourself or shelling out to a host binary in `-p` mode, that does **not** count, and you take the inline path.
-
-The probe and the fallback are the same decision: make it once here, before issuing any batch, so you cannot end up in a half-state.
+Probe your own tool surface. If your runtime exposes a primitive that delegates work to a sub-agent / task running in a separate context window, take the **parallel path**. Otherwise, take the **inline path**. Do not invent a primitive that does not exist — recursion into yourself, or a headless child of your own host, does **not** count as delegation, so take the inline path. Make this decision once, here, before issuing any batch, so you cannot end up in a half-state.
 
 #### Parallel path (preferred when available)
 
-For each batch `N` of ≤10 sessions, dispatch one sub-agent. Cap concurrency at **5 sub-agents per orchestrator turn**: if `N > 5`, issue the first 5 in one assistant turn, await all results, then issue the next wave. Rationale: the reference runtime documents a ~10 concurrent ceiling; staying at 5 leaves headroom for the host's own tool calls and bounds rate-limit risk.
+For each batch `N` of ≤10 sessions, dispatch one sub-agent. Cap concurrency at **5 sub-agents per orchestrator turn**: if `N > 5`, issue the first 5 in one assistant turn, await all results, then issue the next wave. The cap leaves headroom for the host's own tool calls and bounds rate-limit risk.
 
 Before dispatching batch `N`, append one JSON line to `.ai/kenkeep/_logs/curator/${RUN_ID}__${N}.jsonl`:
 
@@ -150,20 +94,7 @@ echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"issued\",\"runId\":
 
 `DRAFT_PATH` is **absolute** — sub-agents run in their own contexts and may not share the host's cwd.
 
-Each sub-agent receives instructions like the following (inline the rule restatement so the sub-agent does not need to re-read this file):
-
-> You are drafting curator actions for ONE batch of pending session logs.
-> - The batch contains these session files at absolute paths: `<list>`.
-> - Read every file in full. Each session's frontmatter `proposals:` block has `practice: [...]` and `map: [...]` arrays whose entries are `{ kind, tags, title, summary, body, confidence }`.
-> - For each candidate (in array order), decide one action and build a `CuratorAction` object. Use `candidate_origin = "<session_id>:<practice|map>:<index>"` (zero-based).
-> - Action rules (full headings in the parent skill's "Action rules" subsection; the one-line restatement below is sufficient for batch drafting):
->     - **add**: candidate is genuinely new; no existing node already covers its scope. `target_node_id: null`.
->     - **modify**: an existing node covers the same scope and the candidate refines it without negating it; verify `target_node_id` exists on disk first; rewrite the merged body in present-tense end-state (no "previously…" prose).
->     - **contradict**: candidate directly negates an existing valid node (both cannot be true at the same scope); set `target_node_id` to the tightest-scope match.
->     - **drop**: near-rephrasing, low-signal, general programming knowledge, change-oriented framing, maintenance/lifecycle actions, project story or any plan/ticket/issue reference, incidental one-off facts dressed up as practices, or non-productive provenance signals; `target_node_id: null`, `proposed_node: null`.
-> - Hard constraints: never cross the practice/map boundary; `proposed_node` keys are `title|kind|tags|summary|body|confidence|relates_to` plus an optional `depends_on` (any other key will be rejected downstream).
-> - Write the actions as a JSON array (top-level) to the absolute path `<DRAFT_PATH>`. The file must contain exactly the JSON array, nothing else.
-> - Return the path on success.
+Read the sibling **`batch-agent-prompt.md`** (next to this skill) and dispatch each sub-agent with those instructions, substituting the batch's session-file list and its `<DRAFT_PATH>`. The prompt inlines the action-rule restatement so the sub-agent does not need to re-read this file.
 
 After every sub-agent returns, the **collector turn** runs entirely in the orchestrator's context:
 
@@ -208,74 +139,14 @@ Keep accumulating across batches until every batch is processed.
 
 ### Action rules
 
-#### `add` — new knowledge
+Decide exactly one action per candidate. One operative definition plus the non-obvious edge cases:
 
-Use when the candidate is genuinely new and you have no strong signal that an existing knowledge base node already covers the same scope. When a candidate appears to overlap an existing node, prefer `drop` over `add`.
+- **`add` — new knowledge.** The candidate's scope is new and no existing node covers it; `target_node_id: null`. When a candidate appears to overlap an existing node, prefer `drop` (or `modify` if it refines). The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) on disk collision. An `add` carries a **home branch** via `home_folder` (see "Relate and place").
+- **`modify` — refines an existing node.** An existing node has the same scope and the candidate extends it without negating it (both can be true, and the content is genuinely new — not a rephrasing). It overwrites the existing leaf in place at its current path by id; it never relocates and never sets `home_folder`. `target_node_id` is **required and must already exist on disk** — verify by `Glob`ing `nodes/` (or reading the branch `index.md`) first, or `node write` mints a fresh id instead of updating. **End-state rewrite:** the merged body reads as current state in present tense — never "previously…" / "moved from X to Y"; rewrite any transition narrative down to its end-state claim. If the candidate is just the existing node rephrased, `drop` it.
+- **`contradict` — negates an existing node.** The candidate directly negates an existing valid node (both cannot be true at the same scope); the user resolves it later in step 7. A *subset* or *exception* is NOT a contradiction — emit `add` with `relates_to` instead (e.g. existing "use default cache tags" + candidate "for personalized pages use per-user cache contexts" both hold). `target_node_id` points at the single tightest-scope node negated (mention any second in `rationale`; never two `contradict` actions for one candidate). No node file changes — dedup writes `.ai/kenkeep/conflicts/<id>.md`. `rationale` states which claim is negated and why both cannot hold; `proposed_node.body` is the new end state in present tense. Make `proposed_node` and `rationale` complete enough to decide without re-running you.
+- **`drop` — no change.** `target_node_id: null`, `proposed_node: null`. Drop near-rephrasings, vague low-confidence content, general programming knowledge, and internally inconsistent candidates. **Automatic drops regardless of confidence:** change-oriented framing (transition/migration/rename/removal narratives); maintenance or lifecycle actions (version bumps, deprecations, releases, dependency updates, changelog edits); project story or history — **any plan/ticket/issue/work-order/task id is a red flag and an automatic drop**; incidental facts dressed up as practices. Also weigh **non-productive provenance signals** together (hedged wording; hypothetical/unrealized entities; plan/task-scoped framing; low confidence + no rationale + no example) — drop when they combine, but a single signal does not auto-drop.
 
-Signs an addition is correct:
-- The topic is new to the knowledge base.
-- The candidate has unique content (rationale, scope, examples) that isn't elsewhere.
-- Existing related nodes are about adjacent things, not this thing.
-
-The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) if it would collide on disk — but if you sense a real overlap, prefer **drop** (or, when the candidate refines the existing node, **modify**).
-
-An `add` also carries a **home branch**: the existing folder under `nodes/` where the leaf lives. You pick it in the same reasoning pass that sets `relates_to` / `depends_on` (see "Relate and place" below) and record it on the action's `home_folder` field. Leave `home_folder` unset/null/empty to land the leaf at the `nodes/` root (the root fallback).
-
-#### `modify` — refines an existing node
-
-Use when an existing node already covers this topic, but the candidate extends or refines it without negating it.
-
-Signs a modification is correct:
-- An existing node has the same scope (same convention, same module, same gotcha) but the candidate adds: an updated example, expanded rationale, a newly-supported case, a missing detail, or a clarification.
-- The two are compatible (both can be true at the same time).
-- The candidate's content is genuinely new relative to the existing body, not just a rephrasing.
-
-A modification overwrites the existing leaf in place at its current path by id (`nodes/<...>/<target_node_id>.md`, wherever it currently lives in the tree) with the merged content; it never relocates the leaf and never sets `home_folder`. `target_node_id` is required and must already exist on disk; if it doesn't, the persistence step (`node write`) will create a fresh node instead, which is **not** what `modify` intends, so verify the target exists by `Glob`ing `nodes/` (or reading the relevant branch `index.md`) before emitting a `modify` action.
-
-**End-state rewrite rule.** The merged body reads as the current state in present tense. Never append "previously…" or "earlier this used to…" paragraphs, and never narrate "the project moved from X to Y" inside the body. When the new candidate's information is a transition narrative, rewrite the existing node body so that only the new end-state claim remains visible. The knowledge base is the project's current state, not its changelog.
-
-**Important:** if the candidate is essentially the same content as the existing node, just rephrased, **drop it** instead. Modifications must add real new information.
-
-#### `contradict` — negates an existing node
-
-Use when the candidate directly negates an existing valid node (they cannot both be true at the same time, in the same scope). The user later resolves the conflict in-session.
-
-Signs a contradiction is real:
-- The existing node says "always X" or "do X for case Y"; the candidate says "never X" or "don't do X for case Y."
-- The user explicitly reversed a prior decision in the session that produced this candidate.
-- The candidate's scope overlaps the existing node's scope completely, not partially.
-
-**Important:** if the candidate's scope is a *subset* or *exception* to the existing node, this is NOT a contradiction; it's an addition (or modification) with `relates_to`. Example: if the existing node says "use the default cache tags," and the candidate says "for personalized pages, use per-user cache contexts instead," these can both be true — emit **add** with `relates_to: [<existing node id>]`, not `contradict`.
-
-A contradiction does not modify any node file. The dedup primitive writes the conflict to `.ai/kenkeep/conflicts/<id>.md`; the conflict-resolution flow (step 7 below) walks each file and asks the user. Make your `proposed_node` and `rationale` complete enough that the user can decide without re-running you.
-
-**Choosing `target_node_id`.** Point at the single existing node whose claim the candidate negates. If two existing nodes both overlap, pick the tightest scope match and mention the second in `rationale`; do not emit two `contradict` actions for the same candidate.
-
-**Phrasing `rationale`.** State, in one or two sentences, which existing claim the candidate negates and why both cannot be true simultaneously. The reviewer reads this first.
-
-**End-state body.** The `proposed_node.body` describes only the new end state in present tense. The reviewer who reads only the new node's body should see the current rule as if it had always been the rule.
-
-#### `drop` — no change
-
-Use when the candidate should not result in any change. Reasons to drop:
-
-- It's a near-rephrasing of an existing node with no new information.
-- The confidence is low and the content is vague.
-- The candidate captured general programming knowledge, not project-specific.
-- The candidate is internally inconsistent or refers to things that don't exist elsewhere.
-- **Change-oriented framing** — transition narratives, migration stories, rename or removal logs, "we used to do X, now we do Y" wording. Automatic drop regardless of confidence. The knowledge base describes the project's current end state, not its history.
-- **Maintenance or lifecycle actions** — version bumps, deprecations, releases, dependency updates, rebuilds, changelog edits ("we deprecated the old npm package"). The knowledge base records the current state, not the act that produced it. Automatic drop.
-- **Project story or history, especially plan/ticket/issue references** — a candidate that names or links a plan, ticket, issue, work-order, or task id (e.g. "Plan 96 wire and fix serve UI interactions") is a red flag and an automatic drop. That history belongs in git, not the knowledge base.
-- **Incidental facts disguised as practices** — a fact hit once while fixing a one-off problem, framed as a convention ("first publish requires a token"). A real practice is a rule the project deliberately and repeatedly follows; drop unless it is genuinely a standing principle.
-- **Non-productive provenance signals** in the candidate body or summary:
-  - hedged/tentative wording ("we might", "we could", "potentially", "the idea is to"). Practice nodes describe rules, not hypotheses.
-  - references to hypothetical or unrealized entities ("the planned X", "once we add Z"). Map nodes describe what is.
-  - plan- or task-scoped framing ("for this plan, we will…", "the success criterion is…").
-  - low confidence + no rationale + no concrete example.
-
-  Weigh these together; drop when the combined signature suggests a non-productive session. Single-signal cases do not auto-drop.
-
-**Salvage rule for change-oriented, action, and story candidates.** When a candidate narrates a transition, a maintenance action, or project story but also conveys a clean durable principle or current-state fact (e.g. "we renamed `foo_service` to `bar_service`" plus "the service that fans out tracking events is `bar_service`"), extract that durable part and keep it via `add` or `modify`, rewritten as a standing rule or present-tense fact. When the entire candidate is the journey, the activity, or the history, drop the whole thing. The keep test: would this still be a deliberate operating principle or a current structural fact six months from now, independent of the activity that surfaced it?
+**Salvage rule (change/action/story candidates).** When a candidate narrates a transition, maintenance action, or story but also conveys a clean durable principle or current-state fact (e.g. "we renamed `foo_service` to `bar_service`" plus "the service that fans out tracking events is `bar_service`"), extract that durable part via `add`/`modify`, rewritten as a standing rule or present-tense fact. When the whole candidate is the journey or activity, drop it. Keep test: would this still be a deliberate operating principle or current structural fact six months from now, independent of the activity that surfaced it?
 
 ### Relate and place
 
@@ -412,7 +283,7 @@ This is the last phase of curate and the only place tree structure changes. It f
 
 ### 6b.1 Run the deterministic trigger
 
-The trigger is deterministic and LLM-free: it reads Plan 1's per-folder occupancy / tag-diversity / leaf-size metrics, applies the hysteresis-gated decision rules, and prints a stable JSON decision. Run it and capture stdout:
+The trigger is deterministic and LLM-free: it reads per-folder occupancy / tag-diversity / leaf-size metrics, applies the hysteresis-gated decision rules, and prints a stable JSON decision. Run it and capture stdout:
 
 ```bash
 npx --yes kenkeep@latest rebalance trigger
@@ -432,12 +303,12 @@ It prints exactly one JSON line:
 
 For each entry in `actions`, read only that branch (the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`) and decide a concrete operation. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate. Do not touch any branch the trigger did not name.
 
-Map each operation class to a concrete plan entry:
+Map each operation class to a concrete plan entry. For every NEW folder an operation creates, also author a one-line folder `summary`: a noun phrase / sentence fragment that completes `for more information on <summary>` (lowercase start, no trailing period, concise). Make it task-keyed, not just structural: after naming what lives in the folder, append a short `; read when <task pattern>` clause naming the tasks that should trigger descent (e.g. `the five harness adapters and their isolation rules; read before adding a harness or changing hook wiring`). Agents route by matching their task against these summaries, so the trigger clause is what makes descent reliable. The move primitive stamps it into the new folder's `index.md` frontmatter, and every later deterministic rebuild self-preserves it; it is what the parent index splices into its `Load …` descent pointer.
 
-- **split-folder** (`branch` is an over-full folder): cluster that folder's direct leaves into two or more topical subfolders. Emit `{"operation":"split-folder","branch":"<folder>","groups":[{"subfolder":"<name>","ids":["<id>", ...]}, ...]}`. Every id must be a current direct leaf of `branch`; assign each leaf to exactly one subgroup.
-- **merge** (`branch` is a sparse/redundant folder): pick the best existing destination folder `into` (a sibling or parent whose topic subsumes the sparse branch; empty string for the `nodes/` root). Emit `{"operation":"merge","branch":"<folder>","into":"<destination>"}`.
-- **create-branch** (`branch` is a homeless root leaf, a novel top-level topic): choose a new top-level folder name and the leaves that belong in it. Emit `{"operation":"create-branch","folder":"<new-top-level>","ids":["<id>", ...]}`.
-- **split-leaf** (`branch` is one bloated leaf covering two or more concepts): carve it into two or more new sub-documents under a folder named for the leaf. Emit `{"operation":"split-leaf","leafId":"<old-id>","folder":"<folder>","children":[{"title":"...","summary":"...","body":"...","tags":["..."],"relates_to":["..."]}, ...]}` with at least two children. The primitive mints new ids and records a redirect from the old id; do not author ids.
+- **split-folder** (`branch` is an over-full folder): cluster that folder's direct leaves into two or more topical subfolders. Emit `{"operation":"split-folder","branch":"<folder>","groups":[{"subfolder":"<name>","summary":"<fragment>","ids":["<id>", ...]}, ...]}`. Every id must be a current direct leaf of `branch`; assign each leaf to exactly one subgroup; author one `summary` per subfolder.
+- **merge** (`branch` is a sparse/redundant folder): pick the best existing destination folder `into` (a sibling or parent whose topic subsumes the sparse branch; empty string for the `nodes/` root). Emit `{"operation":"merge","branch":"<folder>","into":"<destination>"}`. A merge creates no folder, so it authors no `summary`; the destination keeps its own self-preserved summary.
+- **create-branch** (`branch` is a homeless root leaf, a novel top-level topic): choose a new top-level folder name and the leaves that belong in it. Emit `{"operation":"create-branch","folder":"<new-top-level>","summary":"<fragment>","ids":["<id>", ...]}`.
+- **split-leaf** (`branch` is one bloated leaf covering two or more concepts): carve it into two or more new sub-documents under a folder named for the leaf. Emit `{"operation":"split-leaf","leafId":"<old-id>","folder":"<folder>","summary":"<fragment>","children":[{"title":"...","summary":"...","body":"...","tags":["..."],"relates_to":["..."]}, ...]}` with at least two children. The top-level `summary` describes the new folder; each child carries its own leaf `summary`. The primitive mints new ids and records a redirect from the old id; do not author ids.
 
 Assemble all entries into one operation plan: `{"operations":[ ... ]}`. Write it to a tmpfile:
 
@@ -501,21 +372,14 @@ For every pending conflict:
 
 ### 7c. Compute the default
 
-For each conflict, compute the default reply before asking the user:
+Compute the default reply before asking. `lines_changed` = lines differing between the proposed and existing body (line granularity); `total_lines` = `max(proposed body line count, existing body line count)`; `ratio = lines_changed / total_lines`. Apply in order, first match wins:
 
-1. `lines_changed` = number of lines that differ between the proposed body and the existing node body (diff at line granularity).
-2. `total_lines` = `max(proposed body line count, existing body line count)`.
-3. `ratio` = `lines_changed / total_lines`.
+- `lines_changed < 5` AND `proposed_confidence == "high"` → `y`.
+- `ratio > 0.5` → `n`.
+- otherwise → `s`.
+- no `target_node_id` (nothing to diff) → `s`.
 
-Apply these rules in order; stop at the first match:
-
-- If `lines_changed < 5` AND `proposed_confidence == "high"` → default `y`.
-- If `ratio > 0.5` → default `n`.
-- Otherwise → default `s`.
-
-If the conflict has no `target_node_id` (no existing node to diff against), default to `s`.
-
-These defaults are recommendations, not determinations. Always show the user both sides before asking.
+These are recommendations, not determinations; always show the user both sides before asking.
 
 ### 7d. Ask the user and parse the reply
 
@@ -537,12 +401,12 @@ Parse the reply with these rules:
 
 ### 7e. Apply the outcome
 
-Map the chosen reply to actions:
-
-- `y` (Accept proposal): rewrite the existing `target_node_id` node in place at its current path — `Glob` `nodes/**/<target_node_id>.md` to locate it (placement is topical) — with the proposed body and frontmatter (use `node write` against the existing `target_node_id` as the slug, which updates in place by id, or `Write` directly to the resolved path if you have the full frontmatter assembled), then `rm .ai/kenkeep/conflicts/<id>.md`.
-- `n` (Reject proposal): `rm .ai/kenkeep/conflicts/<id>.md`. The existing node is unchanged.
-- `s` (Skip): leave the conflict file alone. It re-surfaces on the next curate pass with `status: pending` intact. Do not edit or delete the file.
-- `k` (Keep as record): leave the conflict file on disk as a historical record for later review. The existing node is unchanged. Use this rarely.
+| Reply | Outcome |
+|---|---|
+| `y` accept | Rewrite the `target_node_id` node in place at its current path — `Glob` `nodes/**/<target_node_id>.md` (placement is topical), then `node write` with `target_node_id` as the slug (updates in place by id) or `Write` the assembled frontmatter+body to the resolved path — then `rm .ai/kenkeep/conflicts/<id>.md`. |
+| `n` reject | `rm .ai/kenkeep/conflicts/<id>.md`; the existing node is unchanged. |
+| `s` skip | Leave the conflict file untouched — it re-surfaces on the next curate pass with `status: pending`. Do not edit or delete it. |
+| `k` keep | Leave the conflict file on disk as a historical record; the existing node is unchanged. Use rarely. |
 
 After every conflict in a group is decided, move to the next group.
 

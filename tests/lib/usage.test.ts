@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { classifyRead, reconcileUsage, type ClassifiedRead } from '../../src/lib/usage.js';
-import { extractClaudeReads } from '../../src/harnesses/read-extract.js';
+import {
+  extractClaudeReads,
+  extractCommandMarkdownCandidates,
+} from '../../src/harnesses/read-extract.js';
 import { UsageRecordSchema } from '../../src/lib/schemas.js';
 
 describe('classifyRead', () => {
@@ -166,5 +169,37 @@ describe('extract + classify integration', () => {
       { document: 'practice-foo', type: 'leaf' },
       { document: 'nodes/topic/index.md', type: 'index' },
     ]);
+  });
+
+  it('classifies command-extracted absolute, repo-relative, and kk-relative candidates, dropping non-node markdown', async () => {
+    const leafAbs = join(nodesDir, 'topic', 'practice-foo.md');
+    const command = [
+      `cat ${leafAbs}`,
+      `sed -n '1,5p' .ai/kenkeep/nodes/topic/practice-foo.md`,
+      'head nodes/topic/index.md',
+      'rg pattern docs/outside.md',
+    ].join(' && ');
+
+    const candidates = extractCommandMarkdownCandidates(command);
+    const classified = candidates
+      .map(p => classifyRead(p, nodesDir, kkDir))
+      .filter((r): r is ClassifiedRead => r !== null);
+
+    expect(classified).toEqual([
+      { document: 'practice-foo', type: 'leaf' },
+      { document: 'practice-foo', type: 'leaf' },
+      { document: 'nodes/topic/index.md', type: 'index' },
+    ]);
+
+    const usageFile = join(root, '.state', 'usage.jsonl');
+    await reconcileUsage(usageFile, 'cmd-session', '2026-06-20T00:00:00Z', classified);
+    const lines = readFileSync(usageFile, 'utf8')
+      .split('\n')
+      .filter(l => l.trim().length > 0);
+    // Two practice-foo occurrences + one index occurrence; the non-node docs/outside.md is dropped.
+    expect(lines).toHaveLength(3);
+    for (const line of lines) {
+      expect(UsageRecordSchema.safeParse(JSON.parse(line)).success).toBe(true);
+    }
   });
 });

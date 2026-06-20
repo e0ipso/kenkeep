@@ -231,10 +231,10 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 002: Wire shell/search extraction across harnesses (depends on: 001) (status: completed)
 
-### Phase 3: Verification And Documentation
+### ✅ Phase 3: Verification And Documentation
 **Parallel Tasks:**
-- Task 003: Test command usage extraction (depends on: 002)
-- Task 004: Document shell/search usage coverage (depends on: 002)
+- ✔️ Task 003: Test command usage extraction (depends on: 002) (status: completed)
+- ✔️ Task 004: Document shell/search usage coverage (depends on: 002) (status: completed)
 
 ### Post-phase Actions
 - After Phase 3, run the focused validation from the plan self-validation section.

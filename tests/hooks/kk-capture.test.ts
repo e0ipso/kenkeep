@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 import { normalizeOpenCodeSessionId } from '../../src/harnesses/opencode/session-id.js';
+import { UsageRecordSchema } from '../../src/lib/schemas.js';
 
 const exec = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -76,6 +77,12 @@ interface HarnessCase {
   capturedBy: string;
   needsInit: boolean;
   seed: (ctx: { sandbox: string; home?: string }) => void;
+  /**
+   * Materializes a substantial transcript whose ONLY node access is a
+   * shell/search command reading `nodeAbs` (no dedicated read tool), so the
+   * spawned hook proves command-derived reads reach `usage.jsonl`.
+   */
+  seedUsageRead: (ctx: { sandbox: string; home?: string; nodeAbs: string }) => void;
   input: (ctx: { sandbox: string }) => Record<string, unknown>;
   env: (ctx: { home?: string }) => NodeJS.ProcessEnv;
   homePrefix?: string;
@@ -175,6 +182,135 @@ function writeCopilotEvents(
   );
 }
 
+/**
+ * Anthropic-style transcript (Claude and Cursor share the shape) whose
+ * assistant turn carries substantial text plus a shell tool that reads
+ * `nodeAbs` via a command — no dedicated read tool. `shellTool` is the
+ * harness's shell tool name (`Bash` for Claude, `Shell` for Cursor).
+ */
+function writeAnthropicUsageTranscript(
+  path: string,
+  agentText: string,
+  nodeAbs: string,
+  shellTool: string
+): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(
+    path,
+    [
+      JSON.stringify({ type: 'user', message: { role: 'user', content: SUBSTANTIAL_USER } }),
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: agentText },
+            { type: 'tool_use', name: shellTool, input: { command: `sed -n '1,5p' ${nodeAbs}` } },
+          ],
+        },
+      }),
+    ].join('\n')
+  );
+}
+
+function writeCodexUsageRollout(codexHome: string, sessionId: string, nodeAbs: string): void {
+  const dir = todayUtcDir(codexHome);
+  const path = join(dir, `rollout-2026-05-15T10-00-00-${sessionId}.jsonl`);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(
+    path,
+    [
+      JSON.stringify({ type: 'session_meta', payload: { id: sessionId } }),
+      JSON.stringify({
+        type: 'response_item',
+        payload: {
+          type: 'message',
+          role: 'user',
+          content: [{ type: 'input_text', text: SUBSTANTIAL_USER }],
+        },
+      }),
+      JSON.stringify({
+        type: 'response_item',
+        payload: {
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: SUBSTANTIAL_AGENT }],
+        },
+      }),
+      JSON.stringify({
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'shell',
+          arguments: JSON.stringify({ command: ['bash', '-lc', `cat ${nodeAbs}`] }),
+        },
+      }),
+    ].join('\n')
+  );
+}
+
+function writeCopilotUsageEvents(copilotHome: string, sessionId: string, nodeAbs: string): void {
+  const dir = join(copilotHome, 'session-state', sessionId);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'events.jsonl'),
+    [
+      JSON.stringify({
+        type: 'user.message',
+        data: { content: SUBSTANTIAL_USER },
+        id: 'u1',
+        timestamp: '2026-06-05T00:00:01Z',
+        parentId: null,
+      }),
+      JSON.stringify({
+        type: 'assistant.message',
+        data: { content: SUBSTANTIAL_AGENT },
+        id: 'a1',
+        timestamp: '2026-06-05T00:00:02Z',
+        parentId: 'u1',
+      }),
+      JSON.stringify({
+        type: 'tool.execution_start',
+        data: { toolName: 'bash', arguments: { command: `cat ${nodeAbs}` } },
+        id: 't1',
+        timestamp: '2026-06-05T00:00:03Z',
+        parentId: 'a1',
+      }),
+    ].join('\n')
+  );
+}
+
+function writeOpenCodeUsageStub(home: string, nodeAbs: string): void {
+  const binDir = join(home, 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const doc = {
+    info: { id: OPENCODE_RAW_SESS },
+    messages: [
+      {
+        info: { role: 'user', time: { created: 1 } },
+        parts: [{ type: 'text', text: SUBSTANTIAL_USER }],
+      },
+      {
+        info: { role: 'assistant', time: { created: 2 } },
+        parts: [
+          { type: 'text', text: SUBSTANTIAL_AGENT },
+          { type: 'tool', tool: 'bash', state: { input: { command: `cat ${nodeAbs}` } } },
+        ],
+      },
+    ],
+  };
+  writeFileSync(join(home, 'oc-export.json'), JSON.stringify(doc));
+  const script = [
+    '#!/bin/sh',
+    'DIR=$(dirname "$0")',
+    'if [ "$1" = "--version" ]; then echo 1.17.3; exit 0; fi',
+    'if [ "$1" = "export" ]; then cat "$DIR/../oc-export.json"; exit 0; fi',
+    'exit 1',
+    '',
+  ].join('\n');
+  writeFileSync(join(binDir, 'opencode'), script, { mode: 0o755 });
+}
+
 const CLAUDE_SESS = '66666666-6666-4666-8666-666666666666';
 const CODEX_SESS = '12345678-1234-4abc-8def-1234567890ab';
 const COPILOT_SESS = '12345678-1234-4abc-8def-1234567890ab';
@@ -226,6 +362,8 @@ const harnessCases: HarnessCase[] = [
     needsInit: true,
     seed: ({ sandbox }) =>
       writeClaudeTranscript(join(sandbox, 't.jsonl'), SUBSTANTIAL_USER, SUBSTANTIAL_AGENT),
+    seedUsageRead: ({ sandbox, nodeAbs }) =>
+      writeAnthropicUsageTranscript(join(sandbox, 't.jsonl'), SUBSTANTIAL_AGENT, nodeAbs, 'Bash'),
     input: ({ sandbox }) => ({
       session_id: CLAUDE_SESS,
       transcript_path: join(sandbox, 't.jsonl'),
@@ -243,6 +381,8 @@ const harnessCases: HarnessCase[] = [
     homePrefix: 'ai-kk-codex-home-',
     seed: ({ home }) =>
       writeCodexRollout(home as string, CODEX_SESS, SUBSTANTIAL_USER, SUBSTANTIAL_AGENT),
+    seedUsageRead: ({ home, nodeAbs }) =>
+      writeCodexUsageRollout(home as string, CODEX_SESS, nodeAbs),
     input: ({ sandbox }) => ({ session_id: CODEX_SESS, event: 'Stop', cwd: sandbox }),
     env: ({ home }) => ({ CODEX_HOME: home }),
   },
@@ -255,6 +395,8 @@ const harnessCases: HarnessCase[] = [
     homePrefix: 'ai-kk-copilot-home-',
     seed: ({ home }) =>
       writeCopilotEvents(home as string, COPILOT_SESS, SUBSTANTIAL_USER, SUBSTANTIAL_AGENT),
+    seedUsageRead: ({ home, nodeAbs }) =>
+      writeCopilotUsageEvents(home as string, COPILOT_SESS, nodeAbs),
     input: ({ sandbox }) => ({
       sessionId: COPILOT_SESS,
       hook_event_name: 'sessionEnd',
@@ -270,6 +412,13 @@ const harnessCases: HarnessCase[] = [
     needsInit: true,
     seed: ({ sandbox }) =>
       writeClaudeTranscript(join(sandbox, 'fixture.jsonl'), SUBSTANTIAL_USER, SUBSTANTIAL_AGENT),
+    seedUsageRead: ({ sandbox, nodeAbs }) =>
+      writeAnthropicUsageTranscript(
+        join(sandbox, 'fixture.jsonl'),
+        SUBSTANTIAL_AGENT,
+        nodeAbs,
+        'Shell'
+      ),
     input: ({ sandbox }) => ({
       conversation_id: CURSOR_SESS,
       transcript_path: join(sandbox, 'fixture.jsonl'),
@@ -286,6 +435,7 @@ const harnessCases: HarnessCase[] = [
     needsInit: true,
     homePrefix: 'ai-kk-opencode-stub-',
     seed: ({ home }) => writeOpenCodeStub(home as string, SUBSTANTIAL_USER, SUBSTANTIAL_AGENT),
+    seedUsageRead: ({ home, nodeAbs }) => writeOpenCodeUsageStub(home as string, nodeAbs),
     input: ({ sandbox }) => ({
       session_id: OPENCODE_RAW_SESS,
       hook_event_name: 'SessionIdle',
@@ -340,6 +490,51 @@ describe.each(harnessCases)('kk-capture hook (spawned) [$id]', hc => {
     const result = await runHook(hc.hookPath, sandbox, hc.input({ sandbox }), hc.env({ home }));
     expect(result.exitCode).toBe(0);
     expect(sessionLogs(sandbox)).toHaveLength(0);
+  });
+});
+
+// Proves the full capture path records a knowledge-base read that the agent
+// performed through a shell/search COMMAND (not a dedicated read tool): the
+// compiled hook parses the raw transcript/export, the shared extractor surfaces
+// the command path candidate, and the usage layer reconciles it into
+// `.state/usage.jsonl` as a schema-valid record.
+describe.each(harnessCases)('kk-capture hook (spawned) [usage command read: $id]', hc => {
+  let sandbox: string;
+  let home: string | undefined;
+
+  beforeEach(async () => {
+    sandbox = makeSandbox();
+    home = hc.homePrefix ? makeSandbox(hc.homePrefix) : undefined;
+    await gitInit(sandbox);
+    await runCli(sandbox, ['init', '--harnesses', hc.id]);
+  });
+  afterEach(() => {
+    cleanSandbox(sandbox);
+    if (home) cleanSandbox(home);
+  });
+
+  it('records a command-derived node read into usage.jsonl as a valid UsageRecord', async () => {
+    const nodeAbs = join(sandbox, '.ai/kenkeep/nodes/topic/practice-foo.md');
+    mkdirSync(dirname(nodeAbs), { recursive: true });
+    writeFileSync(nodeAbs, '# practice-foo\n');
+
+    hc.seedUsageRead({ sandbox, home, nodeAbs });
+    const result = await runHook(hc.hookPath, sandbox, hc.input({ sandbox }), hc.env({ home }));
+    expect(result.exitCode).toBe(0);
+
+    const usageFile = join(sandbox, '.ai/kenkeep/.state/usage.jsonl');
+    expect(existsSync(usageFile)).toBe(true);
+    const records = readFileSync(usageFile, 'utf8')
+      .split('\n')
+      .filter(l => l.trim().length > 0)
+      .map(l => JSON.parse(l) as unknown);
+    expect(records.length).toBeGreaterThan(0);
+    for (const record of records) {
+      expect(UsageRecordSchema.safeParse(record).success).toBe(true);
+    }
+    expect(records).toContainEqual(
+      expect.objectContaining({ document: 'practice-foo', type: 'leaf', session_id: hc.sessionId })
+    );
   });
 });
 

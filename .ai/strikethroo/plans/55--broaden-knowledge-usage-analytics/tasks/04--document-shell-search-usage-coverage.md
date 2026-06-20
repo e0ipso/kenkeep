@@ -2,7 +2,7 @@
 id: 4
 group: "documentation"
 dependencies: [2]
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - documentation

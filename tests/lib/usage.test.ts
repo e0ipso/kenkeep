@@ -46,6 +46,29 @@ describe('classifyRead', () => {
   it('returns null for a relative path that does not resolve under nodes/', () => {
     expect(classifyRead('some/relative/file.md', nodesDir, kkDir)).toBeNull();
   });
+
+  it('resolves a repo-relative .ai/kenkeep/nodes/... candidate from the kk root', () => {
+    expect(classifyRead('.ai/kenkeep/nodes/topic/sub/practice-foo.md', nodesDir, kkDir)).toEqual({
+      document: 'practice-foo',
+      type: 'leaf',
+    });
+    expect(classifyRead('.ai/kenkeep/nodes/topic/sub/index.md', nodesDir, kkDir)).toEqual({
+      document: 'nodes/topic/sub/index.md',
+      type: 'index',
+    });
+  });
+
+  it('resolves a kk-root-relative nodes/... candidate from kkDir', () => {
+    expect(classifyRead('nodes/topic/sub/practice-foo.md', nodesDir, kkDir)).toEqual({
+      document: 'practice-foo',
+      type: 'leaf',
+    });
+  });
+
+  it('ignores a non-node markdown candidate even in the supported relative forms', () => {
+    expect(classifyRead('nodes/../../README.md', nodesDir, kkDir)).toBeNull();
+    expect(classifyRead('README.md', nodesDir, kkDir)).toBeNull();
+  });
 });
 
 describe('reconcileUsage (monotonic, session-keyed)', () => {

@@ -2,10 +2,45 @@ import { describe, expect, it } from 'vitest';
 import {
   extractClaudeReads,
   extractCodexReads,
+  extractCommandMarkdownCandidates,
   extractCopilotReads,
   extractCursorReads,
   extractOpenCodeReads,
 } from '../../src/harnesses/read-extract.js';
+
+describe('extractCommandMarkdownCandidates', () => {
+  it('collects markdown path candidates in command order, preserving duplicates', () => {
+    expect(
+      extractCommandMarkdownCandidates(
+        'cat .ai/kenkeep/nodes/a.md nodes/b.md .ai/kenkeep/nodes/a.md'
+      )
+    ).toEqual(['.ai/kenkeep/nodes/a.md', 'nodes/b.md', '.ai/kenkeep/nodes/a.md']);
+  });
+
+  it('strips surrounding quotes and trailing separators, and splits comma-joined args', () => {
+    expect(
+      extractCommandMarkdownCandidates(`sed -n '1,40p' "nodes/x.md"; head nodes/y.md`)
+    ).toEqual(['nodes/x.md', 'nodes/y.md']);
+    expect(extractCommandMarkdownCandidates('cat nodes/a.md,nodes/b.md')).toEqual([
+      'nodes/a.md',
+      'nodes/b.md',
+    ]);
+  });
+
+  it('matches absolute markdown paths and ignores extensions like .md5', () => {
+    expect(extractCommandMarkdownCandidates('cat /repo/.ai/kenkeep/nodes/z.md | rg foo')).toEqual([
+      '/repo/.ai/kenkeep/nodes/z.md',
+    ]);
+    expect(extractCommandMarkdownCandidates('sha256sum nodes/checksum.md5')).toEqual([]);
+  });
+
+  it('returns [] for empty, non-string, or path-free command input without throwing', () => {
+    expect(extractCommandMarkdownCandidates('')).toEqual([]);
+    expect(extractCommandMarkdownCandidates(undefined)).toEqual([]);
+    expect(extractCommandMarkdownCandidates(42)).toEqual([]);
+    expect(extractCommandMarkdownCandidates('ls -la && git status')).toEqual([]);
+  });
+});
 
 describe('extractClaudeReads', () => {
   it('returns file_path of Read tool_use blocks, ignoring other tools and text', () => {

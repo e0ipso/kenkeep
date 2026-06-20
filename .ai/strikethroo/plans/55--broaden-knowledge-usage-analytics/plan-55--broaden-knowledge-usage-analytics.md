@@ -223,9 +223,9 @@ graph TD
     002 --> 004[Task 004: Document shell/search usage coverage]
 ```
 
-### Phase 1: Shared Extraction Primitive
+### ✅ Phase 1: Shared Extraction Primitive
 **Parallel Tasks:**
-- Task 001: Add command path candidate extraction
+- ✔️ Task 001: Add command path candidate extraction (status: completed)
 
 ### Phase 2: Harness Coverage
 **Parallel Tasks:**

@@ -1,13 +1,49 @@
 /**
- * Per-harness extractors that surface the file paths an agent opened via read
- * tool calls in a harness's raw transcript. These feed knowledge-base usage
- * tracking (`src/lib/usage.ts` decides which paths are knowledge-base
- * documents). Each extractor returns the read paths in order and preserves
- * duplicates, so repeated reads of the same file are counted repeatedly. Only
- * explicit file-open read tools count; search/shell tools are ignored. Every
+ * Per-harness extractors that surface the file paths an agent accessed in a
+ * harness's raw transcript. These feed knowledge-base usage tracking
+ * (`src/lib/usage.ts` decides which paths are knowledge-base documents). Each
+ * extractor returns paths in transcript/export order and preserves duplicates,
+ * so repeated reads of the same file are counted repeatedly. Two signals count:
+ * explicit file-open read tools (path taken directly from the tool input) and
+ * markdown path candidates visibly named in shell/search command strings
+ * (`cat`, `sed`, `head`, `rg`, `grep`, …) via `extractCommandMarkdownCandidates`.
+ * Read-tool and command-derived candidates are interleaved in raw order. The
+ * usage layer remains the authoritative filter for which candidates are actual
+ * `.ai/kenkeep/nodes/` documents, so extraction stays broad and never executes
+ * commands, expands globs, parses stdout, or reads arbitrary prose. Every
  * extractor is defensive: malformed lines and unrecognized shapes yield no
  * entries rather than throwing, so usage extraction can never break capture.
  */
+
+/**
+ * Path-like token matcher for command strings: a maximal run of path characters
+ * that ends in `.md`. The negative class drops surrounding shell quotes,
+ * pipes/redirects/separators, assignment (`=`), and list commas, so quoted and
+ * comma-joined arguments split into clean candidates. `\b` after `.md` avoids
+ * matching extensions like `.md5`. Order and duplicates are preserved.
+ */
+const COMMAND_MD_CANDIDATE = /[^\s'"`|&;<>(){}=,]+\.md\b/g;
+
+/**
+ * Collects markdown path candidates visibly named in a shell/search command
+ * string, in command order with duplicates preserved. This is a conservative,
+ * token-oriented scan — it never executes commands, expands globs, parses
+ * stdout, or infers paths from prose. Downstream classification
+ * (`src/lib/usage.ts`) decides which candidates are knowledge-base documents,
+ * so it is safe (and intended) to return non-node candidates too. Non-string or
+ * empty input yields no candidates and never throws.
+ */
+export function extractCommandMarkdownCandidates(command: unknown): string[] {
+  if (typeof command !== 'string' || command.length === 0) return [];
+  const out: string[] = [];
+  COMMAND_MD_CANDIDATE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = COMMAND_MD_CANDIDATE.exec(command)) !== null) {
+    out.push(match[0]);
+  }
+  return out;
+}
+
 function readStringField(input: unknown, key: string): string | null {
   if (!input || typeof input !== 'object') return null;
   const value = (input as Record<string, unknown>)[key];

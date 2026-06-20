@@ -250,9 +250,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 01: Build deterministic prompt retrieval and compact payload rendering.
 
-### Phase 2: Harness Integration
+### ✅ Phase 2: Harness Integration
 **Parallel Tasks:**
-- Task 02: Wire prompt-time hook support for verified native prompt-submit injection channels, initially Claude and Codex unless implementation proves more (depends on: 01).
+- ✔️ Task 02: Wire prompt-time hook support for verified native prompt-submit injection channels, initially Claude and Codex unless implementation proves more (depends on: 01).
 
 ### Phase 3: Regression Coverage
 **Parallel Tasks:**

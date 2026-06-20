@@ -2,7 +2,7 @@
 id: 2
 group: "prompt-time-knowledge-injection"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-06-20
 skills:
   - harness-adapters

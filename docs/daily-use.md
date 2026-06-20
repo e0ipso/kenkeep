@@ -19,16 +19,17 @@ After install, kenkeep runs itself. Capture and injection happen on their own; t
 
 The pre-commit hook regenerates `ENTRY.md` and `GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes. If you `git restore <path>` to discard nodes without committing another `nodes/` change, that hook doesn't fire — run `npx kenkeep index rebuild` so the regenerated index drops the removed nodes too.
 
-That is the entire daily workflow. The rest of this page is reference: the three skills, and the two manual actions you reach for occasionally.
+That is the entire daily workflow. The rest of this page is reference: the intake skills, and the two manual actions you reach for occasionally.
 
 ## Skills
 
-Three in-session skills do all the work. Run them inside your harness session; the LLM call happens in that same session, with the model, prompt cache, and tools you already use interactively.
+Four in-session skills cover knowledge intake. Run them inside your harness session; the LLM call happens in that same session, with the model, prompt cache, and tools you already use interactively.
 
 | Skill | What it does | When you reach for it |
 |---|---|---|
-| `/kk-add` | Conversationally gathers a node's fields, checks `ENTRY.md` for overlap, writes it under `nodes/`. | Any time you want to capture a fact on the spot. |
-| `/kk-curate` | Reads pending captured sessions, drafts proposed notes under `nodes/`, rebuilds `ENTRY.md`/`GRAPH.md`, and walks you through any contradictions with the `y/n/s/k` prompt. | The daily loop, when nudged. |
+| `/kk-add` | Conversationally gathers a node's fields, checks `ENTRY.md` for overlap, writes it under `nodes/`. | When you already know the node you want. |
+| `/kk-session-extract` | Extracts durable knowledge from the **visible current session**, stages a done session log, and runs the same curation tail as `/kk-curate` for that one session only. | When the current session just produced teaching moments you want to process now. |
+| `/kk-curate` | Reads pending captured sessions, drafts proposed notes under `nodes/`, rebuilds `ENTRY.md`/`GRAPH.md`, and walks you through any contradictions with the `y/n/s/k` prompt. | The daily loop, when nudged — deferred batch processing of captured logs. |
 | `/kk-bootstrap` | Seeds nodes from your existing docs — a one-time setup step, see [Installation → Seed from existing docs](installation.md#seed-from-existing-docs). | Once, at setup. |
 
 {% include callout.html variant="warning" content="Run only one LLM skill at a time per repo. `/kk-curate` and `/kk-bootstrap` are single-author by design and take no cross-process lock, so concurrent runs against the same repo can silently waste work (sessions reprocess on the next run — no data loss). See [Architecture → Locking](internals/architecture.md#locking)." %}
@@ -86,6 +87,12 @@ Defaults are heuristic per conflict (small diffs default `y`, rewrites `n`, othe
 ## Add knowledge manually
 
 `/kk-add` writes a node directly from the current session. Review with `git diff` and commit. Reach for it when you want to capture a decision the moment you make it, without waiting for the next curate pass.
+
+## Extract from the current session
+
+`/kk-session-extract` applies the same `proposal-extract.md` gate to the **visible** conversation, stages a `proposal_status: done` log under `_sessions/`, and immediately runs curation for that session only. Use it when a session has converged on durable project knowledge and you do not want to wait for capture hooks plus a later `/kk-curate`.
+
+Meta-only or planning sessions may correctly yield no proposals — that is success, not failure. If compaction has occurred, extraction covers only what remains visible. When the runtime cannot expose a UUID-v4 session id, the skill reports degraded idempotency; whole-tree dedup remains the secondary safety net.
 
 ## Status
 

@@ -3,6 +3,11 @@ import { join } from 'node:path';
 import { dump } from 'js-yaml';
 import type { CaptureTrigger, ProposalStatus } from './schemas.js';
 
+export interface SessionLogProposals {
+  practice: unknown[];
+  map: unknown[];
+}
+
 export interface SessionLogInput {
   sessionId: string;
   capturedBy: CaptureTrigger;
@@ -10,16 +15,20 @@ export interface SessionLogInput {
   transcriptHash: string;
   body: string;
   /** Initial queue state at capture time; the worker owns 'done'/'failed'. */
-  proposalStatus?: Extract<ProposalStatus, 'pending' | 'skipped'>;
+  proposalStatus?: Extract<ProposalStatus, 'pending' | 'skipped' | 'done' | 'failed'>;
   proposalError?: string | null;
   proposalCompletedAt?: string | null;
+  proposals?: SessionLogProposals;
+  curatorProcessedAt?: string | null;
+  curatorRunId?: string | null;
+  topics?: string[] | null;
 }
 
 export function renderSessionLog(input: SessionLogInput): string {
   const proposalStatus = input.proposalStatus ?? 'pending';
   const proposalError = input.proposalError ?? null;
   const proposalCompletedAt = input.proposalCompletedAt ?? null;
-  const frontmatter = {
+  const frontmatter: Record<string, unknown> = {
     schema_version: 1,
     session_id: input.sessionId,
     captured_by: input.capturedBy,
@@ -29,9 +38,22 @@ export function renderSessionLog(input: SessionLogInput): string {
     proposal_completed_at: proposalCompletedAt,
     proposal_error: proposalError,
     proposal_log: null,
-    proposals: { practice: [], map: [] },
+    proposals: input.proposals ?? { practice: [], map: [] },
   };
+  if (input.curatorProcessedAt) {
+    frontmatter['curator_processed_at'] = input.curatorProcessedAt;
+  }
+  if (input.curatorRunId) {
+    frontmatter['curator_run_id'] = input.curatorRunId;
+  }
+  if (input.topics && input.topics.length > 0) {
+    frontmatter['topics'] = input.topics;
+  }
   const yaml = dump(frontmatter, { lineWidth: -1, noRefs: true, sortKeys: false });
+  const proposalSection =
+    proposalStatus === 'done'
+      ? '_Extraction complete; see proposals in frontmatter._'
+      : '(populated by proposal worker)';
   const bodyLines = [
     '## Transcript',
     '',
@@ -39,7 +61,7 @@ export function renderSessionLog(input: SessionLogInput): string {
     '',
     '## Proposal',
     '',
-    '(populated by proposal worker)',
+    proposalSection,
     '',
   ];
   return `---\n${yaml}---\n${bodyLines.join('\n')}`;

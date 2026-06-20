@@ -11,6 +11,7 @@ import {
   type PendingSession,
 } from '../lib/curate.js';
 import { log } from '../lib/log.js';
+import { assertValidSessionId } from '../lib/session-log.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { CuratorOutputSchema, type CuratorAction } from '../lib/schemas.js';
 
@@ -25,6 +26,8 @@ export interface CurateDedupOptions {
   sessionsDir?: string | undefined;
   /** Override the `conflicts/` directory. Defaults to `repoPaths(...).conflictsDir`. */
   conflictsDir?: string | undefined;
+  /** When set, stamp only the unprocessed done log matching this session id. */
+  sessionId?: string | undefined;
   /**
    * Wall-clock injection point. Defaults to `new Date()`. Exposed for tests
    * that need byte-identical conflict-file frontmatter across runs; not
@@ -171,9 +174,28 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
   const now = opts.now ?? new Date();
   const { survivors, conflicts } = planConflictWrites(merged, runId, conflictsDir, now);
 
+  let filterSessionId: string | undefined;
+  if (opts.sessionId !== undefined && opts.sessionId !== '') {
+    try {
+      filterSessionId = assertValidSessionId(opts.sessionId);
+    } catch (err) {
+      log.error(`curate dedup: ${(err as Error).message}`);
+      return 1;
+    }
+  }
+
   // Discover pending sessions to stamp. The stamp is part of the same atomic
   // transaction as the survivors + conflict writes.
-  const pending: PendingSession[] = listPendingSessions(sessionsDir);
+  let pending: PendingSession[] = listPendingSessions(sessionsDir);
+  if (filterSessionId !== undefined) {
+    pending = pending.filter(s => s.sessionId === filterSessionId);
+    if (pending.length === 0) {
+      log.error(
+        `curate dedup: no unprocessed proposal_status=done session log for session_id ${filterSessionId}.`
+      );
+      return 1;
+    }
+  }
 
   // Atomicity protocol: ALL writes happen tmp+rename, in a fixed order
   // (survivors JSON → conflicts → session stamps). If a later write fails,

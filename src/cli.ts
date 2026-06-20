@@ -8,6 +8,7 @@ import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
 import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
+import { runSessionLogStageLiveCommand } from './commands/session-log-stage-live.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
@@ -110,6 +111,10 @@ async function main(): Promise<void> {
     .option('--run-id <id>', 'caller-supplied run id (defaults to a fresh randomUUID)')
     .option('--sessions-dir <path>', 'override the _sessions directory (defaults to repo paths)')
     .option('--conflicts-dir <path>', 'override the conflicts directory (defaults to repo paths)')
+    .option(
+      '--session-id <uuid>',
+      'stamp only the unprocessed done log matching this session id (default: all pending done logs)'
+    )
     .action(
       async (opts: {
         input?: string;
@@ -117,6 +122,7 @@ async function main(): Promise<void> {
         runId?: string;
         sessionsDir?: string;
         conflictsDir?: string;
+        sessionId?: string;
       }) => {
         const flags: Parameters<typeof runCurateDedupCommand>[0] = {};
         if (opts.input !== undefined) flags.input = opts.input;
@@ -124,6 +130,7 @@ async function main(): Promise<void> {
         if (opts.runId !== undefined) flags.runId = opts.runId;
         if (opts.sessionsDir !== undefined) flags.sessionsDir = opts.sessionsDir;
         if (opts.conflictsDir !== undefined) flags.conflictsDir = opts.conflictsDir;
+        if (opts.sessionId !== undefined) flags.sessionId = opts.sessionId;
         const code = await runCurateDedupCommand(flags);
         process.exit(code);
       }
@@ -350,6 +357,34 @@ async function main(): Promise<void> {
       });
       process.exit(code);
     });
+  sessionLogGroup
+    .command('stage-live')
+    .description(
+      'Headless primitive: validate live-session proposal JSON from stdin and create or update a session log with proposal_status: done. Pure Node — no LLM.'
+    )
+    .option('--session-id <uuid>', 'UUID-v4 session id for normal idempotency with later capture')
+    .option(
+      '--generate-session-id',
+      'generate a UUID-v4 fallback session id (degraded idempotency; report in output)'
+    )
+    .option(
+      '--transcript-excerpt <path-or-text>',
+      'optional evidence excerpt (file path or inline text); private spans are stripped'
+    )
+    .action(
+      async (opts: {
+        sessionId?: string;
+        generateSessionId?: boolean;
+        transcriptExcerpt?: string;
+      }) => {
+        const flags: Parameters<typeof runSessionLogStageLiveCommand>[0] = {};
+        if (opts.sessionId !== undefined) flags.sessionId = opts.sessionId;
+        if (opts.generateSessionId) flags.generateSessionId = true;
+        if (opts.transcriptExcerpt !== undefined) flags.transcriptExcerpt = opts.transcriptExcerpt;
+        const code = await runSessionLogStageLiveCommand(flags);
+        process.exit(code);
+      }
+    );
 
   program
     .command('finddocs')

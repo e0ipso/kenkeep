@@ -91,6 +91,11 @@ describe('rebalance trigger thresholds', () => {
     expect(decideRebalance([folder('', 1)], []).actions).toEqual([]);
   });
 
+  it('does not suggest merge for branch folders that only contain child folders', () => {
+    const folders = [folder('parent', 0), folder('parent/child', 2)];
+    expect(decideRebalance(folders, []).actions).toEqual([]);
+  });
+
   it('fires split-leaf only when both the size AND concept gates are met', () => {
     const bigChars = (LEAF_SIZE_SPLIT_THRESHOLD + 100) * 4;
     const manyTags = Array.from({ length: LEAF_CONCEPT_MIN }, (_, i) => `t${i}`);
@@ -128,6 +133,31 @@ describe('rebalance trigger thresholds', () => {
         [leaf({ id: 'practice-linked', relDir: '', relates_to: ['practice-other'] })]
       ).actions
     ).toEqual([]);
+  });
+
+  it('groups homeless root leaves that share a useful tag into one create-branch trigger', () => {
+    const actions = decideRebalance(
+      [],
+      [
+        leaf({
+          id: 'practice-one',
+          relDir: '',
+          tags: ['billing', 'workflow'],
+          derived_from: ['session-a'],
+        }),
+        leaf({ id: 'practice-two', relDir: '', tags: ['billing'], derived_from: ['session-b'] }),
+        leaf({ id: 'practice-three', relDir: '', tags: ['testing'] }),
+      ]
+    ).actions;
+    expect(actions).toEqual([
+      {
+        branch: 'practice-one.md',
+        operation: 'create-branch',
+        branches: ['practice-one.md', 'practice-two.md'],
+        topic: 'billing',
+      },
+      { branch: 'practice-three.md', operation: 'create-branch' },
+    ]);
   });
 
   it('sorts actions by branch then operation for stable output', () => {

@@ -3,15 +3,31 @@ name: kk-migrate
 description: Run any pending knowledge-base migration by querying the deterministic migration chain (`migrate status`) and executing each pending step's documented procedure in-host, with every write delegated to the step's deterministic CLI primitives. Use when the node reader, `doctor`, or `init` reports an out-of-date `schema_version` / legacy flat layout and asks you to migrate, or when the user asks to migrate the knowledge base.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 3 -->
 
 # kk-migrate
 
 You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no headless spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
 
+## Enter the project root
+
+Before any `.ai/kenkeep/...` read, glob, or command, locate the project root by walking upward until `.ai/kenkeep` exists, then `cd` there. Run this from your current shell:
+
+```bash
+KK_ROOT=$(pwd)
+while [ "$KK_ROOT" != "/" ] && [ ! -d "$KK_ROOT/.ai/kenkeep" ]; do
+  KK_ROOT=$(dirname "$KK_ROOT")
+done
+if [ ! -d "$KK_ROOT/.ai/kenkeep" ]; then
+  echo "No kenkeep knowledge base found in this directory or its parents." >&2
+  exit 1
+fi
+cd "$KK_ROOT"
+```
+
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/`. Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
 HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)

@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { runBootstrapLauncher } from './commands/bootstrap.js';
 import { runCurateLauncher } from './commands/curate.js';
 import { runCurateDedupCommand } from './commands/curate-dedup.js';
+import { runCuratePersistCommand } from './commands/curate-persist.js';
 import { runDoctor } from './commands/doctor.js';
 import { runFindDocsCommand } from './commands/finddocs.js';
 import { runIndexRebuild } from './commands/index-rebuild.js';
@@ -137,6 +138,22 @@ async function main(): Promise<void> {
     );
 
   program
+    .command('curate-persist')
+    .description(
+      'Deterministic curator persistence primitive: validates a survivors JSON from curate-dedup and persists add/modify actions in one pass while reporting per-action partial failures. Pure Node, no LLM.'
+    )
+    .option(
+      '--input <path>',
+      'path to survivors JSON (CuratorOutputSchema subset); reads stdin when omitted'
+    )
+    .action(async (opts: { input?: string }) => {
+      const flags: Parameters<typeof runCuratePersistCommand>[0] = {};
+      if (opts.input !== undefined) flags.input = opts.input;
+      const code = await runCuratePersistCommand(flags);
+      process.exit(code);
+    });
+
+  program
     .command('bootstrap')
     .description(
       'Launch the kk-bootstrap skill in the active harness (execs `<harness> -p "/kk-bootstrap …"`). Scope is controlled by .kkignore plus an optional --from <scope>.'
@@ -228,7 +245,7 @@ async function main(): Promise<void> {
   rebalanceGroup
     .command('trigger')
     .description(
-      'Deterministic, LLM-free rebalance check: reads Plan 1 per-folder metrics and prints a stable JSON decision {"actions":[{"branch","operation"}]} (split-folder/split-leaf/merge/create-branch), or {"actions":[]} when nothing trips past the hysteresis margin so the LLM phase is skipped.'
+      'Deterministic, LLM-free rebalance check: reads Plan 1 per-folder metrics and prints a stable JSON decision {"actions":[{"branch","operation","branches?","topic?"}]} (split-folder/split-leaf/merge/create-branch), or {"actions":[]} when nothing trips past the hysteresis margin so the LLM phase is skipped.'
     )
     .allowExcessArguments(true)
     .action(async () => {

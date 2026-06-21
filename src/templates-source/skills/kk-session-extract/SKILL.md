@@ -3,7 +3,7 @@ name: kk-session-extract
 description: Extract durable knowledge from the current live session, stage it as a validated done session log, and run it through the same curation machinery as /kk-curate. Use when the user wants to proactively process the current session before waiting for capture hooks and a later curate pass — not for dictating one node (/kk-add) or batch-processing accumulated logs (/kk-curate).
 ---
 
-<!-- Version: 1 -->
+<!-- Version: 3 -->
 
 # kk-session-extract
 
@@ -13,9 +13,25 @@ Extract durable project knowledge from the **visible current session**, stage it
 
 **Partial context warning:** if compaction has occurred, the visible context may be incomplete. Describe your extraction as visible-context extraction, not full-session extraction, unless the runtime exposes the full transcript.
 
+## Enter the project root
+
+Before any `.ai/kenkeep/...` read, glob, or command, locate the project root by walking upward until `.ai/kenkeep` exists, then `cd` there. Run this from your current shell:
+
+```bash
+KK_ROOT=$(pwd)
+while [ "$KK_ROOT" != "/" ] && [ ! -d "$KK_ROOT/.ai/kenkeep" ]; do
+  KK_ROOT=$(dirname "$KK_ROOT")
+done
+if [ ! -d "$KK_ROOT/.ai/kenkeep" ]; then
+  echo "No kenkeep knowledge base found in this directory or its parents." >&2
+  exit 1
+fi
+cd "$KK_ROOT"
+```
+
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/`. Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
 HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
@@ -82,9 +98,9 @@ This stamps only the staged live log. Unrelated `proposal_status: done` logs in 
 
 Capture the stdout JSON summary (`kept`, `conflicts`, `stamped`, `runId`) and report it to the user.
 
-## 5. Persist surviving actions via `node write`
+## 5. Persist surviving actions via `curate-persist`
 
-Follow `/kk-curate` Step 5 exactly: read `$SURVIVORS`, persist each non-`drop` action via `node write`, surface stderr on failure, continue with the next action.
+Follow `/kk-curate` Step 5 exactly: persist `$SURVIVORS` via `curate-persist`, surface any per-action failures from the summary, keep successful writes, and continue to the rebuild.
 
 ## 6. Rebuild the indices
 

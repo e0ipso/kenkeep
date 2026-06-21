@@ -3,27 +3,59 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 4 -->
+<!-- Version: 6 -->
 
 # kk-curate
 
-You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `node write`, regenerate indices, and resolve any surfaced contradictions interactively with the user. There is no sub-agent and no runner — **you** are the LLM doing the curation.
+You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `curate-persist`, regenerate indices, and resolve any surfaced contradictions interactively with the user. There is no sub-agent and no runner — **you** are the LLM doing the curation.
+
+## Enter the project root
+
+Before any `.ai/kenkeep/...` read, glob, or command, locate the project root by walking upward until `.ai/kenkeep` exists, then `cd` there. Run this from your current shell:
+
+```bash
+KK_ROOT=$(pwd)
+while [ "$KK_ROOT" != "/" ] && [ ! -d "$KK_ROOT/.ai/kenkeep" ]; do
+  KK_ROOT=$(dirname "$KK_ROOT")
+done
+if [ ! -d "$KK_ROOT/.ai/kenkeep" ]; then
+  echo "No kenkeep knowledge base found in this directory or its parents." >&2
+  exit 1
+fi
+cd "$KK_ROOT"
+```
 
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/`. Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
 HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
 ```
 
-`$HARNESS` is not consumed by `curate-dedup` or `node write`, but `index rebuild` requires it.
+If that detector cannot run, read `.ai/kenkeep/.state/installed-version`. If it lists exactly one installed harness in `harnesses`, use that. If it lists several, use your runtime hint only when it names one of those installed harnesses. If neither source is unambiguous, ask the user which installed harness to use before running `index rebuild`.
+
+`$HARNESS` is not consumed by `curate-dedup` or `curate-persist`, but `index rebuild` requires it.
+
+## CLI invocation fallback
+
+Use the direct commands shown below first. In Cursor-like environments, direct `node` or `npx` shell calls can sometimes fail with `EBUSY` even when the command is valid. When that happens, rerun the same argv through Python's subprocess list form rather than inventing a wrapper:
+
+```bash
+python3 - "$SURVIVORS" <<'PY'
+import subprocess, sys
+cmd = ["npx", "--yes", "kenkeep@latest", "curate-persist", "--input", sys.argv[1]]
+raise SystemExit(subprocess.run(cmd).returncode)
+PY
+```
+
+Adapt only the `cmd = [...]` list for the primitive you are retrying. Keep arguments as separate list elements so shell quoting cannot corrupt JSON paths.
 
 ## 0. Extract proposals from pending session logs
 
 For each session log with `proposal_status: pending`, extract proposals inline in this session before curation begins.
 
-1. **List pending session logs.** Use `Glob` (or `ls`) to list `.ai/kenkeep/_sessions/*.md`. For each file, `Read` its frontmatter and filter for `proposal_status: pending`. Sort by `captured_at` ascending.
+1. **List pending session logs.** Use `Glob` (or `ls`) to list `.ai/kenkeep/_sessions/*.md`. If that flat glob misses files but `.ai/kenkeep/_sessions/` exists, list the directory directly or use recursive discovery such as `find .ai/kenkeep/_sessions -type f -name '*.md'`. For each file, `Read` its frontmatter and filter for `proposal_status: pending`. Sort by `captured_at` ascending.
 
 2. **Short-circuit.** If none are pending, proceed to Step 1 with no message.
 
@@ -51,7 +83,7 @@ For each session log with `proposal_status: pending`, extract proposals inline i
 
 ## 1. Enumerate pending session logs
 
-Use `Glob` (or `ls`) to list `.ai/kenkeep/_sessions/*.md`. For each file, `Read` its frontmatter and keep only those whose:
+Use `Glob` (or `ls`) to list `.ai/kenkeep/_sessions/*.md`. If that flat glob misses files but `.ai/kenkeep/_sessions/` exists, list the directory directly or use recursive discovery such as `find .ai/kenkeep/_sessions -type f -name '*.md'`. For each file, `Read` its frontmatter and keep only those whose:
 
 - `proposal_status: done`, AND
 - `curator_processed_at` is unset (no key, or empty string).
@@ -142,7 +174,7 @@ Keep accumulating across batches until every batch is processed.
 Decide exactly one action per candidate. One operative definition plus the non-obvious edge cases:
 
 - **`add` — new knowledge.** The candidate's scope is new and no existing node covers it; `target_node_id: null`. When a candidate appears to overlap an existing node, prefer `drop` (or `modify` if it refines). The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) on disk collision. An `add` carries a **home branch** via `home_folder` (see "Relate and place").
-- **`modify` — refines an existing node.** An existing node has the same scope and the candidate extends it without negating it (both can be true, and the content is genuinely new — not a rephrasing). It overwrites the existing leaf in place at its current path by id; it never relocates and never sets `home_folder`. `target_node_id` is **required and must already exist on disk** — verify by `Glob`ing `nodes/` (or reading the branch `index.md`) first, or `node write` mints a fresh id instead of updating. **End-state rewrite:** the merged body reads as current state in present tense — never "previously…" / "moved from X to Y"; rewrite any transition narrative down to its end-state claim. If the candidate is just the existing node rephrased, `drop` it.
+- **`modify` — refines an existing node.** An existing node has the same scope and the candidate extends it without negating it (both can be true, and the content is genuinely new — not a rephrasing). It overwrites the existing leaf in place at its current path by id; it never relocates and never sets `home_folder`. `target_node_id` is **required and must already exist on disk** — verify by `Glob`ing `nodes/` (or reading the branch `index.md`) first, or `curate-persist` reports that action as failed. **End-state rewrite:** the merged body reads as current state in present tense — never "previously…" / "moved from X to Y"; rewrite any transition narrative down to its end-state claim. If the candidate is just the existing node rephrased, `drop` it.
 - **`contradict` — negates an existing node.** The candidate directly negates an existing valid node (both cannot be true at the same scope); the user resolves it later in step 7. A *subset* or *exception* is NOT a contradiction — emit `add` with `relates_to` instead (e.g. existing "use default cache tags" + candidate "for personalized pages use per-user cache contexts" both hold). `target_node_id` points at the single tightest-scope node negated (mention any second in `rationale`; never two `contradict` actions for one candidate). No node file changes — dedup writes `.ai/kenkeep/conflicts/<id>.md`. `rationale` states which claim is negated and why both cannot hold; `proposed_node.body` is the new end state in present tense. Make `proposed_node` and `rationale` complete enough to decide without re-running you.
 - **`drop` — no change.** `target_node_id: null`, `proposed_node: null`. Drop near-rephrasings, vague low-confidence content, general programming knowledge, and internally inconsistent candidates. **Automatic drops regardless of confidence:** change-oriented framing (transition/migration/rename/removal narratives); maintenance or lifecycle actions (version bumps, deprecations, releases, dependency updates, changelog edits); project story or history — **any plan/ticket/issue/work-order/task id is a red flag and an automatic drop**; incidental facts dressed up as practices. Also weigh **non-productive provenance signals** together (hedged wording; hypothetical/unrealized entities; plan/task-scoped framing; low confidence + no rationale + no example) — drop when they combine, but a single signal does not auto-drop.
 
@@ -244,30 +276,23 @@ It prints one line of JSON on stdout:
 
 Capture and report these numbers to the user.
 
-## 5. Persist surviving actions via `node write`
+## 5. Persist surviving actions via `curate-persist`
 
-Read `$SURVIVORS` (a JSON array of actions; each element is either `add`, `modify`, or `drop`). For each action that is **not** `drop`, persist it via `node write`. The `drop` actions are bookkeeping — no file is written, just log the count.
+Persist the full `$SURVIVORS` array in one deterministic primitive call:
 
-For each `add` or `modify`:
+```bash
+npx --yes kenkeep@latest curate-persist --input "$SURVIVORS"
+```
 
-1. Derive the slug. For `add`: lowercase, hyphenated form of the title (e.g. `Use the bravo analytics dispatcher` → `use-the-bravo-analytics-dispatcher`). For `modify`: use the `target_node_id` verbatim as the slug.
-2. Resolve placement. For an `add` with a non-empty `home_folder`, pass `--folder "<home_folder>"` so the leaf is written into that existing folder. For an `add` with no `home_folder` (the root fallback), omit `--folder`. For a `modify`, always omit `--folder`: the update writes in place at the existing path by id and never relocates. The printed id is folder-independent.
-3. Write the body to a tmpfile (so the heredoc handles multi-line content cleanly), or pipe it via `<<'EOF' … EOF` directly. Then:
+The primitive validates the survivors JSON before writing anything. For valid input, it attempts every action in order, skips `drop`, writes `add` and `modify` actions via the same node-file writer used by `node write`, and continues after per-action failures. It prints one JSON summary:
 
-   ```bash
-   npx --yes kenkeep@latest node write <kind> <slug> \
-     --title "<title>" --summary "<summary>" \
-     --tags "<tag1,tag2,...>" --relates-to "<id1,id2,...>" [--depends-on "<id1,id2,...>"] \
-     --confidence <high|medium|low> [--folder "<home_folder>"] <<'EOF'
-   <body markdown>
-   EOF
-   ```
+```json
+{"written":N,"dropped":M,"failed":K,"results":[...]}
+```
 
-   Include `--folder` only for an `add` with a non-empty `home_folder`; omit it for the root fallback and for every `modify`. Pass `--depends-on` only when the `proposed_node` set a non-empty `depends_on`; omit it otherwise. Do **not** pass `--source-doc` / `--source-hash` here; those flags exist for bootstrap's per-file hash map and do not apply to curated content.
+Partial-failure semantics are part of the contract: malformed input exits non-zero with no writes and no summary; valid input emits the JSON summary and exits non-zero iff any action failed. If you get a summary with `failed > 0`, surface each failed result's `candidate_origin` and `reason`, keep the successful writes, and continue to Step 6 so generated indexes reflect the files that did land. Do not rerun `curate-dedup` with a new run id.
 
-4. Capture the printed id and the placement (the chosen `home_folder`, or "root fallback" when `--folder` was omitted on an `add`); you report these in Step 7. For `modify`, the printed id should match `target_node_id`; if it does not (because the target was missing on disk and `ensureUniqueId` minted a fresh id), surface this as a warning: the modify was effectively an `add`, and the user should know.
-
-On any non-zero exit from `node write`, surface the stderr to the user and continue with the next action. Do not retry blindly.
+Capture the summary as `PERSIST_SUMMARY` for Step 7. Each `written` result includes the resolved `id`, `path`, and `placement` (`root fallback`, an existing folder path, or `in place` for modifies).
 
 ## 6. Rebuild the indices
 
@@ -292,8 +317,10 @@ npx --yes kenkeep@latest rebalance trigger
 It prints exactly one JSON line:
 
 ```
-{"actions":[{"branch":"<path>","operation":"<split-folder|split-leaf|merge|create-branch>"}, ...]}
+{"actions":[{"branch":"<path>","operation":"<split-folder|split-leaf|merge|create-branch>","branches":["<path>", "..."],"topic":"<tag>"}, ...]}
 ```
+
+`branches` and `topic` appear only when the deterministic trigger grouped related root leaves for one `create-branch` operation.
 
 **Skip path (zero added cost).** If `actions` is empty (`{"actions":[]}`), the tree is balanced past the hysteresis margin. Do **not** enter the LLM clustering step at all. Record "rebalance: no structural action" for the Step 7 summary and proceed to Step 7. This is the common case; most curate runs trip nothing and end exactly as they do today.
 
@@ -301,7 +328,7 @@ It prints exactly one JSON line:
 
 ### 6b.2 Propose structural operations on the affected branches only
 
-For each entry in `actions`, read only that branch (the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`) and decide a concrete operation. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate. Do not touch any branch the trigger did not name.
+For each entry in `actions`, read only that branch (the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`) and decide a concrete operation. For a grouped `create-branch` trigger, read every root leaf named in `branches`; that array is the complete trigger-named group. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate. Do not touch any branch the trigger did not name.
 
 Map each operation class to a concrete plan entry. For every NEW folder an operation creates, also author a one-line folder `summary`: a noun phrase / sentence fragment that completes `for more information on <summary>` (lowercase start, no trailing period, concise). Make it task-keyed, not just structural: after naming what lives in the folder, append a short `; read when <task pattern>` clause naming the tasks that should trigger descent (e.g. `the five harness adapters and their isolation rules; read before adding a harness or changing hook wiring`). Agents route by matching their task against these summaries, so the trigger clause is what makes descent reliable. The move primitive stamps it into the new folder's `index.md` frontmatter, and every later deterministic rebuild self-preserves it; it is what the parent index splices into its `Load …` descent pointer.
 
@@ -335,7 +362,7 @@ Capture it. Do not commit, add, or restore anything: the structural moves and th
 
 ## 7. Report the summary, then handle conflicts
 
-Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, and the count of drops. Also list the **placement decision per written leaf**: for each `add` you persisted, report its id and the folder it landed in (the chosen `home_folder`, or `root fallback` when none was chosen); for each `modify`, note it was updated in place at its current path. This lets the human review placement alongside content.
+Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`) and the `curate-persist` counts (`written`, `dropped`, `failed`). Also list the **placement decision per written leaf** from `PERSIST_SUMMARY.results`: for each `add` you persisted, report its id and the folder it landed in (the chosen folder, or `root fallback` when none was chosen); for each `modify`, note it was updated in place at its current path. This lets the human review placement alongside content.
 
 **Structural summary (rebalance).** Then print the structural summary from the rebalance phase (Step 6b), distinct from and additional to the content summary above so the human gets a legend for the structural diff:
 
@@ -403,7 +430,7 @@ Parse the reply with these rules:
 
 | Reply | Outcome |
 |---|---|
-| `y` accept | Rewrite the `target_node_id` node in place at its current path — `Glob` `nodes/**/<target_node_id>.md` (placement is topical), then `node write` with `target_node_id` as the slug (updates in place by id) or `Write` the assembled frontmatter+body to the resolved path — then `rm .ai/kenkeep/conflicts/<id>.md`. |
+| `y` accept | Rewrite the `target_node_id` node in place at its current path — `Glob` `nodes/**/<target_node_id>.md` (placement is topical), then `Write` the assembled frontmatter+body to the resolved path — then `rm .ai/kenkeep/conflicts/<id>.md`. |
 | `n` reject | `rm .ai/kenkeep/conflicts/<id>.md`; the existing node is unchanged. |
 | `s` skip | Leave the conflict file untouched — it re-surfaces on the next curate pass with `status: pending`. Do not edit or delete it. |
 | `k` keep | Leave the conflict file on disk as a historical record; the existing node is unchanged. Use rarely. |
@@ -419,5 +446,5 @@ Tell the user to review the changed nodes and conflict files under `.ai/kenkeep/
 - The reply contract for conflict resolution is strictly `y`/`n`/`s`/`k` (or their long forms / empty for default). Do not accept paraphrased prose as an answer — re-prompt instead.
 - If no session logs are pending, short-circuit at step 1 with the one-line message. Do not invoke any primitive.
 - If `.ai/kenkeep/conflicts/` is empty or every file has `status` other than `pending`, there's nothing to resolve; the fast-path message in step 7 already covers it.
-- Rebalance (Step 6b) runs only as the final phase of curate; it is never a separate command or nudge. When `rebalance trigger` reports `{"actions":[]}`, skip the LLM clustering step entirely (zero added cost) and report no structural action. When it fires, reason only over the branches it names, never widen the scope, and apply moves only through the `rebalance move` primitive. Never relocate files or regenerate indexes by hand, and never `git add`, `git commit`, or `git restore` anything.
+- Rebalance (Step 6b) runs only as the final phase of curate; it is never a separate command or nudge. When `rebalance trigger` reports `{"actions":[]}`, skip the LLM clustering step entirely (zero added cost) and report no structural action. When it fires, reason only over the branches it names. For a grouped `create-branch` trigger, inspect the optional `branches` array as the complete named root-leaf group. Apply moves only through the `rebalance move` primitive. Never relocate files or regenerate indexes by hand, and never `git add`, `git commit`, or `git restore` anything.
 - The dedup primitive is non-locking and idempotent on a fresh `runId` — but do not re-run it with the same `$PROPOSALS` and a different `runId`; that double-stamps consumed sessions and double-writes conflict files. One `curate-dedup` call per session.

@@ -154,3 +154,27 @@ Yes, this plan updates documentation. Required updates:
 - Do not run treeify in CI; it launches the host harness and the LLM and is human-supervised.
 - Land this plan immediately after Plan 1 to close the window in which the repo's own flat KB is unreadable by the new code path.
 - Develop on branch `claude/cankeb-node-storage-4mgca`. Do not open a pull request.
+
+## Implementation Audit
+
+Audit Date: 2026-06-21
+
+Status: Partially implemented
+
+Implemented Evidence:
+
+- `src/cli.ts` registers `migrate status` plus `place inventory` and `place apply`, matching the plan's supervised migration split under the newer `kk-migrate` design.
+- `src/templates-source/skills/kk-migrate/SKILL.md` documents the in-session flat-to-tree clustering flow, user review before apply, deterministic `place apply`, `index rebuild`, and no git staging/commit/restore by the skill.
+- `src/lib/migrate.ts`, `src/lib/migrate-read.ts`, `src/lib/migrate-flat-to-tree.ts`, and `src/commands/place.ts` implement v1 detection, flat inventory, id-preserving placement, `schema_version` bumping, conflict refusal, folder-summary stamping, and current-tree refusal.
+- `tests/commands/place.test.ts` and `tests/commands/migrate-status.test.ts` cover placement, id/edge/body preservation, no-commit behavior, zero-write failure paths, current-tree refusal, inventory output, and dispatch output. `npx vitest run tests/commands/place.test.ts tests/commands/migrate-status.test.ts` passed on 2026-06-21.
+- `PRD.md`, `AGENTS.md`, `docs/internals/architecture.md`, and `docs/internals/schemas.md` describe the current v1-to-v2 migration path through `/kk-migrate` and the `place` primitives.
+
+Missing or Uncertain Work:
+
+- The plan explicitly required migration guidance in `docs/installation.md` and `docs/troubleshooting.md`; neither file currently documents how to migrate an existing KB with `/kk-migrate`.
+- Some curated KB nodes still describe stale or superseded migration guidance, including `.ai/kenkeep/nodes/cli/map-migrate-command-schema-v1-to-v2-migration.md` and `.ai/kenkeep/nodes/node-schema/map-nodes-directory.md`, which reference `npx kenkeep --harness <id> migrate` rather than the current `/kk-migrate` skill plus `migrate status`/`place` primitives.
+- The original plan called the user-facing operation `treeify`; the implemented behavior appears to have been intentionally renamed/generalized to `/kk-migrate`, but public docs should make that migration path discoverable and consistent.
+
+Recommended Next Step:
+
+Add the missing user-facing migration guidance to `docs/installation.md` and `docs/troubleshooting.md`, then curate or update the stale KB migration nodes so all instructions point to `/kk-migrate` and the deterministic `migrate status`/`place` primitives. After those documentation fixes, this plan can likely be archived without further source changes.

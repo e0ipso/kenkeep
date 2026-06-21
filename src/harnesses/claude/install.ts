@@ -1,7 +1,12 @@
-import { existsSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { copyTree } from '../../lib/fs-atomic.js';
 import { installSharedSkills } from '../../lib/install-skills.js';
+import {
+  copySharedHookScripts,
+  sharedHarnessHooksDir,
+  sharedHookScriptPath,
+} from '../../lib/shared-hooks.js';
 import type { HarnessInstallOptions } from '../types.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
 import { writeClaudeHookConfig } from './hooks-config.js';
@@ -18,7 +23,7 @@ export function claudePaths(root: string) {
   return {
     dir,
     skillsDir: join(dir, 'skills'),
-    hooksDir: join(dir, 'hooks'),
+    hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'claude'),
     settingsFile: join(dir, 'settings.json'),
   };
 }
@@ -31,15 +36,17 @@ export function claudePaths(root: string) {
 export async function installClaude(opts: HarnessInstallOptions): Promise<void> {
   const claudeTemplateDir = join(opts.templatesDir, CLAUDE_TEMPLATE_SUBDIR);
   const paths = claudePaths(opts.root);
-  if (existsSync(claudeTemplateDir)) {
-    copyTree(claudeTemplateDir, paths.dir);
+  if (existsSync(join(claudeTemplateDir, 'settings.json')) && !existsSync(paths.settingsFile)) {
+    mkdirSync(paths.dir, { recursive: true });
+    cpSync(join(claudeTemplateDir, 'settings.json'), paths.settingsFile);
   }
+  copySharedHookScripts(opts.templatesDir, opts.paths, 'claude', CLAUDE_TEMPLATE_SUBDIR);
   installSharedSkills(opts.templatesDir, paths.skillsDir);
   await writeClaudeHookConfig(
     opts.root,
     CLAUDE_HOOK_SPECS.map(spec => ({
       event: spec.event,
-      scriptPath: `.claude/hooks/${spec.scriptPath}`,
+      scriptPath: sharedHookScriptPath('claude', spec.scriptPath),
       ...(spec.async ? { async: true } : {}),
       ...(spec.matcher ? { matcher: spec.matcher } : {}),
     }))
@@ -52,8 +59,10 @@ export async function installClaude(opts: HarnessInstallOptions): Promise<void> 
  * `installClaude`, which the upgrade flow also calls.
  */
 export function refreshClaudeTemplates(opts: HarnessInstallOptions): void {
-  const templates = join(opts.templatesDir, CLAUDE_TEMPLATE_SUBDIR);
   const paths = claudePaths(opts.root);
-  copyTree(join(templates, 'hooks'), paths.hooksDir);
+  copyTree(
+    join(opts.templatesDir, CLAUDE_TEMPLATE_SUBDIR, 'hooks'),
+    sharedHarnessHooksDir(opts.paths, 'claude')
+  );
   installSharedSkills(opts.templatesDir, paths.skillsDir);
 }

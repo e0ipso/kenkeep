@@ -17,7 +17,7 @@ import type { HarnessPaths } from '../../src/harnesses/types.js';
 function copilotPaths(root: string): HarnessPaths {
   return {
     dir: join(root, '.copilot'),
-    hooksDir: join(root, '.copilot', 'hooks'),
+    hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'copilot'),
     skillsDir: join(root, '.github', 'skills'),
     settingsFile: join(root, '.github', 'hooks', 'kk.json'),
   };
@@ -49,30 +49,36 @@ const roundTrips: HooksRoundTrip[] = [
   {
     id: 'claude',
     register: async root =>
-      writeClaudeHookConfig(root, [{ event: 'Stop', scriptPath: '.claude/hooks/kk-capture.cjs' }]),
+      writeClaudeHookConfig(root, [
+        { event: 'Stop', scriptPath: '.ai/kenkeep/hooks/claude/kk-capture.cjs' },
+      ]),
     readCommands: root =>
       flattenClaudeStyle(JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'))),
-    expected: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"',
+    expected: 'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs"',
   },
   {
     id: 'codex',
     register: async root =>
-      writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kk-capture.cjs' }]),
+      writeCodexHooks(root, [
+        { event: 'Stop', scriptPath: '.ai/kenkeep/hooks/codex/kk-capture.cjs' },
+      ]),
     readCommands: root =>
       flattenClaudeStyle(JSON.parse(readFileSync(join(root, '.codex/hooks.json'), 'utf8'))),
-    expected: 'node ./.codex/hooks/kk-capture.cjs',
+    expected: 'node ./.ai/kenkeep/hooks/codex/kk-capture.cjs',
   },
   {
     id: 'cursor',
     register: async root =>
-      writeCursorHooksConfig(root, [{ event: 'stop', scriptPath: '.cursor/hooks/kk-capture.cjs' }]),
+      writeCursorHooksConfig(root, [
+        { event: 'stop', scriptPath: '.ai/kenkeep/hooks/cursor/kk-capture.cjs' },
+      ]),
     readCommands: root => {
       const parsed = JSON.parse(readFileSync(join(root, '.cursor/hooks.json'), 'utf8')) as {
         hooks: Record<string, Array<{ command: string }>>;
       };
       return Object.values(parsed.hooks).flatMap(entries => entries.map(e => e.command));
     },
-    expected: 'node ./.cursor/hooks/kk-capture.cjs',
+    expected: 'node ./.ai/kenkeep/hooks/cursor/kk-capture.cjs',
   },
   {
     id: 'copilot',
@@ -127,11 +133,11 @@ describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
     mkdirSync(join(root, '.claude'), { recursive: true });
     writeFileSync(settingsFile, '{}');
     await writeClaudeHookConfig(root, [
-      { event: 'SessionEnd', scriptPath: '.claude/hooks/kk-capture.cjs' },
+      { event: 'SessionEnd', scriptPath: '.ai/kenkeep/hooks/claude/kk-capture.cjs' },
     ]);
     const parsed = JSON.parse(readFileSync(settingsFile, 'utf8'));
     expect(parsed.hooks.SessionEnd[0].hooks[0].command).toBe(
-      'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"'
+      'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs"'
     );
   });
 
@@ -157,7 +163,7 @@ describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
     );
 
     await writeClaudeHookConfig(root, [
-      { event: 'Stop', scriptPath: '.claude/hooks/kk-capture.cjs' },
+      { event: 'Stop', scriptPath: '.ai/kenkeep/hooks/claude/kk-capture.cjs' },
     ]);
 
     const parsed = JSON.parse(readFileSync(settingsFile, 'utf8'));
@@ -166,14 +172,24 @@ describe('writeClaudeHookConfig (Claude settings.json specifics)', () => {
     );
     expect(commands).not.toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-old-name.mjs"');
     expect(commands).toContain('node ./scripts/user-stop.mjs');
-    expect(commands).toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"');
+    expect(commands).toContain(
+      'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs"'
+    );
   });
 
   it('emits async: true only when the spec sets it and preserves matcher when set', async () => {
     await writeClaudeHookConfig(root, [
-      { event: 'SessionStart', scriptPath: '.claude/hooks/kk-session-start.cjs' },
-      { event: 'SessionStart', scriptPath: '.claude/hooks/kk-proposal-drain.cjs', async: true },
-      { event: 'UserPromptSubmit', scriptPath: '.claude/hooks/kk-filter.cjs', matcher: '**/*.md' },
+      { event: 'SessionStart', scriptPath: '.ai/kenkeep/hooks/claude/kk-session-start.cjs' },
+      {
+        event: 'SessionStart',
+        scriptPath: '.ai/kenkeep/hooks/claude/kk-proposal-drain.cjs',
+        async: true,
+      },
+      {
+        event: 'UserPromptSubmit',
+        scriptPath: '.ai/kenkeep/hooks/claude/kk-filter.cjs',
+        matcher: '**/*.md',
+      },
     ]);
     const parsed = JSON.parse(readFileSync(settingsFile, 'utf8'));
     const sessionEntries = parsed.hooks.SessionStart as Array<{
@@ -202,19 +218,23 @@ describe('writeCodexHooks (Codex hooks.json specifics)', () => {
 
   it('writes the canonical multi-event shape, including async drain entries', async () => {
     await writeCodexHooks(root, [
-      { event: 'Stop', scriptPath: '.codex/hooks/kk-capture.cjs' },
-      { event: 'SessionStart', scriptPath: '.codex/hooks/kk-session-start.cjs' },
-      { event: 'SessionStart', scriptPath: '.codex/hooks/kk-proposal-drain.cjs', async: true },
+      { event: 'Stop', scriptPath: '.ai/kenkeep/hooks/codex/kk-capture.cjs' },
+      { event: 'SessionStart', scriptPath: '.ai/kenkeep/hooks/codex/kk-session-start.cjs' },
+      {
+        event: 'SessionStart',
+        scriptPath: '.ai/kenkeep/hooks/codex/kk-proposal-drain.cjs',
+        async: true,
+      },
     ]);
     const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
     expect(parsed.hooks.Stop[0].hooks[0]).toEqual({
       type: 'command',
-      command: 'node ./.codex/hooks/kk-capture.cjs',
+      command: 'node ./.ai/kenkeep/hooks/codex/kk-capture.cjs',
       timeout: 30,
     });
     expect(parsed.hooks.SessionStart).toHaveLength(2);
     expect(parsed.hooks.SessionStart[1].hooks[0].command).toBe(
-      'node ./.codex/hooks/kk-proposal-drain.cjs'
+      'node ./.ai/kenkeep/hooks/codex/kk-proposal-drain.cjs'
     );
   });
 
@@ -226,7 +246,9 @@ describe('writeCodexHooks (Codex hooks.json specifics)', () => {
     );
     let caught: Error | null = null;
     try {
-      await writeCodexHooks(root, [{ event: 'Stop', scriptPath: '.codex/hooks/kk-capture.cjs' }]);
+      await writeCodexHooks(root, [
+        { event: 'Stop', scriptPath: '.ai/kenkeep/hooks/codex/kk-capture.cjs' },
+      ]);
     } catch (err) {
       caught = err as Error;
     }
@@ -250,15 +272,17 @@ describe('writeCursorHooksConfig (Cursor hooks.json specifics)', () => {
 
   it('writes the native Cursor shape with version and flat command entries', async () => {
     await writeCursorHooksConfig(root, [
-      { event: 'stop', scriptPath: '.cursor/hooks/kk-capture.cjs' },
-      { event: 'sessionStart', scriptPath: '.cursor/hooks/kk-session-start.cjs' },
+      { event: 'stop', scriptPath: '.ai/kenkeep/hooks/cursor/kk-capture.cjs' },
+      { event: 'sessionStart', scriptPath: '.ai/kenkeep/hooks/cursor/kk-session-start.cjs' },
     ]);
     const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'));
     expect(parsed.version).toBe(1);
     expect(parsed.hooks.stop).toEqual([
-      { command: 'node ./.cursor/hooks/kk-capture.cjs', timeout: 30 },
+      { command: 'node ./.ai/kenkeep/hooks/cursor/kk-capture.cjs', timeout: 30 },
     ]);
-    expect(parsed.hooks.sessionStart[0].command).toBe('node ./.cursor/hooks/kk-session-start.cjs');
+    expect(parsed.hooks.sessionStart[0].command).toBe(
+      'node ./.ai/kenkeep/hooks/cursor/kk-session-start.cjs'
+    );
   });
 });
 
@@ -292,7 +316,7 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
         // so it must contain no per-repo absolute path (a checkout at another
         // path must still work), and it must locate the session repo's own
         // script copy from the session cwd upward.
-        expect(entry.bash).toContain('.copilot/kk-hooks/');
+        expect(entry.bash).toContain('.ai/kenkeep/hooks/copilot/');
         expect(entry.bash).toContain('exec node');
         expect(entry.bash).not.toContain(root);
         expect(entry.timeoutSec).toBe(30);

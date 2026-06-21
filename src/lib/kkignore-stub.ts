@@ -70,6 +70,7 @@ export function renderKbignoreStub(adapters: HarnessAdapter[]): string {
 
   // 3. Strikethroo plans directory — uncommented.
   lines.push('.ai/strikethroo/');
+  lines.push('.ai/kenkeep/hooks/');
   lines.push('');
 
   // 4. Harness instruction directories — uncommented.
@@ -105,7 +106,9 @@ export function ensureKbignore(repoRoot: string): { written: boolean; path: stri
 /**
  * Returns the repo-root-relative posix directory paths (with trailing `/`)
  * for every instruction surface every adapter owns: `skillsDir`,
- * `commandsDir`, `hooksDir`, `pluginsDir`. Sorted, de-duplicated.
+ * `commandsDir`, non-shared `hooksDir`, `pluginsDir`. Sorted,
+ * de-duplicated. The shared hook tree is emitted once by the stub body
+ * above instead of once per adapter.
  */
 function collectHarnessDirs(adapters: HarnessAdapter[], repoRoot: string): string[] {
   const sorted = [...adapters].sort((a, b) => a.id.localeCompare(b.id));
@@ -122,6 +125,7 @@ function collectHarnessDirs(adapters: HarnessAdapter[], repoRoot: string): strin
       if (!dir) continue;
       const rel = relative(repoRoot, dir).split(sep).join(posix.sep);
       if (!rel || rel.startsWith('..')) continue;
+      if (rel.startsWith('.ai/kenkeep/hooks/')) continue;
       out.add(`${rel}/`);
     }
   }

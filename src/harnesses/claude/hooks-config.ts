@@ -10,16 +10,18 @@ interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-const HOOK_INSTALL_PATH = '.claude/hooks';
+const OWNED_COMMAND_MARKERS = ['.ai/kenkeep/hooks/claude/kk-', '.claude/hooks/kk-'];
 
 /**
  * Merges hook entries into `.claude/settings.json`. Existing user-defined
  * hooks are preserved; entries previously written by us are recognized by
- * the `.claude/hooks/kk-` script-path prefix and replaced wholesale.
+ * the shared `.ai/kenkeep/hooks/claude/kk-` script-path marker or the
+ * legacy `.claude/hooks/kk-` marker and replaced wholesale.
  *
- * Hook specs accepted here use Claude-relative script paths (e.g.
- * `.claude/hooks/kk-capture.cjs`), so the caller of this function is
- * responsible for prefixing the harness directory before invoking it.
+ * Hook specs accepted here use repo-relative script paths (for example
+ * `.ai/kenkeep/hooks/claude/kk-capture.cjs`), so the caller of this
+ * function is responsible for choosing the install location before
+ * invoking it.
  */
 export async function writeClaudeHookConfig(
   repoRoot: string,
@@ -36,12 +38,13 @@ export async function writeClaudeHookConfig(
   }
   settings.hooks ??= {};
 
-  const ownedPrefix = `${HOOK_INSTALL_PATH}/kk-`;
   for (const [event, entries] of Object.entries(settings.hooks)) {
     const filtered = entries
       .map(entry => ({
         ...entry,
-        hooks: entry.hooks.filter(h => !h.command.includes(ownedPrefix)),
+        hooks: entry.hooks.filter(
+          h => !OWNED_COMMAND_MARKERS.some(marker => h.command.includes(marker))
+        ),
       }))
       .filter(entry => entry.hooks.length > 0);
     if (filtered.length === 0) delete settings.hooks[event];

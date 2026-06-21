@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
+import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import { errCheck, ok, type DoctorCheckResult, type NamedDoctorCheck } from '../types.js';
 import { cursorHookSpecs } from './hook-spec.js';
 import { cursorPaths } from './install.js';
@@ -51,11 +52,12 @@ function checkCursorHooks(hooksFile: string, hooksDir: string): DoctorCheckResul
   const missingRegs: string[] = [];
   const missingFiles = new Set<string>();
   for (const spec of cursorHookSpecs) {
+    const expectedScriptPath = sharedHookScriptPath('cursor', spec.scriptPath);
     const entries = eventTable[spec.event] ?? [];
     const found = entries.some(
-      entry => typeof entry?.command === 'string' && entry.command.includes(spec.scriptPath)
+      entry => typeof entry?.command === 'string' && entry.command.includes(expectedScriptPath)
     );
-    if (!found) missingRegs.push(`${spec.event} -> ${spec.scriptPath}`);
+    if (!found) missingRegs.push(`${spec.event} -> ${expectedScriptPath}`);
     if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);
   }
   if (missingRegs.length === 0 && missingFiles.size === 0) {

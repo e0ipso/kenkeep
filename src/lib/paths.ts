@@ -35,6 +35,24 @@ export function findRepoRoot(from: string = process.cwd()): string {
   }
 }
 
+/**
+ * Walks upward from `from` looking for an initialized kenkeep directory.
+ * Unlike `findRepoRoot`, this intentionally ignores nested `.git` folders so
+ * launchers invoked from a subproject still run against the nearest parent
+ * knowledge base.
+ */
+export function findKenkeepRoot(from: string = process.cwd()): string | null {
+  let cur = resolve(from);
+  while (true) {
+    if (existsSync(join(cur, '.ai/kenkeep'))) {
+      return cur;
+    }
+    const parent = dirname(cur);
+    if (parent === cur) return null;
+    cur = parent;
+  }
+}
+
 export interface RepoPaths {
   root: string;
   aiDir: string;
@@ -54,6 +72,13 @@ export interface RepoPaths {
   projectConfigFile: string;
   sessionsDir: string;
   logsDir: string;
+  /**
+   * Shared hook script directory under the kk root: `.ai/kenkeep/hooks/`.
+   * Harness adapters install their compiled hook bundles under
+   * `<hooksDir>/<harness>/` and register native hook config entries that
+   * execute those shared scripts.
+   */
+  hooksDir: string;
   nodesDir: string;
   /**
    * Conflicts directory under the kk root: `.ai/kenkeep/conflicts/`.
@@ -98,6 +123,7 @@ export function repoPaths(root: string): RepoPaths {
     projectConfigFile: join(kkDir, 'config.yaml'),
     sessionsDir: join(kkDir, '_sessions'),
     logsDir: join(kkDir, '_logs'),
+    hooksDir: join(kkDir, 'hooks'),
     nodesDir: join(kkDir, 'nodes'),
     conflictsDir: join(kkDir, 'conflicts'),
     kkGitignoreFile: join(kkDir, '.gitignore'),

@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
 import { cursorDoctorChecks } from './doctor.js';
@@ -30,7 +31,7 @@ function cursorPaths(root: string): HarnessPaths {
   return {
     dir,
     skillsDir: join(dir, 'skills'),
-    hooksDir: join(dir, 'hooks'),
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'cursor'),
     settingsFile: join(dir, 'hooks.json'),
   };
 }

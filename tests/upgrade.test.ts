@@ -52,7 +52,7 @@ describe('init --upgrade', () => {
     expect(readFileSync(configFile, 'utf8')).toBe(customized);
 
     // Hooks present.
-    expect(existsSync(join(sandbox, '.claude/hooks/kk-capture.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/claude/kk-capture.cjs'))).toBe(true);
 
     // installed-version bumped to current.
     const after = JSON.parse(readFileSync(versionFile, 'utf8'));
@@ -113,6 +113,27 @@ describe('init --upgrade', () => {
     expect(result.exitCode).toBe(0);
     expect(existsSync(helper)).toBe(true);
     expect(readFileSync(helper, 'utf8')).toContain('kk-detect-harness');
+  });
+
+  it('appends the shared hooks ignore entry on upgrade without clobbering local entries', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+
+    const kkGitignore = join(sandbox, '.ai/kenkeep/.gitignore');
+    writeFileSync(
+      kkGitignore,
+      '_sessions/\n_logs/\n.state/*\n!.state/installed-version\ncustom/\n'
+    );
+
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
+    installed.version = '0.0.0-test-old';
+    writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(result.exitCode).toBe(0);
+    const body = readFileSync(kkGitignore, 'utf8');
+    expect(body).toContain('hooks/');
+    expect(body).toContain('custom/');
   });
 
   it('does not overwrite a user-edited detector helper on upgrade', async () => {

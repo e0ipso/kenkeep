@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
+import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import {
   errCheck,
   ok,
@@ -70,7 +71,16 @@ function checkCopilotHooks(hookFile: string): DoctorCheckResult {
   }
   const eventTable = parsed.hooks ?? {};
   const requiredEvents = [...new Set(copilotHookSpecs.map(s => s.event))];
-  const missing = requiredEvents.filter(ev => (eventTable[ev] ?? []).length === 0);
+  const missingEvents = requiredEvents.filter(ev => (eventTable[ev] ?? []).length === 0);
+  const missingScripts = copilotHookSpecs
+    .filter(spec => {
+      const expectedScriptPath = sharedHookScriptPath('copilot', spec.scriptPath);
+      return !(eventTable[spec.event] ?? []).some(
+        entry => typeof entry?.bash === 'string' && entry.bash.includes(expectedScriptPath)
+      );
+    })
+    .map(spec => `${spec.event} -> ${sharedHookScriptPath('copilot', spec.scriptPath)}`);
+  const missing = [...missingEvents, ...missingScripts];
   if (missing.length > 0) {
     return errCheck(
       `missing hook entries for: ${missing.join(', ')}. Re-run \`npx kenkeep init --harnesses copilot --upgrade\`.`

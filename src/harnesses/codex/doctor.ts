@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
+import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import {
   errCheck,
   ok,
@@ -70,13 +71,14 @@ function checkCodexHooks(
   const missingRegs: string[] = [];
   const missingFiles = new Set<string>();
   for (const spec of codexHookSpecs) {
+    const expectedScriptPath = sharedHookScriptPath('codex', spec.scriptPath);
     const buckets = eventTable[spec.event] ?? [];
     const found = buckets.some(bucket =>
       (bucket.hooks ?? []).some(
-        entry => typeof entry?.command === 'string' && entry.command.includes(spec.scriptPath)
+        entry => typeof entry?.command === 'string' && entry.command.includes(expectedScriptPath)
       )
     );
-    if (!found) missingRegs.push(`${spec.event} -> ${spec.scriptPath}`);
+    if (!found) missingRegs.push(`${spec.event} -> ${expectedScriptPath}`);
     if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);
   }
   if (missingRegs.length === 0 && missingFiles.size === 0) {

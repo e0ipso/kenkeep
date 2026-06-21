@@ -18,7 +18,7 @@ export async function openCodeDoctorChecks(paths: RepoPaths): Promise<NamedDocto
     { name: 'OpenCode plugin installed', result: checkPlugin(locs.pluginFile) },
     { name: 'OpenCode plugin registered', result: checkPluginRegistered(locs.configFile) },
     {
-      name: 'OpenCode kk-hooks installed',
+      name: 'OpenCode hook scripts installed',
       result: checkKbHooks(locs.kkHooksDir),
     },
     { name: 'OpenCode skills installed', result: checkSkills(locs.skillsDir) },
@@ -99,7 +99,7 @@ function checkPluginRegistered(configFile: string): DoctorCheckResult {
 function checkKbHooks(kkHooksDir: string): DoctorCheckResult {
   if (!existsSync(kkHooksDir)) {
     return errCheck(
-      'no .opencode/kk-hooks/. Re-run `npx kenkeep init --harnesses opencode --upgrade`.'
+      'no .ai/kenkeep/hooks/opencode/. Re-run `npx kenkeep init --harnesses opencode --upgrade`.'
     );
   }
   const expected = new Set(openCodeHookSpecs.map(s => s.scriptPath));

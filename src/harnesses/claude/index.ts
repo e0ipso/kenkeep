@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import { log } from '../../lib/log.js';
 import { HARNESS_MEMORY_DISCOVERY_PROMPT, MemoryIriListSchema } from '../../lib/memory-files.js';
@@ -34,7 +35,7 @@ function claudePaths(root: string): HarnessPaths {
     dir,
     commandsDir: join(dir, 'commands'),
     skillsDir: join(dir, 'skills'),
-    hooksDir: join(dir, 'hooks'),
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'claude'),
     settingsFile: join(dir, 'settings.json'),
   };
 }

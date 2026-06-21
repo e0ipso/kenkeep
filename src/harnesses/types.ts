@@ -11,8 +11,9 @@ import type { EffectiveSettings, ModelChoiceRole } from '../lib/settings.js';
 export type HookEvent = string;
 
 /**
- * Canonical hook registration record. `scriptPath` is harness-relative
- * (e.g. `kk-capture.cjs` for Claude under `.claude/hooks/`).
+ * Canonical hook registration record. `scriptPath` is the compiled script
+ * filename (for example `kk-capture.cjs`); installers decide which
+ * harness-specific shared directory executes it.
  *
  * `payload` is an opaque per-adapter blob. Shared code (install, doctor,
  * registry) never reads it; only the owning adapter's `hooks-config`
@@ -78,9 +79,9 @@ export interface HarnessPaths {
   /** Skills directory (`.claude/skills/`, `.agents/skills/`, ...). */
   skillsDir: string;
   /**
-   * Hooks directory (`.claude/hooks/`, `.codex/hooks/`, ...). Omitted for
-   * adapters whose extension surface is plugins rather than per-event shell
-   * commands (OpenCode); those set `pluginsDir` instead.
+   * Canonical hook script directory for this adapter, usually
+   * `.ai/kenkeep/hooks/<harness>/`. Adapters whose extension surface also
+   * needs a native plugin/config directory still expose that separately.
    */
   hooksDir?: string;
   /**

@@ -38,9 +38,9 @@ describe('init', () => {
       '.claude/skills/kk-curate/SKILL.md',
       '.claude/skills/kk-migrate/SKILL.md',
       '.claude/skills/kk-session-extract/SKILL.md',
-      '.claude/hooks/kk-capture.cjs',
-      '.claude/hooks/kk-proposal-drain.cjs',
-      '.claude/hooks/kk-session-start.cjs',
+      '.ai/kenkeep/hooks/claude/kk-capture.cjs',
+      '.ai/kenkeep/hooks/claude/kk-proposal-drain.cjs',
+      '.ai/kenkeep/hooks/claude/kk-session-start.cjs',
       '.ai/kenkeep/.state/installed-version',
       '.ai/kenkeep/.config/prompts/proposal-extract.md',
       '.ai/kenkeep/config.yaml',
@@ -113,6 +113,7 @@ describe('init', () => {
     const kkBody = readFileSync(kkGitignore, 'utf8');
     expect(kkBody).toContain('_sessions/');
     expect(kkBody).toContain('_logs/');
+    expect(kkBody).toContain('hooks/');
     expect(kkBody).toContain('.state/*');
     expect(kkBody).toContain('!.state/installed-version');
 
@@ -166,7 +167,7 @@ describe('init', () => {
     expect(cursorSkill).toBe(openCodeSkill);
     expect(claudeSkill).toContain('node .ai/kenkeep/scripts/kk-detect-harness.mjs');
     expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(true);
-    expect(existsSync(join(sandbox, '.opencode/kk-hooks/kk-capture.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/opencode/kk-capture.cjs'))).toBe(true);
   });
 
   it('succeeds in a repo without a package.json and produces no husky artefacts', async () => {
@@ -185,7 +186,7 @@ describe('init', () => {
 
   it('registers capture, lint-tick, drain (async), and session-start hooks in .claude/settings.json', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    expect(existsSync(join(sandbox, '.claude/hooks/kk-lint-tick.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/claude/kk-lint-tick.cjs'))).toBe(true);
     const settings = JSON.parse(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')) as {
       hooks?: Record<
         string,
@@ -197,13 +198,15 @@ describe('init', () => {
       const entries = settings.hooks?.[event];
       expect(entries, `expected hook entry for ${event}`).toBeDefined();
       expect(entries?.[0]?.hooks[0]?.command).toBe(
-        'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs"'
+        'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs"'
       );
     }
     const sessionEnd = (settings.hooks?.['SessionEnd'] ?? []).flatMap(e =>
       e.hooks.map(h => h.command)
     );
-    expect(sessionEnd).toContain('node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-lint-tick.cjs"');
+    expect(sessionEnd).toContain(
+      'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-lint-tick.cjs"'
+    );
 
     const sessionStart = settings.hooks?.['SessionStart'];
     expect(sessionStart).toHaveLength(2);
@@ -213,11 +216,11 @@ describe('init', () => {
     expect(startCommands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-proposal-drain.cjs"',
+          command: 'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-proposal-drain.cjs"',
           async: true,
         }),
         expect.objectContaining({
-          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/kk-session-start.cjs"',
+          command: 'node "$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-session-start.cjs"',
         }),
       ])
     );
@@ -293,7 +296,7 @@ describe('init', () => {
     // directories that were installed for this init.
     expect(body).toContain('.claude/skills/');
     expect(body).toContain('.claude/commands/');
-    expect(body).toContain('.claude/hooks/');
+    expect(body).toContain('.ai/kenkeep/hooks/');
   });
 
   it('injects the kk index pointer block into an existing AGENTS.md and never duplicates it on upgrade', async () => {

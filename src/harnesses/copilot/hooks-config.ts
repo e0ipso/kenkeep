@@ -41,7 +41,7 @@ interface CopilotHookConfig {
  * repo-level (`.github/hooks/kk.json`), but Copilot runs each command with
  * the SESSION's cwd, which may be a subdirectory of the repo. The
  * walk-up-from-`$PWD` command resolves the session repo's own
- * `.copilot/kk-hooks/<script>` and `exec`s it, so:
+ * `.ai/kenkeep/hooks/copilot/<script>` and `exec`s it, so:
  *   - sessions started in a repo subdirectory still find the hooks;
  *   - the config carries no per-repo absolute path, so it stays
  *     byte-identical and portable across machines (a checkout at a
@@ -50,7 +50,7 @@ interface CopilotHookConfig {
  * `exec` keeps stdin (the hook payload JSON) flowing to the node process.
  */
 function walkUpCommand(scriptPath: string): string {
-  const rel = `.copilot/kk-hooks/${scriptPath}`;
+  const rel = `.ai/kenkeep/hooks/copilot/${scriptPath}`;
   return `d="$PWD"; while [ "$d" != "/" ]; do s="$d/${rel}"; [ -f "$s" ] && exec node "$s"; d="$(dirname "$d")"; done; :`;
 }
 

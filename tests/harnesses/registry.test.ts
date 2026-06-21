@@ -26,11 +26,11 @@ describe('harness registry', () => {
 });
 
 describe('opencode adapter shape', () => {
-  it('exposes pluginsDir/skillsDir (no hooksDir/settingsFile), declares its events, and has no detector', () => {
+  it('exposes pluginsDir/skillsDir/shared hooksDir (no settingsFile), declares its events, and has no detector', () => {
     const paths = openCodeAdapter.paths('/repo');
     expect(paths.pluginsDir).toBe('/repo/.opencode/plugins');
     expect(paths.skillsDir).toBe('/repo/.opencode/skills');
-    expect(paths.hooksDir).toBeUndefined();
+    expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/opencode');
     expect(paths.settingsFile).toBeUndefined();
     const events = new Set(openCodeAdapter.hooks.map(h => h.event));
     expect(events.has('session.idle')).toBe(true);
@@ -42,7 +42,7 @@ describe('opencode adapter shape', () => {
 describe('cursor adapter shape', () => {
   it('exposes documented paths, declares camelCase events, and detects CURSOR_VERSION', () => {
     const paths = cursorAdapter.paths('/repo');
-    expect(paths.hooksDir).toBe('/repo/.cursor/hooks');
+    expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/cursor');
     expect(paths.settingsFile).toBe('/repo/.cursor/hooks.json');
     const events = new Set(cursorAdapter.hooks.map(h => h.event));
     expect(events.has('stop')).toBe(true);
@@ -56,7 +56,7 @@ describe('cursor adapter shape', () => {
 describe('codex adapter shape', () => {
   it('exposes documented paths and declares Stop/PreCompact/SessionStart', () => {
     const paths = codexAdapter.paths('/repo');
-    expect(paths.hooksDir).toBe('/repo/.codex/hooks');
+    expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/codex');
     expect(paths.skillsDir).toBe('/repo/.agents/skills');
     const events = new Set(codexAdapter.hooks.map(h => h.event));
     expect(events.has('Stop')).toBe(true);
@@ -71,7 +71,7 @@ describe('codex adapter shape', () => {
 describe('copilot adapter shape', () => {
   it('exposes documented paths and declares its events with command payloads', () => {
     const paths = copilotAdapter.paths('/repo');
-    expect(paths.hooksDir).toBe('/repo/.copilot/hooks');
+    expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/copilot');
     expect(paths.skillsDir).toBe('/repo/.github/skills');
     // settingsFile resolves to the repo-level .github/hooks/kk.json (Copilot
     // loads repo-level hooks before user-level), never under the user home.

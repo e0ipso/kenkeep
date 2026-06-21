@@ -5,11 +5,11 @@ import { atomicWriteJson } from '../../lib/fs-atomic.js';
 import type { HookEvent } from '../types.js';
 
 /**
- * Path marker for hook commands owned by this package. Entries whose
- * `command` includes this substring are replaced on upgrade; user hooks
- * are preserved.
+ * Path markers for hook commands owned by this package. Entries whose
+ * `command` includes one of these substrings are replaced on upgrade;
+ * user hooks are preserved.
  */
-const OWNED_COMMAND_MARKER = '.cursor/hooks/kk-';
+const OWNED_COMMAND_MARKERS = ['.ai/kenkeep/hooks/cursor/kk-', '.cursor/hooks/kk-'];
 
 const DEFAULT_HOOK_TIMEOUT_SECONDS = 30;
 
@@ -61,12 +61,12 @@ export function readCursorHooks(paths: CursorHookWritePaths): CursorHooksFile {
 }
 
 function isOwnedCommand(command: string): boolean {
-  return command.includes(OWNED_COMMAND_MARKER);
+  return OWNED_COMMAND_MARKERS.some(marker => command.includes(marker));
 }
 
 /**
  * Merges owned kb hook entries into `.cursor/hooks.json`. User hooks whose
- * commands do not include `.cursor/hooks/kk-` are preserved.
+ * commands do not include a shared or legacy kenkeep hook marker are preserved.
  */
 export async function writeCursorHooksConfig(
   repoRoot: string,

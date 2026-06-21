@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
 import { openCodeDoctorChecks } from './doctor.js';
@@ -11,9 +12,9 @@ import { parseOpenCodeTranscriptText, renderOpenCodeTranscript } from './transcr
 /**
  * OpenCode harness adapter. OpenCode's extension surface is a long-lived
  * TS/JS plugin module (`.opencode/plugins/kk.mjs`) rather than per-event
- * shell commands, so the adapter sets `pluginsDir` instead of `hooksDir`.
- * Per-event handlers ship as Node scripts under `.opencode/kk-hooks/`
- * that the plugin shim spawns on each subscribed event.
+ * shell commands. Per-event handlers ship as Node scripts under
+ * `.ai/kenkeep/hooks/opencode/` that the plugin shim spawns on each
+ * subscribed event.
  *
  * `detectFromEnv` is intentionally omitted: OpenCode exports no
  * in-session env var that we can rely on. Callers select the adapter
@@ -26,6 +27,7 @@ function openCodePaths(root: string): HarnessPaths {
     dir,
     pluginsDir: join(dir, 'plugins'),
     skillsDir: join(dir, 'skills'),
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'opencode'),
   };
 }
 

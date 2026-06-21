@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
 import { codexDoctorChecks } from './doctor.js';
@@ -21,7 +22,7 @@ function codexPaths(root: string): HarnessPaths {
   return {
     dir,
     skillsDir: join(root, '.agents/skills'),
-    hooksDir: join(dir, 'hooks'),
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'codex'),
     settingsFile: join(dir, 'hooks.json'),
   };
 }

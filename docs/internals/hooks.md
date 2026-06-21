@@ -20,7 +20,7 @@ nav_order: 2
 
 The two `SessionStart` entries are independent: a failure in one does not block the other.
 
-Every harness wires the four shared scripts through its native mechanism: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.opencode/kk-hooks/`; Copilot via `.github/hooks/kk.json` walk-up commands (repo-level; Copilot loads it before user-level `~/.copilot/hooks/`). Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the four shared scripts are identical across all five harnesses. The prompt-time hook is the one exception: it ships only where the host exposes a native prompt-submit context channel (see [Prompt-time injection](#kk-prompt-contextcjs-prompt-time-injection)).
+Every harness wires the scripts through its native mechanism, but the compiled script files install under the shared `.ai/kenkeep/hooks/<harness>/` tree: Codex via `.codex/hooks.json`; Cursor via `.cursor/hooks.json`; OpenCode via a plugin registered in `.opencode/opencode.json` that dispatches scripts under `.ai/kenkeep/hooks/opencode/`; Copilot via `.github/hooks/kk.json` walk-up commands (repo-level; Copilot loads it before user-level `~/.copilot/hooks/`). Event names vary (Codex/Cursor fire `Stop`/`PreCompact`; OpenCode uses `session.idle`/`session.created`; Copilot uses `sessionEnd`/`agentStop`/`sessionStart`) but the hook roles are consistent across harnesses. The prompt-time hook is the one exception: it ships only where the host exposes a native prompt-submit context channel (see [Prompt-time injection](#kk-prompt-contextcjs-prompt-time-injection)).
 
 ## Hook synchrony and the async launcher
 
@@ -81,7 +81,7 @@ Without the guard, the spawned session would fire its own `SessionStart` hooks a
 ## `kk-capture.mjs` (capture)
 
 1. Read hook input from stdin.
-2. Validate `session_id` via `assertValidSessionId` (strict UUID v4 shape). On bad input, throw with a named error; the catch handler writes it to stderr.
+2. Validate `session_id`. Most harnesses use `assertValidSessionId` (strict UUID v4 shape). Codex accepts UUID-shaped ids, including UUIDv7-like ids, because current Codex sessions are not guaranteed to be UUID v4. On bad input, throw with a named error; the catch handler writes it to stderr.
 3. Parse the transcript (`user`/`assistant` text, role-tagged).
 4. Write `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` with frontmatter and the transcript slice. A re-fire for the same `session_id` (multi-turn sessions, `PreCompact` after `Stop`) reuses the existing file via `findSessionLogBySessionId`, so the count stays at one log per session.
 
@@ -100,7 +100,7 @@ kenkeep does **not** scan or redact the transcript. Secrets present in the sessi
 |---|---|
 | `KENKEEP_BUILDER_INTERNAL=1` | Exit. No capture. |
 | Empty / malformed stdin | Exit silently. |
-| `session_id` not a UUID v4 | Write the error to stderr; no session log. |
+| `session_id` invalid for the adapter (UUID v4 for most harnesses, UUID-shaped for Codex) | Write the error to stderr; no session log. |
 | `transcript_path` missing | Exit silently. |
 | Transcript empty | Exit silently. |
 | 1s deadline exceeded | Exit silently; next trigger retries. |
@@ -172,21 +172,21 @@ After `init`, `.claude/settings.json` carries one block per event (scripts are c
 {
   "hooks": {
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-capture.cjs" }] }
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs\"" }] }
     ],
     "SessionEnd": [
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-capture.cjs" }] },
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-lint-tick.cjs", "async": true }] }
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs\"" }] },
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-lint-tick.cjs\"", "async": true }] }
     ],
     "PreCompact": [
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-capture.cjs" }] }
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs\"" }] }
     ],
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-proposal-drain.cjs", "async": true }] },
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-session-start.cjs" }] }
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-proposal-drain.cjs\"", "async": true }] },
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-session-start.cjs\"" }] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "node .claude/hooks/kk-prompt-context.cjs" }] }
+      { "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-prompt-context.cjs\"" }] }
     ]
   }
 }

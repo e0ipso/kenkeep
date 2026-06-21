@@ -2,7 +2,7 @@
 /**
  * OpenCode plugin shim. Subscribes to the runtime `event` hook and
  * dispatches each event to the matching per-event Node script under
- * `.opencode/kk-hooks/` via `child_process.spawn`.
+ * `.ai/kenkeep/hooks/opencode/` via `child_process.spawn`.
  *
  * Recursion-guard layering: the plugin itself no-ops when
  * `KENKEEP_BUILDER_INTERNAL=1` is in its host env (a kenkeep-spawned
@@ -34,7 +34,7 @@ const DISPATCH: Record<string, string[]> = {
 export default async (input: OpenCodePluginInput) => {
   if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return {};
   const projectDir = input.directory ?? input.project?.worktree ?? process.cwd();
-  const kkHooks = join(projectDir, '.opencode', 'kk-hooks');
+  const kkHooks = join(projectDir, '.ai', 'kenkeep', 'hooks', 'opencode');
   return {
     event: async ({ event }: { event: OpenCodeEvent }) => {
       if (!event.type) return;

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { atomicWriteFile, copyTree } from '../../lib/fs-atomic.js';
 import { installSharedSkills } from '../../lib/install-skills.js';
 import { log } from '../../lib/log.js';
+import { copySharedHookScripts } from '../../lib/shared-hooks.js';
 import type { HarnessInstallOptions } from '../types.js';
 
 /**
@@ -18,7 +19,8 @@ export function openCodePaths(root: string) {
   return {
     dir,
     pluginsDir: join(dir, 'plugins'),
-    kkHooksDir: join(dir, 'kk-hooks'),
+    hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'opencode'),
+    kkHooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'opencode'),
     skillsDir: join(dir, 'skills'),
     pluginFile: join(dir, 'plugins', 'kk.mjs'),
     configFile: join(dir, 'opencode.json'),
@@ -164,7 +166,13 @@ export async function installOpenCode(opts: HarnessInstallOptions): Promise<void
 
   const kkHooksSrc = join(templateDir, 'kk-hooks');
   if (existsSync(kkHooksSrc)) {
-    copyTree(kkHooksSrc, paths.kkHooksDir);
+    copySharedHookScripts(
+      opts.templatesDir,
+      opts.paths,
+      'opencode',
+      OPENCODE_TEMPLATE_SUBDIR,
+      'kk-hooks'
+    );
   }
 
   registerOpenCodePlugin(paths.configFile);

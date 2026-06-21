@@ -28,8 +28,8 @@ function payload(): Record<string, unknown> {
  * array-per-event shape using the `payload` blob) and by `doctorChecks`.
  *
  * `scriptPath` is the bare script filename; the writer joins it with the
- * absolute `.copilot/kk-hooks/` path in the consumer repo to build the
- * `bash` command Copilot runs.
+ * shared `.ai/kenkeep/hooks/copilot/` path in the consumer repo to build
+ * the `bash` command Copilot runs.
  *
  * Events:
  *   sessionStart: writes the entry-catalog sentinel block, then drains proposals.

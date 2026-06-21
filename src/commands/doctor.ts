@@ -324,9 +324,9 @@ function checkSettings(file: string): CheckResult {
 function checkGitignore(file: string): CheckResult {
   if (!existsSync(file)) return warn('no .gitignore inside .ai/kenkeep/');
   const body = readFileSync(file, 'utf8');
-  return body.includes('_sessions/') && body.includes('_logs/')
+  return body.includes('_sessions/') && body.includes('_logs/') && body.includes('hooks/')
     ? ok('kenkeep entries present')
-    : warn('missing entries for `_sessions/` and/or `_logs/`');
+    : warn('missing entries for `_sessions/`, `_logs/`, and/or `hooks/`');
 }
 
 const KKIGNORE_WARNING =

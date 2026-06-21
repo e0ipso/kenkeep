@@ -26,7 +26,13 @@ interface InstalledVersion {
   harnesses: string[];
 }
 
-const KENKEEP_GITIGNORE_LINES = ['_sessions/', '_logs/', '.state/*', '!.state/installed-version'];
+const KENKEEP_GITIGNORE_LINES = [
+  '_sessions/',
+  '_logs/',
+  'hooks/',
+  '.state/*',
+  '!.state/installed-version',
+];
 
 export async function runInit(opts: InitOptions): Promise<void> {
   validateHarnesses(opts.harnesses);
@@ -246,12 +252,21 @@ function writeInstalledVersion(file: string, stateDir: string, harnesses: string
 }
 
 /**
- * Writes `.ai/kenkeep/.gitignore` with the canonical entries if it
- * doesn't already exist. Once written, the file is treated as user-owned;
- * upgrades will not overwrite local edits.
+ * Ensures `.ai/kenkeep/.gitignore` carries every canonical generated-state
+ * entry. Existing user-owned content is preserved; upgrades append only
+ * missing lines so newly generated paths stay ignored without clobbering
+ * local edits.
  */
 function ensureKbGitignore(file: string): void {
-  if (existsSync(file)) return;
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `${KENKEEP_GITIGNORE_LINES.join('\n')}\n`);
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const present = new Set(existing.split(/\r?\n/));
+  const missing = KENKEEP_GITIGNORE_LINES.filter(line => !present.has(line));
+  if (existing.length === 0) {
+    writeFileSync(file, `${KENKEEP_GITIGNORE_LINES.join('\n')}\n`);
+    return;
+  }
+  if (missing.length === 0) return;
+  const sep = existing.endsWith('\n') ? '' : '\n';
+  writeFileSync(file, `${existing}${sep}${missing.join('\n')}\n`);
 }

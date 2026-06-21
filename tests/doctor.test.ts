@@ -116,7 +116,7 @@ describe('doctor', () => {
 
   it('reports a missing kk-lint-tick.cjs as an error in the Claude hooks check', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    rmSync(join(sandbox, '.claude/hooks/kk-lint-tick.cjs'));
+    rmSync(join(sandbox, '.ai/kenkeep/hooks/claude/kk-lint-tick.cjs'));
     const result = await runCli(sandbox, ['doctor']);
     expect(result.exitCode).toBe(1);
     const combined = result.stdout + result.stderr;

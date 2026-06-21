@@ -6,12 +6,12 @@ import { atomicWriteJson } from '../../lib/fs-atomic.js';
 import type { HookEvent, HookSpec } from '../types.js';
 
 /**
- * Path prefix marker for hook commands owned by this package. Any
- * `hooks.json` entry whose command starts with this prefix is treated as
- * one of ours and is wholesale replaced on upgrade. Entries that do not
- * carry the marker (user-authored hooks) are preserved untouched.
+ * Path prefix markers for hook commands owned by this package. Any
+ * `hooks.json` entry whose command starts with one of these prefixes is
+ * treated as one of ours and is wholesale replaced on upgrade. Entries
+ * that do not carry a marker (user-authored hooks) are preserved untouched.
  */
-const OWNED_COMMAND_PREFIX = 'node ./.codex/hooks/kk-';
+const OWNED_COMMAND_PREFIXES = ['node ./.ai/kenkeep/hooks/codex/kk-', 'node ./.codex/hooks/kk-'];
 
 /**
  * Default per-hook timeout in seconds, applied to every command we
@@ -129,11 +129,12 @@ function guardAgainstTomlHooks(paths: CodexHookWritePaths): void {
 /**
  * Merges hook entries into `.codex/hooks.json`. Existing user-defined
  * hooks are preserved; entries previously written by us are recognized by
- * the `node ./.codex/hooks/kk-` command prefix and replaced wholesale.
+ * the shared `node ./.ai/kenkeep/hooks/codex/kk-` command prefix or the
+ * legacy `node ./.codex/hooks/kk-` prefix and replaced wholesale.
  *
- * Hook specs accepted here use Codex-relative script paths (e.g.
- * `.codex/hooks/kk-capture.cjs`). The caller of this function is
- * responsible for prefixing the harness directory before invoking it.
+ * Hook specs accepted here use repo-relative script paths (for example
+ * `.ai/kenkeep/hooks/codex/kk-capture.cjs`). The caller of this function
+ * is responsible for choosing the install location before invoking it.
  */
 export async function writeCodexHooks(
   repoRoot: string,
@@ -150,7 +151,9 @@ export async function writeCodexHooks(
     const filtered = entries
       .map(entry => ({
         ...entry,
-        hooks: entry.hooks.filter(h => !h.command.startsWith(OWNED_COMMAND_PREFIX)),
+        hooks: entry.hooks.filter(
+          h => !OWNED_COMMAND_PREFIXES.some(prefix => h.command.startsWith(prefix))
+        ),
       }))
       .filter(entry => entry.hooks.length > 0);
     if (filtered.length === 0) delete hookTable[event];

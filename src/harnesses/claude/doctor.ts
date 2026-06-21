@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
+import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import { errCheck, ok, type NamedDoctorCheck, type DoctorCheckResult } from '../types.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
 import { claudePaths } from './install.js';
@@ -47,9 +48,10 @@ function checkClaudeHooks(settingsFile: string, hooksDir: string): DoctorCheckRe
   const missingRegs: string[] = [];
   const missingFiles = new Set<string>();
   for (const spec of CLAUDE_HOOK_SPECS) {
+    const expectedScriptPath = sharedHookScriptPath('claude', spec.scriptPath);
     const cmds = (hooks[spec.event] ?? []).flatMap(e => (e.hooks ?? []).map(h => h.command ?? ''));
-    if (!cmds.some(c => c.includes(spec.scriptPath))) {
-      missingRegs.push(`${spec.event} -> ${spec.scriptPath}`);
+    if (!cmds.some(c => c.includes(expectedScriptPath))) {
+      missingRegs.push(`${spec.event} -> ${expectedScriptPath}`);
     }
     if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);
   }

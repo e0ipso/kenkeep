@@ -3816,10 +3816,10 @@ var require_stringify = __commonJS({
       data = Object.assign({}, file.data, data);
       const open = opts.delimiters[0];
       const close = opts.delimiters[1];
-      const matter3 = engine.stringify(data, options2).trim();
+      const matter4 = engine.stringify(data, options2).trim();
       let buf = '';
-      if (matter3 !== '{}') {
-        buf = newline(open) + newline(matter3) + newline(close);
+      if (matter4 !== '{}') {
+        buf = newline(open) + newline(matter4) + newline(close);
       }
       if (typeof file.excerpt === 'string' && file.excerpt !== '') {
         if (str2.indexOf(file.excerpt.trim()) === -1) {
@@ -3848,12 +3848,12 @@ var require_excerpt = __commonJS({
       if (typeof opts.excerpt === 'function') {
         return opts.excerpt(file, opts);
       }
-      const sep3 = file.data.excerpt_separator || opts.excerpt_separator;
-      if (sep3 == null && (opts.excerpt === false || opts.excerpt == null)) {
+      const sep4 = file.data.excerpt_separator || opts.excerpt_separator;
+      if (sep4 == null && (opts.excerpt === false || opts.excerpt == null)) {
         return file;
       }
       const delimiter =
-        typeof opts.excerpt === 'string' ? opts.excerpt : sep3 || opts.delimiters[0];
+        typeof opts.excerpt === 'string' ? opts.excerpt : sep4 || opts.delimiters[0];
       const idx = file.content.indexOf(delimiter);
       if (idx !== -1) {
         file.excerpt = file.content.slice(0, idx);
@@ -3930,19 +3930,19 @@ var require_gray_matter = __commonJS({
     var toFile = require_to_file();
     var parse2 = require_parse();
     var utils = require_utils();
-    function matter3(input, options2) {
+    function matter4(input, options2) {
       if (input === '') {
         return { data: {}, content: input, excerpt: '', orig: input };
       }
       let file = toFile(input);
-      const cached = matter3.cache[file.content];
+      const cached = matter4.cache[file.content];
       if (!options2) {
         if (cached) {
           file = Object.assign({}, cached);
           file.orig = cached.orig;
           return file;
         }
-        matter3.cache[file.content] = file;
+        matter4.cache[file.content] = file;
       }
       return parseMatter(file, options2);
     }
@@ -3964,7 +3964,7 @@ var require_gray_matter = __commonJS({
       }
       str2 = str2.slice(openLen);
       const len = str2.length;
-      const language = matter3.language(str2, opts);
+      const language = matter4.language(str2, opts);
       if (language.name) {
         file.language = language.name;
         str2 = str2.slice(language.raw.length);
@@ -3999,24 +3999,24 @@ var require_gray_matter = __commonJS({
       }
       return file;
     }
-    matter3.engines = engines2;
-    matter3.stringify = function (file, data, options2) {
-      if (typeof file === 'string') file = matter3(file, options2);
+    matter4.engines = engines2;
+    matter4.stringify = function (file, data, options2) {
+      if (typeof file === 'string') file = matter4(file, options2);
       return stringify(file, data, options2);
     };
-    matter3.read = function (filepath, options2) {
+    matter4.read = function (filepath, options2) {
       const str2 = fs.readFileSync(filepath, 'utf8');
-      const file = matter3(str2, options2);
+      const file = matter4(str2, options2);
       file.path = filepath;
       return file;
     };
-    matter3.test = function (str2, options2) {
+    matter4.test = function (str2, options2) {
       return utils.startsWith(str2, defaults(options2).delimiters[0]);
     };
-    matter3.language = function (str2, options2) {
+    matter4.language = function (str2, options2) {
       const opts = defaults(options2);
       const open = opts.delimiters[0];
-      if (matter3.test(str2)) {
+      if (matter4.test(str2)) {
         str2 = str2.slice(open.length);
       }
       const language = str2.slice(0, str2.search(/\r?\n/));
@@ -4025,18 +4025,17 @@ var require_gray_matter = __commonJS({
         name: language ? language.trim() : '',
       };
     };
-    matter3.cache = {};
-    matter3.clearCache = function () {
-      matter3.cache = {};
+    matter4.cache = {};
+    matter4.clearCache = function () {
+      matter4.cache = {};
     };
-    module2.exports = matter3;
+    module2.exports = matter4;
   },
 });
 
-// src/harnesses/codex/hooks/kk-session-start.ts
+// src/harnesses/codex/hooks/kk-prompt-context.ts
 init_cjs_shims();
-var import_node_fs11 = require('fs');
-var import_node_path11 = require('path');
+var import_node_fs12 = require('fs');
 
 // src/lib/hook-entry.ts
 init_cjs_shims();
@@ -4218,17 +4217,28 @@ function runHookEntry(options2) {
   });
 }
 
-// src/lib/session-start.ts
+// src/lib/prompt-retrieval.ts
 init_cjs_shims();
-var import_node_fs10 = require('fs');
-var import_node_path10 = require('path');
-var import_gray_matter2 = __toESM(require_gray_matter(), 1);
+var import_node_path12 = require('path');
+
+// src/lib/index-gen.ts
+init_cjs_shims();
+var import_node_fs11 = require('fs');
+
+// src/lib/fs-atomic.ts
+init_cjs_shims();
+var import_node_fs3 = require('fs');
+var import_node_path3 = require('path');
+
+// src/lib/index-gen.ts
+var import_node_path11 = require('path');
+var import_gray_matter3 = __toESM(require_gray_matter(), 1);
 
 // src/lib/nodes.ts
 init_cjs_shims();
 var import_node_crypto = require('crypto');
-var import_node_fs3 = require('fs');
-var import_node_path3 = require('path');
+var import_node_fs4 = require('fs');
+var import_node_path4 = require('path');
 var import_gray_matter = __toESM(require_gray_matter(), 1);
 
 // node_modules/zod/index.js
@@ -8342,6 +8352,8 @@ var NEVER = INVALID;
 
 // src/lib/migrate-guidance.ts
 init_cjs_shims();
+var MIGRATE_COMMAND_HINT =
+  'the `/kk-migrate` skill in your agent session (migration now requires an interactive session)';
 
 // src/lib/schemas.ts
 init_cjs_shims();
@@ -8566,65 +8578,136 @@ var MemoryLedgerSchema = external_exports.object({
 
 // src/lib/nodes.ts
 var INDEX_FILENAME = 'index.md';
-function computeNodesHash(nodesDir) {
-  const entries = [];
-  if ((0, import_node_fs3.existsSync)(nodesDir)) {
-    walkMarkdown(nodesDir, nodesDir, entries);
+var InvalidNodeFrontmatterError = class extends Error {
+  failures;
+  constructor(failures) {
+    super(formatFailures(failures));
+    this.name = 'InvalidNodeFrontmatterError';
+    this.failures = failures;
   }
-  entries.sort();
-  return (0, import_node_crypto.createHash)('sha256')
-    .update(entries.join('\n'), 'utf8')
-    .digest('hex');
+};
+var OldLayoutError = class extends Error {
+  constructor(detail) {
+    super(
+      `${detail} kenkeep now stores nodes in a nested topical folder tree (schema_version ${NODE_SCHEMA_VERSION}); the old flat nodes/<kind>/ layout is no longer readable. Migrate the knowledge base with ${MIGRATE_COMMAND_HINT}, then review the result with \`git diff\`.`
+    );
+    this.name = 'OldLayoutError';
+  }
+};
+var LEGACY_KIND_DIRS = ['practice', 'map'];
+function assertNotOldLayout(nodesDir) {
+  if (!(0, import_node_fs4.existsSync)(nodesDir)) return;
+  for (const kind of LEGACY_KIND_DIRS) {
+    const dir = (0, import_node_path4.join)(nodesDir, kind);
+    if (!(0, import_node_fs4.existsSync)(dir) || !isDirectory(dir)) continue;
+    const hasLeafDocs = (0, import_node_fs4.readdirSync)(dir).some(
+      name => name.endsWith('.md') && name !== 'index.md'
+    );
+    const hasIndex = (0, import_node_fs4.existsSync)((0, import_node_path4.join)(dir, 'index.md'));
+    if (hasLeafDocs && !hasIndex) {
+      throw new OldLayoutError(
+        `Detected the legacy nodes/${kind}/ bucket with leaf documents and no index.md.`
+      );
+    }
+  }
 }
-function walkMarkdown(rootDir, currentDir, out) {
-  for (const name of (0, import_node_fs3.readdirSync)(currentDir, { withFileTypes: true })) {
-    const fullPath = (0, import_node_path3.join)(currentDir, name.name);
-    if (name.isDirectory()) {
-      walkMarkdown(rootDir, fullPath, out);
+function isDirectory(p) {
+  try {
+    return (0, import_node_fs4.statSync)(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+function readAllNodes(nodesDir) {
+  assertNotOldLayout(nodesDir);
+  const out = [];
+  const failures = [];
+  if ((0, import_node_fs4.existsSync)(nodesDir)) {
+    collectLeafNodes(nodesDir, nodesDir, out, failures);
+  }
+  out.sort((a, b) => a.relPath.localeCompare(b.relPath));
+  if (failures.length > 0) {
+    throw new InvalidNodeFrontmatterError(failures);
+  }
+  return out;
+}
+function collectLeafNodes(rootDir, currentDir, out, failures) {
+  const names = (0, import_node_fs4.readdirSync)(currentDir, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  for (const entry of names) {
+    const fullPath = (0, import_node_path4.join)(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      collectLeafNodes(rootDir, fullPath, out, failures);
       continue;
     }
-    if (!name.name.endsWith('.md')) continue;
-    if (name.name === INDEX_FILENAME) continue;
-    const rel = (0, import_node_path3.relative)(rootDir, fullPath)
-      .split(import_node_path3.sep)
-      .join(import_node_path3.posix.sep);
-    const sha = (0, import_node_crypto.createHash)('sha256')
-      .update((0, import_node_fs3.readFileSync)(fullPath))
-      .digest('hex');
-    out.push(`${rel}	${sha}`);
+    if (!entry.name.endsWith('.md')) continue;
+    if (entry.name === INDEX_FILENAME) continue;
+    const raw = (0, import_node_fs4.readFileSync)(fullPath, 'utf8');
+    let parsed;
+    try {
+      parsed = (0, import_gray_matter.default)(raw);
+    } catch (err) {
+      failures.push({
+        file: fullPath,
+        reason: `YAML frontmatter parse error: ${err.message}`,
+        issues: [],
+      });
+      continue;
+    }
+    const result = NodeFrontmatterSchema.safeParse(parsed.data);
+    if (!result.success) {
+      failures.push({
+        file: fullPath,
+        reason: 'frontmatter does not match NodeFrontmatterSchema',
+        issues: result.error.issues,
+      });
+      continue;
+    }
+    const relPath = toPosixRel(rootDir, fullPath);
+    out.push({
+      path: fullPath,
+      filename: entry.name,
+      relPath,
+      relDir:
+        import_node_path4.posix.dirname(relPath) === '.'
+          ? ''
+          : import_node_path4.posix.dirname(relPath),
+      frontmatter: result.data,
+      body: parsed.content,
+    });
   }
 }
+function toPosixRel(rootDir, fullPath) {
+  return (0, import_node_path4.relative)(rootDir, fullPath)
+    .split(import_node_path4.sep)
+    .join(import_node_path4.posix.sep);
+}
+function formatFailures(failures) {
+  const lines = [`Invalid node frontmatter in ${failures.length} file(s):`];
+  for (const f of failures) {
+    lines.push(`  ${f.file}: ${f.reason}`);
+    for (const issue of f.issues) {
+      lines.push(`    - ${formatIssue(issue)}`);
+    }
+  }
+  return lines.join('\n');
+}
+function formatIssue(issue) {
+  const path = issue.path.length > 0 ? issue.path.join('.') : '(root)';
+  return `${path}: ${issue.message}`;
+}
+
+// src/lib/session-start.ts
+init_cjs_shims();
+var import_node_fs10 = require('fs');
+var import_node_path10 = require('path');
+var import_gray_matter2 = __toESM(require_gray_matter(), 1);
 
 // src/lib/lint-state.ts
 init_cjs_shims();
 var import_node_fs9 = require('fs');
 var import_node_path9 = require('path');
-
-// src/lib/fs-atomic.ts
-init_cjs_shims();
-var import_node_fs4 = require('fs');
-var import_node_path4 = require('path');
-function atomicWriteJson(file, data) {
-  (0, import_node_fs4.mkdirSync)((0, import_node_path4.dirname)(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  (0, import_node_fs4.writeFileSync)(
-    tmp,
-    `${JSON.stringify(data, null, 2)}
-`
-  );
-  (0, import_node_fs4.renameSync)(tmp, file);
-}
-function readJsonValidated(file, schema, fallback) {
-  if (!(0, import_node_fs4.existsSync)(file)) return fallback;
-  try {
-    const raw = JSON.parse((0, import_node_fs4.readFileSync)(file, 'utf8'));
-    const parsed = schema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    return fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 // src/lib/lint.ts
 init_cjs_shims();
@@ -8645,10 +8728,41 @@ var AGENTS_POINTER = [
 init_cjs_shims();
 var import_node_fs6 = require('fs');
 var import_node_path6 = require('path');
+var REDIRECTS_FILENAME = '.redirects.json';
 var RedirectsLedgerSchema = external_exports.record(
   external_exports.string(),
   external_exports.array(external_exports.string())
 );
+function readRedirectsLedger(nodesDir) {
+  const file = (0, import_node_path6.join)(nodesDir, REDIRECTS_FILENAME);
+  if (!(0, import_node_fs6.existsSync)(file)) return {};
+  try {
+    const parsed = RedirectsLedgerSchema.safeParse(
+      JSON.parse((0, import_node_fs6.readFileSync)(file, 'utf8'))
+    );
+    return parsed.success ? parsed.data : {};
+  } catch {
+    return {};
+  }
+}
+function resolveRedirect(ledger, live, id) {
+  if (live.has(id)) return [id];
+  const out = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Set();
+  const stack = [id];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (seen.has(current)) continue;
+    seen.add(current);
+    const successors = ledger[current];
+    if (!successors) continue;
+    for (const next of successors) {
+      if (live.has(next)) out.add(next);
+      else if (!seen.has(next)) stack.push(next);
+    }
+  }
+  return [...out].sort();
+}
 
 // src/lib/settings.ts
 init_cjs_shims();
@@ -11506,283 +11620,207 @@ var {
 } = import_js_yaml.default;
 var index_vite_proxy_tmp_default = import_js_yaml.default;
 
-// src/lib/settings.ts
-var SETTINGS_DEFAULTS = {
-  curationThreshold: 20,
-  logsRetentionDays: 30,
-  lintEveryNSessions: 50,
-};
-var MODEL_CHOICE_KEYS = ['proposalModel', 'curatorModel', 'bootstrapModel'];
-function resolveSettings(opts = {}) {
-  const projectFile = opts.projectFile ?? null;
-  const project = projectFile ? loadFile(projectFile) : null;
-  const effective = { ...SETTINGS_DEFAULTS };
-  applyOverrides(effective, project);
-  return {
-    settings: effective,
-    projectFile,
-  };
-}
-function applyOverrides(target, src) {
-  if (!src) return;
-  for (const key of Object.keys(SETTINGS_DEFAULTS)) {
-    const value = src[key];
-    if (value !== void 0) {
-      target[key] = value;
-    }
-  }
-  for (const key of MODEL_CHOICE_KEYS) {
-    const value = src[key];
-    if (value !== void 0) target[key] = value;
-  }
-  if (src.cliDefaultHarness !== void 0) target.cliDefaultHarness = src.cliDefaultHarness;
-}
-function loadFile(file) {
-  if (!(0, import_node_fs8.existsSync)(file)) return null;
-  const raw = (0, import_node_fs8.readFileSync)(file, 'utf8');
-  let parsed;
-  try {
-    parsed = index_vite_proxy_tmp_default.load(raw);
-  } catch (err) {
-    throw new Error(`settings file is not valid YAML (${file}): ${err.message}`);
-  }
-  const result = SettingsSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(`settings file failed schema validation (${file}): ${result.error.message}`);
-  }
-  return result.data;
-}
-
-// src/lib/lint-state.ts
-var DEFAULT_LINT_STATE = {
-  schema_version: 1,
-  sessions_since_last_lint: 0,
-  last_lint_at: null,
-  last_errors: 0,
-  last_findings: 0,
-};
-function lintStateFile(stateDir) {
-  return (0, import_node_path9.join)(stateDir, 'lint-state.json');
-}
-function readLintState(file) {
-  return readJsonValidated(file, LintStateFileSchema, { ...DEFAULT_LINT_STATE });
-}
-
 // src/lib/state.ts
 init_cjs_shims();
 var STATE_LOCK_OPTIONS = { stale: 30 * 60 * 1e3, realpath: false };
-function readState(file) {
-  return readJsonValidated(file, StateFileSchema, { schema_version: 1 });
-}
-function writeState(file, state) {
-  atomicWriteJson(file, state);
-}
 
 // src/lib/session-start.ts
-var DEFAULT_NUDGE_THRESHOLD = 20;
-var DEFAULT_STALE_DAYS = 7;
 var KK_NAVIGATION_DIRECTIVE =
   "> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.";
-function buildSessionStartContext(ctx) {
-  const now = ctx.now ?? (() => /* @__PURE__ */ new Date());
-  const threshold = ctx.threshold ?? DEFAULT_NUDGE_THRESHOLD;
-  const staleDays = ctx.staleDays ?? DEFAULT_STALE_DAYS;
-  const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kkDir);
-  const liveHash = computeNodesHash(ctx.nodesDir);
-  const indexStale = !missing && frontmatterHash !== null && frontmatterHash !== liveHash;
-  const summary = summarizePendingSessions(ctx.sessionsDir);
-  const pending = summary.pending;
-  const state = readState(ctx.stateFile);
-  const nowDate = now();
-  const shouldNudge = pending >= threshold;
-  const oldestAgeDays =
-    summary.oldestCapturedAt === null
-      ? 0
-      : Math.max(0, Math.floor((nowDate.getTime() - summary.oldestCapturedAt.getTime()) / 864e5));
-  const loud =
-    shouldNudge &&
-    ((pending >= threshold && oldestAgeDays >= staleDays) || pending >= 2 * threshold);
-  const lines = [];
-  const trimmedBody = indexBody.trim();
-  lines.push(trimmedBody);
-  lines.push('');
-  lines.push(
-    '> kenkeep nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user.'
-  );
-  if (!trimmedBody.includes(KK_NAVIGATION_DIRECTIVE)) {
-    lines.push('');
-    lines.push(KK_NAVIGATION_DIRECTIVE);
-  }
-  if (indexStale) {
-    lines.push('');
-    lines.push(
-      `> kenkeep index is stale, run \`npx kenkeep index rebuild\` to refresh (live hash differs from ENTRY.md \`nodes_hash\`).`
-    );
-  }
-  if (shouldNudge) {
-    const oldestPhrase =
-      oldestAgeDays === 0 ? 'captured today' : `oldest pending: ${oldestAgeDays} day(s)`;
-    const copyPaste =
-      'Run `/kk-curate` (or `npx kenkeep curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.';
-    lines.push('');
-    if (loud) {
-      lines.push('> \u{1F6A8} kenkeep curation queue is overdue');
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    } else {
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
+
+// src/lib/index-gen.ts
+function computeInDegree(nodes) {
+  const m = /* @__PURE__ */ new Map();
+  for (const n of nodes) m.set(n.frontmatter.id, 0);
+  for (const n of nodes) {
+    for (const targetId of n.frontmatter.relates_to) {
+      m.set(targetId, (m.get(targetId) ?? 0) + 1);
     }
   }
-  let lintNudged = false;
-  if (ctx.lintStateFile !== void 0) {
-    const lintState = readLintState(ctx.lintStateFile);
-    if (lintState.last_errors > 0 || lintState.last_findings > 0) {
-      lines.push('');
-      lines.push(
-        `> Last kenkeep lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`npx kenkeep lint --verbose\` for details.`
-      );
-      lintNudged = true;
-    }
-  }
-  if (shouldNudge) {
-    writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
-  }
-  return {
-    additionalContext: lines.join('\n') + '\n',
-    nudged: shouldNudge,
-    lintNudged,
-    indexMissing: missing,
-    indexStale,
-    pendingSessions: pending,
-    candidateCount: summary.candidateCount,
-  };
-}
-function loadIndex(kkDir) {
-  const base = kkDir.replace(/[\\/]$/, '');
-  const entryFile = `${base}/ENTRY.md`;
-  const indexFile = (0, import_node_fs10.existsSync)(entryFile) ? entryFile : `${base}/INDEX.md`;
-  if (!(0, import_node_fs10.existsSync)(indexFile)) {
-    return {
-      content: stubIndex(),
-      frontmatterHash: null,
-      missing: true,
-    };
-  }
-  const raw = (0, import_node_fs10.readFileSync)(indexFile, 'utf8');
-  const parsed = (0, import_gray_matter2.default)(raw);
-  const result = IndexFrontmatterSchema.safeParse(parsed.data);
-  const hash = result.success ? normalizeNodesHash(result.data.nodes_hash) : null;
-  return {
-    content: parsed.content.trimStart(),
-    frontmatterHash: hash,
-    missing: false,
-  };
-}
-function stubIndex() {
-  return [
-    '# kenkeep',
-    '',
-    '_The knowledge base is empty. Capture a session (the Stop hook fires automatically) or run `npx kenkeep node add` to seed it._',
-  ].join('\n');
-}
-function normalizeNodesHash(value) {
-  return value.startsWith('sha256:') ? value.slice(7) : value;
-}
-function summarizePendingSessions(sessionsDir) {
-  if (!(0, import_node_fs10.existsSync)(sessionsDir)) {
-    return { pending: 0, candidateCount: 0, oldestCapturedAt: null };
-  }
-  let pending = 0;
-  let candidateCount = 0;
-  let oldest = null;
-  for (const name of (0, import_node_fs10.readdirSync)(sessionsDir)) {
-    if (!name.endsWith('.md')) continue;
-    const file = (0, import_node_path10.join)(sessionsDir, name);
-    try {
-      const parsed = (0, import_gray_matter2.default)(
-        (0, import_node_fs10.readFileSync)(file, 'utf8')
-      );
-      const fm = SessionLogFrontmatterSchema.safeParse(parsed.data);
-      if (!fm.success) continue;
-      const status = fm.data.proposal_status;
-      if (status !== 'pending' && status !== 'done') continue;
-      const data = parsed.data;
-      if (typeof data.curator_processed_at === 'string') continue;
-      pending += 1;
-      if (status === 'done') {
-        const proposals = fm.data.proposals;
-        candidateCount += (proposals?.practice?.length ?? 0) + (proposals?.map?.length ?? 0);
-      }
-      const ms = Date.parse(fm.data.captured_at);
-      if (Number.isFinite(ms)) {
-        const captured = new Date(ms);
-        if (oldest === null || captured.getTime() < oldest.getTime()) {
-          oldest = captured;
-        }
-      }
-    } catch {}
-  }
-  return { pending, candidateCount, oldestCapturedAt: oldest };
-}
-function buildNudgeContent(result) {
-  const statusLine = result.nudged
-    ? `\u{1F6A8} kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates \u2014 run /kk-curate`
-    : `\u{1F4CB} kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
-  let content = statusLine + '\n\n' + result.additionalContext;
-  if (result.nudged) {
-    const box = `\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
-\u2502 \u{1F6A8} kenkeep curation is overdue       \u2502
-\u2502 Run /kk-curate to process them.      \u2502
-\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
-${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
-    content +=
-      '\n> IMPORTANT: After completing your response, append the following block verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> ' +
-      box.split('\n').join('\n> ') +
-      '\n> ```\n';
-  }
-  return { statusLine, content };
+  return m;
 }
 
-// src/harnesses/codex/hooks/kk-session-start.ts
-var PACKAGE_TAG = '[kenkeep]';
+// src/lib/prompt-retrieval.ts
+var TITLE_WEIGHT = 6;
+var TAG_WEIGHT = 5;
+var SUMMARY_WEIGHT = 3;
+var BODY_WEIGHT = 1;
+var GRAPH_NEIGHBOR_BOOST = 0.5;
+var DEFAULT_MAX_NODES = 5;
+var DEFAULT_MAX_CHARS = 1800;
+var STOPWORDS = /* @__PURE__ */ new Set([
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'but',
+  'by',
+  'can',
+  'do',
+  'for',
+  'from',
+  'how',
+  'i',
+  'in',
+  'is',
+  'it',
+  'of',
+  'on',
+  'or',
+  'that',
+  'the',
+  'this',
+  'to',
+  'we',
+  'what',
+  'when',
+  'where',
+  'which',
+  'with',
+  'you',
+  'your',
+]);
+function tokenize(text) {
+  const out = [];
+  for (const raw of text.toLowerCase().split(/[^a-z0-9]+/)) {
+    if (raw.length < 2) continue;
+    if (STOPWORDS.has(raw)) continue;
+    out.push(raw);
+  }
+  return out;
+}
+function tokenSet(text) {
+  return new Set(tokenize(text));
+}
+function tagTokenSet(tags) {
+  const set = /* @__PURE__ */ new Set();
+  for (const tag of tags) for (const t of tokenize(tag)) set.add(t);
+  return set;
+}
+function lexicalScore(node, promptTerms) {
+  if (promptTerms.size === 0) return 0;
+  const fm = node.frontmatter;
+  const titleTokens = tokenSet(fm.title);
+  const tagTokens = tagTokenSet(fm.tags);
+  const summaryTokens = tokenSet(fm.summary);
+  const bodyTokens = tokenSet(node.body);
+  let score = 0;
+  for (const term of promptTerms) {
+    if (titleTokens.has(term)) score += TITLE_WEIGHT;
+    if (tagTokens.has(term)) score += TAG_WEIGHT;
+    if (summaryTokens.has(term)) score += SUMMARY_WEIGHT;
+    if (bodyTokens.has(term)) score += BODY_WEIGHT;
+  }
+  return score;
+}
+function rankNodes(nodes, prompt, options2 = {}) {
+  const maxNodes = options2.maxNodes ?? DEFAULT_MAX_NODES;
+  const promptTerms = tokenSet(prompt);
+  if (promptTerms.size === 0 || nodes.length === 0) return [];
+  const lexical = /* @__PURE__ */ new Map();
+  for (const node of nodes) lexical.set(node.frontmatter.id, lexicalScore(node, promptTerms));
+  const live = new Set(nodes.map(n => n.frontmatter.id));
+  const ledger = readRedirectsLedger(nodesDirOf(nodes));
+  const neighbors = /* @__PURE__ */ new Map();
+  const addEdge = (from, to) => {
+    if (from === to) return;
+    (neighbors.get(from) ?? neighbors.set(from, /* @__PURE__ */ new Set()).get(from)).add(to);
+    (neighbors.get(to) ?? neighbors.set(to, /* @__PURE__ */ new Set()).get(to)).add(from);
+  };
+  for (const node of nodes) {
+    const fm = node.frontmatter;
+    for (const ref of [...fm.relates_to, ...fm.depends_on]) {
+      for (const target of resolveRedirect(ledger, live, ref)) addEdge(fm.id, target);
+    }
+  }
+  const inDegree = computeInDegree(nodes);
+  const matches = [];
+  for (const node of nodes) {
+    const id = node.frontmatter.id;
+    let score = lexical.get(id) ?? 0;
+    for (const neighborId of neighbors.get(id) ?? []) {
+      if ((lexical.get(neighborId) ?? 0) > 0) score += GRAPH_NEIGHBOR_BOOST;
+    }
+    if (score > 0) matches.push({ node, score });
+  }
+  matches.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const dIn =
+      (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
+    if (dIn !== 0) return dIn;
+    return a.node.frontmatter.id.localeCompare(b.node.frontmatter.id);
+  });
+  return matches.slice(0, maxNodes);
+}
+function nodesDirOf(nodes) {
+  const first = nodes[0];
+  if (!first) return '';
+  const suffix = first.relPath.split('/').join(import_node_path12.sep);
+  if (first.path.endsWith(suffix))
+    return first.path.slice(0, first.path.length - suffix.length - 1);
+  return '';
+}
+function renderPath(node) {
+  return import_node_path12.posix.join('.ai/kenkeep/nodes', node.relPath);
+}
+function inline(text) {
+  return text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/([\\`[\]])/g, '\\$1');
+}
+var HEADER =
+  '> kenkeep prompt-time knowledge: nodes likely relevant to this request. These are routing hints \u2014 open the linked node before relying on details, and verify any named file/function/flag against the live tree.';
+function renderPromptKnowledgeContext(matches, options2 = {}) {
+  if (matches.length === 0) return '';
+  const maxChars = options2.maxChars ?? DEFAULT_MAX_CHARS;
+  const lines = [HEADER, ''];
+  let total = lines.join('\n').length;
+  let rendered = 0;
+  for (const { node } of matches) {
+    const fm = node.frontmatter;
+    const tagPart = fm.tags.length > 0 ? ` ${fm.tags.map(t => `#${t}`).join(' ')}` : '';
+    const summary = inline(fm.summary);
+    const summaryPart = summary ? ` \u2014 ${summary}` : '';
+    const entry = `- [**${inline(fm.title)}**](${renderPath(node)}) (\`${fm.id}\`)${summaryPart}${tagPart}`;
+    if (rendered > 0 && total + entry.length + 1 > maxChars) break;
+    lines.push(entry);
+    total += entry.length + 1;
+    rendered += 1;
+  }
+  return lines.join('\n') + '\n';
+}
+function buildPromptKnowledgeContext(nodesDir, prompt, options2 = {}) {
+  if (prompt.trim().length === 0) return '';
+  const nodes = readAllNodes(nodesDir);
+  const matches = rankNodes(nodes, prompt, options2);
+  return renderPromptKnowledgeContext(matches, options2);
+}
+
+// src/harnesses/codex/hooks/kk-prompt-context.ts
 runHookEntry({
-  tag: 'codex:kk-session-start',
+  tag: 'codex:kk-prompt-context',
   deadlineMs: 1e3,
   main: async payload => {
+    const prompt = typeof payload['prompt'] === 'string' ? payload['prompt'] : '';
+    if (prompt.trim().length === 0) return;
     const startCwd =
       typeof payload['cwd'] === 'string' && payload['cwd'].length > 0
         ? payload['cwd']
         : process.cwd();
-    const root = findRepoRoot(startCwd);
-    const paths = repoPaths(root);
-    if (!(0, import_node_fs11.existsSync)(paths.installedVersionFile)) return;
+    const paths = repoPaths(findRepoRoot(startCwd));
+    if (!(0, import_node_fs12.existsSync)(paths.installedVersionFile)) return;
+    let context;
     try {
-      process.stderr.write('\u{1F4D6} kenkeep Index: Loading knowledge base\u2026\n');
-      const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-      const result = buildSessionStartContext({
-        kkDir: paths.kkDir,
-        nodesDir: paths.nodesDir,
-        sessionsDir: paths.sessionsDir,
-        stateFile: (0, import_node_path11.join)(paths.stateDir, 'state.json'),
-        lintStateFile: lintStateFile(paths.stateDir),
-        threshold: settings.curationThreshold,
-      });
-      const { statusLine, content } = buildNudgeContent(result);
-      process.stdout.write(JSON.stringify({ additionalContext: content }));
-      process.stderr.write(`${statusLine}
-`);
-      process.stderr.write('\u{1F9E0} kenkeep Index: Knowledge base loaded.\n');
-    } catch (err) {
-      process.stderr.write(
-        `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}
-`
-      );
+      context = buildPromptKnowledgeContext(paths.nodesDir, prompt);
+    } catch {
+      return;
     }
+    if (context.trim().length === 0) return;
+    process.stdout.write(JSON.stringify({ additionalContext: context }));
   },
 });
 /*! Bundled license information:

@@ -1,5 +1,28 @@
 'use strict';
 
+// src/lib/async-launcher.ts
+var import_node_child_process = require('child_process');
+var LAUNCHER_CHILD_ENV = 'KENKEEP_ASYNC_LAUNCHER_CHILD';
+var LAUNCHER_PAYLOAD_ENV = 'KENKEEP_HOOK_PAYLOAD';
+var LAUNCHER_STDIN_DEADLINE_MS = 250;
+function isLauncherChild(env = process.env) {
+  return env[LAUNCHER_CHILD_ENV] === '1';
+}
+function launcherPayload(env = process.env) {
+  return env[LAUNCHER_PAYLOAD_ENV] ?? '';
+}
+function launchDetachedWorker(rawPayload) {
+  const script = process.argv[1];
+  if (!script) return false;
+  const child = (0, import_node_child_process.spawn)(process.execPath, [script], {
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, [LAUNCHER_CHILD_ENV]: '1', [LAUNCHER_PAYLOAD_ENV]: rawPayload },
+  });
+  child.unref();
+  return true;
+}
+
 // src/lib/hook-diagnostic.ts
 var import_node_fs = require('fs');
 var import_node_path = require('path');
@@ -17,28 +40,6 @@ function appendHookDiagnostic(hook, phase, error, logsDir) {
       'utf8'
     );
   } catch {}
-}
-
-// src/lib/hook-detach.ts
-var import_node_child_process = require('child_process');
-var DETACHED_ENV = 'KENKEEP_DRAIN_DETACHED';
-var PAYLOAD_ENV = 'KENKEEP_HOOK_PAYLOAD';
-function isDetachedChild(env = process.env) {
-  return env[DETACHED_ENV] === '1';
-}
-function detachedPayload(env = process.env) {
-  return env[PAYLOAD_ENV] ?? '';
-}
-function detachSelf(rawPayload) {
-  const script = process.argv[1];
-  if (!script) return false;
-  const child = (0, import_node_child_process.spawn)(process.execPath, [script], {
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env, [DETACHED_ENV]: '1', [PAYLOAD_ENV]: rawPayload },
-  });
-  child.unref();
-  return true;
 }
 
 // src/lib/paths.ts
@@ -87,25 +88,38 @@ function repoPaths(root) {
 }
 
 // src/lib/stdin.ts
-function readStdin() {
+function readStdin(options = {}) {
   return new Promise(resolve2 => {
     if (process.stdin.isTTY) {
       resolve2('');
       return;
     }
     let data = '';
+    let settled = false;
+    let timer;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      process.stdin.pause();
+      resolve2(value);
+    };
+    if (options.deadlineMs !== void 0) {
+      timer = setTimeout(() => finish(data), options.deadlineMs);
+      timer.unref();
+    }
     process.stdin.setEncoding('utf8');
     process.stdin.on('data', chunk => {
       data += chunk;
     });
-    process.stdin.on('end', () => resolve2(data));
-    process.stdin.on('error', () => resolve2(''));
+    process.stdin.on('end', () => finish(data));
+    process.stdin.on('error', () => finish(''));
   });
 }
 
 // src/lib/hook-entry.ts
 function runHookEntry(options) {
-  const { tag, deadlineMs, detach = false, requirePayload = false, main } = options;
+  const { tag, deadlineMs, asyncLauncher = false, requirePayload = false, main } = options;
   async function run() {
     if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
     if (deadlineMs !== void 0) {
@@ -124,9 +138,16 @@ function runHookEntry(options) {
       deadline.unref();
     }
     let raw;
-    if (detach) {
-      raw = isDetachedChild() ? detachedPayload() : await readStdin();
-      if (!isDetachedChild() && detachSelf(raw)) return;
+    if (asyncLauncher) {
+      if (isLauncherChild()) {
+        raw = launcherPayload();
+      } else {
+        const captured = await readStdin({ deadlineMs: LAUNCHER_STDIN_DEADLINE_MS });
+        if (launchDetachedWorker(captured)) {
+          process.exit(0);
+        }
+        raw = captured;
+      }
     } else {
       raw = await readStdin();
     }

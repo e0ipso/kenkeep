@@ -6,3 +6,9 @@ dist/
 .idea/
 .devcontainer/
 docs/assets/css/
+.agents/**/*.{js,cjs,mjs}
+.claude/**/*.{js,cjs,mjs}
+.codex/**/*.{js,cjs,mjs}
+.cursor/**/*.{js,cjs,mjs}
+.github/**/*.{js,cjs,mjs}
+.opencode/**/*.{js,cjs,mjs}

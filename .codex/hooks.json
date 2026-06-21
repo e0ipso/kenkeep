@@ -50,6 +50,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.codex/hooks/kk-prompt-context.cjs",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

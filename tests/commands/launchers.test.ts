@@ -114,6 +114,9 @@ describe('launchSkill', () => {
     expect(call.args.args).toEqual(['-p', '/kk-bootstrap --from docs']);
     // stdio inherited so Ctrl-C / TTY prompts flow naturally.
     expect(call.args.options['stdio']).toBe('inherit');
+    // The harness starts from the project root even if the launcher was
+    // invoked from a nested directory.
+    expect(call.args.options['cwd']).toBe(sandbox);
     // Recursion guard env var present and process.env preserved.
     const env = call.args.options['env'] as Record<string, string>;
     expect(env['KENKEEP_BUILDER_INTERNAL']).toBe('1');
@@ -122,6 +125,19 @@ describe('launchSkill', () => {
     // Child exits 0 → launcher process.exit(0).
     call.emit(0);
     expect(exitFn).toHaveBeenCalledWith(0);
+  });
+
+  it('prefers the nearest parent .ai/kenkeep over an intervening nested .git directory', () => {
+    const nested = join(sandbox, 'packages/app/src');
+    mkdirSync(join(sandbox, 'packages/app/.git'), { recursive: true });
+    mkdirSync(nested, { recursive: true });
+    process.chdir(nested);
+
+    const { spawnFn, captured } = makeFakeSpawn();
+    const exitFn = vi.fn((_code: number) => undefined as never);
+    launchSkill({ skill: 'kk-curate', harness: 'claude', spawnFn, exitFn });
+
+    expect(captured[0]!.args.options['cwd']).toBe(sandbox);
   });
 
   it('omits the slash-command tail entirely when no passedArgs are given', () => {

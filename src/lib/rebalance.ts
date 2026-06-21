@@ -56,7 +56,7 @@ export const LEAF_CONCEPT_MIN = 3;
  * deterministically on the root-fallback signal the curate skill already
  * produces: an `add` whose relate-ranking cleared no existing folder lands the
  * leaf at the `nodes/` root (documented in kk-curate "Relate and place" /
- * "Root fallback"). A root leaf with zero `relates_to` and `derived_from`
+ * "Root fallback"). A root leaf with zero `relates_to` and `depends_on` graph
  * edges is therefore a top-level topic with no existing home, which is exactly
  * what `create-branch` addresses.
  */
@@ -86,6 +86,14 @@ export type RebalanceOperation = 'split-folder' | 'split-leaf' | 'merge' | 'crea
 export interface RebalanceCandidate {
   branch: string;
   operation: RebalanceOperation;
+  /**
+   * Optional companion root leaves for a grouped create-branch trigger. The
+   * primary `branch` remains the stable representative path so older consumers
+   * can still read one named leaf; newer consumers can inspect the whole group.
+   */
+  branches?: string[];
+  /** Stable shared tag that caused root leaves to be grouped. */
+  topic?: string;
 }
 
 /** The trigger's structured, machine-readable decision. */
@@ -108,6 +116,71 @@ function estimateLeafTokens(node: NodeFile): number {
   return Math.max(0, Math.ceil(chars / CHARS_PER_TOKEN));
 }
 
+function hasChildFolder(folder: string, allFolders: FolderMetricEntry[]): boolean {
+  return allFolders.some(candidate => {
+    if (candidate.relDir === folder) return false;
+    if (folder === '') return candidate.relDir !== '' && !candidate.relDir.includes('/');
+    return candidate.relDir.startsWith(`${folder}/`);
+  });
+}
+
+function rootHomelessLeaves(leaves: NodeFile[]): NodeFile[] {
+  return leaves
+    .filter(leaf => {
+      const dependsOn = leaf.frontmatter.depends_on ?? [];
+      const edgeCount = leaf.frontmatter.relates_to.length + dependsOn.length;
+      return leaf.relDir === '' && edgeCount <= ROOT_HOMELESS_EDGE_MAX;
+    })
+    .sort((a, b) => a.relPath.localeCompare(b.relPath));
+}
+
+function createBranchActionsForRootLeaves(leaves: NodeFile[]): RebalanceCandidate[] {
+  const homeless = rootHomelessLeaves(leaves);
+  const buckets = new Map<string, NodeFile[]>();
+  for (const leaf of homeless) {
+    for (const tag of [...new Set(leaf.frontmatter.tags)].sort((a, b) => a.localeCompare(b))) {
+      const bucket = buckets.get(tag) ?? [];
+      bucket.push(leaf);
+      buckets.set(tag, bucket);
+    }
+  }
+
+  const assigned = new Set<string>();
+  const actions: RebalanceCandidate[] = [];
+  for (const leaf of homeless) {
+    if (assigned.has(leaf.relPath)) continue;
+    const candidateTags = [...new Set(leaf.frontmatter.tags)]
+      .filter(tag => (buckets.get(tag) ?? []).some(peer => !assigned.has(peer.relPath)))
+      .sort((a, b) => {
+        const aCount = (buckets.get(a) ?? []).filter(peer => !assigned.has(peer.relPath)).length;
+        const bCount = (buckets.get(b) ?? []).filter(peer => !assigned.has(peer.relPath)).length;
+        if (bCount !== aCount) return bCount - aCount;
+        return a.localeCompare(b);
+      });
+    const topic = candidateTags.find(tag => {
+      const unassigned = (buckets.get(tag) ?? []).filter(peer => !assigned.has(peer.relPath));
+      return unassigned.length >= 2;
+    });
+    if (topic === undefined) {
+      assigned.add(leaf.relPath);
+      actions.push({ branch: leaf.relPath, operation: 'create-branch' });
+      continue;
+    }
+    const group = (buckets.get(topic) ?? [])
+      .filter(peer => !assigned.has(peer.relPath))
+      .sort((a, b) => a.relPath.localeCompare(b.relPath));
+    for (const peer of group) assigned.add(peer.relPath);
+    const branches = group.map(peer => peer.relPath);
+    actions.push({
+      branch: branches[0]!,
+      operation: 'create-branch',
+      branches,
+      topic,
+    });
+  }
+  return actions;
+}
+
 /**
  * Pure decision function: given the per-folder metrics Plan 1 computes and the
  * leaf set, return the deterministic rebalance decision. No clock, no
@@ -117,14 +190,16 @@ function estimateLeafTokens(node: NodeFile): number {
  * Rules (each gated past its hysteresis margin):
  *   - split-folder: a folder whose occupancy is strictly greater than
  *     FOLDER_OCCUPANCY_MAX.
- *   - merge: a non-root branch whose occupancy is strictly less than
- *     BRANCH_OCCUPANCY_MIN (an empty folder carries no metric entry and so
- *     never trips this; only a sparse-but-occupied branch does).
+ *   - merge: a non-root branch whose direct-leaf occupancy is strictly less
+ *     than BRANCH_OCCUPANCY_MIN and that has no child folders. Recursive merge
+ *     is deliberately not implemented by this trigger.
  *   - split-leaf: a single leaf whose estimated size exceeds
  *     LEAF_SIZE_SPLIT_THRESHOLD AND whose distinct-tag count is at least
  *     LEAF_CONCEPT_MIN.
- *   - create-branch: a leaf at the `nodes/` root with no graph edges (the
- *     curate root-fallback signal for a homeless novel top-level topic).
+ *   - create-branch: one or more leaves at the `nodes/` root with no graph
+ *     edges (the curate root-fallback signal for a homeless novel top-level
+ *     topic). Related root leaves sharing a useful tag are grouped into a
+ *     single trigger with a stable representative `branch`.
  */
 export function decideRebalance(
   folders: FolderMetricEntry[],
@@ -138,7 +213,11 @@ export function decideRebalance(
     }
     // The root (empty relDir) is never a merge candidate: it is the deliberate
     // fallback home, not a sparse branch to collapse.
-    if (f.relDir !== '' && f.metrics.occupancy < BRANCH_OCCUPANCY_MIN) {
+    if (
+      f.relDir !== '' &&
+      f.metrics.occupancy < BRANCH_OCCUPANCY_MIN &&
+      !hasChildFolder(f.relDir, folders)
+    ) {
       actions.push({ branch: f.relDir, operation: 'merge' });
     }
   }
@@ -149,11 +228,9 @@ export function decideRebalance(
     if (size > LEAF_SIZE_SPLIT_THRESHOLD && distinctConcepts >= LEAF_CONCEPT_MIN) {
       actions.push({ branch: leaf.relPath, operation: 'split-leaf' });
     }
-    const edgeCount = leaf.frontmatter.relates_to.length + leaf.frontmatter.derived_from.length;
-    if (leaf.relDir === '' && edgeCount <= ROOT_HOMELESS_EDGE_MAX) {
-      actions.push({ branch: leaf.relPath, operation: 'create-branch' });
-    }
   }
+
+  actions.push(...createBranchActionsForRootLeaves(leaves));
 
   // Deterministic stable ordering: by branch path, then operation.
   actions.sort((a, b) => {

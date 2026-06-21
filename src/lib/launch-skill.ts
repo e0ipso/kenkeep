@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { resolveActiveHarness } from '../harnesses/detect.js';
 import { log } from './log.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { findKenkeepRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 /**
@@ -70,7 +70,7 @@ export function buildLaunchArgs(
  * is already inside a host kk session.
  */
 export function launchSkill(opts: LaunchSkillOptions): void {
-  const root = findRepoRoot();
+  const root = findKenkeepRoot() ?? findRepoRoot();
   const paths = repoPaths(root);
   const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
   const harness = resolveActiveHarness({
@@ -85,6 +85,7 @@ export function launchSkill(opts: LaunchSkillOptions): void {
   const exitImpl = opts.exitFn ?? ((code: number): never => process.exit(code));
 
   const child = spawnImpl(binary, args, {
+    cwd: root,
     stdio: 'inherit',
     env: { ...process.env, KENKEEP_BUILDER_INTERNAL: '1' },
   });

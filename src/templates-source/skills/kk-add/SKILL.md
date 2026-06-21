@@ -3,7 +3,7 @@ name: kk-add
 description: Capture a kenkeep node manually from the current session. Writes a new node directly under `.ai/kenkeep/nodes/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 4 -->
+<!-- Version: 5 -->
 
 # kk-add
 
@@ -11,11 +11,27 @@ Capture one piece of knowledge into the project knowledge base. You draft the no
 
 Ask the user for seven values (do not invent any): **kind** (`practice` or `map`), **title** (≤ 80 chars), **summary** (≤ 140 chars), **tags** (comma-separated), **body** (full markdown; for practice include the rationale), **relates_to** (comma-separated node ids, may be empty), **confidence** (`high`/`medium`/`low`, default `high`).
 
+## Enter the project root
+
+Before any `.ai/kenkeep/...` read, glob, or command, locate the project root by walking upward until `.ai/kenkeep` exists, then `cd` there. Run this from your current shell:
+
+```bash
+KK_ROOT=$(pwd)
+while [ "$KK_ROOT" != "/" ] && [ ! -d "$KK_ROOT/.ai/kenkeep" ]; do
+  KK_ROOT=$(dirname "$KK_ROOT")
+done
+if [ ! -d "$KK_ROOT/.ai/kenkeep" ]; then
+  echo "No kenkeep knowledge base found in this directory or its parents." >&2
+  exit 1
+fi
+cd "$KK_ROOT"
+```
+
 Before invoking, skim `.ai/kenkeep/ENTRY.md` (already in context) and grep `nodes/` for an overlapping node. If one exists, offer to edit it, refine the candidate's title, or drop the capture instead. Push back if the candidate is: code that speaks for itself, history, a debugging recipe, in-flight plan/task content, or general programming knowledge.
 
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/`. Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
 
 ```bash
 HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)

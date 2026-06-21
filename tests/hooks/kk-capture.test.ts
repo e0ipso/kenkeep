@@ -52,6 +52,36 @@ function runHook(
   });
 }
 
+function runHookRaw(
+  hookPath: string,
+  cwd: string,
+  raw: string,
+  env: NodeJS.ProcessEnv = {}
+): Promise<SpawnResult> {
+  return new Promise(resolveFn => {
+    const proc = execFile(
+      'node',
+      [hookPath],
+      { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
+      (err, stdout, stderr) => {
+        const code =
+          err && typeof (err as { code?: unknown }).code === 'number'
+            ? ((err as { code: number }).code as number)
+            : err
+              ? 1
+              : 0;
+        resolveFn({
+          stdout: stdout.toString(),
+          stderr: stderr.toString(),
+          exitCode: code,
+        });
+      }
+    );
+    proc.stdin?.write(raw);
+    proc.stdin?.end();
+  });
+}
+
 function sessionLogs(sandbox: string): string[] {
   const sessionsDir = join(sandbox, '.ai/kenkeep/_sessions');
   if (!existsSync(sessionsDir)) return [];
@@ -313,6 +343,7 @@ function writeOpenCodeUsageStub(home: string, nodeAbs: string): void {
 
 const CLAUDE_SESS = '66666666-6666-4666-8666-666666666666';
 const CODEX_SESS = '12345678-1234-4abc-8def-1234567890ab';
+const CODEX_UUIDV7_SESS = '019ee8e9-5040-77e3-aee3-0ec12bdf93dd';
 const COPILOT_SESS = '12345678-1234-4abc-8def-1234567890ab';
 const CURSOR_SESS = 'c6b62c6f-7ead-4fd6-9922-e952131177ff';
 const OPENCODE_RAW_SESS = 'ses_6f8a2b4c9d1e3f5a7b9c1d2e3f4a5b6c';
@@ -565,6 +596,59 @@ describe('kk-capture hook (spawned) [codex PreCompact]', () => {
     const logs = sessionLogs(sandbox);
     expect(logs.length).toBeGreaterThan(0);
     expect(readSessionLog(sandbox, logs[0] as string)).toContain('captured_by: pre_compact');
+  });
+});
+
+describe('kk-capture hook (spawned) [codex specifics]', () => {
+  const hookPath = join(repoRoot, 'dist/hooks/codex/kk-capture.cjs');
+  let sandbox: string;
+  let home: string;
+
+  beforeEach(async () => {
+    sandbox = makeSandbox();
+    home = makeSandbox('ai-kk-codex-home-');
+    await gitInit(sandbox);
+    await runCli(sandbox, ['init', '--harnesses', 'codex']);
+  });
+  afterEach(() => {
+    cleanSandbox(sandbox);
+    cleanSandbox(home);
+  });
+
+  it('accepts a UUIDv7-like Codex session_id and preserves idempotent filename lookup', async () => {
+    writeCodexRollout(home, CODEX_UUIDV7_SESS, SUBSTANTIAL_USER, SUBSTANTIAL_AGENT);
+    const first = await runHook(
+      hookPath,
+      sandbox,
+      { session_id: CODEX_UUIDV7_SESS, event: 'Stop', cwd: sandbox },
+      { CODEX_HOME: home }
+    );
+    expect(first.exitCode).toBe(0);
+
+    const afterFirst = sessionLogs(sandbox);
+    expect(afterFirst).toHaveLength(1);
+    expect(readSessionLog(sandbox, afterFirst[0] as string)).toContain(
+      `session_id: ${CODEX_UUIDV7_SESS}`
+    );
+
+    const second = await runHook(
+      hookPath,
+      sandbox,
+      { session_id: CODEX_UUIDV7_SESS.toUpperCase(), event: 'Stop', cwd: sandbox },
+      { CODEX_HOME: home }
+    );
+    expect(second.exitCode).toBe(0);
+    expect(sessionLogs(sandbox)).toEqual(afterFirst);
+  });
+
+  it('exits silently on malformed stdin without writing a parse diagnostic', async () => {
+    const result = await runHookRaw(hookPath, sandbox, 'not json', { CODEX_HOME: home });
+    expect(result.exitCode).toBe(0);
+    expect(sessionLogs(sandbox)).toHaveLength(0);
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const logFile = join(sandbox, '.ai/kenkeep/_logs', `hook-errors-${dateStr}.log`);
+    expect(existsSync(logFile)).toBe(false);
   });
 });
 

@@ -3,9 +3,9 @@
  *
  * Owns: the KENKEEP_BUILDER_INTERNAL recursion guard; the optional hard-deadline
  * timer with a diagnostic log on fire; stdin reading (or async-launcher payload
- * resolution when `asyncLauncher: true`); JSON parsing with a 'parse' diagnostic
- * on non-empty unparseable input; the outer `.catch` block with an 'uncaught'
- * diagnostic and `process.exit(0)`.
+ * resolution when `asyncLauncher: true`); JSON parsing with an optional 'parse'
+ * diagnostic on non-empty unparseable input; the outer `.catch` block with an
+ * 'uncaught' diagnostic and `process.exit(0)`.
  *
  * Per-adapter hook files keep only their unique logic (cwd/root resolution,
  * pipeline invocation) inside the `main` callback.
@@ -59,6 +59,14 @@ export interface HookEntryOptions {
   requirePayload?: boolean;
 
   /**
+   * Controls handling for non-empty stdin that is not valid JSON. The default
+   * writes a parse diagnostic before continuing with `{}` or returning for
+   * `requirePayload` hooks. Use `'ignore'` for hosts where absent or malformed
+   * payloads are an expected fail-open condition.
+   */
+  invalidJson?: 'diagnostic' | 'ignore';
+
+  /**
    * The hook body. Receives the parsed payload object and the raw stdin string.
    * For capture hooks `payload` is the actual JSON-parsed object (since
    * `requirePayload: true` guarantees it). For other hooks `payload` may be `{}`
@@ -72,7 +80,14 @@ export interface HookEntryOptions {
  * Returns `void`; the function is fire-and-forget (call without `await`).
  */
 export function runHookEntry(options: HookEntryOptions): void {
-  const { tag, deadlineMs, asyncLauncher = false, requirePayload = false, main } = options;
+  const {
+    tag,
+    deadlineMs,
+    asyncLauncher = false,
+    requirePayload = false,
+    invalidJson = 'diagnostic',
+    main,
+  } = options;
 
   async function run(): Promise<void> {
     // Recursion guard: prevent re-entry when our own headless runners
@@ -134,8 +149,10 @@ export function runHookEntry(options: HookEntryOptions): void {
       try {
         payload = JSON.parse(raw) as Record<string, unknown>;
       } catch (err) {
-        const paths = repoPaths(findRepoRoot(process.cwd()));
-        appendHookDiagnostic(tag, 'parse', err, paths.logsDir);
+        if (invalidJson === 'diagnostic') {
+          const paths = repoPaths(findRepoRoot(process.cwd()));
+          appendHookDiagnostic(tag, 'parse', err, paths.logsDir);
+        }
         if (requirePayload) return;
         // Fall through with payload = {}
       }

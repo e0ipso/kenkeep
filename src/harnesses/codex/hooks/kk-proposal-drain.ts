@@ -16,6 +16,7 @@ import { buildCodexHarnessOpts } from '../opts.js';
 runHookEntry({
   tag: 'codex:kk-proposal-drain',
   asyncLauncher: true,
+  invalidJson: 'ignore',
   main: async payload => {
     const startCwd =
       typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0

@@ -16,6 +16,7 @@ import { runLintTick } from '../../../lib/lint-state.js';
 runHookEntry({
   tag: 'codex:kk-lint-tick',
   asyncLauncher: true,
+  invalidJson: 'ignore',
   main: async payload => {
     const startCwd =
       typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0

@@ -36,6 +36,30 @@ function writeNode(
   writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));
 }
 
+function writeNestedNode(
+  sandbox: string,
+  relDir: string,
+  kind: NodeKind,
+  id: string,
+  overrides: Partial<NodeFrontmatter> = {}
+): void {
+  const fm: NodeFrontmatter = {
+    schema_version: 2,
+    id,
+    title: overrides.title ?? id,
+    kind,
+    tags: overrides.tags ?? [],
+    derived_from: overrides.derived_from ?? [],
+    relates_to: overrides.relates_to ?? [],
+    depends_on: overrides.depends_on ?? [],
+    confidence: overrides.confidence ?? 'high',
+    summary: overrides.summary ?? 's',
+  };
+  const dir = join(sandbox, '.ai/kenkeep/nodes', relDir);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));
+}
+
 describe('lint command', () => {
   let sandbox: string;
 
@@ -51,6 +75,31 @@ describe('lint command', () => {
     const result = await runCli(sandbox, ['lint']);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Clean. No findings.');
+  });
+
+  it('ignores stale dotfile-only legacy compatibility node folders', async () => {
+    const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
+    mkdirSync(join(nodesDir, 'map'), { recursive: true });
+    mkdirSync(join(nodesDir, 'practice'), { recursive: true });
+    writeFileSync(join(nodesDir, 'map', '.gitkeep'), '');
+    writeFileSync(join(nodesDir, 'practice', '.gitkeep'), '');
+
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).not.toContain('missing-folder-index');
+    expect(combined).not.toContain('nodes/map');
+    expect(combined).not.toContain('nodes/practice');
+  });
+
+  it('still reports a non-empty node folder that lacks index.md', async () => {
+    writeNestedNode(sandbox, 'topic', 'practice', 'practice-topic');
+
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(1);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('missing-folder-index');
+    expect(combined).toContain('folder topic has no index.md');
   });
 
   it('exits 1 and names the offending file when --verbose finds a dangling edge', async () => {

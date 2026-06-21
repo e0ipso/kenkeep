@@ -13,6 +13,8 @@ export type LintRule =
   | 'missing-folder-index'
   | 'agents-kb-block';
 
+const LEGACY_COMPATIBILITY_DIRS = new Set(['map', 'practice']);
+
 export interface LintEntry {
   rule: LintRule;
   file: string;
@@ -98,8 +100,10 @@ export function runLint(opts: LintOptions): LintResult {
 
   // Every folder under nodes/ must carry a generated index.md (the table of
   // contents for that folder). Directory placement is topical and independent
-  // of kind.
+  // of kind. Stale legacy kind buckets that contain only dotfiles, such as a
+  // retained .gitkeep, are not node folders and do not need an index.
   for (const dir of foldersUnder(opts.nodesDir)) {
+    if (isEmptyLegacyCompatibilityFolder(opts.nodesDir, dir)) continue;
     if (!existsSync(join(dir, INDEX_FILENAME))) {
       errors.push({
         rule: 'missing-folder-index',
@@ -223,6 +227,17 @@ function foldersUnder(nodesDir: string): string[] {
   };
   walk(nodesDir);
   return out;
+}
+
+function isEmptyLegacyCompatibilityFolder(nodesDir: string, dir: string): boolean {
+  const rel = relative(nodesDir, dir).split(sep).join(posix.sep);
+  if (!LEGACY_COMPATIBILITY_DIRS.has(rel)) return false;
+  const entries = readdirSync(dir, { withFileTypes: true });
+  return (
+    entries.length > 0 &&
+    entries.every(entry => entry.name.startsWith('.')) &&
+    entries.every(entry => !entry.name.endsWith('.md'))
+  );
 }
 
 function normalizeTag(tag: string): string {

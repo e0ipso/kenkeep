@@ -23,6 +23,7 @@ import { buildPromptKnowledgeContext } from '../../../lib/prompt-retrieval.js';
 runHookEntry({
   tag: 'codex:kk-prompt-context',
   deadlineMs: 1000,
+  invalidJson: 'ignore',
   main: async payload => {
     const prompt = typeof payload['prompt'] === 'string' ? (payload['prompt'] as string) : '';
     if (prompt.trim().length === 0) return;

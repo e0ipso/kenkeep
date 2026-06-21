@@ -14,10 +14,10 @@ import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
 import { parseCodexTranscript } from '../transcript.js';
 import { extractCodexReads } from '../../read-extract.js';
+import { assertValidCodexSessionId } from '../session-id.js';
 
 const PACKAGE_TAG = '[kenkeep]';
 
@@ -44,6 +44,7 @@ runHookEntry({
   tag: 'codex:kk-capture',
   deadlineMs: 1000,
   requirePayload: true,
+  invalidJson: 'ignore',
   main: async payload => {
     const startCwd =
       typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
@@ -53,7 +54,7 @@ runHookEntry({
     const paths = repoPaths(root);
 
     try {
-      const sessionId = assertValidSessionId(payload['session_id']);
+      const sessionId = assertValidCodexSessionId(payload['session_id']);
       const homeRoot = process.env['CODEX_HOME'] ?? join(homedir(), '.codex');
       const rolloutPath = locateRollout(homeRoot, sessionId);
       if (rolloutPath === null) {

@@ -47,6 +47,32 @@ function runHook(
   });
 }
 
+function runHookRaw(
+  hookPath: string,
+  cwd: string,
+  raw: string,
+  env: NodeJS.ProcessEnv = {}
+): Promise<SpawnResult> {
+  return new Promise(resolveFn => {
+    const proc = execFile(
+      'node',
+      [hookPath],
+      { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
+      (err, stdout, stderr) => {
+        const code =
+          err && typeof (err as { code?: unknown }).code === 'number'
+            ? ((err as { code: number }).code as number)
+            : err
+              ? 1
+              : 0;
+        resolveFn({ stdout: stdout.toString(), stderr: stderr.toString(), exitCode: code });
+      }
+    );
+    proc.stdin?.write(raw);
+    proc.stdin?.end();
+  });
+}
+
 /**
  * Materialize a tree-shaped KB under the sandbox: leaves in deep branch folders
  * plus the regenerated ENTRY.md (the entry catalog carrying the global
@@ -131,6 +157,22 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(ctx).toContain('# kenkeep');
     expect(ctx).toContain(DESCENT_PHRASE);
     expect(ctx).not.toContain(GREP_RECIPE);
+    expect(res.stdout).not.toContain('Loading knowledge base');
+    expect(res.stdout).not.toContain('Knowledge base loaded');
+    expect(res.stderr).toContain('Loading knowledge base');
+    expect(res.stderr).toContain('Knowledge base loaded');
+  });
+
+  it('Codex session-start keeps stdout machine JSON and ignores malformed stdin', async () => {
+    const res = await runHookRaw(hookPath('codex'), sb.root, 'not json');
+    expect(res.exitCode).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+    expect(parsed.additionalContext).toContain('# kenkeep');
+    expect(res.stderr).toContain('Loading knowledge base');
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const logFile = join(sb.root, '.ai/kenkeep/_logs', `hook-errors-${dateStr}.log`);
+    expect(existsSync(logFile)).toBe(false);
   });
 
   it('Cursor relays the payload via its native additional_context envelope', async () => {

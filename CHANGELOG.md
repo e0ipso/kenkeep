@@ -1,3 +1,16 @@
+## [1.6.0](https://github.com/e0ipso/kenkeep/compare/v1.5.4...v1.6.0) (2026-06-21)
+
+### Features
+
+* add /kk-session-extract live knowledge extraction path ([7630183](https://github.com/e0ipso/kenkeep/commit/7630183d2a6e75aff2d2cac92607fe2efa8337b5))
+* **harness:** wire prompt-time injection for Claude and Codex ([8ca4e48](https://github.com/e0ipso/kenkeep/commit/8ca4e4811b04d99c0b9e43a500b0afdb909e13b9))
+* merge plan 54 blueprint execution ([49fb472](https://github.com/e0ipso/kenkeep/commit/49fb4721f242525dc895bddf5a1cc0eb2fe2e83c))
+* merge plan 55 blueprint execution ([ccc7e66](https://github.com/e0ipso/kenkeep/commit/ccc7e66f6578b27800bd461e8113fae31eea4696))
+* merge plan 56 blueprint execution ([01a758d](https://github.com/e0ipso/kenkeep/commit/01a758de50d84441d2fd2eec35b04ccd7092c666))
+* **retrieval:** add deterministic prompt-time knowledge retrieval core ([0a6fdae](https://github.com/e0ipso/kenkeep/commit/0a6fdaeed659bab8992ca51c756757b480c47d26))
+* **usage:** add command markdown path candidate extraction ([cc43809](https://github.com/e0ipso/kenkeep/commit/cc43809e39142f62ac40800c86050fb14f24599b))
+* **usage:** extract shell/search command reads across harnesses ([2f09875](https://github.com/e0ipso/kenkeep/commit/2f098759ce3dcbedff33580e0d442f89b0f1584e))
+
 ## [1.5.4](https://github.com/e0ipso/kenkeep/compare/v1.5.3...v1.5.4) (2026-06-19)
 
 ### Bug Fixes

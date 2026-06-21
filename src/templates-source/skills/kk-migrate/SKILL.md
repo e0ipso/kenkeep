@@ -3,7 +3,7 @@ name: kk-migrate
 description: Run any pending knowledge-base migration by querying the deterministic migration chain (`migrate status`) and executing each pending step's documented procedure in-host, with every write delegated to the step's deterministic CLI primitives. Use when the node reader, `doctor`, or `init` reports an out-of-date `schema_version` / legacy flat layout and asks you to migrate, or when the user asks to migrate the knowledge base.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 5 -->
 
 # kk-migrate
 

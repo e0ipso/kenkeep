@@ -3,7 +3,7 @@ name: kk-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/kenkeep/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 4 -->
 
 # kk-bootstrap
 

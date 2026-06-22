@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "package": "kenkeep",
-  "version": "1.5.4",
-  "installed_at": "2026-06-21T05:44:04.407Z",
+  "version": "1.7.0",
+  "installed_at": "2026-06-22T21:42:40.276Z",
   "harnesses": [
     "claude",
     "codex",

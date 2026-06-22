@@ -3,7 +3,7 @@ name: kk-session-extract
 description: Extract durable knowledge from the current live session, stage it as a validated done session log, and run it through the same curation machinery as /kk-curate. Use when the user wants to proactively process the current session before waiting for capture hooks and a later curate pass — not for dictating one node (/kk-add) or batch-processing accumulated logs (/kk-curate).
 ---
 
-<!-- Version: 1 -->
+<!-- Version: 4 -->
 
 # kk-session-extract
 
@@ -15,13 +15,37 @@ Extract durable project knowledge from the **visible current session**, stage it
 
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` on first invocation):
 
 ```bash
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
+if [ ! -f /tmp/kk-detect-root.mjs ]; then
+cat << 'EOF' > /tmp/kk-detect-root.mjs
+#!/usr/bin/env node
+// kk-detect-root: resolves the project root containing .ai/kenkeep.
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+let dir = process.cwd();
+while (true) {
+  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
+    process.stdout.write(dir);
+    process.exit(0);
+  }
+  const parent = dirname(dir);
+  if (parent === dir) {
+    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
+    process.exit(2);
+  }
+  dir = parent;
+}
+EOF
+fi
+KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
+pwd
 ```
 
-`$HARNESS` is required for `index rebuild`.
+`$HARNESS` is required for `index rebuild`. Treat the printed path as the working directory for every command below.
 
 ## 1. Extract proposals from the live context
 
@@ -82,9 +106,9 @@ This stamps only the staged live log. Unrelated `proposal_status: done` logs in 
 
 Capture the stdout JSON summary (`kept`, `conflicts`, `stamped`, `runId`) and report it to the user.
 
-## 5. Persist surviving actions via `node write`
+## 5. Persist surviving actions via `curate-persist`
 
-Follow `/kk-curate` Step 5 exactly: read `$SURVIVORS`, persist each non-`drop` action via `node write`, surface stderr on failure, continue with the next action.
+Follow `/kk-curate` Step 5 exactly: persist `$SURVIVORS` via `curate-persist`, surface any per-action failures from the summary, keep successful writes, and continue to the rebuild.
 
 ## 6. Rebuild the indices
 

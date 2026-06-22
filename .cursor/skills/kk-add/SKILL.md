@@ -3,7 +3,7 @@ name: kk-add
 description: Capture a kenkeep node manually from the current session. Writes a new node directly under `.ai/kenkeep/nodes/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 4 -->
+<!-- Version: 6 -->
 
 # kk-add
 
@@ -15,13 +15,37 @@ Before invoking, skim `.ai/kenkeep/ENTRY.md` (already in context) and grep `node
 
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` on first invocation):
 
 ```bash
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
+if [ ! -f /tmp/kk-detect-root.mjs ]; then
+cat << 'EOF' > /tmp/kk-detect-root.mjs
+#!/usr/bin/env node
+// kk-detect-root: resolves the project root containing .ai/kenkeep.
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+let dir = process.cwd();
+while (true) {
+  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
+    process.stdout.write(dir);
+    process.exit(0);
+  }
+  const parent = dirname(dir);
+  if (parent === dir) {
+    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
+    process.exit(2);
+  }
+  dir = parent;
+}
+EOF
+fi
+KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
+pwd
 ```
 
-`$HARNESS` is not consumed by `node write`, but other kenkeep commands invoked downstream still require it.
+`$HARNESS` is not consumed by `node write`, but other kenkeep commands invoked downstream still require it. Treat the printed path as the working directory for every command below.
 
 ## Capture the node
 
@@ -51,7 +75,7 @@ If a dispatch primitive is available:
 
 5. On validation failure, do **not** abort. Fall back to the inline drafting path below on this same invocation; the user-visible summary is unchanged either way.
 
-If no dispatch primitive is available, skip directly to the inline drafting path below and draft the node body inline in this session — the default path, with identical user-visible behaviour.
+If no dispatch primitive is available, skip directly to the inline drafting path below — this is today's shipped behaviour and is preserved byte-equivalent.
 
 ### Inline drafting + `node write` (default and fallback)
 

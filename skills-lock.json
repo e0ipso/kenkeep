@@ -1,6 +1,36 @@
 {
   "version": 1,
   "skills": {
+    "kk-add": {
+      "source": "e0ipso/kenkeep",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kk-add/SKILL.md",
+      "computedHash": "4924357e0da63911c54d5ac2afc2839aa80fd8b2dfd9c55f92bf2b59b91af7d4"
+    },
+    "kk-bootstrap": {
+      "source": "e0ipso/kenkeep",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kk-bootstrap/SKILL.md",
+      "computedHash": "d58f1fa5b3432804eaceb3f31c6bdf27b44568028fd6d2083d82e66046f09d98"
+    },
+    "kk-curate": {
+      "source": "e0ipso/kenkeep",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kk-curate/SKILL.md",
+      "computedHash": "edbc3873607f4cfda5b17a6ed69c72e5a7869ebe2ded675cb8b2a6cdfca6b85a"
+    },
+    "kk-migrate": {
+      "source": "e0ipso/kenkeep",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kk-migrate/SKILL.md",
+      "computedHash": "a53472bed1cb2e688796f7dc49bb1be4136d66288f5cf715078d4a50eb233cab"
+    },
+    "kk-session-extract": {
+      "source": "e0ipso/kenkeep",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/kk-session-extract/SKILL.md",
+      "computedHash": "12c4cafbc32756ad10f2513546b2eb6071aca81c90204147aed1db6a8a8dddf0"
+    },
     "st-create-plan": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",

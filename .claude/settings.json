@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs\""
           }
         ]
       },
@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-lint-tick.cjs\"",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-lint-tick.cjs\"",
             "async": true
           }
         ]
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-capture.cjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-capture.cjs\""
           }
         ]
       }
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-proposal-drain.cjs\"",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-proposal-drain.cjs\"",
             "async": true
           }
         ]
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-session-start.cjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-session-start.cjs\""
           }
         ]
       }
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/kk-prompt-context.cjs\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.ai/kenkeep/hooks/claude/kk-prompt-context.cjs\""
           }
         ]
       }

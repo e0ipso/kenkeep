@@ -3,7 +3,7 @@ name: kk-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/kenkeep/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 4 -->
 
 # kk-bootstrap
 
@@ -23,13 +23,37 @@ Before you start, read `.ai/kenkeep/config.yaml` (falling back to `~/.config/ken
 
 ## Resolve the active harness
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` on first invocation):
 
 ```bash
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
+if [ ! -f /tmp/kk-detect-root.mjs ]; then
+cat << 'EOF' > /tmp/kk-detect-root.mjs
+#!/usr/bin/env node
+// kk-detect-root: resolves the project root containing .ai/kenkeep.
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+let dir = process.cwd();
+while (true) {
+  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
+    process.stdout.write(dir);
+    process.exit(0);
+  }
+  const parent = dirname(dir);
+  if (parent === dir) {
+    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
+    process.exit(2);
+  }
+  dir = parent;
+}
+EOF
+fi
+KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
+pwd
 ```
 
-`$HARNESS` is not consumed by `finddocs` or `node write`, but downstream commands in this skill (`index rebuild`) require it.
+`$HARNESS` is not consumed by `finddocs` or `node write`, but downstream commands in this skill (`index rebuild`) require it. Treat the printed path as the working directory for every command below.
 
 ## Steps
 
@@ -116,7 +140,7 @@ mkdir -p .ai/kenkeep/_logs/bootstrap
 LOG_DIR="$(pwd)/.ai/kenkeep/_logs/bootstrap"
 ```
 
-Now probe your own tool surface: **if your runtime exposes a sub-agent / task dispatch primitive that runs in a separate context window and returns a structured result, use the parallel path below; otherwise use the inline fallback path that follows it.** Recursion into yourself, or a headless child of your own host, does **not** count — that is not genuine delegation and you must take the fallback in that case.
+Now probe your own tool surface: **if your runtime exposes a sub-agent / task dispatch primitive that runs in a separate context window and returns a structured result, use the parallel path below; otherwise use the inline fallback path that follows it.** Recursion into yourself, or shelling out to another instance of your own CLI in `-p`-style headless mode, does **not** count — that is not genuine delegation and you must take the fallback in that case.
 
 Probe and fallback live in the same section so you never enter a half-state: if at any moment you are unsure whether the dispatch primitive exists on your tool surface, take the fallback.
 
@@ -124,7 +148,7 @@ Probe and fallback live in the same section so you never enter a half-state: if 
 
 This path dispatches the drafting of one candidate doc per sub-agent and reaps the JSON drafts at the end. The unit of parallelism is **one candidate doc**.
 
-**Concurrency cap: ≤5 sub-agents per orchestrator turn.** If your filtered working set has N > 5 docs, issue them in waves of up to 5: dispatch wave 1, await all results in the collector, dispatch wave 2, and so on. The cap leaves headroom for the orchestrator's own tool calls and bounds rate-limit risk.
+**Concurrency cap: ≤5 sub-agents per orchestrator turn.** If your filtered working set has N > 5 docs, issue them in waves of up to 5: dispatch wave 1, await all results in the collector, dispatch wave 2, and so on. The reference runtime tops out near ~10 concurrent agents; holding the cap at 5 leaves headroom for the orchestrator's own tool calls and bounds rate-limit risk.
 
 **Orchestrator turn — for each batch (numbered `<batchN>` starting at 1):**
 
@@ -205,7 +229,7 @@ When you're done, summarize for the user:
 - Any docs that looked stale or contradictory that the user should double-check.
 - Confirmation that `ENTRY.md` and `GRAPH.md` were refreshed.
 
-Then tell the user to review the written files, accept by leaving them in place, and reject by deleting them (`rm nodes/<folder>/<file>.md`). The indices were already rebuilt above to include every written node, so if they delete any, they must run `npx kenkeep index rebuild` afterward to drop the removed nodes from `ENTRY.md`/`GRAPH.md` and the per-folder `index.md` tree.
+Then tell the user to review the written files, accept by leaving them in place, and reject by deleting them (`rm nodes/<folder>/<file>.md`).
 
 ## Constraints
 

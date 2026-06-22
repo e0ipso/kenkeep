@@ -10,7 +10,7 @@ var DISPATCH = {
 var kk_default = async input => {
   if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return {};
   const projectDir = input.directory ?? input.project?.worktree ?? process.cwd();
-  const kkHooks = join(projectDir, '.opencode', 'kk-hooks');
+  const kkHooks = join(projectDir, '.ai', 'kenkeep', 'hooks', 'opencode');
   return {
     event: async ({ event }) => {
       if (!event.type) return;

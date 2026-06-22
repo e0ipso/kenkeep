@@ -7,11 +7,11 @@ const here = resolve(fileURLToPath(import.meta.url), '..');
 const skillsDir = join(here, '../../src/templates-source/skills');
 
 const skills = [
-  ['kk-add', '5'],
-  ['kk-bootstrap', '3'],
-  ['kk-curate', '6'],
-  ['kk-migrate', '3'],
-  ['kk-session-extract', '3'],
+  ['kk-add', '6'],
+  ['kk-bootstrap', '4'],
+  ['kk-curate', '7'],
+  ['kk-migrate', '5'],
+  ['kk-session-extract', '4'],
 ] as const;
 
 describe('shipped kk skills root discovery', () => {
@@ -20,12 +20,10 @@ describe('shipped kk skills root discovery', () => {
       const text = readFileSync(join(skillsDir, skill, 'SKILL.md'), 'utf8');
 
       expect(text, skill).toContain(`<!-- Version: ${version} -->`);
-      expect(text, skill).toContain('## Enter the project root');
-      expect(text, skill).toContain('while [ "$KK_ROOT" != "/" ]');
-      expect(text, skill).toContain('[ ! -d "$KK_ROOT/.ai/kenkeep" ]');
-      expect(text, skill).toContain('cd "$KK_ROOT"');
-      expect(text.indexOf('## Enter the project root'), skill).toBeLessThan(
-        text.indexOf('## Resolve the active harness')
+      expect(text, skill).toContain('/tmp/kk-detect-root.mjs');
+      expect(text, skill).toContain('cd "$KK_REPO_ROOT"');
+      expect(text.indexOf('cd "$KK_REPO_ROOT"'), skill).toBeLessThan(
+        text.indexOf('.ai/kenkeep/scripts/kk-detect-harness.mjs')
       );
     }
   });

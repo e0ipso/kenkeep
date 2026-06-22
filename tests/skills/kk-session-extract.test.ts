@@ -14,7 +14,7 @@ describe('kk-session-extract skill contract', () => {
 
   it('documents the live extraction workflow and scoped dedup path', () => {
     const text = readFileSync(skillSource, 'utf8');
-    expect(text).toContain('<!-- Version: 3 -->');
+    expect(text).toContain('<!-- Version: 4 -->');
     expect(text).toContain('proposal-extract.md');
     expect(text).toContain('[TRANSCRIPT PLACEHOLDER, substituted at runtime]');
     expect(text).toContain('session-log stage-live');

@@ -172,4 +172,78 @@ describe('curate-persist primitive', () => {
     expect(stdout).toBe('');
     expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-untitled.md'))).toBe(false);
   });
+
+  it('rejects contradict actions and unsafe home_folder placements', async () => {
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        {
+          action: 'contradict',
+          candidate_origin: 's1:practice:0',
+          target_node_id: 'practice-existing',
+          home_folder: 'topic',
+          proposed_node: {
+            title: 'Conflicting',
+            kind: 'practice',
+            tags: ['foo'],
+            summary: 'conflicts with existing',
+            body: 'Conflict body.',
+            confidence: 'high',
+            relates_to: [],
+          },
+          rationale: 'conflicts with existing node',
+        },
+        {
+          action: 'add',
+          candidate_origin: 's2:practice:0',
+          target_node_id: null,
+          home_folder: '../escape',
+          proposed_node: {
+            title: 'Traversal',
+            kind: 'practice',
+            tags: ['foo'],
+            summary: 'traversal attempt',
+            body: 'No write.',
+            confidence: 'medium',
+            relates_to: [],
+          },
+          rationale: 'unsafe relative placement',
+        },
+        {
+          action: 'add',
+          candidate_origin: 's3:practice:0',
+          target_node_id: null,
+          home_folder: '/etc',
+          proposed_node: {
+            title: 'Absolute',
+            kind: 'practice',
+            tags: ['foo'],
+            summary: 'absolute attempt',
+            body: 'No write.',
+            confidence: 'medium',
+            relates_to: [],
+          },
+          rationale: 'unsafe absolute placement',
+        },
+      ])
+    );
+
+    const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(1);
+    const summary = JSON.parse(stdout);
+    expect(summary.written).toBe(0);
+    expect(summary.failed).toBe(3);
+    expect(summary.results.map((r: { status: string }) => r.status)).toEqual([
+      'failed',
+      'failed',
+      'failed',
+    ]);
+    expect(summary.results[0].reason).toMatch(/contradict/);
+    // Path-safety failures surface as a missing destination folder under nodes/.
+    expect(summary.results[1].reason).toMatch(/does not exist/);
+    expect(summary.results[2].reason).toMatch(/does not exist/);
+    // No traversal write landed outside nodes/.
+    expect(existsSync(join(cwd, '.ai/kenkeep/escape/practice-traversal.md'))).toBe(false);
+  });
 });

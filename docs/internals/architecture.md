@@ -26,7 +26,7 @@ src/
 
 ## Two CLI shapes
 
-- **Deterministic primitives:** `init`, `doctor`, `status`, `lint`, `finddocs`, `node write`, `session-log stage-live`, `session-log update-proposals`, `curate-dedup`, `index rebuild`, `logs prune`. No LLM. Pure Node helpers; skills compose them, CI/scripts may call them directly.
+- **Deterministic primitives:** `init`, `doctor`, `status`, `lint`, `finddocs`, `node write`, `session-log stage-live`, `session-log update-proposals`, `curate-dedup`, `curate-persist`, `rebalance trigger`, `rebalance move`, `index rebuild`, `logs prune`. No LLM. Pure Node helpers; skills compose them, CI/scripts may call them directly.
 - **Launchers:** `bootstrap`, `curate`, `node add`. Thin wrappers that exec `<harness> -p "/kk-<name>"` with `KENKEEP_BUILDER_INTERNAL=1` set on the child. The LLM call runs in the host harness session, not in a subprocess spawned by this CLI.
 
 **Model config:** the proposal-drain hook's model and effort are set via `proposalModel: { name, effort }` in `config.yaml`. Curate and bootstrap run under whatever model the host harness session uses.
@@ -56,9 +56,10 @@ flowchart TB
     subgraph curate[Curate]
         UC["/kk-curate slash command<br/>or curate launcher"] --> KB3[kk-curate skill<br/>in host harness session]
         SLD --> KB3
-        KB3 -->|node write| NODES[(nodes/&lt;topic&gt;/&lt;id&gt;.md)]
-        KB3 -->|curate-dedup| PC[conflicts/&lt;id&gt;.md]
-        KB3 -->|index rebuild| IDX[per-folder index.md + ENTRY.md / GRAPH.md]
+        KB3 -->|curate-dedup| PC[conflicts/&lt;id&gt;.md<br/>+ survivor batch]
+        PC -->|curate-persist| NODES[(nodes/&lt;topic&gt;/&lt;id&gt;.md)]
+        KB3 -->|rebalance trigger / move| IDX[per-folder index.md + ENTRY.md / GRAPH.md]
+        KB3 -->|index rebuild| IDX
     end
 
     subgraph review[Review]
@@ -108,7 +109,7 @@ The parallel path additionally writes a `<runId>__<batchN>.draft.json` beside ea
 
 Only the **proposal-drain hook** locks. It holds a `proper-lockfile` lock on `state.json` (a mkdir-atomic `state.json.lock` directory whose mtime is refreshed on a heartbeat while held; 60s stale threshold) to keep concurrent SessionStart drains from racing on the pending queue. A drain SIGKILLed by the host's outer hook timeout can neither run its `finally` release nor `proper-lockfile`'s graceful-exit handler, so the lock only clears once it goes stale; the next drain auto-reclaims it on acquire (recovery within ~60s, vs. the 30-min state-file default used by other locks).
 
-**Curate, bootstrap, and consume do not lock.** Curate, `/kk-session-extract`, and bootstrap each run in a single host harness session per user invocation (single-author by design); the atomic tmp+rename writes inside `node write`, `session-log stage-live`, and `curate-dedup` provide durability.
+**Curate, bootstrap, and consume do not lock.** Curate, `/kk-session-extract`, and bootstrap each run in a single host harness session per user invocation (single-author by design); the atomic tmp+rename writes inside `node write`, `session-log stage-live`, `curate-dedup`, and `curate-persist` provide durability.
 
 ### Live session extraction
 
@@ -182,7 +183,8 @@ An index node body carries: an embedded one-line descent directive (from the sin
 | Goal | Path |
 |---|---|
 | Change extraction | `src/templates-source/prompts/proposal-extract.md` |
-| Change curate | `src/templates-source/skills/kk-curate/SKILL.md` (dedup primitive logic in `src/commands/curate-dedup.ts`) |
+| Change curate | `src/templates-source/skills/kk-curate/SKILL.md` (dedup logic in `src/commands/curate-dedup.ts`, survivor-batch persistence + placement in `src/commands/curate-persist.ts`) |
+| Change rebalance | `src/lib/rebalance.ts` (LLM-free trigger thresholds + grouped `create-branch`), `src/commands/rebalance.ts` (`trigger` / `move` primitives) |
 | Change live session extract | `src/templates-source/skills/kk-session-extract/SKILL.md` (`session-log stage-live` in `src/commands/session-log-stage-live.ts`) |
 | Change bootstrap | `src/templates-source/skills/kk-bootstrap/SKILL.md` (discovery primitive in `src/commands/finddocs.ts`, write primitive in `src/commands/node-write.ts`) |
 | Change manual node add | `src/templates-source/skills/kk-add/SKILL.md` |

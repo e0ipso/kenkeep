@@ -1,3 +1,21 @@
+## [1.7.0](https://github.com/e0ipso/kenkeep/compare/v1.6.0...v1.7.0) (2026-06-22)
+
+### Features
+
+* **curate:** persist survivor batches ([3f39460](https://github.com/e0ipso/kenkeep/commit/3f39460c51c7a0d4e8827834a2e246de3fda7d85))
+* **curate:** persist survivor batches ([e14fe72](https://github.com/e0ipso/kenkeep/commit/e14fe72581711732c7e0672b657239a722d8c95e))
+* **harness:** use shared hook script tree ([e3e87bb](https://github.com/e0ipso/kenkeep/commit/e3e87bb9da77730a7347c9df7e6435402339b8ea))
+* **harness:** use shared hook script tree ([45292a2](https://github.com/e0ipso/kenkeep/commit/45292a2d45281627b75b44fb6cc6e37bb468eeae))
+
+### Bug Fixes
+
+* apply suggestions from code review ([ff6578b](https://github.com/e0ipso/kenkeep/commit/ff6578bfd22b29c2b49946cc1a879cbb2da43dba))
+* **codex:** tolerate current hook payloads ([e15db57](https://github.com/e0ipso/kenkeep/commit/e15db5701244df79cbb94412eeee1e91b32bf64e))
+* **codex:** tolerate current hook payloads ([acac091](https://github.com/e0ipso/kenkeep/commit/acac0914c5e1bba307860239d469f7652ca485c3))
+* normalize skill cwd to repo root ([3d2672d](https://github.com/e0ipso/kenkeep/commit/3d2672d26c7832f5d85df8d08a3e1ac85543a8b3)), closes [#54](https://github.com/e0ipso/kenkeep/issues/54)
+* restore clobbered skill version numbers ([13407db](https://github.com/e0ipso/kenkeep/commit/13407db746f90abe984df25b446a7ee127195382))
+* **skills:** run kenkeep skills from repo root ([d8df7b1](https://github.com/e0ipso/kenkeep/commit/d8df7b1e4e557cfef04288b0b416b214791551d1)), closes [#54](https://github.com/e0ipso/kenkeep/issues/54)
+
 ## [1.6.0](https://github.com/e0ipso/kenkeep/compare/v1.5.4...v1.6.0) (2026-06-21)
 
 ### Features

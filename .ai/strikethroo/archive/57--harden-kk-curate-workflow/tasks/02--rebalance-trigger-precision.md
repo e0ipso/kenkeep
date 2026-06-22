@@ -2,7 +2,7 @@
 id: 2
 group: "rebalance"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-21
 skills:
   - typescript

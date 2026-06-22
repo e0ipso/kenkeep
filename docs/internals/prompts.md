@@ -202,21 +202,23 @@ A single JSON array. Each element:
 }
 ```
 
-The skill applies actions via the deterministic `curate-dedup` and `node write` primitives:
+The skill applies actions through two deterministic primitives in sequence. `curate-dedup` runs first: it keeps the higher-confidence action per `proposed_node.id`, writes `contradict` actions to `conflicts/`, stamps the source session logs, and emits the surviving `add`/`modify` actions as a **survivor batch**. The skill then pipes that batch to `curate-persist`, which performs every write to `nodes/` and reports per-action `written` / `dropped` / `failed` counts plus the placement decision for each leaf:
 
 | Action | Behavior |
 |---|---|
-| `add` | `node write` atomically writes `nodes/<folder>/<id>.md`. If the file exists, it resolves the slug via `ensureUniqueId` (`<id>-2`, ...); a true collision-after-resolution is reported as a failure. |
-| `modify` | `node write` runs against the existing `nodes/<folder>/<target_node_id>.md`. If the target is missing, the skill records a `modify_missing_target` failure. |
-| `contradict` | The action is piped to `curate-dedup`, which writes the conflict to `.ai/kenkeep/conflicts/<id>.md` (`status: pending`) and stamps the source session log. The skill then walks each conflict in-session with the user. |
+| `add` | `curate-persist` atomically writes `nodes/<folder>/<id>.md` into the chosen folder (or the `nodes/` root when none was chosen). If the file exists, it resolves the slug via `ensureUniqueId` (`<id>-2`, ...); a true collision-after-resolution is reported as a `failed` result. |
+| `modify` | `curate-persist` runs against the existing `nodes/<folder>/<target_node_id>.md`, overwriting in place by id (never relocating). If the target is missing on disk, it reports a `failed` result. |
+| `contradict` | Handled by `curate-dedup` (not `curate-persist`): the conflict is written to `.ai/kenkeep/conflicts/<id>.md` (`status: pending`) and the source session log is stamped. The skill then walks each conflict in-session with the user. |
 | `drop` | No-op. |
+
+`curate-persist` emits a `PERSIST_SUMMARY` whose `results` carry the per-leaf placement (the chosen folder, or `root fallback`). The skill reports these so the human reviews placement alongside content.
 
 `suggested_resolution` is always emitted as `null`; resolution happens via the in-session walkthrough.
 
 ### Verifying
 
-1. `npm test`: curate-dedup tests assert that add/modify proposals survive to the output JSON, contradict actions become conflict files under `conflicts/`, and slug-collision-after-resolution lands in the failure report.
-2. Inspect the harness session transcript for the final proposal JSON the skill piped to `curate-dedup`.
+1. `npm test`: `curate-dedup` tests assert that add/modify proposals survive to the output batch and contradict actions become conflict files under `conflicts/`; `curate-persist` tests assert that survivors are written to `nodes/`, slug-collision-after-resolution and missing modify targets land as `failed` results, and the placement decision is reported per leaf.
+2. Inspect the harness session transcript for the surviving-actions JSON the skill piped from `curate-dedup` into `curate-persist`.
 
 ### Anti-patterns
 
@@ -248,6 +250,17 @@ Controls what the kk-bootstrap skill treats as candidates from your source docs.
 4. Note false positives and negatives. Adjust the "what to extract" and "what to skip" sections of `src/templates-source/skills/kk-bootstrap/SKILL.md` (or the per-harness copy under `.claude/skills/kk-bootstrap/SKILL.md` for a consumer-side override).
 5. Delete `bootstrap-state.json` and re-run.
 6. Repeat until acceptance lands around 60-80%. Higher rates tend to drop true positives.
+
+## Rebalance trigger (deterministic, LLM-free)
+
+The final phase of `/kk-curate` calls `rebalance trigger`, a pure function of the per-folder metrics and the leaf set (`src/lib/rebalance.ts`). It decides which branches, if any, the LLM clustering step may touch; on an empty decision the skill skips clustering at zero cost. Every rule is gated past a hysteresis margin so a single borderline leaf cannot make a folder oscillate:
+
+- **split-folder** — a folder whose direct-leaf occupancy is strictly greater than `FOLDER_OCCUPANCY_MAX` (12).
+- **merge** — a non-root branch whose occupancy is strictly less than `BRANCH_OCCUPANCY_MIN` (2) **and that has no child folders**. A sparse folder that still parents subfolders is never a merge candidate (collapsing it would orphan its children); recursive merge is deliberately not implemented by the trigger. The `nodes/` root is also never a merge candidate — it is the deliberate fallback home.
+- **split-leaf** — a single leaf whose estimated size exceeds `LEAF_SIZE_SPLIT_THRESHOLD` (1500 tokens) **and** whose distinct-tag count is at least `LEAF_CONCEPT_MIN` (3), the LLM-free stand-in for "covers two or more concepts".
+- **create-branch** — one or more leaves sitting at the `nodes/` root with zero `relates_to` + `depends_on` edges (the curate root-fallback signal for a homeless, novel top-level topic). Root leaves sharing a useful tag are **grouped into a single `create-branch` action**: the action carries a stable representative `branch`, the full `branches` array naming every leaf in the group, and the shared `topic` tag. Older consumers can read the one `branch`; the skill reads `branches` as the complete named group to cluster together. `branches` and `topic` are absent for a lone homeless leaf.
+
+The decision is sorted by branch path then operation, so identical input yields byte-identical output.
 
 ## Folder-summary authoring (migrate and rebalance clustering)
 
@@ -282,11 +295,11 @@ To force re-extraction of a `failed` entry: set `proposal_status: pending` in th
 
 ### Curate / bootstrap
 
-These do not write `_logs/curator/*.jsonl` or `_logs/bootstrap/*.jsonl`; the work runs in the host harness session and that transcript captures the reasoning. To inspect what the curate skill did on a run, read the host session transcript (or, for the `curate-dedup` primitive's output, pass `--output <path>` to capture the surviving-actions JSON).
+These do not write `_logs/curator/*.jsonl` or `_logs/bootstrap/*.jsonl`; the work runs in the host harness session and that transcript captures the reasoning. To inspect what the curate skill did on a run, read the host session transcript: the `curate-dedup` survivor batch and the `curate-persist` `PERSIST_SUMMARY` (with per-leaf `written` / `dropped` / `failed` results and placement) are both printed there.
 
 | Issue | Diagnosis |
 |---|---|
-| **`nodesWritten: 0` despite a non-empty batch** | Check the host session transcript for skill-reported failures (slug collision, `modify_missing_target`, or `add_collision`). |
+| **`written: 0` despite a non-empty batch** | Read the `curate-persist` `PERSIST_SUMMARY` in the transcript: each `failed` result names its cause (slug collision after resolution, or a missing modify target). |
 | **Conflict not surfacing in `/kk-curate`** | Check `.ai/kenkeep/conflicts/` for a file with `status: pending`. The skill walks from there. |
 | **Duplicates after dedup** | `curate-dedup` keeps the higher-confidence action per `proposed_node.id`. Duplicates mean inconsistent slugification produced different ids. |
 

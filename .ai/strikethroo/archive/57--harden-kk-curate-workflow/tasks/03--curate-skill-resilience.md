@@ -2,7 +2,7 @@
 id: 3
 group: "skills"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-21
 skills:
   - technical-writing

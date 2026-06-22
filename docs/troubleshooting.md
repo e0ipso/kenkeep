@@ -30,6 +30,16 @@ Session logs are stuck pending.
 
 Either everything is already curated, or some session logs have invalid frontmatter and are being silently skipped. Run `doctor`.
 
+If session logs clearly exist under `.ai/kenkeep/_sessions/` but the skill reports none, a flat `*.md` glob may have missed them in your harness. The skill falls back to listing the directory directly (or `find .ai/kenkeep/_sessions -type f -name '*.md'`) before giving up, so this is normally self-healing; if it still misses, confirm the files end in `.md` and carry `proposal_status: pending` frontmatter.
+
+## `/kk-curate` fails with `EBUSY` running a primitive
+
+In Cursor-like environments a direct `node`/`npx` shell call can fail with `EBUSY` even when the command is valid. The skill retries the **same** argv through Python's `subprocess` list form (no wrapper, no shell), so a transient `EBUSY` is expected to recover on its own. A persistent failure through both paths is a real error — check that `npx --yes kenkeep@latest <command>` runs in a plain terminal.
+
+## `/kk-curate` asks which harness to use, or picks the wrong one
+
+The skill resolves the harness id via the shared detector at `.ai/kenkeep/scripts/kk-detect-harness.mjs` (needed for `index rebuild`). When that detector cannot run, it falls back to `.ai/kenkeep/.state/installed-version`: if exactly one harness is installed it uses that; if several are installed it uses your runtime only when it matches one of them; otherwise it asks you to pick. To stop the prompt, make `installed-version` unambiguous (one installed harness) or run from a runtime whose id matches an installed harness.
+
 ## Curator reported `add_collision` or `modify_missing_target` failures
 
 - **`add_collision`**: the curator wanted to write a new node, but a node with that id already exists. Pick a different title for the candidate (re-run `/kk-curate` after deleting/editing the offending session log) or treat the existing node as the canonical version.

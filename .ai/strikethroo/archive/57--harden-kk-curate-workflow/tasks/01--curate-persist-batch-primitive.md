@@ -2,7 +2,7 @@
 id: 1
 group: "curate-cli"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-21
 skills:
   - typescript-cli

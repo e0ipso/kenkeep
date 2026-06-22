@@ -145,43 +145,6 @@ Node 22+, npm, the existing `tsup` build, Vitest, TypeScript, ESLint, and the lo
 
 The new primitive integrates between `curate-dedup` and `index rebuild` in the existing `/kk-curate` skill. Rebalance trigger changes remain confined to the deterministic decision layer and keep `rebalance move` as the only writer for structural changes. Documentation and template source changes should land with the implementation so installed skills and repository docs do not diverge.
 
-## Execution Blueprint
-
-**Validation Gates:**
-- Reference: `/config/hooks/POST_PHASE.md`
-
-```mermaid
-graph TD
-    001[Task 001: curate-persist batch primitive] --> 004[Task 004: docs + template propagation]
-    002[Task 002: rebalance trigger precision] --> 004
-    003[Task 003: curate skill resilience] --> 004
-    001 --> 005[Task 005: full self-validation]
-    002 --> 005
-    003 --> 005
-    004 --> 005
-```
-
-### Phase 1: Core implementation (verify + complete e14fe72 work)
-**Parallel Tasks:**
-- Task 001: Verify and complete the `curate-persist` batch survivor primitive
-- Task 002: Verify and complete rebalance trigger precision
-- Task 003: Verify and complete curator skill resilience instructions
-
-### Phase 2: Documentation and template propagation
-**Parallel Tasks:**
-- Task 004: Update human-facing docs and propagate templates from source (depends on: 001, 002, 003)
-
-### Phase 3: Full self-validation gate
-**Parallel Tasks:**
-- Task 005: Run the plan's full self-validation gate (depends on: 001, 002, 003, 004)
-
-### Post-phase Actions
-Run `/config/hooks/POST_PHASE.md` after each phase. Do not advance until it succeeds.
-
-### Execution Summary
-- Total Phases: 3
-- Total Tasks: 5
-
 ## Notes
 
 Issue reference: https://github.com/e0ipso/kenkeep/issues/61.

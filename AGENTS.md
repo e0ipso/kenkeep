@@ -152,6 +152,10 @@ We dogfood the tool. [`.ai/kenkeep/nodes/`](.ai/kenkeep/nodes/) contains the cur
 
 To add to the knowledge base during a session: invoke the `kk-add` skill. To process accumulated session captures: invoke `kk-curate` ([map-curate-command](.ai/kenkeep/nodes/curation/map-curate-command.md)). To seed from existing docs: invoke `kk-bootstrap` ([map-kk-bootstrap-skill](.ai/kenkeep/nodes/bootstrap/map-kk-bootstrap-skill.md)). All three write to `nodes/` directly; review with `git diff`, accept with `git commit`, reject with `git restore`.
 
+## Cursor Cloud specific instructions
+
+When developing in a Cursor Cloud Agent VM, read [`.cursor/cloud-instructions.md`](.cursor/cloud-instructions.md) for environment setup and run caveats (build-before-run, the `--harnesses` flag, the expected `doctor` error). Load it on demand — it is not needed for routine local work.
+
 <!-- >>> kenkeep:kk-index >>> -->
 Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the entry catalog of the knowledge base. Enter there and descend before designing a non-trivial change:
 

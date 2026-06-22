@@ -1,0 +1,10 @@
+{
+  "name": "Kenkeep",
+  "skills": [
+    "./templates/skills/kk-add",
+    "./templates/skills/kk-bootstrap",
+    "./templates/skills/kk-curate",
+    "./templates/skills/kk-migrate",
+    "./templates/skills/kk-session-extract"
+  ]
+}

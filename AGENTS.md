@@ -154,12 +154,7 @@ To add to the knowledge base during a session: invoke the `kk-add` skill. To pro
 
 ## Cursor Cloud specific instructions
 
-Dependencies are installed automatically on VM startup (`npm install`). Node 22+ is present. The repo is a pure CLI npm package — no daemons or services to run (see the Constitution).
-
-- **Build before running the CLI.** `npm install` only runs `husky`; it does **not** build. Run `npm run build` to produce `dist/` (and the `templates/` tree) before `node dist/cli.js <subcommand>`. `npm test` self-builds via its `pretest` hook, so lint/typecheck/test work without a manual build, but running the CLI does not.
-- **Standard commands** are in `## Commands` above (`npm run build`, `npm test`, `npm run typecheck`, `npm run lint`, `npm run format`). All pass green in this environment (436 tests).
-- **`init` uses `--harnesses` (plural):** `node dist/cli.js init --harnesses claude`. The global active-harness selector is the singular `--harness <id>` (e.g. `node dist/cli.js --harness claude doctor`); pass it explicitly since env-based detection only fires inside a real host harness session.
-- **`doctor` reports one expected "error" here:** `claude CLI on PATH: not runnable (spawn claude ENOENT)` — no harness binary is installed in the cloud VM. This is an environment limitation, not a repo defect; every other check passes.
+When developing in a Cursor Cloud Agent VM, read [`.cursor/cloud-instructions.md`](.cursor/cloud-instructions.md) for environment setup and run caveats (build-before-run, the `--harnesses` flag, the expected `doctor` error). Load it on demand — it is not needed for routine local work.
 
 <!-- >>> kenkeep:kk-index >>> -->
 Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the entry catalog of the knowledge base. Enter there and descend before designing a non-trivial change:

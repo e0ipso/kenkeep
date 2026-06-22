@@ -1,7 +1,7 @@
 {
-  "version": "3.1.0",
-  "workspaceSchemaVersion": 1,
-  "timestamp": "2026-06-01T20:29:28.829Z",
+  "version": "3.6.0",
+  "workspaceSchemaVersion": 2,
+  "timestamp": "2026-06-22T21:41:51.132Z",
   "files": {
     "config/STRIKETHROO.md": "98331dd4834b916d0b603263ac8d8306a6591bfd5889ea83873b04c3b0437177",
     "config/TASK_MANAGER.md": "06577a7677159d7556494cbd2b42a34ad4d27aee8dbd851a21935c2a03502901",
@@ -13,7 +13,10 @@
     "config/hooks/PRE_PHASE.md": "f29cb909f700e38adadf44db8dc9f62466300f0e2fe45c2a28094f468ab19e93",
     "config/hooks/PRE_PLAN.md": "821a4730ecf3a4fdaafcdca4e17c93f207db8bd68ee20210e5a2f3092b8beaab",
     "config/hooks/PRE_TASK_ASSIGNMENT.md": "03f6c50926ccb7460c4849cff9297f35b569695ca634d31adb91ad96cf30a1c1",
-    "config/hooks/PRE_TASK_EXECUTION.md": "1dc680f47c64958e70d51c0f333ba5330b41c52eab0adcebbbabb0470f3d9842",
+    "config/hooks/PRE_TASK_EXECUTION.md": "9641a1bdd70aea5a13ae53ecf01263a93a63727775dc86e26a54a52f34f1fca0",
+    "config/shared/anti-rationalization.md": "0d2c1a5c5efc39acdf05fcd9578d64bf43cdf602693085e3cf33fe2e9f69edb5",
+    "config/shared/clarification-gate.md": "73f61cf5ea8b91c638dcb84a643af399c662014b1e05cd3b3a4a55aa7c773233",
+    "config/shared/verification-gate.md": "002c6c5265e9612e64521172d99c49c8968d78ac6df907cdb352cc2b5d794ffd",
     "config/templates/BLUEPRINT_TEMPLATE.md": "22184bbf3fb78323526a1ca5f314c838cbcbf01341572cc280cf31db0884a40b",
     "config/templates/EXECUTION_SUMMARY_TEMPLATE.md": "ffc5329f070b10088be0ad17c67b98468a6e850cbb9749755bbc6a275e78ab35",
     "config/templates/PLAN_TEMPLATE.md": "714115b5c3c3d4f6ddc281cbc7ea3872f1e436654d4a2442ce64b051ceb83870",

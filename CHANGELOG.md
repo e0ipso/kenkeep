@@ -1,3 +1,9 @@
+## [1.7.1](https://github.com/e0ipso/kenkeep/compare/v1.7.0...v1.7.1) (2026-06-22)
+
+### Bug Fixes
+
+* drop unrelated skills ([0dd87da](https://github.com/e0ipso/kenkeep/commit/0dd87da8ae99cbf76305d559c26f8e009b4b9c47))
+
 ## [1.7.0](https://github.com/e0ipso/kenkeep/compare/v1.6.0...v1.7.0) (2026-06-22)
 
 ### Features

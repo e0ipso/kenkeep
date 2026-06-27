@@ -26,7 +26,7 @@ src/
 
 ## Two CLI shapes
 
-- **Deterministic primitives:** `init`, `doctor`, `status`, `lint`, `finddocs`, `node write`, `session-log stage-live`, `session-log update-proposals`, `curate-dedup`, `curate-persist`, `rebalance trigger`, `rebalance move`, `index rebuild`, `logs prune`. No LLM. Pure Node helpers; skills compose them, CI/scripts may call them directly.
+- **Deterministic primitives:** `init`, `doctor`, `status`, `lint`, `finddocs`, `node write`, `session-log stage-live`, `session-log update-proposals`, `curate-dedup`, `curate-persist`, `conflict prepare`, `drafts collect`, `schema`, `validate`, `rebalance trigger`, `rebalance move`, `index rebuild`, `logs prune`. No LLM. Pure Node helpers; skills compose them, CI/scripts may call them directly. `schema <name>` prints a JSON Schema generated from the Zod definitions in `src/lib/schemas.ts` (via the `src/lib/schema-registry.ts` name map) and `validate <name> [file]` validates a JSON artifact against it — the produce → validate → fix loop the curate/extract skills drive in place of narrated schemas. `conflict prepare` computes the curate conflict defaults/sort-group, and `drafts collect` aggregates and schema-validates the parallel-path batch drafts.
 - **Launchers:** `bootstrap`, `curate`, `node add`. Thin wrappers that exec `<harness> -p "/kk-<name>"` with `KENKEEP_BUILDER_INTERNAL=1` set on the child. The LLM call runs in the host harness session, not in a subprocess spawned by this CLI.
 
 **Model config:** the proposal-drain hook's model and effort are set via `proposalModel: { name, effort }` in `config.yaml`. Curate and bootstrap run under whatever model the host harness session uses.
@@ -183,7 +183,8 @@ An index node body carries: an embedded one-line descent directive (from the sin
 | Goal | Path |
 |---|---|
 | Change extraction | `src/templates-source/prompts/proposal-extract.md` |
-| Change curate | `src/templates-source/skills/kk-curate/SKILL.md` (dedup logic in `src/commands/curate-dedup.ts`, survivor-batch persistence + placement in `src/commands/curate-persist.ts`) |
+| Change curate | `src/templates-source/skills/kk-curate/SKILL.md` (dedup logic in `src/commands/curate-dedup.ts`, survivor-batch persistence + placement in `src/commands/curate-persist.ts`, conflict defaults/sort in `src/commands/conflict-prepare.ts`, parallel-draft aggregation in `src/commands/drafts-collect.ts`) |
+| Change a structured LLM↔primitive contract | the Zod schema in `src/lib/schemas.ts` and its name in `src/lib/schema-registry.ts` (surfaced via `schema` / `validate`); never hand-author JSON Schema |
 | Change rebalance | `src/lib/rebalance.ts` (LLM-free trigger thresholds + grouped `create-branch`), `src/commands/rebalance.ts` (`trigger` / `move` primitives) |
 | Change live session extract | `src/templates-source/skills/kk-session-extract/SKILL.md` (`session-log stage-live` in `src/commands/session-log-stage-live.ts`) |
 | Change bootstrap | `src/templates-source/skills/kk-bootstrap/SKILL.md` (discovery primitive in `src/commands/finddocs.ts`, write primitive in `src/commands/node-write.ts`) |

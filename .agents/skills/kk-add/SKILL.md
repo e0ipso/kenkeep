@@ -3,7 +3,7 @@ name: kk-add
 description: Capture a kenkeep node manually from the current session. Writes a new node directly under `.ai/kenkeep/nodes/`. The reviewer accepts by leaving the file in place and rejects by deleting it. Use when the user wants to record a project convention, gotcha, rationale, or named-thing into the project knowledge base.
 ---
 
-<!-- Version: 4 -->
+<!-- Version: 7 -->
 
 # kk-add
 
@@ -13,23 +13,23 @@ Ask the user for seven values (do not invent any): **kind** (`practice` or `map`
 
 Before invoking, skim `.ai/kenkeep/ENTRY.md` (already in context) and grep `nodes/` for an overlapping node. If one exists, offer to edit it, refine the candidate's title, or drop the capture instead. Push back if the candidate is: code that speaks for itself, history, a debugging recipe, in-flight plan/task content, or general programming knowledge.
 
-## Resolve the active harness
+## Resolve the project root
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
 
 ```bash
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+pwd
 ```
-
-`$HARNESS` is not consumed by `node write`, but other kenkeep commands invoked downstream still require it.
 
 ## Capture the node
 
 ### Probe + optional sub-agent delegation (context isolation)
 
-Before drafting inline, check whether your runtime exposes a primitive for delegating focused work to a sub-agent in an isolated context (a "dispatch primitive"). This is a single-unit delegation: there is no parallelism — the point is to keep the host transcript free of the agent's intermediate deliberation so the user sees only the final summary and accept/reject prompt.
+Decide whether to delegate the body drafting to a sub-agent (for context isolation) or draft inline, per the shared appendix `.ai/kenkeep/.config/prompts/sub-agent-delegation.md` (probe, fallback rule). This is a **single-unit** delegation — there is no parallelism and no concurrency cap; the point is only to keep the host transcript free of the agent's deliberation.
 
-If a dispatch primitive is available:
+If the probe says a dispatch primitive exists:
 
 1. Mint a `runId` and prepare the log/draft directory:
 
@@ -41,17 +41,15 @@ If a dispatch primitive is available:
    printf '%s\n' "{\"event\":\"delegating\",\"runId\":\"${RUN_ID}\",\"draftPath\":\"${DRAFT_PATH}\"}" >> "$LOG_PATH"
    ```
 
-2. Tell the user, in one line, before delegating: "Drafting this node in a sub-agent for context isolation; the agent's full reasoning is in `.ai/kenkeep/_logs/kk-add/<runId>.jsonl` if you want it." Substitute the actual `runId`.
+2. Tell the user, in one line: "Drafting this node in a sub-agent for context isolation; the agent's full reasoning is in `.ai/kenkeep/_logs/kk-add/<runId>.jsonl` if you want it." Substitute the actual `runId`.
 
 3. Delegate the drafting of the node body to ONE sub-agent with instructions equivalent to:
 
    > You are refining ONE kenkeep node body for the user. Inputs are: `kind=<kind>`, `title=<title>`, `summary=<summary>`, `tags=<tags>`, `relates_to=<relates_to>`, `confidence=<confidence>`, `body-draft=<body>`. Refine the body to 1–4 short paragraphs in present tense, project-specific. Do not invent rationale; if the user did not provide it, omit it. Keep title within 80 chars and summary within 140 chars; refine only for clarity. Derive `slug` from the title (lowercase, hyphen-separated, ASCII). Write the refined node as JSON to the absolute path `<DRAFT_PATH>` with these exact keys: `kind`, `slug`, `title`, `summary`, `tags`, `confidence`, `relates_to`, `body`. Return the path on success.
 
-4. After the sub-agent returns, the host (never the sub-agent) reads `$DRAFT_PATH`, validates the JSON (must parse, contain the eight keys above, respect the length caps), then itself invokes `node write` from this same session. Append one JSONL line: `{"event":"drafted",...}` on success or `{"event":"draft-invalid","reason":"..."}` on failure.
+4. After the sub-agent returns, the host (never the sub-agent) reads `$DRAFT_PATH`, validates the JSON (must parse, contain the eight keys above, respect the length caps), then itself invokes `node write` from this same session. Append one JSONL line: `{"event":"drafted",...}` on success or `{"event":"draft-invalid","reason":"..."}` on failure. On validation failure, do **not** abort — fall back to the inline drafting path below on this same invocation; the user-visible summary is unchanged either way.
 
-5. On validation failure, do **not** abort. Fall back to the inline drafting path below on this same invocation; the user-visible summary is unchanged either way.
-
-If no dispatch primitive is available, skip directly to the inline drafting path below and draft the node body inline in this session — the default path, with identical user-visible behaviour.
+If no dispatch primitive is available, skip directly to the inline drafting path below.
 
 ### Inline drafting + `node write` (default and fallback)
 

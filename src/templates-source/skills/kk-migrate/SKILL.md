@@ -3,45 +3,23 @@ name: kk-migrate
 description: Run any pending knowledge-base migration by querying the deterministic migration chain (`migrate status`) and executing each pending step's documented procedure in-host, with every write delegated to the step's deterministic CLI primitives. Use when the node reader, `doctor`, or `init` reports an out-of-date `schema_version` / legacy flat layout and asks you to migrate, or when the user asks to migrate the knowledge base.
 ---
 
-<!-- Version: 5 -->
+<!-- Version: 6 -->
 
 # kk-migrate
 
 You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no `-p` spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
 
-## Resolve the active harness
+## Resolve the project root
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` on first invocation):
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector:
 
 ```bash
-if [ ! -f /tmp/kk-detect-root.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-root.mjs
-#!/usr/bin/env node
-// kk-detect-root: resolves the project root containing .ai/kenkeep.
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-let dir = process.cwd();
-while (true) {
-  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
-    process.stdout.write(dir);
-    process.exit(0);
-  }
-  const parent = dirname(dir);
-  if (parent === dir) {
-    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
-    process.exit(2);
-  }
-  dir = parent;
-}
-EOF
-fi
-KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
 cd "$KK_REPO_ROOT" || exit $?
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
 pwd
 ```
 
-`$HARNESS` is not consumed by the `place` primitives, but `index rebuild` (the closing command of the flat-to-tree procedure) requires it. Treat the printed path as the working directory for every command below.
+Treat the printed path as the working directory for every command below.
 
 ## Dispatch
 
@@ -127,7 +105,7 @@ On success it prints one JSON line, the placement summary:
 Regenerate `ENTRY.md`, `GRAPH.md`, and every folder `index.md` from the relocated tree:
 
 ```bash
-npx --yes kenkeep@latest index rebuild --harness "$HARNESS"
+npx --yes kenkeep@latest index rebuild
 ```
 
 The rebuild self-preserves the folder summaries you stamped in step 3. A folder you left without an authored summary renders the Title-cased folder-name fallback; `index rebuild` warns and exits zero (warn, never block).

@@ -3,7 +3,7 @@ name: kk-session-extract
 description: Extract durable knowledge from the current live session, stage it as a validated done session log, and run it through the same curation machinery as /kk-curate. Use when the user wants to proactively process the current session before waiting for capture hooks and a later curate pass — not for dictating one node (/kk-add) or batch-processing accumulated logs (/kk-curate).
 ---
 
-<!-- Version: 1 -->
+<!-- Version: 5 -->
 
 # kk-session-extract
 
@@ -13,15 +13,15 @@ Extract durable project knowledge from the **visible current session**, stage it
 
 **Partial context warning:** if compaction has occurred, the visible context may be incomplete. Describe your extraction as visible-context extraction, not full-session extraction, unless the runtime exposes the full transcript.
 
-## Resolve the active harness
+## Resolve the project root
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
 
 ```bash
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+pwd
 ```
-
-`$HARNESS` is required for `index rebuild`.
 
 ## 1. Extract proposals from the live context
 
@@ -65,7 +65,7 @@ PROPOSALS=$(mktemp -t kk-session-extract-proposals.XXXXXX.json)
 SURVIVORS=$(mktemp -t kk-session-extract-survivors.XXXXXX.json)
 ```
 
-Write your accumulated actions array (JSON array, top-level, validating against `CuratorOutputSchema`) to `$PROPOSALS`.
+Write your accumulated actions array (JSON array, top-level) to `$PROPOSALS`, then validate it before dedup: `npx --yes kenkeep@latest validate curator-output "$PROPOSALS"`. On a non-zero exit, read the path-referenced errors, fix the offending action(s), and re-validate until it passes. (`kk schema curator-output` prints the JSON Schema if you need the exact shape.)
 
 ## 4. Dedup and stamp via the scoped primitive
 
@@ -82,14 +82,14 @@ This stamps only the staged live log. Unrelated `proposal_status: done` logs in 
 
 Capture the stdout JSON summary (`kept`, `conflicts`, `stamped`, `runId`) and report it to the user.
 
-## 5. Persist surviving actions via `node write`
+## 5. Persist surviving actions via `curate-persist`
 
-Follow `/kk-curate` Step 5 exactly: read `$SURVIVORS`, persist each non-`drop` action via `node write`, surface stderr on failure, continue with the next action.
+Follow `/kk-curate` Step 5 exactly: persist `$SURVIVORS` via `curate-persist`, surface any per-action failures from the summary, keep successful writes, and continue to the rebuild.
 
 ## 6. Rebuild the indices
 
 ```bash
-npx --yes kenkeep@latest index rebuild --harness "$HARNESS"
+npx --yes kenkeep@latest index rebuild
 ```
 
 ## 6b. Rebalance (final phase)

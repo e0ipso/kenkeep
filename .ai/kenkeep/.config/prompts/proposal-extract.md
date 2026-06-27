@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 2
+  Version: 3
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -143,13 +143,9 @@ Framing aid: **the rule's *scope*, not its *occasion*, decides task-specificity.
 
 ### Durability filter: principles and facts, not actions or story
 
-The knowledge base holds only **durable operating principles** and **current-state facts** the project deliberately maintains. Activities, events, and history are not knowledge, even when stated as plain fact. Drop a candidate when it is any of the following:
+The knowledge base holds only **durable operating principles** and **current-state facts** the project deliberately maintains. Activities, events, and history are not knowledge, even when stated as plain fact. Apply the shared admission criteria in `.ai/kenkeep/.config/prompts/knowledge-admission.md` — the single source for these rules — which drop a candidate that is a **maintenance/lifecycle action** (version bumps, deprecations, releases, dependency updates, changelog edits), **project story or history** (**any reference to a plan, ticket, issue, work-order, or task id is a red flag**), or an **incidental fact disguised as a practice** (a one-off circumstance dressed up as a convention).
 
-- **Maintenance or lifecycle action.** Version bumps, deprecations, releases, dependency updates, rebuilds, changelog edits - "we deprecated the old npm package", "bumped the prompt to v5". Record the current state, never the act that produced it.
-- **Project story or history.** Narration of what was done. **Any reference to a plan, ticket, issue, work-order, or task id is a red flag** (for example "Plan 96 wire and fix serve UI interactions"): that history belongs in git, not the knowledge base. A candidate that names or links such an artifact is almost always a drop.
-- **Incidental fact disguised as a practice.** A fact the agent happened to hit while fixing a one-off problem, dressed up as a convention - "first publish of an npm package requires a token". A real practice is a rule the project deliberately and repeatedly follows, not a circumstance encountered once.
-
-The keep test: *would this still be a deliberate operating principle, or a current structural fact, six months from now - independent of the activity that surfaced it?* If yes, keep it; if it only makes sense as a record of something that happened, drop it. Examples that pass: "e2e tests must use stable semantic selectors", "CodeMirror is code-split in the markdown editor page". Examples that fail: the three bullets above.
+That file also carries the keep test: *would this still be a deliberate operating principle, or a current structural fact, six months from now — independent of the activity that surfaced it?* If yes, keep it; if it only makes sense as a record of something that happened, drop it. Examples that pass: "e2e tests must use stable semantic selectors", "CodeMirror is code-split in the markdown editor page". Examples that fail: the three shapes above.
 
 This filter stacks with the end-state framing rule rather than replacing it. A transition narrative describes a *change* ("X became Y"); a maintenance action or story need not describe any change at all - it is simply an activity or an event. Both are out. When a candidate carries a clean durable principle or current-state fact alongside the action or story, keep only that part, rewritten as a standing rule or a present-tense fact.
 

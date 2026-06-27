@@ -3,7 +3,7 @@ name: kk-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/kenkeep/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 4 -->
+<!-- Version: 5 -->
 
 # kk-bootstrap
 
@@ -21,39 +21,15 @@ Survey the project's existing markdown documentation, extract candidate knowledg
 
 Before you start, read `.ai/kenkeep/config.yaml` (falling back to `~/.config/kenkeep/config.yaml`) for any user preferences (tags vocabulary, scope hints, etc.). Apply what is relevant.
 
-## Resolve the active harness
+## Resolve the project root
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` on first invocation):
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
 
 ```bash
-if [ ! -f /tmp/kk-detect-root.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-root.mjs
-#!/usr/bin/env node
-// kk-detect-root: resolves the project root containing .ai/kenkeep.
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-let dir = process.cwd();
-while (true) {
-  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
-    process.stdout.write(dir);
-    process.exit(0);
-  }
-  const parent = dirname(dir);
-  if (parent === dir) {
-    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
-    process.exit(2);
-  }
-  dir = parent;
-}
-EOF
-fi
-KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
 cd "$KK_REPO_ROOT" || exit $?
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
 pwd
 ```
-
-`$HARNESS` is not consumed by `finddocs` or `node write`, but downstream commands in this skill (`index rebuild`) require it. Treat the printed path as the working directory for every command below.
 
 ## Steps
 
@@ -118,11 +94,7 @@ When a piece of content has both aspects (e.g. "Use bravo_analytics.dispatcher, 
 - Boilerplate paragraphs inside otherwise-useful docs (standard license preamble, generic CI badges).
 - General programming knowledge that's not project-specific (Drupal/React/Django basics).
 - Aspirational TODOs and "we should eventually" content.
-- Maintenance or lifecycle actions and project history: version bumps, deprecations, release notes, dependency updates, rebuilds, changelog narration. Record the current state, not the act that produced it.
-- **Any content that references a plan, ticket, issue, work-order, or task id** (e.g. "Plan 96 …"): a red flag for story or history that belongs in git, not the knowledge base.
-- Incidental facts a doc records about a one-off fix ("first publish needed a token") and dresses up as a convention. Capture only rules the project deliberately and repeatedly follows.
-
-The keep test for every candidate: would this still be a deliberate operating principle, or a current structural fact, six months from now - independent of the activity that surfaced it? If it only makes sense as a record of something that happened, skip it.
+- Everything ruled out by the shared **knowledge admission criteria** — maintenance/lifecycle actions, project story or history (especially plan/ticket/issue references), and incidental one-off facts dressed up as conventions — plus the six-months keep test. Apply `.ai/kenkeep/.config/prompts/knowledge-admission.md` to every candidate; do not restate it here.
 
 ### 6. Draft each node body, then persist via `node write`
 
@@ -140,20 +112,13 @@ mkdir -p .ai/kenkeep/_logs/bootstrap
 LOG_DIR="$(pwd)/.ai/kenkeep/_logs/bootstrap"
 ```
 
-Now probe your own tool surface: **if your runtime exposes a sub-agent / task dispatch primitive that runs in a separate context window and returns a structured result, use the parallel path below; otherwise use the inline fallback path that follows it.** Recursion into yourself, or shelling out to another instance of your own CLI in `-p`-style headless mode, does **not** count — that is not genuine delegation and you must take the fallback in that case.
-
-Probe and fallback live in the same section so you never enter a half-state: if at any moment you are unsure whether the dispatch primitive exists on your tool surface, take the fallback.
+Probe your tool surface and pick the parallel or inline path per the shared appendix `.ai/kenkeep/.config/prompts/sub-agent-delegation.md` (probe definition, the ≤5-per-turn concurrency cap and wave rule, the absolute-draft-path and issued/validated/invalid artefact shape). The bootstrap-specific details below say what each unit drafts and how the collector persists it.
 
 #### Parallel path — orchestrator + sub-agent dispatch + collector
 
-This path dispatches the drafting of one candidate doc per sub-agent and reaps the JSON drafts at the end. The unit of parallelism is **one candidate doc**.
+The unit of parallelism is **one candidate doc** (`<batchN>` numbered from 1). For each doc in the current wave (≤5 per orchestrator turn):
 
-**Concurrency cap: ≤5 sub-agents per orchestrator turn.** If your filtered working set has N > 5 docs, issue them in waves of up to 5: dispatch wave 1, await all results in the collector, dispatch wave 2, and so on. The reference runtime tops out near ~10 concurrent agents; holding the cap at 5 leaves headroom for the orchestrator's own tool calls and bounds rate-limit risk.
-
-**Orchestrator turn — for each batch (numbered `<batchN>` starting at 1):**
-
-1. Compute the predetermined absolute draft path for this batch: `${LOG_DIR}/${RUN_ID}__<batchN>.draft.json`. The path must be absolute — sub-agents may not share your cwd.
-2. Append an "issued" line to the per-batch JSONL log before delegating:
+1. Compute its absolute draft path `${LOG_DIR}/${RUN_ID}__<batchN>.draft.json` and append the `issued` line to `${LOG_DIR}/${RUN_ID}__<batchN>.jsonl` before delegating:
 
    ```bash
    printf '{"ts":"%s","event":"issued","runId":"%s","batchN":%d,"doc":"%s","hash":"%s"}\n' \
@@ -161,7 +126,7 @@ This path dispatches the drafting of one candidate doc per sub-agent and reaps t
      >> "${LOG_DIR}/${RUN_ID}__<batchN>.jsonl"
    ```
 
-3. Delegate the drafting of this one doc to a sub-agent with focused instructions:
+2. Delegate the drafting of this one doc to a sub-agent with focused instructions:
 
    > You are drafting kenkeep node candidates for ONE source doc.
    > - Read the doc at relative path `<relpath>` (content sha256 `<sha256>`) in full.
@@ -170,18 +135,12 @@ This path dispatches the drafting of one candidate doc per sub-agent and reaps t
    > - Write the array as JSON (and nothing else) to the absolute path `<DRAFT_PATH>`. Zero nodes is a valid result; in that case write `[]`.
    > - On success, return only the absolute draft path.
 
-Issue up to 5 delegations in the same orchestrator turn (one per doc in the current wave), each with its own `<batchN>` and `<DRAFT_PATH>`.
+**Collector turn — after every dispatched agent in the wave has returned**, for each batch's draft file:
 
-**Collector turn — after every dispatched agent in the wave has returned:**
-
-For each batch's draft file:
-
-1. Read the file. Parse as JSON. The expected shape is an array of objects with keys `kind`, `slug`, `title`, `summary`, `tags` (array), `confidence` (`high`|`medium`|`low`), and `body`.
-2. On parse error or schema mismatch, append an `event:"invalid"` line to that batch's `.jsonl`, surface to the user **"batch <batchN> produced invalid output, skipped"**, and continue with the next batch. Never abort the whole run.
-3. For each validated draft in the array, persist via `node write` (see "Persist via `node write`" below), passing the originating doc's `--source-doc` and `--source-hash`. The CLI primitive uses a short-lived file lock around its `bootstrap-state.json` update, so back-to-back invocations from a single collector loop are safe.
-4. After processing the batch, append an `event:"validated"` line with the count of nodes written and the resolved ids.
-
-If a wave has more docs queued behind it, issue the next wave only after the current wave's collector turn finishes.
+1. Read and parse it as JSON. The expected shape is an array of objects with keys `kind`, `slug`, `title`, `summary`, `tags` (array), `confidence` (`high`|`medium`|`low`), and `body`.
+2. On parse error or shape mismatch, append an `event:"invalid"` line, surface **"batch <batchN> produced invalid output, skipped"**, and continue — never abort the run.
+3. For each validated draft, persist via `node write` (see below), passing the originating doc's `--source-doc` and `--source-hash`. The primitive locks its `bootstrap-state.json` update, so back-to-back invocations are safe.
+4. Append an `event:"validated"` line with the count written and the resolved ids. Issue the next wave only after the current wave's collector turn finishes.
 
 #### Inline fallback path
 
@@ -214,7 +173,7 @@ On success the primitive prints the resolved node id and exits 0. Capture it. If
 After all writes, rebuild the indices so the reviewer sees them in sync with the new nodes:
 
 ```bash
-npx --yes kenkeep@latest index rebuild --harness "$HARNESS"
+npx --yes kenkeep@latest index rebuild
 ```
 
 ### 8. Report back

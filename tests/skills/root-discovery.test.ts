@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const here = resolve(fileURLToPath(import.meta.url), '..');
-const skillsDir = join(here, '../../src/templates-source/skills');
+const skillsDir = join(here, '../../templates/skills');
 
 const skills = [
   ['kk-add', '6'],

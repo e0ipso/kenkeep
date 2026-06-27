@@ -2,6 +2,8 @@ node_modules/
 dist/
 *.json
 *.md
+# Handlebars prompt templates: Prettier's glimmer parser rejects partials.
+*.hbs
 .ai/
 .idea/
 .devcontainer/

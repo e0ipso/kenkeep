@@ -9,15 +9,7 @@ description: Curate pending session logs into kenkeep nodes by reading sessions 
 
 You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `curate-persist`, regenerate indices, and resolve any surfaced contradictions interactively with the user. There is no sub-agent and no runner — **you** are the LLM doing the curation.
 
-## Resolve the project root
-
-Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
-
-```bash
-KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
-cd "$KK_REPO_ROOT" || exit $?
-pwd
-```
+{{> resolve-project-root-section}}
 
 ## 0. Extract proposals from pending session logs
 
@@ -261,13 +253,7 @@ npx --yes kenkeep@latest curate-persist --input "$SURVIVORS"
 
 Capture the summary: you report the per-leaf placement (`home_folder`, or `root fallback`) and any per-action failures in Step 7. A `modify` whose `target_node_id` was missing on disk surfaces as a failed action in the results — call it out so the user knows the update did not land.
 
-## 6. Rebuild the indices
-
-After all writes:
-
-```bash
-npx --yes kenkeep@latest index rebuild
-```
+{{> index-rebuild-section heading="## 6. Rebuild the indices" lead="After all writes:"}}
 
 ## 6b. Rebalance (final phase, act-and-fold)
 

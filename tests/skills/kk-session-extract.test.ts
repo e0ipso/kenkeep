@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { EXPECTED_SKILLS } from '../../src/lib/install-skills.js';
 
 const here = resolve(fileURLToPath(import.meta.url), '..');
-const skillSource = join(here, '../../src/templates-source/skills/kk-session-extract/SKILL.md');
+// The source is now a `.md.hbs` template; assert against the rendered, shipped skill.
+const skillSource = join(here, '../../templates/skills/kk-session-extract/SKILL.md');
 
 describe('kk-session-extract skill contract', () => {
   it('is listed in EXPECTED_SKILLS', () => {

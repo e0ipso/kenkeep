@@ -13,15 +13,7 @@ Extract durable project knowledge from the **visible current session**, stage it
 
 **Partial context warning:** if compaction has occurred, the visible context may be incomplete. Describe your extraction as visible-context extraction, not full-session extraction, unless the runtime exposes the full transcript.
 
-## Resolve the project root
-
-Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
-
-```bash
-KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
-cd "$KK_REPO_ROOT" || exit $?
-pwd
-```
+{{> resolve-project-root-section}}
 
 ## 1. Extract proposals from the live context
 
@@ -88,9 +80,7 @@ Follow `/kk-curate` Step 5 exactly: persist `$SURVIVORS` via `curate-persist`, s
 
 ## 6. Rebuild the indices
 
-```bash
-npx --yes kenkeep@latest index rebuild
-```
+{{> index-rebuild-command}}
 
 ## 6b. Rebalance (final phase)
 

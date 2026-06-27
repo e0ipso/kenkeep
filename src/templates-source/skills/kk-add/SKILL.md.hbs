@@ -13,15 +13,7 @@ Ask the user for seven values (do not invent any): **kind** (`practice` or `map`
 
 Before invoking, skim `.ai/kenkeep/ENTRY.md` (already in context) and grep `nodes/` for an overlapping node. If one exists, offer to edit it, refine the candidate's title, or drop the capture instead. Push back if the candidate is: code that speaks for itself, history, a debugging recipe, in-flight plan/task content, or general programming knowledge.
 
-## Resolve the project root
-
-Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
-
-```bash
-KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
-cd "$KK_REPO_ROOT" || exit $?
-pwd
-```
+{{> resolve-project-root-section}}
 
 ## Capture the node
 

@@ -20,7 +20,7 @@ export const AGENTS_BLOCK_END = '<!-- <<< kenkeep:kk-index <<< -->';
 // one source of truth and cannot drift. The descent body itself is never
 // re-typed here; it comes from KK_NAVIGATION_DIRECTIVE.
 export const AGENTS_POINTER = [
-  'Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the entry catalog of the knowledge base. Enter there and descend before designing a non-trivial change:',
+  'You are required to load [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the small curated entry catalog for this repo. Enter there and descend using progressive disclosure principles.',
   '',
   KK_NAVIGATION_DIRECTIVE,
 ].join('\n');

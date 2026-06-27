@@ -2,7 +2,7 @@
 
 `kenkeep` — npm package that builds and maintains a per-repo knowledge base from AI coding sessions for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, and GitHub Copilot CLI. It installs harness hooks, captures session slices, runs human-supervised curation, and injects the resulting `ENTRY.md` into every new session. TypeScript, Node 22+, ESM, bundled via `tsup`.
 
-Authoritative product spec: [PRD.md](PRD.md). Curated project knowledge: [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md) — skim it before designing a non-trivial change.
+Authoritative product spec: [PRD.md](PRD.md).
 
 ## Constitution
 
@@ -157,7 +157,7 @@ To add to the knowledge base during a session: invoke the `kk-add` skill. To pro
 When developing in a Cursor Cloud Agent VM, read [`.cursor/cloud-instructions.md`](.cursor/cloud-instructions.md) for environment setup and run caveats (build-before-run, the `--harnesses` flag, the expected `doctor` error). Load it on demand — it is not needed for routine local work.
 
 <!-- >>> kenkeep:kk-index >>> -->
-Curated project knowledge lives in [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the entry catalog of the knowledge base. Enter there and descend before designing a non-trivial change:
+You are required to load [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the small curated entry catalog for this repo. Enter there and descend using progressive disclosure principles.
 
 
 <!-- <<< kenkeep:kk-index <<< -->

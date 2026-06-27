@@ -297,3 +297,56 @@ trees by the build/install pipeline; generated `templates/` is never hand-edited
 - The `index rebuild` self-detection item is intentionally contingent to honor
   YAGNI: it is included only if the existing env detector can be reused cleanly,
   and is otherwise deferred without affecting the rest of the plan.
+
+## Execution Blueprint
+
+**Validation Gates:**
+- Reference: `/config/hooks/POST_PHASE.md`
+
+```mermaid
+graph TD
+    001[Task 001: kk schema / kk validate + registry] --> 003[Task 003: kk drafts collect]
+    001 --> 006[Task 006: rewrite kk skills]
+    002[Task 002: kk conflict prepare] --> 006
+    003 --> 006
+    004[Task 004: ship kk-detect-root.mjs] --> 006
+    005[Task 005: index rebuild self-detect contingent] --> 006
+    006 --> 007[Task 007: propagate templates + docs + changelog]
+    007 --> 008[Task 008: full self-validation gate]
+    001 --> 008
+    002 --> 008
+    003 --> 008
+    004 --> 008
+    005 --> 008
+    006 --> 008
+```
+
+### ⏳ Phase 1: Additive primitives and shipped script
+**Parallel Tasks:**
+- ⏳ Task 001: Add `kk schema` / `kk validate` primitives backed by a Zod→JSON-Schema generator
+- ⏳ Task 002: Add `kk conflict prepare` primitive (diff-ratio default + sort/group)
+- ⏳ Task 004: Ship `kk-detect-root.mjs` from the package skeleton with copy-if-missing delivery
+- ⏳ Task 005: (Contingent) Make `index rebuild --harness` optional via in-session self-detection
+
+### ⏳ Phase 2: Schema-driven aggregation primitive
+**Parallel Tasks:**
+- ⏳ Task 003: Add `kk drafts collect` primitive (depends on: 001)
+
+### ⏳ Phase 3: Skill rewrite
+**Parallel Tasks:**
+- ⏳ Task 006: Rewrite the kk skills — validate loops, primitive calls, single-sourced plumbing (depends on: 001, 002, 003, 004, 005)
+
+### ⏳ Phase 4: Propagation, docs, changelog
+**Parallel Tasks:**
+- ⏳ Task 007: Propagate templates to installed trees and update docs + CHANGELOG (depends on: 006)
+
+### ⏳ Phase 5: Full self-validation gate
+**Parallel Tasks:**
+- ⏳ Task 008: Run the plan's full Self Validation gate (depends on: 001, 002, 003, 004, 005, 006, 007)
+
+### Post-phase Actions
+Run `/config/hooks/POST_PHASE.md` after each phase. Do not advance until it succeeds.
+
+### Execution Summary
+- Total Phases: 5
+- Total Tasks: 8

@@ -2,7 +2,7 @@
 id: 1
 group: "schema-primitives"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-06-27
 skills:
   - typescript-cli

@@ -2,7 +2,7 @@
 id: 6
 group: "skills"
 dependencies: [1, 2, 3, 4, 5]
-status: "pending"
+status: "completed"
 created: 2026-06-27
 skills:
   - markdown

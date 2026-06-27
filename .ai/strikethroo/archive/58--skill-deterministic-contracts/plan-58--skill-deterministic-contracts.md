@@ -336,13 +336,13 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 006: Rewrite the kk skills — validate loops, primitive calls, single-sourced plumbing (depends on: 001, 002, 003, 004, 005)
 
-### ⏳ Phase 4: Propagation, docs, changelog
+### ✅ Phase 4: Propagation, docs, changelog
 **Parallel Tasks:**
-- ⏳ Task 007: Propagate templates to installed trees and update docs + CHANGELOG (depends on: 006)
+- ✔️ Task 007: Propagate templates to installed trees and update docs + CHANGELOG (depends on: 006)
 
-### ⏳ Phase 5: Full self-validation gate
+### ✅ Phase 5: Full self-validation gate
 **Parallel Tasks:**
-- ⏳ Task 008: Run the plan's full Self Validation gate (depends on: 001, 002, 003, 004, 005, 006, 007)
+- ✔️ Task 008: Run the plan's full Self Validation gate (depends on: 001, 002, 003, 004, 005, 006, 007)
 
 ### Post-phase Actions
 Run `/config/hooks/POST_PHASE.md` after each phase. Do not advance until it succeeds.
@@ -350,3 +350,79 @@ Run `/config/hooks/POST_PHASE.md` after each phase. Do not advance until it succ
 ### Execution Summary
 - Total Phases: 5
 - Total Tasks: 8
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-06-27
+
+### Results
+
+All 11 Primary Success Criteria are met on branch
+`claude/pr68-strikethrough-blueprint-wl1ft7`.
+
+- **Additive primitives** (`src/lib/schema-registry.ts`, `src/commands/{schema,validate,conflict-prepare,drafts-collect}.ts`, registered in `src/cli.ts`):
+  - `kk schema <name>` / `kk validate <name> [file]` project the existing Zod
+    schemas in `src/lib/schemas.ts` to JSON Schema (via `zod-to-json-schema`) and
+    validate artifacts with path-referenced errors. No hand-authored JSON Schema,
+    no XSD. Names: `proposal-output`, `curator-output`, `proposed-node`, `node`.
+  - `kk conflict prepare` ports the kk-curate Step 7 diff-ratio default and
+    sort/group out of prose into a deterministic, read-only primitive
+    (`y`/`n`/`s`/`k` tokens and outcomes unchanged), verified by tests.
+  - `kk drafts collect --run-id <id> --schema <name>` aggregates and
+    schema-validates the parallel-path batch drafts, replacing the inline
+    `node -e` concat.
+- **Shipped script**: `src/templates-source/kenkeep/scripts/kk-detect-root.mjs`,
+  delivered to existing installs copy-if-missing via the existing
+  `ensureKkScripts` upgrade path (no `init.ts` change), proven by
+  `tests/upgrade.test.ts`. All five kk skills invoke it one-line instead of the
+  33-line heredoc.
+- **Skill rewrite**: kk-curate Step 5 persists via `curate-persist` (parity with
+  kk-session-extract); the action-object JSON skeleton/field table and node-shape
+  narration are replaced by `kk schema`/`kk validate` produce→validate→fix loops;
+  the sub-agent probe/cap/fallback narrative and the knowledge admission criteria
+  are single-sourced into `prompts/sub-agent-delegation.md` and
+  `prompts/knowledge-admission.md`; `batch-agent-prompt.md` is referenced not
+  inlined; all "reference runtime" wording is gone. Skill corpus shrank
+  **1,260→925 lines** (kk-curate 529→403). Version comments bumped on every
+  changed skill.
+- **Propagation**: canonical source, generated `templates/`, and the tracked
+  dogfood install copies (`.agents`/`.cursor`/`.opencode` skills, `.ai/kenkeep`
+  prompts/scripts; `.claude` symlinks into `.agents`) are byte-identical.
+  `docs/internals/{architecture,prompts}.md` and `AGENTS.md` document the new
+  primitives, the JSON-Schema-from-Zod contract convention, and the
+  single-sourced plumbing.
+- **Validation**: `npm run lint` (incl. `lint:detect-harness`), `npm run
+  typecheck`, and `npm test` (**455 passed**) are green; the Self Validation
+  steps 1–9 all pass.
+
+### Noteworthy Events
+
+- **Contingent index-rebuild item resolved without code change.** Investigation
+  found the plan's premise ("`index rebuild` requires `--harness`") inaccurate:
+  `runIndexRebuild` reads only `{ stage }` and never consults the harness;
+  `--harness` was the global, optional, ignored program option. So `--harness`
+  was already optional (verified live; existing tests already call `index
+  rebuild` with no harness), and the skills' entire `$HARNESS` resolution was
+  vestigial — dropped across all five skills, collapsing the block to root
+  detection only (success criterion 11, "implemented" branch).
+- **Root-detector invocation**: the skills reference the shipped
+  `kk-detect-root.mjs` directly (`node .ai/kenkeep/scripts/kk-detect-root.mjs`),
+  mirroring `kk-detect-harness.mjs`; no new `resolve-root` CLI primitive was
+  added, avoiding duplicate surface.
+- **CHANGELOG**: `CHANGELOG.md` is semantic-release-generated from conventional
+  commits, so the new primitives are recorded there on the next release via the
+  `feat(cli)` commit subjects rather than a manual Unreleased edit.
+- **noUncheckedIndexedAccess**: the husky pre-commit hook did not run in the
+  execution sandbox; lint/typecheck/test were run explicitly before every phase
+  commit. The conflict-prepare LCS line-diff was made strict-index-safe.
+
+### Necessary follow-ups
+
+- **`kk-detect-harness.mjs` is now unreferenced by the skills** (harness
+  resolution removed). It still ships and is lint-guarded; removing it (and its
+  `lint:detect-harness` check) is a separate, optional cleanup outside this
+  plan's scope.
+- Branch is not pushed and no PR is opened (orchestration scope). Any stale
+  knowledge-base node references are left for a follow-up `/kk-curate` pass per
+  the constitution.

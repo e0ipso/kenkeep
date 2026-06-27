@@ -321,12 +321,12 @@ graph TD
     006 --> 008
 ```
 
-### ⏳ Phase 1: Additive primitives and shipped script
+### ✅ Phase 1: Additive primitives and shipped script
 **Parallel Tasks:**
-- ⏳ Task 001: Add `kk schema` / `kk validate` primitives backed by a Zod→JSON-Schema generator
-- ⏳ Task 002: Add `kk conflict prepare` primitive (diff-ratio default + sort/group)
-- ⏳ Task 004: Ship `kk-detect-root.mjs` from the package skeleton with copy-if-missing delivery
-- ⏳ Task 005: (Contingent) Make `index rebuild --harness` optional via in-session self-detection
+- ✔️ Task 001: Add `kk schema` / `kk validate` primitives backed by a Zod→JSON-Schema generator
+- ✔️ Task 002: Add `kk conflict prepare` primitive (diff-ratio default + sort/group)
+- ✔️ Task 004: Ship `kk-detect-root.mjs` from the package skeleton with copy-if-missing delivery
+- ✔️ Task 005: (Contingent) `index rebuild --harness` optional — resolved as already-optional, no code change
 
 ### ⏳ Phase 2: Schema-driven aggregation primitive
 **Parallel Tasks:**

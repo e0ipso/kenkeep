@@ -90,13 +90,19 @@ function bodyLines(body: string): string[] {
 function lineDiffCount(a: string[], b: string[]): number {
   const n = a.length;
   const m = b.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  // Rolling two-row LCS. Typed-array indexing returns `number` (not
+  // `number | undefined`), which keeps this clean under noUncheckedIndexedAccess.
+  let prev = new Array<number>(m + 1).fill(0);
   for (let i = n - 1; i >= 0; i--) {
+    const curr = new Array<number>(m + 1).fill(0);
+    const ai = a[i];
     for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      curr[j] =
+        ai === b[j] ? (prev[j + 1] ?? 0) + 1 : Math.max(prev[j] ?? 0, curr[j + 1] ?? 0);
     }
+    prev = curr;
   }
-  const lcs = dp[0][0];
+  const lcs = prev[0] ?? 0;
   return n - lcs + (m - lcs);
 }
 

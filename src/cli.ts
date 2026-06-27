@@ -5,6 +5,7 @@ import { runCurateDedupCommand } from './commands/curate-dedup.js';
 import { runCuratePersistCommand } from './commands/curate-persist.js';
 import { runConflictPrepareCommand } from './commands/conflict-prepare.js';
 import { runDoctor } from './commands/doctor.js';
+import { runDraftsCollectCommand } from './commands/drafts-collect.js';
 import { runFindDocsCommand } from './commands/finddocs.js';
 import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
@@ -280,6 +281,24 @@ async function main(): Promise<void> {
     .allowExcessArguments(true)
     .action(async () => {
       const code = await runConflictPrepareCommand();
+      process.exit(code);
+    });
+
+  const draftsGroup = program
+    .command('drafts')
+    .description('Deterministic, LLM-free primitives for the curate parallel-path draft collector.');
+  draftsGroup
+    .command('collect')
+    .description(
+      'Deterministic draft collector: reads ${RUN_ID}__*.draft.json under the curator log dir, validates each batch array against a named schema (default curator-output), concatenates survivors to stdout as one JSON array, and reports counts + invalid batches on stderr. A bad batch is skipped, never fatal. Pure Node, no LLM.'
+    )
+    .requiredOption('--run-id <id>', 'run id whose batch draft files are aggregated')
+    .option('--schema <name>', 'registered schema each batch validates against (default: curator-output)')
+    .allowExcessArguments(true)
+    .action(async (opts: { runId: string; schema?: string }) => {
+      const flags: Parameters<typeof runDraftsCollectCommand>[0] = { runId: opts.runId };
+      if (opts.schema !== undefined) flags.schema = opts.schema;
+      const code = await runDraftsCollectCommand(flags);
       process.exit(code);
     });
 

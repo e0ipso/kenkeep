@@ -34,11 +34,11 @@ describe('ensureAgentsKkBlock', () => {
     expect(body).toContain(AGENTS_BLOCK_START);
 
     // Corrupt the block content; ensure restores it without touching the rest.
-    body = body.replace('Curated project knowledge', 'STALE WORDING');
+    body = body.replace('You need to read', 'STALE WORDING');
     writeFileSync(file, body);
     expect(ensureAgentsKkBlock(file)).toBe(true);
     const restored = readFileSync(file, 'utf8');
-    expect(restored).toContain('Curated project knowledge');
+    expect(restored).toContain('You need to read');
     expect(restored).not.toContain('STALE WORDING');
     expect(restored.startsWith('# My project')).toBe(true);
   });

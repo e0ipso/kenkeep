@@ -332,9 +332,9 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 003: Add `kk drafts collect` primitive (depends on: 001)
 
-### ⏳ Phase 3: Skill rewrite
+### ✅ Phase 3: Skill rewrite
 **Parallel Tasks:**
-- ⏳ Task 006: Rewrite the kk skills — validate loops, primitive calls, single-sourced plumbing (depends on: 001, 002, 003, 004, 005)
+- ✔️ Task 006: Rewrite the kk skills — validate loops, primitive calls, single-sourced plumbing (depends on: 001, 002, 003, 004, 005)
 
 ### ⏳ Phase 4: Propagation, docs, changelog
 **Parallel Tasks:**

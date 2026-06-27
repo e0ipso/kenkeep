@@ -157,7 +157,7 @@ To add to the knowledge base during a session: invoke the `kk-add` skill. To pro
 When developing in a Cursor Cloud Agent VM, read [`.cursor/cloud-instructions.md`](.cursor/cloud-instructions.md) for environment setup and run caveats (build-before-run, the `--harnesses` flag, the expected `doctor` error). Load it on demand — it is not needed for routine local work.
 
 <!-- >>> kenkeep:kk-index >>> -->
-You need to read [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md) before designing any non-trivial change. It is the entry catalog of curated project knowledge for this repo. Enter there and descend:
+You are required to load [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the small curated entry catalog for this repo, before any non-trivial change. Enter there and descend using progressive disclosure principles.
 
 
 <!-- <<< kenkeep:kk-index <<< -->

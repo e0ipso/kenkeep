@@ -59,7 +59,7 @@ describe('init --upgrade', () => {
     expect(after.version).not.toBe('0.0.0-test-old');
   });
 
-  it('overwrites a stale kk-curate skill with the shared detect-harness body on upgrade', async () => {
+  it('overwrites a stale kk-curate skill with the shared root-detector body on upgrade', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
 
     const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
@@ -84,15 +84,14 @@ describe('init --upgrade', () => {
     expect(result.exitCode).toBe(0);
 
     const skill = readFileSync(skillFile, 'utf8');
-    expect(skill).toContain('node .ai/kenkeep/scripts/kk-detect-harness.mjs');
-    expect(skill).toContain('--harness "$HARNESS"');
+    expect(skill).toContain('node .ai/kenkeep/scripts/kk-detect-root.mjs');
     expect(skill).not.toContain('Bash(rm:*)');
     expect(skill).not.toMatch(/^allowed-tools:/m);
 
-    // kk-migrate refreshed: the shipped body references the shared detector
-    // helper and the `place` primitive flow, and the stale stub is gone.
+    // kk-migrate refreshed: the shipped body references the shared root detector
+    // and the `place` primitive flow, and the stale stub is gone.
     const migrateSkill = readFileSync(migrateSkillFile, 'utf8');
-    expect(migrateSkill).toContain('node .ai/kenkeep/scripts/kk-detect-harness.mjs');
+    expect(migrateSkill).toContain('node .ai/kenkeep/scripts/kk-detect-root.mjs');
     expect(migrateSkill).toContain('place apply');
     expect(migrateSkill).not.toContain('stale');
   });

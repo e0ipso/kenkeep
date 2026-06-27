@@ -43,9 +43,12 @@ describe('init', () => {
       '.ai/kenkeep/hooks/claude/kk-session-start.cjs',
       '.ai/kenkeep/.state/installed-version',
       '.ai/kenkeep/.config/prompts/proposal-extract.md',
+      '.ai/kenkeep/.config/prompts/knowledge-admission.md',
+      '.ai/kenkeep/.config/prompts/sub-agent-delegation.md',
       '.ai/kenkeep/config.yaml',
       '.ai/kenkeep/.gitignore',
       '.ai/kenkeep/scripts/kk-detect-harness.mjs',
+      '.ai/kenkeep/scripts/kk-detect-root.mjs',
     ];
 
     for (const rel of expected) {
@@ -56,15 +59,18 @@ describe('init', () => {
     expect(existsSync(join(sandbox, '.ai/kenkeep/_proposed'))).toBe(false);
   });
 
-  it('installs skills that detect the root before resolving the harness', async () => {
+  it('installs skills that resolve the root via the shipped detector', async () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(result.exitCode).toBe(0);
 
     for (const skill of ['kk-add', 'kk-bootstrap', 'kk-curate', 'kk-migrate']) {
       const body = readFileSync(join(sandbox, `.claude/skills/${skill}/SKILL.md`), 'utf8');
-      expect(body).toContain('/tmp/kk-detect-root.mjs');
+      expect(body).toContain('node .ai/kenkeep/scripts/kk-detect-root.mjs');
       expect(body).toContain('cd "$KK_REPO_ROOT"');
-      expect(body).toContain('--root "$KK_REPO_ROOT"');
+      // The vestigial harness resolution (only ever fed an ignored index-rebuild
+      // flag) is gone from the skill bodies.
+      expect(body).not.toContain('/tmp/kk-detect-root.mjs');
+      expect(body).not.toContain('kk-detect-harness.mjs');
     }
   });
 
@@ -177,7 +183,7 @@ describe('init', () => {
     expect(claudeSkill).toBe(codexSkill);
     expect(codexSkill).toBe(cursorSkill);
     expect(cursorSkill).toBe(openCodeSkill);
-    expect(claudeSkill).toContain('node .ai/kenkeep/scripts/kk-detect-harness.mjs');
+    expect(claudeSkill).toContain('node .ai/kenkeep/scripts/kk-detect-root.mjs');
     expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(true);
     expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/opencode/kk-capture.cjs'))).toBe(true);
   });

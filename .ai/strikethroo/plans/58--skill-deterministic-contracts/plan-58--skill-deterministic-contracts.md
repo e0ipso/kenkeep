@@ -328,9 +328,9 @@ graph TD
 - ✔️ Task 004: Ship `kk-detect-root.mjs` from the package skeleton with copy-if-missing delivery
 - ✔️ Task 005: (Contingent) `index rebuild --harness` optional — resolved as already-optional, no code change
 
-### ⏳ Phase 2: Schema-driven aggregation primitive
+### ✅ Phase 2: Schema-driven aggregation primitive
 **Parallel Tasks:**
-- ⏳ Task 003: Add `kk drafts collect` primitive (depends on: 001)
+- ✔️ Task 003: Add `kk drafts collect` primitive (depends on: 001)
 
 ### ⏳ Phase 3: Skill rewrite
 **Parallel Tasks:**

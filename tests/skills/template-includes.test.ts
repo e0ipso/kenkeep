@@ -10,8 +10,8 @@ const partialsDir = join(root, 'src/templates-source/_partials');
 const templatesDir = join(root, 'templates');
 const renderedSkillsDir = join(templatesDir, 'skills');
 
-const indexRebuildCommand = 'npx --yes kenkeep@latest index rebuild --harness "$HARNESS"';
-const skillsWithHarnessPartial = [
+const indexRebuildCommand = 'npx --yes kenkeep@latest index rebuild';
+const skillsWithRootPartial = [
   'kk-add',
   'kk-bootstrap',
   'kk-curate',
@@ -36,17 +36,18 @@ function walkFiles(dir: string): string[] {
 }
 
 describe('Handlebars prompt template rendering', () => {
-  it('keeps active-harness resolution as a single shared partial', () => {
-    const partial = readFileSync(join(partialsDir, 'resolve-active-harness.md.hbs'), 'utf8');
+  it('keeps project-root resolution as a single shared partial', () => {
+    const partial = readFileSync(join(partialsDir, 'resolve-project-root.md.hbs'), 'utf8');
 
-    expect(partial).toContain('## Resolve the active harness');
-    expect(partial).toContain('/tmp/kk-detect-root.mjs');
+    expect(partial).toContain('## Resolve the project root');
+    expect(partial).toContain('.ai/kenkeep/scripts/kk-detect-root.mjs');
     expect(partial).toContain('cd "$KK_REPO_ROOT"');
-    expect(partial).toContain('.ai/kenkeep/scripts/kk-detect-harness.mjs');
+    expect(partial).not.toContain('/tmp/kk-detect-root.mjs');
+    expect(partial).not.toContain('.ai/kenkeep/scripts/kk-detect-harness.mjs');
 
-    for (const skill of skillsWithHarnessPartial) {
+    for (const skill of skillsWithRootPartial) {
       const source = readFileSync(join(sourceSkillsDir, skill, 'SKILL.md.hbs'), 'utf8');
-      expect(source, skill).toContain('{{> resolve-active-harness}}');
+      expect(source, skill).toContain('{{> resolve-project-root}}');
     }
   });
 
@@ -62,13 +63,14 @@ describe('Handlebars prompt template rendering', () => {
     expect(section).not.toContain(indexRebuildCommand);
   });
 
-  it('renders shipped skills self-contained with the harness block inlined', () => {
-    for (const skill of skillsWithHarnessPartial) {
+  it('renders shipped skills self-contained with the root block inlined', () => {
+    for (const skill of skillsWithRootPartial) {
       const rendered = readFileSync(join(renderedSkillsDir, skill, 'SKILL.md'), 'utf8');
-      expect(rendered, skill).toContain('## Resolve the active harness');
-      expect(rendered, skill).toContain('/tmp/kk-detect-root.mjs');
+      expect(rendered, skill).toContain('## Resolve the project root');
+      expect(rendered, skill).toContain('.ai/kenkeep/scripts/kk-detect-root.mjs');
       expect(rendered, skill).toContain('cd "$KK_REPO_ROOT"');
-      expect(rendered, skill).toContain('.ai/kenkeep/scripts/kk-detect-harness.mjs');
+      expect(rendered, skill).not.toContain('/tmp/kk-detect-root.mjs');
+      expect(rendered, skill).not.toContain('.ai/kenkeep/scripts/kk-detect-harness.mjs');
     }
   });
 

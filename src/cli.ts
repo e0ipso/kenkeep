@@ -3,7 +3,9 @@ import { runBootstrapLauncher } from './commands/bootstrap.js';
 import { runCurateLauncher } from './commands/curate.js';
 import { runCurateDedupCommand } from './commands/curate-dedup.js';
 import { runCuratePersistCommand } from './commands/curate-persist.js';
+import { runConflictPrepareCommand } from './commands/conflict-prepare.js';
 import { runDoctor } from './commands/doctor.js';
+import { runDraftsCollectCommand } from './commands/drafts-collect.js';
 import { runFindDocsCommand } from './commands/finddocs.js';
 import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
@@ -16,7 +18,9 @@ import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
 import { runPlaceApply, runPlaceInventory } from './commands/place.js';
 import { runRebalanceMove, runRebalanceTrigger } from './commands/rebalance.js';
+import { runSchemaCommand } from './commands/schema.js';
 import { runStatus } from './commands/status.js';
+import { runValidateCommand } from './commands/validate.js';
 import { listHarnessIds } from './harnesses/registry.js';
 import { log } from './lib/log.js';
 import { packageVersion } from './lib/version.js';
@@ -266,6 +270,38 @@ async function main(): Promise<void> {
       process.exit(code);
     });
 
+  const conflictGroup = program
+    .command('conflict')
+    .description('Deterministic, LLM-free primitives for the curate conflict-resolution flow.');
+  conflictGroup
+    .command('prepare')
+    .description(
+      'Deterministic conflict-prep primitive: reads pending conflict files, computes each conflict default reply (the diff-ratio rules) and the sort/group order, and prints a JSON document the kk-curate skill renders before asking the user. Read-only — never mutates conflicts or asks. Pure Node, no LLM.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runConflictPrepareCommand();
+      process.exit(code);
+    });
+
+  const draftsGroup = program
+    .command('drafts')
+    .description('Deterministic, LLM-free primitives for the curate parallel-path draft collector.');
+  draftsGroup
+    .command('collect')
+    .description(
+      'Deterministic draft collector: reads ${RUN_ID}__*.draft.json under the curator log dir, validates each batch array against a named schema (default curator-output), concatenates survivors to stdout as one JSON array, and reports counts + invalid batches on stderr. A bad batch is skipped, never fatal. Pure Node, no LLM.'
+    )
+    .requiredOption('--run-id <id>', 'run id whose batch draft files are aggregated')
+    .option('--schema <name>', 'registered schema each batch validates against (default: curator-output)')
+    .allowExcessArguments(true)
+    .action(async (opts: { runId: string; schema?: string }) => {
+      const flags: Parameters<typeof runDraftsCollectCommand>[0] = { runId: opts.runId };
+      if (opts.schema !== undefined) flags.schema = opts.schema;
+      const code = await runDraftsCollectCommand(flags);
+      process.exit(code);
+    });
+
   const nodeGroup = program.command('node').description('Manage kenkeep nodes.');
   nodeGroup
     .command('add')
@@ -422,6 +458,33 @@ async function main(): Promise<void> {
       if (opts.from !== undefined) flags.from = opts.from;
       if (opts.withHashes) flags.withHashes = true;
       const code = await runFindDocsCommand(flags);
+      process.exit(code);
+    });
+
+  program
+    .command('schema')
+    .description(
+      'Print the JSON Schema for a named contract (proposal-output, curator-output, proposed-node, node), generated from the Zod definitions in src/lib/schemas.ts. Pure Node — no LLM.'
+    )
+    .argument('<name>', 'registered schema name')
+    .allowExcessArguments(true)
+    .action(async (name: string) => {
+      const code = await runSchemaCommand({ name });
+      process.exit(code);
+    });
+
+  program
+    .command('validate')
+    .description(
+      'Validate a JSON artifact against a named schema and print path-referenced errors. Reads the artifact from <file> or stdin (or `-`). Drives the skills’ produce → validate → fix loop. Pure Node — no LLM.'
+    )
+    .argument('<name>', 'registered schema name')
+    .argument('[file]', 'artifact path; reads stdin when omitted or `-`')
+    .allowExcessArguments(true)
+    .action(async (name: string, file: string | undefined) => {
+      const flags: Parameters<typeof runValidateCommand>[0] = { name };
+      if (file !== undefined) flags.file = file;
+      const code = await runValidateCommand(flags);
       process.exit(code);
     });
 

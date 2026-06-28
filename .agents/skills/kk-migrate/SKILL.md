@@ -3,21 +3,23 @@ name: kk-migrate
 description: Run any pending knowledge-base migration by querying the deterministic migration chain (`migrate status`) and executing each pending step's documented procedure in-host, with every write delegated to the step's deterministic CLI primitives. Use when the node reader, `doctor`, or `init` reports an out-of-date `schema_version` / legacy flat layout and asks you to migrate, or when the user asks to migrate the knowledge base.
 ---
 
-<!-- Version: 2 -->
+<!-- Version: 6 -->
 
 # kk-migrate
 
-You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no headless spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
+You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no `-p` spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
 
-## Resolve the active harness
+## Resolve the project root
 
-Resolve the harness id once via the shared detector under `.ai/kenkeep/scripts/` (run from the repo root). Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`); the detector falls back to env detection and `config.yaml` when the hint is absent or unknown:
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector:
 
 ```bash
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint>)
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+pwd
 ```
 
-`$HARNESS` is not consumed by the `place` primitives, but `index rebuild` (the closing command of the flat-to-tree procedure) requires it.
+Treat the printed path as the working directory for every command below.
 
 ## Dispatch
 
@@ -103,7 +105,7 @@ On success it prints one JSON line, the placement summary:
 Regenerate `ENTRY.md`, `GRAPH.md`, and every folder `index.md` from the relocated tree:
 
 ```bash
-npx --yes kenkeep@latest index rebuild --harness "$HARNESS"
+npx --yes kenkeep@latest index rebuild
 ```
 
 The rebuild self-preserves the folder summaries you stamped in step 3. A folder you left without an authored summary renders the Title-cased folder-name fallback; `index rebuild` warns and exits zero (warn, never block).
@@ -116,11 +118,11 @@ Tell the user the migration is staged in the working tree and **no git command w
 git diff
 ```
 
-Leaves moved into their topical folders show as renames (ids and bytes preserved); each created folder's `index.md` carries its authored summary; `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts the migration with `git commit` and rejects it with `git restore` (path-scoped or whole-tree). A path-scoped `git restore` that keeps only part of the migration must be followed by `npx kenkeep index rebuild` to resync the generated index with the on-disk tree (a whole-tree `git restore` reverts the generated files too, so it needs no rebuild). Do not stage, commit, or restore anything yourself.
+Leaves moved into their topical folders show as renames (ids and bytes preserved); each created folder's `index.md` carries its authored summary; `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts the migration with `git commit` and rejects it with `git restore` (path-scoped or whole-tree). Do not stage, commit, or restore anything yourself.
 
 ## Constraints
 
-- **In-host only.** The judgment work runs in this session. There is no sub-agent and no headless spawn; do not dispatch one.
+- **In-host only.** The judgment work runs in this session. There is no sub-agent and no `-p` spawn; do not dispatch one.
 - **Never write node files directly.** Every file mutation goes through a step's deterministic primitive — in flat-to-tree, every leaf relocation and every folder-summary stamp goes through `place apply`. You only author the JSON documents the primitives consume.
 - **Never invoke git.** Not `add`, not `commit`, not `restore`. The migration is left as an uncommitted diff for the human to accept or reject.
 - **Ids and edges are sacred.** Every leaf keeps its exact id and every edge; a primitive's validation aborts before any write if a plan would drop, rename, or omit one.

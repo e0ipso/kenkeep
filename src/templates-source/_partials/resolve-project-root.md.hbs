@@ -1,0 +1,9 @@
+## Resolve the project root
+
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
+
+```bash
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
+cd "$KK_REPO_ROOT" || exit $?
+pwd
+```

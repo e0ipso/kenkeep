@@ -3,7 +3,7 @@ name: kk-session-extract
 description: Extract durable knowledge from the current live session, stage it as a validated done session log, and run it through the same curation machinery as /kk-curate. Use when the user wants to proactively process the current session before waiting for capture hooks and a later curate pass — not for dictating one node (/kk-add) or batch-processing accumulated logs (/kk-curate).
 ---
 
-<!-- Version: 4 -->
+<!-- Version: 5 -->
 
 # kk-session-extract
 
@@ -13,39 +13,15 @@ Extract durable project knowledge from the **visible current session**, stage it
 
 **Partial context warning:** if compaction has occurred, the visible context may be incomplete. Describe your extraction as visible-context extraction, not full-session extraction, unless the runtime exposes the full transcript.
 
-## Resolve the active harness
+## Resolve the project root
 
-Substitute your own best-guess id for `<hint>` based on the runtime you are running inside (one of `claude`, `codex`, `copilot`, `cursor`, `opencode`). Run the materialization block exactly as-is (it lazy-writes `/tmp/kk-detect-root.mjs` on first invocation):
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
 
 ```bash
-if [ ! -f /tmp/kk-detect-root.mjs ]; then
-cat << 'EOF' > /tmp/kk-detect-root.mjs
-#!/usr/bin/env node
-// kk-detect-root: resolves the project root containing .ai/kenkeep.
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-let dir = process.cwd();
-while (true) {
-  if (existsSync(join(dir, '.ai', 'kenkeep'))) {
-    process.stdout.write(dir);
-    process.exit(0);
-  }
-  const parent = dirname(dir);
-  if (parent === dir) {
-    process.stderr.write('kk-detect-root: no .ai/kenkeep found in this directory or its parents.\n');
-    process.exit(2);
-  }
-  dir = parent;
-}
-EOF
-fi
-KK_REPO_ROOT=$(node /tmp/kk-detect-root.mjs) || exit $?
+KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
 cd "$KK_REPO_ROOT" || exit $?
-HARNESS=$(node .ai/kenkeep/scripts/kk-detect-harness.mjs --hint <hint> --root "$KK_REPO_ROOT")
 pwd
 ```
-
-`$HARNESS` is required for `index rebuild`. Treat the printed path as the working directory for every command below.
 
 ## 1. Extract proposals from the live context
 
@@ -89,7 +65,7 @@ PROPOSALS=$(mktemp -t kk-session-extract-proposals.XXXXXX.json)
 SURVIVORS=$(mktemp -t kk-session-extract-survivors.XXXXXX.json)
 ```
 
-Write your accumulated actions array (JSON array, top-level, validating against `CuratorOutputSchema`) to `$PROPOSALS`.
+Write your accumulated actions array (JSON array, top-level) to `$PROPOSALS`, then validate it before dedup: `npx --yes kenkeep@latest validate curator-output "$PROPOSALS"`. On a non-zero exit, read the path-referenced errors, fix the offending action(s), and re-validate until it passes. (`kk schema curator-output` prints the JSON Schema if you need the exact shape.)
 
 ## 4. Dedup and stamp via the scoped primitive
 
@@ -113,7 +89,7 @@ Follow `/kk-curate` Step 5 exactly: persist `$SURVIVORS` via `curate-persist`, s
 ## 6. Rebuild the indices
 
 ```bash
-npx --yes kenkeep@latest index rebuild --harness "$HARNESS"
+npx --yes kenkeep@latest index rebuild
 ```
 
 ## 6b. Rebalance (final phase)

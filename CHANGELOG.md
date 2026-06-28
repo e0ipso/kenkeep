@@ -1,3 +1,9 @@
+## [1.7.2](https://github.com/e0ipso/kenkeep/compare/v1.7.1...v1.7.2) (2026-06-28)
+
+### Bug Fixes
+
+* render skill prompt partials with Handlebars ([#67](https://github.com/e0ipso/kenkeep/issues/67)) ([40ce667](https://github.com/e0ipso/kenkeep/commit/40ce66797254a601d12de90f10114996e8d6eb5f)), closes [#63](https://github.com/e0ipso/kenkeep/issues/63)
+
 ## [1.7.1](https://github.com/e0ipso/kenkeep/compare/v1.7.0...v1.7.1) (2026-06-22)
 
 ### Bug Fixes

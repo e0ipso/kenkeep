@@ -9,17 +9,7 @@ description: Run any pending knowledge-base migration by querying the determinis
 
 You are the migrator — for **any** pending knowledge-base migration, not one specific hop. The knowledge base stores its on-disk layout at a numbered `schema_version`, and each registered migration step takes the tree from one version to the next. Whatever judgment a step requires, you exercise **in this session**: there is no sub-agent, no runner, and no `-p` spawn — **you** are the LLM doing the judgment work. Every file write is delegated to the step's deterministic CLI primitives so ids and bytes are preserved by tested code, never by you.
 
-## Resolve the project root
-
-Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector:
-
-```bash
-KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
-cd "$KK_REPO_ROOT" || exit $?
-pwd
-```
-
-Treat the printed path as the working directory for every command below.
+{{> resolve-project-root}}
 
 ## Dispatch
 
@@ -100,13 +90,7 @@ On success it prints one JSON line, the placement summary:
 {"placed":[{"id":"<id>","targetFolder":"<folder>"}, ...]}
 ```
 
-### 4. Rebuild the indices
-
-Regenerate `ENTRY.md`, `GRAPH.md`, and every folder `index.md` from the relocated tree:
-
-```bash
-npx --yes kenkeep@latest index rebuild
-```
+{{> index-rebuild-section heading="### 4. Rebuild the indices" lead="Regenerate `ENTRY.md`, `GRAPH.md`, and every folder `index.md` from the relocated tree:"}}
 
 The rebuild self-preserves the folder summaries you stamped in step 3. A folder you left without an authored summary renders the Title-cased folder-name fallback; `index rebuild` warns and exits zero (warn, never block).
 

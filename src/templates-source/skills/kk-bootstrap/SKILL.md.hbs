@@ -21,15 +21,7 @@ Survey the project's existing markdown documentation, extract candidate knowledg
 
 Before you start, read `.ai/kenkeep/config.yaml` (falling back to `~/.config/kenkeep/config.yaml`) for any user preferences (tags vocabulary, scope hints, etc.). Apply what is relevant.
 
-## Resolve the project root
-
-Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
-
-```bash
-KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
-cd "$KK_REPO_ROOT" || exit $?
-pwd
-```
+{{> resolve-project-root}}
 
 ## Steps
 
@@ -168,13 +160,7 @@ On success the primitive prints the resolved node id and exits 0. Capture it. If
 
 **Multi-source nodes.** If a candidate is sourced from multiple docs (you found the same convention discussed in two places), pick the most authoritative doc as the `--source-doc` / `--source-hash` pair and mention the other sources in the body (e.g. "Also documented in `docs/auth.md`."). Do not write duplicate nodes.
 
-### 7. Refresh ENTRY.md and GRAPH.md
-
-After all writes, rebuild the indices so the reviewer sees them in sync with the new nodes:
-
-```bash
-npx --yes kenkeep@latest index rebuild
-```
+{{> index-rebuild-section heading="### 7. Refresh ENTRY.md and GRAPH.md" lead="After all writes, rebuild the indices so the reviewer sees them in sync with the new nodes:"}}
 
 ### 8. Report back
 

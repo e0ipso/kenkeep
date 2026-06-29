@@ -1,5 +1,5 @@
-_sessions/
-_logs/
-hooks/
+/_sessions/
+/_logs/
+/hooks/
 .state/*
 !.state/installed-version

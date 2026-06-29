@@ -1,7 +1,7 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:20e01bb51b879e6353324adca8c52f5ba71f0e5d443aea773429ac96fd54f407'
-node_count: 69
+nodes_hash: 'sha256:7cb59a32f80d349daa89483fd8664da18e78406e09bc01236084f65cccb60bba'
+node_count: 70
 ---
 # kenkeep
 
@@ -21,4 +21,5 @@ node_count: 69
 - Load [`state/`](nodes/state/index.md) for more information on session logs and runtime state files; read when changing capture state, locks, or proposal tracking.
 
 ## Conventions (how we build)
+- Open [**Copilot file-based SessionStart must use shared context builder**](nodes/practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) to learn about: Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status. #copilot #harness #hooks #sessionstart #context-injection #drift
 - Open [**Keep template partials out of the knowledge base**](nodes/practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build

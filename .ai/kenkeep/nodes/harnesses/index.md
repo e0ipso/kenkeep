@@ -36,7 +36,7 @@ _None._
 ### #harness
 - Open [**Cursor harness adapter**](map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts from agent-transcripts/; Read and ReadFile both count for usage.
 - Open [**Codex CLI harness adapter**](map-codex-harness.md) — OpenAI Codex CLI adapter; capture and lint tick on Stop only (no SessionEnd/PreCompact); skills under .agents/skills/.
-- Open [**Claude Code harness adapter**](map-claude-harness.md) — Claude Code adapter; wires capture to Stop/SessionEnd/PreCompact, registers in .claude/settings.json, installs skills at .claude/skills/.
+- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream. kenkeep now injects via additional_context AND the AGENTS.md sentinel as a belt-and-braces pair.
 ### #hooks
 - Open [**Cursor harness adapter**](map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts from agent-transcripts/; Read and ReadFile both count for usage.
 - Open [**Claude Code harness adapter**](map-claude-harness.md) — Claude Code adapter; wires capture to Stop/SessionEnd/PreCompact, registers in .claude/settings.json, installs skills at .claude/skills/.
@@ -70,11 +70,13 @@ _None._
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — Schema migrations are handled by one generic migrate command that detects the current schema and dispatches the appropriate step, not by separate commands per bump.
 - Open [**Surface schema mismatch errors on both init and node-read paths**](../cli/practice-surface-schema-mismatch-errors-on-both-init-and-node-read-paths.md) — Migration schema mismatch errors must be visible both when init runs and when node-reading commands execute.
 ### #copilot
-- Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
 - Open [**Copilot harness adapter**](map-copilot-harness-adapter.md) — GitHub Copilot CLI adapter; per-event JSON hook config at the repo-level .github/hooks/kk.json (Copilot loads it before user-level); captures on sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no detectFromEnv; no user-home writes; session-start ENTRY via a sentinel block in .github/copilot-instructions.md.
+- Open [**Copilot file-based SessionStart must use shared context builder**](../practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
+- Open [**Harness adapter**](map-harness-adapter.md) — Per-runtime adapter implementing HarnessAdapter; declares its event vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex, cursor, opencode, copilot.
 ### #abstractions
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.
 ### #context-injection
+- Open [**Copilot file-based SessionStart must use shared context builder**](../practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
 - Open [**Cursor sessionStart additional_context delivery was fixed upstream**](practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream. kenkeep now injects via additional_context AND the AGENTS.md sentinel as a belt-and-braces pair.
 ### #cross-harness
 - Open [**Cross-harness features must use adapter-level abstractions**](practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.

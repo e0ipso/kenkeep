@@ -1,11 +1,11 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:20e01bb51b879e6353324adca8c52f5ba71f0e5d443aea773429ac96fd54f407'
-node_count: 69
+nodes_hash: 'sha256:7cb59a32f80d349daa89483fd8664da18e78406e09bc01236084f65cccb60bba'
+node_count: 70
 ---
 # kenkeep Graph
 
-Total nodes: 69
+Total nodes: 70
 
 ## map-bootstrap-incremental-command
 
@@ -340,6 +340,14 @@ Total nodes: 69
 - **path:** conventions/practice-conventional-commits-and-release.md
 - **tags:** git, release, conventional-commits
 - **derived_from:** CONTRIBUTING.md
+
+## practice-copilot-file-based-sessionstart-must-use-shared-context-builder
+
+- **kind:** practice
+- **title:** Copilot file-based SessionStart must use shared context builder
+- **path:** practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md
+- **tags:** copilot, harness, hooks, sessionstart, context-injection, drift
+- **relates_to:** map-copilot-harness-adapter, map-session-start-hook
 
 ## practice-cross-harness-features-must-use-adapter-level-abstractions
 

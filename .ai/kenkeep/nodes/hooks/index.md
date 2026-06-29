@@ -62,6 +62,7 @@ _None._
 ### #consume
 - Open [**kk-session-start.mjs (consume hook)**](map-session-start-hook.md) — Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may append curate nudge, emits additionalContext.
 ### #drift
+- Open [**Copilot file-based SessionStart must use shared context builder**](../practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
 - Open [**Hook behavior changes must be applied to every harness adapter**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook.
 ### #env
 - Open [**CLI launchers must set KENKEEP_BUILDER_INTERNAL=1 on the harness child**](practice-recursion-guard-kenkeep-builder-internal.md) — The CLI launchers (bootstrap, curate, node add) and the proposal-drain hook must set KENKEEP_BUILDER_INTERNAL=1 on the harness child they exec so the nested session's SessionStart hooks do not re-fire.
@@ -70,7 +71,7 @@ _None._
 ### #harness
 - Open [**Cursor harness adapter**](../harnesses/map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts from agent-transcripts/; Read and ReadFile both count for usage.
 - Open [**Codex CLI harness adapter**](../harnesses/map-codex-harness.md) — OpenAI Codex CLI adapter; capture and lint tick on Stop only (no SessionEnd/PreCompact); skills under .agents/skills/.
-- Open [**Claude Code harness adapter**](../harnesses/map-claude-harness.md) — Claude Code adapter; wires capture to Stop/SessionEnd/PreCompact, registers in .claude/settings.json, installs skills at .claude/skills/.
+- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](../harnesses/practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — The silent-drop bug existed ~May 2026 and was fixed by Cursor upstream. kenkeep now injects via additional_context AND the AGENTS.md sentinel as a belt-and-braces pair.
 ### #harnesses
 - Open [**Add hermetic end-to-end capture tests per harness**](practice-add-hermetic-end-to-end-capture-tests-per-harness.md) — Unit tests alone miss capture regressions; each harness needs a hermetic integration test that exercises the built hook end-to-end.
 - Open [**Cross-harness features must use adapter-level abstractions**](../harnesses/practice-cross-harness-features-must-use-adapter-level-abstractions.md) — When designing features that span all harnesses, build adapter-level abstractions that work for every harness rather than assuming Claude's shape is universal.
@@ -89,8 +90,9 @@ _None._
 ### #recursion
 - Open [**CLI launchers must set KENKEEP_BUILDER_INTERNAL=1 on the harness child**](practice-recursion-guard-kenkeep-builder-internal.md) — The CLI launchers (bootstrap, curate, node add) and the proposal-drain hook must set KENKEEP_BUILDER_INTERNAL=1 on the harness child they exec so the nested session's SessionStart hooks do not re-fire.
 ### #sessionstart
-- Open [**ENTRY.md**](../index/map-entry-md.md) — Entry catalog: whole-tree totals + top-level branch list. Injected into every new session by kk-session-start. Regenerated deterministically from nodes/.
 - Open [**kk-session-start.mjs (consume hook)**](map-session-start-hook.md) — Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may append curate nudge, emits additionalContext.
+- Open [**ENTRY.md**](../index/map-entry-md.md) — Entry catalog: whole-tree totals + top-level branch list. Injected into every new session by kk-session-start. Regenerated deterministically from nodes/.
+- Open [**Copilot file-based SessionStart must use shared context builder**](../practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
 ### #skills
 - Open [**Shipped skills and hook scripts must be self-contained**](practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
 - Open [**Skills-first documentation, only init is CLI**](../cli/practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.

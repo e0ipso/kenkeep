@@ -109,8 +109,19 @@ schema_version: 1
 curationThreshold: 20         # pending sessions that trigger the curate nudge
 logsRetentionDays: 30         # retention for pruning diagnostic logs
 lintEveryNSessions: 50        # background lint cadence
+notifications:
+  enabled: true               # set false to disable native OS notifications
 cliDefaultHarness: codex      # harness to assume when none is detected
 ```
+
+Actionable SessionStart nudges also attempt a native desktop notification by
+default when a local backend is available: `osascript` on macOS and
+`notify-send` on Linux. This is additive; the same nudge still goes through the
+normal assistant/context channel. Missing binaries, denied OS permissions,
+headless sessions, SSH, WSL, missing DBus, and unavailable notification daemons
+are skipped silently. Set `notifications.enabled: false` to disable all OS
+notification attempts. Network notification backends such as `ntfy` are not
+enabled by this setting.
 
 ### Extraction model (optional)
 

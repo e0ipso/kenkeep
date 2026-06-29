@@ -26,6 +26,7 @@ export default [
       'templates/**',
       'tests/fixtures/**',
       'docs/_site/**',
+      '.ai/kenkeep/hooks/**',
       '.claude/**',
       '.codex/**',
       '.cursor/**',

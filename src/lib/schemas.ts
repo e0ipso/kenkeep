@@ -306,6 +306,12 @@ export const SettingsSchema = z
     curationThreshold: z.number().int().positive().optional(),
     logsRetentionDays: z.number().int().positive().optional(),
     lintEveryNSessions: z.number().int().positive().optional(),
+    notifications: z
+      .object({
+        enabled: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     proposalModel: ModelChoiceSchema.optional(),
     curatorModel: ModelChoiceSchema.optional(),
     bootstrapModel: ModelChoiceSchema.optional(),

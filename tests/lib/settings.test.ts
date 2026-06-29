@@ -18,6 +18,34 @@ describe('settings', () => {
     expect(result.projectFile).toBe(join(sandbox, 'missing.yaml'));
   });
 
+  it('defaults notifications to enabled and accepts the global opt-out', () => {
+    expect(
+      resolveSettings({ projectFile: join(sandbox, 'missing.yaml') }).settings.notifications
+    ).toEqual({
+      enabled: true,
+    });
+
+    const projectFile = join(sandbox, 'project.yaml');
+    writeFileSync(projectFile, 'schema_version: 1\nnotifications:\n  enabled: false\n');
+    expect(resolveSettings({ projectFile }).settings.notifications.enabled).toBe(false);
+  });
+
+  it('treats an empty notifications object as enabled', () => {
+    const projectFile = join(sandbox, 'project.yaml');
+    writeFileSync(projectFile, 'schema_version: 1\nnotifications: {}\n');
+    expect(resolveSettings({ projectFile }).settings.notifications.enabled).toBe(true);
+  });
+
+  it('rejects malformed or unknown nested notification config', () => {
+    const malformed = join(sandbox, 'malformed.yaml');
+    writeFileSync(malformed, 'schema_version: 1\nnotifications:\n  enabled: sometimes\n');
+    expect(() => resolveSettings({ projectFile: malformed })).toThrow(/notifications/);
+
+    const unknown = join(sandbox, 'unknown.yaml');
+    writeFileSync(unknown, 'schema_version: 1\nnotifications:\n  enabled: true\n  ntfy: {}\n');
+    expect(() => resolveSettings({ projectFile: unknown })).toThrow(/ntfy/);
+  });
+
   it('layers project overrides on top of defaults', () => {
     const projectFile = join(sandbox, 'project.yaml');
     writeFileSync(projectFile, 'schema_version: 1\ncurationThreshold: 11\nlogsRetentionDays: 7\n');

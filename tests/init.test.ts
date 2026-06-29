@@ -277,10 +277,12 @@ describe('init', () => {
     expect(body['curationThreshold']).toBe(20);
     expect(body['logsRetentionDays']).toBe(30);
     expect(body['lintEveryNSessions']).toBe(50);
+    expect(body['notifications']).toEqual({ enabled: true });
     expect(Object.keys(body).sort()).toEqual([
       'curationThreshold',
       'lintEveryNSessions',
       'logsRetentionDays',
+      'notifications',
       'schema_version',
     ]);
   });

@@ -305,3 +305,32 @@ export function buildNudgeContent(result: SessionStartResult): {
   }
   return { statusLine, content };
 }
+
+export function buildSessionStartNotifications(
+  result: SessionStartResult
+): Array<{ title: string; body: string }> {
+  const notifications: Array<{ title: string; body: string }> = [];
+
+  if (result.indexStale) {
+    notifications.push({
+      title: 'kenkeep index is stale',
+      body: 'Run `npx kenkeep index rebuild` to refresh ENTRY.md.',
+    });
+  }
+
+  if (result.nudged) {
+    notifications.push({
+      title: 'kenkeep curation overdue',
+      body: `${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate proposal(s). Run /kk-curate.`,
+    });
+  }
+
+  if (result.lintNudged) {
+    notifications.push({
+      title: 'kenkeep lint findings',
+      body: 'Run `npx kenkeep lint --verbose` for details.',
+    });
+  }
+
+  return notifications;
+}

@@ -2,7 +2,7 @@
 id: 3
 group: "hook-integration"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-06-29
 skills:
   - harness-hooks

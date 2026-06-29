@@ -215,9 +215,9 @@ graph TD
 - ✔️ Task 001: Implement notification backend utility
 - ✔️ Task 002: Add default-on notification config
 
-### Phase 2: Hook Integration
+### ✅ Phase 2: Hook Integration
 **Parallel Tasks:**
-- Task 003: Wire SessionStart notifications (depends on: 001, 002)
+- ✔️ Task 003: Wire SessionStart notifications (depends on: 001, 002)
 
 ### Phase 3: Documentation and Verification
 **Parallel Tasks:**

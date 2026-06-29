@@ -13,8 +13,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHookEntry } from '../../../lib/hook-entry.js';
-import { buildSessionStartContext } from '../../../lib/session-start.js';
+import {
+  buildSessionStartContext,
+  buildSessionStartNotifications,
+} from '../../../lib/session-start.js';
 import { lintStateFile } from '../../../lib/lint-state.js';
+import { sendOsNotification } from '../../../lib/notifications.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { resolveSettings } from '../../../lib/settings.js';
 
@@ -43,6 +47,11 @@ runHookEntry({
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
       });
+      if (settings.notifications.enabled) {
+        for (const notification of buildSessionStartNotifications(result)) {
+          sendOsNotification(notification);
+        }
+      }
       const statusLine = result.nudged
         ? `🚨 kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kk-curate`
         : `📋 kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;

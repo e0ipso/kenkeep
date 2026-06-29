@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
@@ -73,6 +73,24 @@ function runHookRaw(
   });
 }
 
+async function waitForFileLines(file: string, expected: number): Promise<string[]> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    if (existsSync(file)) {
+      const lines = readFileSync(file, 'utf8')
+        .split('\n')
+        .filter(line => line.length > 0);
+      if (lines.length >= expected) return lines;
+    }
+    await new Promise(resolveFn => setTimeout(resolveFn, 25));
+  }
+  return existsSync(file)
+    ? readFileSync(file, 'utf8')
+        .split('\n')
+        .filter(line => line.length > 0)
+    : [];
+}
+
 /**
  * Materialize a tree-shaped KB under the sandbox: leaves in deep branch folders
  * plus the regenerated ENTRY.md (the entry catalog carrying the global
@@ -98,6 +116,51 @@ function seedLeaf(nodesDir: string, relDir: string, id: string, kind: 'practice'
 function rebuildIndex(kkDir: string, nodesDir: string): void {
   const idx = generateIndex(nodesDir);
   writeIndex(join(kkDir, 'ENTRY.md'), idx.rootCatalog);
+}
+
+function seedPendingSession(kkDir: string, sessionId: string): void {
+  const sessionsDir = join(kkDir, '_sessions');
+  mkdirSync(sessionsDir, { recursive: true });
+  writeFileSync(
+    join(sessionsDir, `${sessionId}.md`),
+    matter.stringify('## session\n', {
+      schema_version: 1,
+      session_id: sessionId,
+      captured_by: 'stop',
+      captured_at: '2026-05-11T10:00:00Z',
+      transcript_hash: `sha256:${sessionId}`,
+      proposal_status: 'done',
+      proposal_completed_at: '2026-05-11T10:01:00Z',
+      proposal_error: null,
+      proposal_log: null,
+      proposals: { practice: [{ summary: 'practice' }], map: [] },
+    })
+  );
+}
+
+function seedLintFindings(kkDir: string): void {
+  const stateDir = join(kkDir, '.state');
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(
+    join(stateDir, 'lint-state.json'),
+    JSON.stringify({
+      schema_version: 1,
+      sessions_since_last_lint: 0,
+      last_lint_at: '2026-05-11T10:00:00.000Z',
+      last_errors: 1,
+      last_findings: 2,
+    })
+  );
+}
+
+function fakeNotifySend(root: string): { binDir: string; logFile: string } {
+  const binDir = join(root, 'fake-bin');
+  const logFile = join(root, 'notify.log');
+  mkdirSync(binDir, { recursive: true });
+  const script = join(binDir, 'notify-send');
+  writeFileSync(script, '#!/bin/sh\nprintf "%s\\n" "$*" >> "$KK_NOTIFY_LOG"\n');
+  chmodSync(script, 0o755);
+  return { binDir, logFile };
 }
 
 interface Sandbox {
@@ -240,5 +303,61 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     const ctx = (JSON.parse(res.stdout) as { hookSpecificOutput: { additionalContext: string } })
       .hookSpecificOutput.additionalContext;
     expect(ctx).toContain('kenkeep index is stale');
+  });
+
+  it('Codex preserves stdout context and sends additive OS notifications for actionable nudges', async () => {
+    const fake = fakeNotifySend(sb.root);
+    seedLeaf(sb.nodesDir, 'storage', 'map-notification-drift', 'map');
+    seedPendingSession(sb.kkDir, 'notify-session');
+    seedLintFindings(sb.kkDir);
+    writeFileSync(join(sb.kkDir, 'config.yaml'), 'schema_version: 1\ncurationThreshold: 1\n');
+
+    const res = await runHook(
+      hookPath('codex'),
+      sb.root,
+      { cwd: sb.root },
+      {
+        PATH: `${fake.binDir}:${process.env.PATH ?? ''}`,
+        KK_NOTIFY_LOG: fake.logFile,
+      }
+    );
+    expect(res.exitCode).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+    expect(parsed.additionalContext).toContain('# kenkeep');
+    expect(parsed.additionalContext).toContain('kenkeep index is stale');
+    expect(parsed.additionalContext).toContain('pending session log');
+    expect(parsed.additionalContext).toContain('Last kenkeep lint');
+
+    const notifications = await waitForFileLines(fake.logFile, 3);
+    expect(notifications).toHaveLength(3);
+    expect(notifications.join('\n')).toContain('--app-name=kenkeep');
+    expect(notifications.join('\n')).toContain('kenkeep index is stale');
+    expect(notifications.join('\n')).toContain('kenkeep curation overdue');
+    expect(notifications.join('\n')).toContain('kenkeep lint findings');
+  });
+
+  it('Codex notification opt-out preserves stdout and skips OS notification attempts', async () => {
+    const fake = fakeNotifySend(sb.root);
+    seedPendingSession(sb.kkDir, 'notify-opt-out');
+    writeFileSync(
+      join(sb.kkDir, 'config.yaml'),
+      'schema_version: 1\ncurationThreshold: 1\nnotifications:\n  enabled: false\n'
+    );
+
+    const res = await runHook(
+      hookPath('codex'),
+      sb.root,
+      { cwd: sb.root },
+      {
+        PATH: `${fake.binDir}:${process.env.PATH ?? ''}`,
+        KK_NOTIFY_LOG: fake.logFile,
+      }
+    );
+    expect(res.exitCode).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+    expect(parsed.additionalContext).toContain('pending session log');
+
+    const notifications = await waitForFileLines(fake.logFile, 1);
+    expect(notifications).toHaveLength(0);
   });
 });

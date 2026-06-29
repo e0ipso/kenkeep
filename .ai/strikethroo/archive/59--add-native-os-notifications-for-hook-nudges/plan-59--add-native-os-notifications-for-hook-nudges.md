@@ -230,3 +230,21 @@ After each phase, run the referenced validation gate and resolve any failures be
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 4
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-06-29
+
+### Results
+Added default-on native OS notification support for actionable SessionStart nudges. The implementation includes a shared best-effort backend utility for macOS `osascript` and Linux `notify-send`, strict nested `notifications.enabled` config, additive hook integration for Claude, Codex, Cursor, and OpenCode, focused tests, and user/internal documentation.
+
+### Noteworthy Events
+Feature branch creation initially failed because the active Strikethroo plan files were uncommitted on `main`; work continued after switching to `feature/59--add-native-os-notifications-for-hook-nudges`.
+
+`npm run lint` initially failed on untracked installed `.ai/kenkeep/hooks/**` generated bundles, so the ESLint ignore list was updated to keep local dogfood hook artifacts out of source linting.
+
+Phase 1 commit validation caught a TypeScript narrowing issue in notification settings defaults and a stale init test expectation; both were fixed before committing.
+
+### Necessary follow-ups
+Copilot SessionStart notification parity remains intentionally out of scope for issue #40 and should be handled by issue #70 when Copilot moves onto the shared SessionStart builder.

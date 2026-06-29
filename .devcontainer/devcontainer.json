@@ -1,14 +1,9 @@
 {
-  "name": "Kenkeep",
-  "forwardPorts": [34490],
-  "portsAttributes": {
-    "34490": {
-      "label": "t3",
-      "onAutoForward": "silent"
-    }
-  },
+  "name": "${localWorkspaceFolderBasename}",
   "runArgs": [
-    "--hostname=kenkeep-dev"
+    "--hostname=${localWorkspaceFolderBasename}-dev",
+    "--publish",
+    "127.0.0.1:25442:34489"
   ],
   "image": "node:24",
   "features": {

@@ -16,9 +16,9 @@ summary: >-
 _None._
 
 ## Conventions (how we build)
+- Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) to learn about: Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record the prompt so audits remain coherent. #prompts #versioning #audit
 - Open [**Local prompt overrides fall back to bundled templates**](practice-local-prompt-overrides-fall-back-to-bundled.md) to learn about: Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md first, then the bundled fallback. Delete the override to revert. #prompts #customization #override
 - Open [**Avoid harness favoritism in examples and recommendations**](practice-document-model-recommendations-with-harness-agnostic-framing-2.md) to learn about: Generated or documented examples and model recommendations must not favor one harness; use neutral placeholders or per-harness examples. #documentation #harness #models #recommendations #examples #configuration
-- Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) to learn about: Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record the prompt so audits remain coherent. #prompts #versioning #audit
 
 ## Components (what exists)
 - Open [**config.yaml (project settings)**](map-config-yaml.md) to learn about: Committed project settings at .ai/kenkeep/config.yaml. Strict: unknown keys are a hard error. #config #settings #model
@@ -26,8 +26,8 @@ _None._
 ## By topic
 
 ### #prompts
-- Open [**Local prompt overrides fall back to bundled templates**](practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md first, then the bundled fallback. Delete the override to revert.
 - Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record the prompt so audits remain coherent.
+- Open [**Local prompt overrides fall back to bundled templates**](practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md first, then the bundled fallback. Delete the override to revert.
 - Open [**Curator drops non-productive and change-oriented candidates**](../curation/practice-curator-drops-non-productive-candidates.md) — Change-oriented framing (migration stories) is auto-dropped. Hedged/plan-scoped/low-confidence-without-rationale signatures are evidence of an abandoned-session leak.
 ### #audit
 - Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record the prompt so audits remain coherent.

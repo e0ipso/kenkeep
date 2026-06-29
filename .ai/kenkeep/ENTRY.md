@@ -1,7 +1,7 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:50186d4278db0e99240298a5c9152f42469fa2f87a2b275923466d6b01c6ac7c'
-node_count: 68
+nodes_hash: 'sha256:20e01bb51b879e6353324adca8c52f5ba71f0e5d443aea773429ac96fd54f407'
+node_count: 69
 ---
 # kenkeep
 
@@ -19,3 +19,6 @@ node_count: 68
 - Load [`node-schema/`](nodes/node-schema/index.md) for more information on node frontmatter, naming, and schema-version rules; read before changing any node field or bumping the schema.
 - Load [`overview/`](nodes/overview/index.md) for more information on what kenkeep is and the on-disk .ai/kenkeep layout; read first when new to the project.
 - Load [`state/`](nodes/state/index.md) for more information on session logs and runtime state files; read when changing capture state, locks, or proposal tracking.
+
+## Conventions (how we build)
+- Open [**Keep template partials out of the knowledge base**](nodes/practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build

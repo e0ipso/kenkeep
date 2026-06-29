@@ -1,11 +1,11 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:50186d4278db0e99240298a5c9152f42469fa2f87a2b275923466d6b01c6ac7c'
-node_count: 68
+nodes_hash: 'sha256:20e01bb51b879e6353324adca8c52f5ba71f0e5d443aea773429ac96fd54f407'
+node_count: 69
 ---
 # kenkeep Graph
 
-Total nodes: 68
+Total nodes: 69
 
 ## map-bootstrap-incremental-command
 
@@ -471,6 +471,14 @@ Total nodes: 68
 - **path:** index/practice-keep-entry-md-lean-and-bounded-no-topic-map.md
 - **tags:** kenkeep, entry, index, design
 - **relates_to:** map-entry-md
+
+## practice-keep-template-partials-out-of-the-knowledge-base
+
+- **kind:** practice
+- **title:** Keep template partials out of the knowledge base
+- **path:** practice-keep-template-partials-out-of-the-knowledge-base.md
+- **tags:** templates, prompts, knowledge-base, build
+- **relates_to:** practice-bump-prompt-version-comment, practice-shipped-skills-and-hook-scripts-must-be-self-contained
 
 ## practice-lint-naming-rules
 

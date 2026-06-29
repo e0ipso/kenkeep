@@ -17,10 +17,10 @@ _None._
 
 ## Conventions (how we build)
 - Open [**CLI launchers must set KENKEEP_BUILDER_INTERNAL=1 on the harness child**](practice-recursion-guard-kenkeep-builder-internal.md) to learn about: The CLI launchers (bootstrap, curate, node add) and the proposal-drain hook must set KENKEEP_BUILDER_INTERNAL=1 on the harness child they exec so the nested session's SessionStart hooks do not re-fire. #recursion #hooks #env
+- Open [**Shipped skills and hook scripts must be self-contained**](practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) to learn about: Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies. #skills #hooks #cli #packaging
 - Open [**Add hermetic end-to-end capture tests per harness**](practice-add-hermetic-end-to-end-capture-tests-per-harness.md) to learn about: Unit tests alone miss capture regressions; each harness needs a hermetic integration test that exercises the built hook end-to-end. #testing #hooks #capture #harnesses
 - Open [**Hook behavior changes must be applied to every harness adapter**](practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) to learn about: Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook. #harness #hooks #architecture #drift
 - Open [**Hook status messages include kk prefix after emoji**](practice-hook-status-messages-include-kk-prefix-after-emoji.md) to learn about: All user-facing hook messages follow the pattern emoji kk Label: message to identify the knowledge base as the source. #hooks #messaging #ux
-- Open [**Shipped skills and hook scripts must be self-contained**](practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) to learn about: Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies. #skills #hooks #cli #packaging
 
 ## Components (what exists)
 - Open [**kk-proposal-drain (extraction hook)**](map-proposal-drain-hook.md) to learn about: Async SessionStart hook that sweeps pending _sessions/ and extracts proposals; the Claude adapter's hook is intentionally a no-op -- extraction runs inline during /kk-curate instead. #hooks #extraction #llm #async #claude #billing
@@ -48,6 +48,7 @@ _None._
 - Open [**kk-proposal-drain (extraction hook)**](map-proposal-drain-hook.md) — Async SessionStart hook that sweeps pending _sessions/ and extracts proposals; the Claude adapter's hook is intentionally a no-op -- extraction runs inline during /kk-curate instead.
 ### #build
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory.
+- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 ### #cjs
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory.
 ### #claude
@@ -95,6 +96,7 @@ _None._
 - Open [**Skills-first documentation, only init is CLI**](../cli/practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
 ### #templates
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory.
+- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 ### #testing
 - Open [**Determinism contract for ENTRY/GRAPH generation**](../index/practice-determinism-contract.md) — computeNodesHash, generateIndex, generateGraph, slugify, deriveNodeId, ensureUniqueId are pure functions. Only randomness is crypto.randomUUID() for run_id.
 - Open [**Testing philosophy: few tests, mostly integration**](../conventions/practice-testing-philosophy-few-tests-mostly-integration.md) — This repo deliberately keeps a small test suite weighted toward integration tests; redundant unit tests are pruned.

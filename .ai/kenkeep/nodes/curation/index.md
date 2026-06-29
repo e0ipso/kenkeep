@@ -69,8 +69,8 @@ _None._
 ### #output
 - Open [**curate CLI conflict-resolution output message**](map-curate-cli-conflict-resolution-output-message.md) — src/commands/curate.ts emits a multi-line message when conflicts > 0, naming the three resolution outcomes and pointing users at /kk-curate.
 ### #prompts
-- Open [**Local prompt overrides fall back to bundled templates**](../config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md first, then the bundled fallback. Delete the override to revert.
 - Open [**Bump the prompt's Version comment on every behavior change**](../config-and-prompts/practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record the prompt so audits remain coherent.
+- Open [**Local prompt overrides fall back to bundled templates**](../config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md first, then the bundled fallback. Delete the override to revert.
 - Open [**Curator drops non-productive and change-oriented candidates**](practice-curator-drops-non-productive-candidates.md) — Change-oriented framing (migration stories) is auto-dropped. Hedged/plan-scoped/low-confidence-without-rationale signatures are evidence of an abandoned-session leak.
 ### #proposal
 - Open [**Proposal candidate schema**](map-proposal-candidate-schema.md) — Shape emitted by proposal-extract per practice/map candidate. supports_existing_node / contradicts_existing_node are the curator's join keys.

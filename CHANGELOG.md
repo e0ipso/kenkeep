@@ -1,3 +1,27 @@
+## Unreleased
+
+### Documentation
+
+* document knowledge packs
+
+## [1.10.0](https://github.com/e0ipso/kenkeep/compare/v1.9.0...v1.10.0) (2026-06-30)
+
+### Features
+
+* add knowledge pack export ([#77](https://github.com/e0ipso/kenkeep/issues/77)) ([1aa1e49](https://github.com/e0ipso/kenkeep/commit/1aa1e49bfbf1165e33de32e6f04fc4a09b48b7b5)), closes [#73](https://github.com/e0ipso/kenkeep/issues/73)
+
+## [1.9.0](https://github.com/e0ipso/kenkeep/compare/v1.8.0...v1.9.0) (2026-06-30)
+
+### Features
+
+* add knowledge pack import ([#76](https://github.com/e0ipso/kenkeep/issues/76)) ([31c2088](https://github.com/e0ipso/kenkeep/commit/31c20885410de89dcb8966ce19b03feda4e8d2df)), closes [#72](https://github.com/e0ipso/kenkeep/issues/72)
+
+## [1.8.0](https://github.com/e0ipso/kenkeep/compare/v1.7.2...v1.8.0) (2026-06-30)
+
+### Features
+
+* add knowledge pack validation ([#75](https://github.com/e0ipso/kenkeep/issues/75)) ([dd8f022](https://github.com/e0ipso/kenkeep/commit/dd8f022fd386cc44c2eab4ad6fdc7a4aa5318856)), closes [#71](https://github.com/e0ipso/kenkeep/issues/71)
+
 ## [1.7.2](https://github.com/e0ipso/kenkeep/compare/v1.7.1...v1.7.2) (2026-06-28)
 
 ### Bug Fixes

@@ -1,11 +1,11 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:7cb59a32f80d349daa89483fd8664da18e78406e09bc01236084f65cccb60bba'
-node_count: 70
+nodes_hash: 'sha256:201e4a6ed1a82cc50d11ad0a3cb832883de68ed2a275cef968373dc87b36e635'
+node_count: 74
 ---
 # kenkeep Graph
 
-Total nodes: 70
+Total nodes: 74
 
 ## map-bootstrap-incremental-command
 
@@ -174,6 +174,16 @@ Total nodes: 70
 - **tags:** skill, bootstrap, agent
 - **relates_to:** map-bootstrap-incremental-command, practice-bootstrap-never-overwrites-existing-nodes, practice-bootstrap-is-supervised-and-judgmental
 - **derived_from:** docs/installation.md, docs/daily-use.md
+
+## map-knowledge-pack-format
+
+- **kind:** map
+- **title:** Knowledge pack format contract
+- **path:** pack/map-knowledge-pack-format.md
+- **tags:** pack, schema, cli
+- **relates_to:** practice-pack-import-is-deterministic, practice-pack-id-collisions-skip-with-warning, practice-pack-export-stamps-schema-version
+- **depends_on:** practice-strict-schema-version-bump-policy
+- **derived_from:** https://github.com/e0ipso/kenkeep/issues/71, https://github.com/e0ipso/kenkeep/issues/74, src/lib/pack.ts, src/lib/schemas.ts
 
 ## map-migrate-command-schema-v1-to-v2-migration
 
@@ -536,6 +546,36 @@ Total nodes: 70
 - **tags:** adapter, events, harness
 - **relates_to:** map-harness-adapter, map-claude-harness, map-codex-harness, map-opencode-harness
 - **derived_from:** CONTRIBUTING.md, docs/internals/architecture.md
+
+## practice-pack-export-stamps-schema-version
+
+- **kind:** practice
+- **title:** Pack export stamps schema_version from NODE_SCHEMA_VERSION
+- **path:** pack/practice-pack-export-stamps-schema-version.md
+- **tags:** pack, export, schema
+- **relates_to:** map-knowledge-pack-format, practice-strict-schema-version-bump-policy
+- **depends_on:** map-knowledge-pack-format
+- **derived_from:** https://github.com/e0ipso/kenkeep/issues/73, https://github.com/e0ipso/kenkeep/issues/74, src/commands/pack-export.ts, src/lib/schemas.ts
+
+## practice-pack-id-collisions-skip-with-warning
+
+- **kind:** practice
+- **title:** Pack id collisions skip with a warning
+- **path:** pack/practice-pack-id-collisions-skip-with-warning.md
+- **tags:** pack, import, nodes, safety
+- **relates_to:** map-knowledge-pack-format, practice-bootstrap-never-overwrites-existing-nodes
+- **depends_on:** practice-bootstrap-never-overwrites-existing-nodes
+- **derived_from:** https://github.com/e0ipso/kenkeep/issues/72, https://github.com/e0ipso/kenkeep/issues/74, src/commands/pack-import.ts
+
+## practice-pack-import-is-deterministic
+
+- **kind:** practice
+- **title:** Pack import is deterministic and leaves rebalance for later
+- **path:** pack/practice-pack-import-is-deterministic.md
+- **tags:** pack, import, determinism, rebalance
+- **relates_to:** map-knowledge-pack-format, practice-determinism-contract, practice-skills-first-documentation-only-init-is-cli
+- **depends_on:** map-knowledge-pack-format
+- **derived_from:** https://github.com/e0ipso/kenkeep/issues/72, https://github.com/e0ipso/kenkeep/issues/74, src/commands/pack-import.ts
 
 ## practice-recursion-guard-kenkeep-builder-internal
 

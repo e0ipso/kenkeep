@@ -20,6 +20,7 @@
   <a href="https://mateuaguilo.com/kenkeep/how-it-works.html">How it works</a> &nbsp;·&nbsp;
   <a href="https://mateuaguilo.com/kenkeep/installation.html">Installation</a> &nbsp;·&nbsp;
   <a href="https://mateuaguilo.com/kenkeep/daily-use.html">Daily use</a> &nbsp;·&nbsp;
+  <a href="https://mateuaguilo.com/kenkeep/knowledge-packs.html">Knowledge packs</a> &nbsp;·&nbsp;
   <a href="https://mateuaguilo.com/kenkeep/troubleshooting.html">Troubleshooting</a>
 </p>
 
@@ -145,6 +146,21 @@ this use case. Also, /kk-add this.
 </td>
 </tr>
 </table>
+
+## Knowledge packs
+
+Knowledge packs let teams publish a reviewed `.ai/kenkeep/nodes/` tree for a
+framework, platform, or shared domain and graft it into another project as one
+isolated branch:
+
+```sh
+npx kenkeep pack import e0ipso/kenkeep-pack-drupal
+npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal --as drupal
+```
+
+Imports are deterministic and LLM-free. Colliding node ids are skipped with a
+warning, and any structural rebalancing happens later through the normal
+curation workflow. See the full guide: **[Knowledge packs](https://mateuaguilo.com/kenkeep/knowledge-packs.html)**.
 
 ## Documentation
 

@@ -16,6 +16,7 @@ import { runSessionLogUpdateProposalsCommand } from './commands/session-log-upda
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
+import { runPackExportCommand } from './commands/pack-export.js';
 import { runPackImportCommand } from './commands/pack-import.js';
 import { runPlaceApply, runPlaceInventory } from './commands/place.js';
 import { runRebalanceMove, runRebalanceTrigger } from './commands/rebalance.js';
@@ -231,6 +232,33 @@ async function main(): Promise<void> {
       const code = await runPackImportCommand(source, flags);
       process.exit(code);
     });
+  packGroup
+    .command('export')
+    .description('Export the current nodes/ tree as a publishable knowledge pack.')
+    .option('--name <name>', 'pack slug, e.g. drupal')
+    .option('--version <version>', 'pack version')
+    .option('--summary <text>', 'one-line pack summary')
+    .option('--homepage <url>', 'optional homepage URL')
+    .option('--out <dir>', 'output directory (default: dist)')
+    .allowExcessArguments(true)
+    .action(
+      async (opts: {
+        name?: string;
+        version?: string;
+        summary?: string;
+        homepage?: string;
+        out?: string;
+      }) => {
+        const flags: Parameters<typeof runPackExportCommand>[0] = {};
+        if (opts.name !== undefined) flags.name = opts.name;
+        if (opts.version !== undefined) flags.version = opts.version;
+        if (opts.summary !== undefined) flags.summary = opts.summary;
+        if (opts.homepage !== undefined) flags.homepage = opts.homepage;
+        if (opts.out !== undefined) flags.out = opts.out;
+        const code = await runPackExportCommand(flags);
+        process.exit(code);
+      }
+    );
 
   const placeGroup = program
     .command('place')

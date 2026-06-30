@@ -14,6 +14,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import {
+  buildNudgeContent,
   buildSessionStartContext,
   sendSessionStartNotifications,
 } from '../../../lib/session-start.js';
@@ -47,15 +48,13 @@ runHookEntry({
         threshold: settings.curationThreshold,
       });
       sendSessionStartNotifications(settings, result);
-      const statusLine = result.nudged
-        ? `🚨 kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kk-curate`
-        : `📋 kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+      const { statusLine, content } = buildNudgeContent(result);
       process.stdout.write(
         `${JSON.stringify({
           systemMessage: statusLine,
           hookSpecificOutput: {
             hookEventName: 'SessionStart',
-            additionalContext: result.additionalContext,
+            additionalContext: content,
           },
         })}\n`
       );

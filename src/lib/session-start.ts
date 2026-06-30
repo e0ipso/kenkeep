@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { hostname as osHostname } from 'node:os';
+import { basename, dirname, join } from 'node:path';
 import matter from 'gray-matter';
 import { computeNodesHash } from './nodes.js';
 import { readLintState } from './lint-state.js';
@@ -37,6 +38,8 @@ export interface SessionStartContext {
   sessionsDir: string;
   stateFile: string;
   lintStateFile?: string;
+  repoRoot?: string;
+  hostName?: string;
   threshold?: number;
   staleDays?: number;
   now?: () => Date;
@@ -59,6 +62,14 @@ export interface SessionStartResult {
   pendingSessions: number;
   /** Total candidate proposals across pending sessions. */
   candidateCount: number;
+  /** Age in days of the oldest pending session, when one exists. */
+  oldestPendingAgeDays: number | null;
+  /** Repo root that produced this session-start result. */
+  repoRoot: string;
+  /** Human-facing project name derived from the repo root. */
+  projectName: string;
+  /** Runtime hostname that produced this session-start result. */
+  hostName: string;
 }
 
 /**
@@ -82,6 +93,9 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   const now = ctx.now ?? (() => new Date());
   const threshold = ctx.threshold ?? DEFAULT_NUDGE_THRESHOLD;
   const staleDays = ctx.staleDays ?? DEFAULT_STALE_DAYS;
+  const repoRoot = ctx.repoRoot ?? dirname(dirname(ctx.kkDir));
+  const projectName = basename(repoRoot) || repoRoot;
+  const hostName = ctx.hostName ?? osHostname();
 
   const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kkDir);
   const liveHash = computeNodesHash(ctx.nodesDir);
@@ -120,50 +134,17 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     lines.push('');
     lines.push(KK_NAVIGATION_DIRECTIVE);
   }
-  if (indexStale) {
-    lines.push('');
-    lines.push(
-      `> kenkeep index is stale, run \`npx kenkeep index rebuild\` to refresh (live hash differs from ENTRY.md \`nodes_hash\`).`
-    );
-  }
-  if (shouldNudge) {
-    const oldestPhrase =
-      oldestAgeDays === 0 ? 'captured today' : `oldest pending: ${oldestAgeDays} day(s)`;
-    const copyPaste =
-      'Run `/kk-curate` (or `npx kenkeep curate`). Curation is simple; a mid-tier model at moderate effort is sufficient and cheaper.';
-    lines.push('');
-    if (loud) {
-      lines.push('> 🚨 kenkeep curation queue is overdue');
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    } else {
-      lines.push(
-        `> ${pending} pending session log(s), ${summary.candidateCount} candidate proposal(s), ${oldestPhrase}`
-      );
-      lines.push(`> ${copyPaste}`);
-    }
-  }
 
   let lintNudged = false;
   if (ctx.lintStateFile !== undefined) {
     const lintState = readLintState(ctx.lintStateFile);
     if (lintState.last_errors > 0 || lintState.last_findings > 0) {
-      lines.push('');
-      lines.push(
-        `> Last kenkeep lint ${lintState.last_lint_at}: ${lintState.last_errors} error(s), ${lintState.last_findings} finding(s). Run \`npx kenkeep lint --verbose\` for details.`
-      );
       lintNudged = true;
     }
   }
 
-  if (shouldNudge) {
-    writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
-  }
-
-  return {
-    additionalContext: lines.join('\n') + '\n',
+  const result: SessionStartResult = {
+    additionalContext: '',
     nudged: shouldNudge,
     lintNudged,
     indexMissing: missing,
@@ -171,7 +152,24 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     curationLoud: loud,
     pendingSessions: pending,
     candidateCount: summary.candidateCount,
+    oldestPendingAgeDays: summary.oldestCapturedAt === null ? null : oldestAgeDays,
+    repoRoot,
+    projectName,
+    hostName,
   };
+
+  const attentionBlock = buildActionableBlock(result, { includeLabel: true });
+  if (attentionBlock !== null) {
+    lines.push('');
+    lines.push(attentionBlock);
+  }
+
+  if (shouldNudge) {
+    writeState(ctx.stateFile, { ...state, last_nudged_at: nowDate.toISOString() });
+  }
+
+  result.additionalContext = lines.join('\n') + '\n';
+  return result;
 }
 
 interface LoadedIndex {
@@ -291,9 +289,10 @@ export function buildNudgeContent(result: SessionStartResult): {
   statusLine: string;
   content: string;
 } {
-  const statusLine = result.nudged
-    ? `🚨 kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kk-curate`
-    : `📋 kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+  const identity = `${result.projectName} on ${result.hostName}`;
+  const statusLine =
+    primaryAction(result) ??
+    `kenkeep: ${identity}. Queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s).`;
   let content = statusLine + '\n\n' + result.additionalContext;
   if (result.nudged) {
     const box =
@@ -303,10 +302,10 @@ export function buildNudgeContent(result: SessionStartResult): {
       '└──────────────────────────────────────┘\n' +
       `${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
     content +=
-      '\n> IMPORTANT: After completing your response, append the following block ' +
-      'verbatim inside a code fence as an addendum at the very end:\n>\n> ```\n> ' +
-      box.split('\n').join('\n> ') +
-      '\n> ```\n';
+      '\nIMPORTANT: After completing your response, append the following block ' +
+      'verbatim at the very end:\n' +
+      box +
+      '\n';
   }
   return { statusLine, content };
 }
@@ -314,45 +313,12 @@ export function buildNudgeContent(result: SessionStartResult): {
 export function buildSessionStartNotifications(
   result: SessionStartResult
 ): Array<{ title: string; body: string }> {
-  const signals: Array<{ severity: number; title: string; body: string }> = [];
-
-  if (result.indexStale) {
-    signals.push({
-      severity: 2,
-      title: '⚠️ kenkeep index is stale',
-      body: '⚠️ Index is stale. Run `npx kenkeep index rebuild` to refresh ENTRY.md.',
-    });
-  }
-
-  if (result.nudged) {
-    const urgent = result.curationLoud;
-    signals.push({
-      severity: urgent ? 3 : 1,
-      title: urgent ? '🚨 kenkeep curation overdue' : '📋 kenkeep curation backlog',
-      body: `${urgent ? '🚨' : '📋'} ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate proposal(s). Run /kk-curate.`,
-    });
-  }
-
-  if (result.lintNudged) {
-    signals.push({
-      severity: 2,
-      title: '⚠️ kenkeep lint findings',
-      body: '⚠️ Lint findings found. Run `npx kenkeep lint --verbose` for details.',
-    });
-  }
-
-  if (signals.length <= 1) {
-    return signals.map(({ title, body }) => ({ title, body }));
-  }
-
-  const severity = Math.max(...signals.map(signal => signal.severity));
+  const body = buildActionableBlock(result, { includeLabel: false });
+  if (body === null) return [];
   return [
     {
-      title: severity >= 3 ? '🚨 kenkeep needs attention' : '⚠️ kenkeep needs attention',
-      body: signals
-        .sort((a, b) => b.severity - a.severity)
-        .map(signal => signal.body)
-        .join('\n'),
+      title: `kenkeep: ${result.projectName} on ${result.hostName}`,
+      body,
     },
   ];
 }
@@ -365,4 +331,78 @@ export function sendSessionStartNotifications(
   for (const notification of buildSessionStartNotifications(result)) {
     sendOsNotification(notification);
   }
+}
+
+interface ActionableSignal {
+  severity: number;
+  issue: string;
+  action: string;
+}
+
+function buildActionableSignals(result: SessionStartResult): ActionableSignal[] {
+  const signals: ActionableSignal[] = [];
+
+  if (result.indexStale) {
+    signals.push({
+      severity: 2,
+      issue: 'ENTRY.md is stale because nodes changed since the last index rebuild.',
+      action: 'Run npx kenkeep index rebuild.',
+    });
+  }
+
+  if (result.nudged) {
+    const ageSuffix =
+      result.oldestPendingAgeDays === null
+        ? ''
+        : result.oldestPendingAgeDays === 0
+          ? ' Oldest pending capture: today.'
+          : ` Oldest pending capture: ${result.oldestPendingAgeDays} day(s) old.`;
+    signals.push({
+      severity: result.curationLoud ? 3 : 1,
+      issue: `${result.curationLoud ? 'Curation queue is overdue' : 'Curation queue is pending'}: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate proposal(s).${ageSuffix}`,
+      action: 'Run /kk-curate.',
+    });
+  }
+
+  if (result.lintNudged) {
+    signals.push({
+      severity: 2,
+      issue: 'Lint findings were recorded in the last kenkeep lint run.',
+      action: 'Run npx kenkeep lint --verbose.',
+    });
+  }
+
+  return signals.sort((a, b) => b.severity - a.severity);
+}
+
+function buildActionableBlock(
+  result: SessionStartResult,
+  opts: { includeLabel: boolean }
+): string | null {
+  const signals = buildActionableSignals(result);
+  if (signals.length === 0) return null;
+
+  const lines: string[] = [];
+  if (opts.includeLabel) {
+    lines.push('KENKEEP ATTENTION');
+  }
+  lines.push(`Project: ${result.projectName}`);
+  lines.push(`Host: ${result.hostName}`);
+  lines.push(`Path: ${result.repoRoot}`);
+
+  for (const signal of signals) {
+    lines.push('');
+    lines.push(`Issue: ${signal.issue}`);
+    lines.push(`Action: ${signal.action}`);
+  }
+
+  return lines.join('\n');
+}
+
+function primaryAction(result: SessionStartResult): string | null {
+  const identity = `${result.projectName} on ${result.hostName}`;
+  const signals = buildActionableSignals(result);
+  const firstSignal = signals[0];
+  if (firstSignal === undefined) return null;
+  return `kenkeep: ${identity}. Action needed: ${firstSignal.action}`;
 }

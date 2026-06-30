@@ -149,7 +149,7 @@ describe('buildSessionStartContext (index injection)', () => {
     expect(result.additionalContext.startsWith('---')).toBe(false);
     expect(result.additionalContext).toContain('# kenkeep');
     expect(result.additionalContext).toContain('practice-foo');
-    expect(result.additionalContext).not.toContain('kenkeep index is stale');
+    expect(result.additionalContext).not.toContain('ENTRY.md is stale');
     expect(result.additionalContext).not.toContain('pending session log');
   });
 
@@ -203,7 +203,7 @@ describe('buildSessionStartContext (index injection)', () => {
       stateFile: harness.stateFile,
     });
     expect(result.indexStale).toBe(true);
-    expect(result.additionalContext).toContain('kenkeep index is stale');
+    expect(result.additionalContext).toContain('ENTRY.md is stale');
   });
 });
 
@@ -225,6 +225,7 @@ describe('buildSessionStartContext (curation nudge)', () => {
     expect(result.nudged).toBe(true);
     expect(result.curationLoud).toBe(false);
     expect(result.additionalContext).toContain(`${DEFAULT_NUDGE_THRESHOLD} pending session log(s)`);
+    expect(result.additionalContext).toContain('Action: Run /kk-curate.');
     expect(readState(harness.stateFile).last_nudged_at).toBe(now.toISOString());
   });
 
@@ -252,9 +253,13 @@ describe('buildSessionStartNotifications', () => {
     curationLoud: false,
     pendingSessions: 0,
     candidateCount: 0,
+    oldestPendingAgeDays: null,
+    repoRoot: '/tmp/repo',
+    projectName: 'repo',
+    hostName: 'host',
   };
 
-  it('renders backlog and overdue curation titles distinctly', () => {
+  it('renders actionable project-scoped curation notifications', () => {
     expect(
       buildSessionStartNotifications({
         ...baseResult,
@@ -264,8 +269,14 @@ describe('buildSessionStartNotifications', () => {
       })
     ).toEqual([
       {
-        title: '📋 kenkeep curation backlog',
-        body: '📋 20 pending session log(s), 3 candidate proposal(s). Run /kk-curate.',
+        title: 'kenkeep: repo on host',
+        body:
+          'Project: repo\n' +
+          'Host: host\n' +
+          'Path: /tmp/repo\n' +
+          '\n' +
+          'Issue: Curation queue is pending: 20 pending session log(s), 3 candidate proposal(s).\n' +
+          'Action: Run /kk-curate.',
       },
     ]);
 
@@ -276,11 +287,13 @@ describe('buildSessionStartNotifications', () => {
         curationLoud: true,
         pendingSessions: 20,
         candidateCount: 3,
-      })[0]?.title
-    ).toBe('🚨 kenkeep curation overdue');
+      })[0]?.body
+    ).toContain(
+      'Issue: Curation queue is overdue: 20 pending session log(s), 3 candidate proposal(s).'
+    );
   });
 
-  it('batches multiple actionable signals into one urgency-aware notification', () => {
+  it('batches multiple actionable signals into one plain-text notification', () => {
     const notifications = buildSessionStartNotifications({
       ...baseResult,
       indexStale: true,
@@ -289,13 +302,26 @@ describe('buildSessionStartNotifications', () => {
       lintNudged: true,
       pendingSessions: 20,
       candidateCount: 3,
+      oldestPendingAgeDays: 8,
     });
 
     expect(notifications).toHaveLength(1);
-    expect(notifications[0]?.title).toBe('🚨 kenkeep needs attention');
-    expect(notifications[0]?.body).toContain('🚨 20 pending session log(s)');
-    expect(notifications[0]?.body).toContain('⚠️ Index is stale');
-    expect(notifications[0]?.body).toContain('⚠️ Lint findings found');
+    expect(notifications[0]?.title).toBe('kenkeep: repo on host');
+    expect(notifications[0]?.body).toContain('Project: repo');
+    expect(notifications[0]?.body).toContain('Host: host');
+    expect(notifications[0]?.body).toContain('Path: /tmp/repo');
+    expect(notifications[0]?.body).toContain(
+      'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+    );
+    expect(notifications[0]?.body).toContain('Action: Run npx kenkeep index rebuild.');
+    expect(notifications[0]?.body).toContain(
+      'Issue: Curation queue is overdue: 20 pending session log(s), 3 candidate proposal(s). Oldest pending capture: 8 day(s) old.'
+    );
+    expect(notifications[0]?.body).toContain('Action: Run /kk-curate.');
+    expect(notifications[0]?.body).toContain(
+      'Issue: Lint findings were recorded in the last kenkeep lint run.'
+    );
+    expect(notifications[0]?.body).toContain('Action: Run npx kenkeep lint --verbose.');
   });
 });
 

@@ -168,11 +168,17 @@ function withSentinelBlock(existing: string, indexContent: string): string {
  * byte-identical to the existing file (no mtime churn).
  */
 export async function writeCopilotInstructionsSentinel(paths: HarnessPaths): Promise<void> {
+  await writeCopilotInstructionsSentinelWithContent(paths);
+}
+
+export async function writeCopilotInstructionsSentinelWithContent(
+  paths: HarnessPaths,
+  content?: string
+): Promise<void> {
   const repoRoot = dirname(paths.dir);
   const instructionsFile = join(repoRoot, '.github', 'copilot-instructions.md');
   const existing = existsSync(instructionsFile) ? readFileSync(instructionsFile, 'utf8') : '';
-  const indexContent = readIndexContent(repoRoot);
-  const next = withSentinelBlock(existing, indexContent);
+  const next = withSentinelBlock(existing, content ?? readIndexContent(repoRoot));
   if (next === existing) return;
   atomicWriteText(instructionsFile, next);
 }

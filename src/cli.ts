@@ -16,6 +16,8 @@ import { runSessionLogUpdateProposalsCommand } from './commands/session-log-upda
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
+import { runPackExportCommand } from './commands/pack-export.js';
+import { runPackImportCommand } from './commands/pack-import.js';
 import { runPlaceApply, runPlaceInventory } from './commands/place.js';
 import { runRebalanceMove, runRebalanceTrigger } from './commands/rebalance.js';
 import { runSchemaCommand } from './commands/schema.js';
@@ -23,6 +25,7 @@ import { runStatus } from './commands/status.js';
 import { runValidateCommand } from './commands/validate.js';
 import { listHarnessIds } from './harnesses/registry.js';
 import { log } from './lib/log.js';
+import { SCHEMA_NAMES } from './lib/schema-registry.js';
 import { packageVersion } from './lib/version.js';
 
 async function main(): Promise<void> {
@@ -214,6 +217,49 @@ async function main(): Promise<void> {
       process.exit(code);
     });
 
+  const packGroup = program
+    .command('pack')
+    .description('Import and export kenkeep knowledge packs.');
+  packGroup
+    .command('import')
+    .description('Import a validated knowledge pack into an isolated nodes/<name>/ branch.')
+    .argument('<source>', 'GitHub owner/repo, GitHub URL, or local .tar.gz path')
+    .option('--as <name>', 'destination branch name under nodes/')
+    .allowExcessArguments(true)
+    .action(async (source: string, opts: { as?: string }) => {
+      const flags: Parameters<typeof runPackImportCommand>[1] = {};
+      if (opts.as !== undefined) flags.as = opts.as;
+      const code = await runPackImportCommand(source, flags);
+      process.exit(code);
+    });
+  packGroup
+    .command('export')
+    .description('Export the current nodes/ tree as a publishable knowledge pack.')
+    .option('--name <name>', 'pack slug, e.g. drupal')
+    .option('--version <version>', 'pack version')
+    .option('--summary <text>', 'one-line pack summary')
+    .option('--homepage <url>', 'optional homepage URL')
+    .option('--out <dir>', 'output directory (default: dist)')
+    .allowExcessArguments(true)
+    .action(
+      async (opts: {
+        name?: string;
+        version?: string;
+        summary?: string;
+        homepage?: string;
+        out?: string;
+      }) => {
+        const flags: Parameters<typeof runPackExportCommand>[0] = {};
+        if (opts.name !== undefined) flags.name = opts.name;
+        if (opts.version !== undefined) flags.version = opts.version;
+        if (opts.summary !== undefined) flags.summary = opts.summary;
+        if (opts.homepage !== undefined) flags.homepage = opts.homepage;
+        if (opts.out !== undefined) flags.out = opts.out;
+        const code = await runPackExportCommand(flags);
+        process.exit(code);
+      }
+    );
+
   const placeGroup = program
     .command('place')
     .description(
@@ -286,14 +332,19 @@ async function main(): Promise<void> {
 
   const draftsGroup = program
     .command('drafts')
-    .description('Deterministic, LLM-free primitives for the curate parallel-path draft collector.');
+    .description(
+      'Deterministic, LLM-free primitives for the curate parallel-path draft collector.'
+    );
   draftsGroup
     .command('collect')
     .description(
       'Deterministic draft collector: reads ${RUN_ID}__*.draft.json under the curator log dir, validates each batch array against a named schema (default curator-output), concatenates survivors to stdout as one JSON array, and reports counts + invalid batches on stderr. A bad batch is skipped, never fatal. Pure Node, no LLM.'
     )
     .requiredOption('--run-id <id>', 'run id whose batch draft files are aggregated')
-    .option('--schema <name>', 'registered schema each batch validates against (default: curator-output)')
+    .option(
+      '--schema <name>',
+      'registered schema each batch validates against (default: curator-output)'
+    )
     .allowExcessArguments(true)
     .action(async (opts: { runId: string; schema?: string }) => {
       const flags: Parameters<typeof runDraftsCollectCommand>[0] = { runId: opts.runId };
@@ -464,7 +515,7 @@ async function main(): Promise<void> {
   program
     .command('schema')
     .description(
-      'Print the JSON Schema for a named contract (proposal-output, curator-output, proposed-node, node), generated from the Zod definitions in src/lib/schemas.ts. Pure Node — no LLM.'
+      `Print the JSON Schema for a named contract (${SCHEMA_NAMES.join(', ')}), generated from the Zod definitions in src/lib/schemas.ts. Pure Node — no LLM.`
     )
     .argument('<name>', 'registered schema name')
     .allowExcessArguments(true)
@@ -476,7 +527,7 @@ async function main(): Promise<void> {
   program
     .command('validate')
     .description(
-      'Validate a JSON artifact against a named schema and print path-referenced errors. Reads the artifact from <file> or stdin (or `-`). Drives the skills’ produce → validate → fix loop. Pure Node — no LLM.'
+      'Validate a JSON or YAML artifact against a named schema and print path-referenced errors. Reads the artifact from <file> or stdin (or `-`). Drives the skills’ produce → validate → fix loop. Pure Node — no LLM.'
     )
     .argument('<name>', 'registered schema name')
     .argument('[file]', 'artifact path; reads stdin when omitted or `-`')

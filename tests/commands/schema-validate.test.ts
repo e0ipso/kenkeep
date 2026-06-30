@@ -11,10 +11,12 @@ async function capture(
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   let stdout = '';
   let stderr = '';
-  const outSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
-    stdout += chunk.toString();
-    return true;
-  });
+  const outSpy = vi
+    .spyOn(process.stdout, 'write')
+    .mockImplementation((chunk: string | Uint8Array) => {
+      stdout += chunk.toString();
+      return true;
+    });
   const errSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     stderr += args.join(' ') + '\n';
   });
@@ -43,6 +45,13 @@ describe('kk schema', () => {
     const { code, stdout } = await capture(() => runSchemaCommand({ name: 'curator-output' }));
     expect(code).toBe(0);
     expect(stdout).toContain('"array"');
+  });
+
+  it('exposes the pack-manifest object contract', async () => {
+    const { code, stdout } = await capture(() => runSchemaCommand({ name: 'pack-manifest' }));
+    expect(code).toBe(0);
+    expect(stdout).toContain('"name"');
+    expect(stdout).toContain('schema_version');
   });
 
   it('exits non-zero and lists names for an unknown schema', async () => {
@@ -88,10 +97,32 @@ describe('kk validate', () => {
     expect(stdout).toContain('proposed-node: valid');
   });
 
+  it('accepts a valid pack manifest YAML artifact', async () => {
+    const file = join(cwd, 'kenkeep-pack.yaml');
+    writeFileSync(
+      file,
+      [
+        'name: drupal',
+        'version: 1.2.0',
+        'schema_version: 2',
+        'summary: Drupal project conventions.',
+        'homepage: https://example.com/drupal-pack',
+      ].join('\n')
+    );
+    const { code, stdout } = await capture(() =>
+      runValidateCommand({ name: 'pack-manifest', file })
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain('pack-manifest: valid');
+  });
+
   it('rejects an invalid artifact with a path-referenced error', async () => {
     const file = join(cwd, 'bad.json');
     // Missing required `confidence`, wrong type for `tags`.
-    writeFileSync(file, JSON.stringify({ ...validProposedNode, confidence: undefined, tags: 'foo' }));
+    writeFileSync(
+      file,
+      JSON.stringify({ ...validProposedNode, confidence: undefined, tags: 'foo' })
+    );
     const { code, stderr } = await capture(() =>
       runValidateCommand({ name: 'proposed-node', file })
     );
@@ -99,12 +130,12 @@ describe('kk validate', () => {
     expect(stderr).toContain('tags');
   });
 
-  it('fails on non-JSON input', async () => {
+  it('fails on input that is neither JSON nor YAML', async () => {
     const file = join(cwd, 'notjson.json');
-    writeFileSync(file, 'not json at all');
+    writeFileSync(file, 'name: [unterminated');
     const { code, stderr } = await capture(() => runValidateCommand({ name: 'node', file }));
     expect(code).toBe(1);
-    expect(stderr).toContain('not valid JSON');
+    expect(stderr).toContain('not valid JSON or YAML');
   });
 
   it('exits non-zero for an unknown schema name', async () => {

@@ -41,6 +41,7 @@ _None._
 - Open [**Keep ENTRY.md lean and bounded — no topic map**](practice-keep-entry-md-lean-and-bounded-no-topic-map.md) — The top-level entry catalog (ENTRY.md) stays intentionally lean and bounded, containing no global topic map.
 ### #determinism
 - Open [**Determinism contract for ENTRY/GRAPH generation**](practice-determinism-contract.md) — computeNodesHash, generateIndex, generateGraph, slugify, deriveNodeId, ensureUniqueId are pure functions. Only randomness is crypto.randomUUID() for run_id.
+- Open [**Pack import is deterministic and leaves rebalance for later**](../pack/practice-pack-import-is-deterministic.md) — pack import validates and grafts reviewed markdown without an LLM, keeps the pack under one nodes/<name>/ branch, rebuilds indexes, and leaves structural rebalance to the later curate phase.
 ### #graph
 - Open [**GRAPH.md**](map-graph-md.md) — Full edge listing derived from every node's relates_to and depends_on. Not injected; harness reads on demand.
 ### #hash

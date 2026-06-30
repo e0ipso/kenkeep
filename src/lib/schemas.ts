@@ -158,6 +158,17 @@ export type UsageRecord = z.infer<typeof UsageRecordSchema>;
 export const NodeKindSchema = z.enum(['practice', 'map']);
 export type NodeKind = z.infer<typeof NodeKindSchema>;
 
+export const PackManifestSchema = z
+  .object({
+    name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+    version: z.string().min(1),
+    schema_version: z.literal(NODE_SCHEMA_VERSION),
+    summary: z.string().min(1),
+    homepage: z.string().url().optional(),
+  })
+  .strict();
+export type PackManifest = z.infer<typeof PackManifestSchema>;
+
 export const NodeFrontmatterSchema = z.object({
   schema_version: z.literal(NODE_SCHEMA_VERSION),
   id: z.string(),

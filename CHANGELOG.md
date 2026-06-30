@@ -4,6 +4,12 @@
 
 * document knowledge packs
 
+## [1.10.0](https://github.com/e0ipso/kenkeep/compare/v1.9.0...v1.10.0) (2026-06-30)
+
+### Features
+
+* add knowledge pack export ([#77](https://github.com/e0ipso/kenkeep/issues/77)) ([1aa1e49](https://github.com/e0ipso/kenkeep/commit/1aa1e49bfbf1165e33de32e6f04fc4a09b48b7b5)), closes [#73](https://github.com/e0ipso/kenkeep/issues/73)
+
 ## [1.9.0](https://github.com/e0ipso/kenkeep/compare/v1.8.0...v1.9.0) (2026-06-30)
 
 ### Features

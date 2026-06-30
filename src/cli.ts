@@ -16,6 +16,7 @@ import { runSessionLogUpdateProposalsCommand } from './commands/session-log-upda
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
+import { runPackImportCommand } from './commands/pack-import.js';
 import { runPlaceApply, runPlaceInventory } from './commands/place.js';
 import { runRebalanceMove, runRebalanceTrigger } from './commands/rebalance.js';
 import { runSchemaCommand } from './commands/schema.js';
@@ -212,6 +213,22 @@ async function main(): Promise<void> {
     .allowExcessArguments(true)
     .action(async () => {
       const code = await runMigrateStatus();
+      process.exit(code);
+    });
+
+  const packGroup = program
+    .command('pack')
+    .description('Import and export kenkeep knowledge packs.');
+  packGroup
+    .command('import')
+    .description('Import a validated knowledge pack into an isolated nodes/<name>/ branch.')
+    .argument('<source>', 'GitHub owner/repo, GitHub URL, or local .tar.gz path')
+    .option('--as <name>', 'destination branch name under nodes/')
+    .allowExcessArguments(true)
+    .action(async (source: string, opts: { as?: string }) => {
+      const flags: Parameters<typeof runPackImportCommand>[1] = {};
+      if (opts.as !== undefined) flags.as = opts.as;
+      const code = await runPackImportCommand(source, flags);
       process.exit(code);
     });
 

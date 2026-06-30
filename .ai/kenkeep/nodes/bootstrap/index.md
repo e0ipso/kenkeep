@@ -55,12 +55,13 @@ _None._
 - Open [**Bootstrap never overwrites existing nodes**](practice-bootstrap-never-overwrites-existing-nodes.md) — Both /kk-bootstrap and bootstrap-incremental skip a candidate when a node with that id already exists; collisions are reported, not merged.
 ### #safety
 - Open [**Bootstrap never overwrites existing nodes**](practice-bootstrap-never-overwrites-existing-nodes.md) — Both /kk-bootstrap and bootstrap-incremental skip a candidate when a node with that id already exists; collisions are reported, not merged.
+- Open [**Pack id collisions skip with a warning**](../pack/practice-pack-id-collisions-skip-with-warning.md) — pack import follows the bootstrap safety rule: a leaf whose id already exists in the consumer repo is skipped, reported, and never merged or overwritten.
 ### #sampling
 - Open [**Bootstrap is supervised and judgmental, not exhaustive**](practice-bootstrap-is-supervised-and-judgmental.md) — /kk-bootstrap samples, follows cross-references, and stops to ask when scope is unclear. Don't read every doc end-to-end.
 ### #schema
-- Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
-- Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
+- Open [**Knowledge pack format contract**](../pack/map-knowledge-pack-format.md) — A knowledge pack root carries kenkeep-pack.yaml, README.md, and knowledge/; the manifest is validated by PackManifestSchema and knowledge/ is a nodes/ shaped markdown tree.
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — Schema migrations are handled by one generic migrate command that detects the current schema and dispatches the appropriate step, not by separate commands per bump.
+- Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 ### #skill
 - Open [**curate (CLI command + /kk-curate skill)**](../curation/map-curate-command.md) — Runs the curator on processed session logs. Applies add/modify/contradict/drop actions directly to nodes/. /kk-curate is the in-session equivalent.
 - Open [**/kk-bootstrap skill**](map-kk-bootstrap-skill.md) — Supervised, agent-driven first-pass bootstrap. Surveys docs, writes practice/map nodes directly under nodes/. Reviewer accepts via git commit.

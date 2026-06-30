@@ -18,6 +18,7 @@ node_count: 1
 - Load [`index/`](index/index.md) for more information on the deterministic ENTRY/GRAPH/index generation and nodes_hash; read when touching index generation or staleness checks.
 - Load [`node-schema/`](node-schema/index.md) for more information on node frontmatter, naming, and schema-version rules; read before changing any node field or bumping the schema.
 - Load [`overview/`](overview/index.md) for more information on what kenkeep is and the on-disk .ai/kenkeep layout; read first when new to the project.
+- Load [`pack/`](pack/index.md) for more information on Knowledge pack import, export, manifest, and safety rules.
 - Load [`state/`](state/index.md) for more information on session logs and runtime state files; read when changing capture state, locks, or proposal tracking.
 
 ## Conventions (how we build)

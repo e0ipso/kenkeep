@@ -25,9 +25,9 @@ _None yet._
 ## By topic
 
 ### #schema
-- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
-- Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
+- Open [**Knowledge pack format contract**](../pack/map-knowledge-pack-format.md) — A knowledge pack root carries kenkeep-pack.yaml, README.md, and knowledge/; the manifest is validated by PackManifestSchema and knowledge/ is a nodes/ shaped markdown tree.
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — Schema migrations are handled by one generic migrate command that detects the current schema and dispatches the appropriate step, not by separate commands per bump.
+- Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 ### #state
 - Open [**.state/state.json (lock + nudge state)**](map-state-file.md) — Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON field.
 - Open [**.state/bootstrap-state.json (per-doc hash cache)**](../bootstrap/map-bootstrap-state-file.md) — Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs. Gitignored.

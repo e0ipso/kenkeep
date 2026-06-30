@@ -23,6 +23,7 @@ describe('settings', () => {
       resolveSettings({ projectFile: join(sandbox, 'missing.yaml') }).settings.notifications
     ).toEqual({
       enabled: true,
+      backends: {},
     });
 
     const projectFile = join(sandbox, 'project.yaml');
@@ -33,7 +34,19 @@ describe('settings', () => {
   it('treats an empty notifications object as enabled', () => {
     const projectFile = join(sandbox, 'project.yaml');
     writeFileSync(projectFile, 'schema_version: 1\nnotifications: {}\n');
-    expect(resolveSettings({ projectFile }).settings.notifications.enabled).toBe(true);
+    expect(resolveSettings({ projectFile }).settings.notifications).toEqual({
+      enabled: true,
+      backends: {},
+    });
+  });
+
+  it('accepts the reserved empty notifications backend config object', () => {
+    const projectFile = join(sandbox, 'project.yaml');
+    writeFileSync(projectFile, 'schema_version: 1\nnotifications:\n  backends: {}\n');
+    expect(resolveSettings({ projectFile }).settings.notifications).toEqual({
+      enabled: true,
+      backends: {},
+    });
   });
 
   it('rejects malformed or unknown nested notification config', () => {
@@ -44,6 +57,10 @@ describe('settings', () => {
     const unknown = join(sandbox, 'unknown.yaml');
     writeFileSync(unknown, 'schema_version: 1\nnotifications:\n  enabled: true\n  ntfy: {}\n');
     expect(() => resolveSettings({ projectFile: unknown })).toThrow(/ntfy/);
+
+    const unknownBackend = join(sandbox, 'unknown-backend.yaml');
+    writeFileSync(unknownBackend, 'schema_version: 1\nnotifications:\n  backends:\n    ntfy: {}\n');
+    expect(() => resolveSettings({ projectFile: unknownBackend })).toThrow(/ntfy/);
   });
 
   it('layers project overrides on top of defaults', () => {

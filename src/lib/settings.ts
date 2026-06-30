@@ -12,6 +12,7 @@ export type ModelChoiceRole = 'proposal' | 'curator' | 'bootstrap';
  */
 export interface NotificationSettings {
   enabled: boolean;
+  backends: Record<string, never>;
 }
 
 export interface SettingsDefaults {
@@ -27,6 +28,7 @@ export const SETTINGS_DEFAULTS: SettingsDefaults = {
   lintEveryNSessions: 50,
   notifications: {
     enabled: true,
+    backends: {},
   },
 } as const;
 
@@ -85,6 +87,7 @@ function applyOverrides(target: EffectiveSettings, src: SettingsFile | null): vo
       if (key === 'notifications') {
         target.notifications = {
           enabled: src.notifications?.enabled ?? SETTINGS_DEFAULTS.notifications.enabled,
+          backends: src.notifications?.backends ?? SETTINGS_DEFAULTS.notifications.backends,
         };
       } else {
         (target as Record<string, unknown>)[key] = value;
@@ -178,6 +181,7 @@ export function defaultProjectConfigBody(): string {
     '#',
     '# notifications:',
     '#   enabled: false',
+    '#   backends: {}   # reserved for future backend-specific options',
     '',
   ].join('\n');
   return `${header}${yaml.dump(body, { indent: 2, lineWidth: 0, noRefs: true })}`;

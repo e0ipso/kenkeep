@@ -111,6 +111,7 @@ logsRetentionDays: 30         # retention for pruning diagnostic logs
 lintEveryNSessions: 50        # background lint cadence
 notifications:
   enabled: true               # set false to disable native OS notifications
+  backends: {}                # reserved for future backend-specific options
 cliDefaultHarness: codex      # harness to assume when none is detected
 ```
 
@@ -120,8 +121,9 @@ default when a local backend is available: `osascript` on macOS and
 normal assistant/context channel. Missing binaries, denied OS permissions,
 headless sessions, SSH, WSL, missing DBus, and unavailable notification daemons
 are skipped silently. Set `notifications.enabled: false` to disable all OS
-notification attempts. Network notification backends such as `ntfy` are not
-enabled by this setting.
+notification attempts. `notifications.backends` is reserved for future explicit
+backend settings. Network notification backends such as `ntfy` are not enabled
+by this setting.
 
 ### Extraction model (optional)
 

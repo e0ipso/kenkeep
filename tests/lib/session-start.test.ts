@@ -9,9 +9,11 @@ import {
   DEFAULT_NUDGE_THRESHOLD,
   KK_NAVIGATION_DIRECTIVE,
   buildSessionStartContext,
+  buildSessionStartNotifications,
   countPendingSessions,
   summarizePendingSessions,
 } from '../../src/lib/session-start.js';
+import type { SessionStartResult } from '../../src/lib/session-start.js';
 import { readState } from '../../src/lib/state.js';
 
 /** Count non-overlapping occurrences of a substring. */
@@ -221,6 +223,7 @@ describe('buildSessionStartContext (curation nudge)', () => {
       now: () => now,
     });
     expect(result.nudged).toBe(true);
+    expect(result.curationLoud).toBe(false);
     expect(result.additionalContext).toContain(`${DEFAULT_NUDGE_THRESHOLD} pending session log(s)`);
     expect(readState(harness.stateFile).last_nudged_at).toBe(now.toISOString());
   });
@@ -236,6 +239,63 @@ describe('buildSessionStartContext (curation nudge)', () => {
     });
     expect(result.nudged).toBe(false);
     expect(result.pendingSessions).toBe(1);
+  });
+});
+
+describe('buildSessionStartNotifications', () => {
+  const baseResult: SessionStartResult = {
+    additionalContext: '# kenkeep\n',
+    nudged: false,
+    lintNudged: false,
+    indexMissing: false,
+    indexStale: false,
+    curationLoud: false,
+    pendingSessions: 0,
+    candidateCount: 0,
+  };
+
+  it('renders backlog and overdue curation titles distinctly', () => {
+    expect(
+      buildSessionStartNotifications({
+        ...baseResult,
+        nudged: true,
+        pendingSessions: 20,
+        candidateCount: 3,
+      })
+    ).toEqual([
+      {
+        title: '📋 kenkeep curation backlog',
+        body: '📋 20 pending session log(s), 3 candidate proposal(s). Run /kk-curate.',
+      },
+    ]);
+
+    expect(
+      buildSessionStartNotifications({
+        ...baseResult,
+        nudged: true,
+        curationLoud: true,
+        pendingSessions: 20,
+        candidateCount: 3,
+      })[0]?.title
+    ).toBe('🚨 kenkeep curation overdue');
+  });
+
+  it('batches multiple actionable signals into one urgency-aware notification', () => {
+    const notifications = buildSessionStartNotifications({
+      ...baseResult,
+      indexStale: true,
+      nudged: true,
+      curationLoud: true,
+      lintNudged: true,
+      pendingSessions: 20,
+      candidateCount: 3,
+    });
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.title).toBe('🚨 kenkeep needs attention');
+    expect(notifications[0]?.body).toContain('🚨 20 pending session log(s)');
+    expect(notifications[0]?.body).toContain('⚠️ Index is stale');
+    expect(notifications[0]?.body).toContain('⚠️ Lint findings found');
   });
 });
 

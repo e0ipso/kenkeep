@@ -12,10 +12,9 @@ import { runHookEntry } from '../../../lib/hook-entry.js';
 import {
   buildNudgeContent,
   buildSessionStartContext,
-  buildSessionStartNotifications,
+  sendSessionStartNotifications,
 } from '../../../lib/session-start.js';
 import { lintStateFile } from '../../../lib/lint-state.js';
-import { sendOsNotification } from '../../../lib/notifications.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { resolveSettings } from '../../../lib/settings.js';
 
@@ -45,11 +44,7 @@ runHookEntry({
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
       });
-      if (settings.notifications.enabled) {
-        for (const notification of buildSessionStartNotifications(result)) {
-          sendOsNotification(notification);
-        }
-      }
+      sendSessionStartNotifications(settings, result);
       const { statusLine, content } = buildNudgeContent(result);
       process.stdout.write(JSON.stringify({ additionalContext: content }));
       process.stderr.write(`${statusLine}\n`);

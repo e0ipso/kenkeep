@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { computeNodesHash } from './nodes.js';
 import { readLintState } from './lint-state.js';
+import { sendOsNotification } from './notifications.js';
 import { IndexFrontmatterSchema, SessionLogFrontmatterSchema } from './schemas.js';
+import type { EffectiveSettings } from './settings.js';
 import { readState, writeState } from './state.js';
 
 export const DEFAULT_NUDGE_THRESHOLD = 20;
@@ -51,6 +53,8 @@ export interface SessionStartResult {
   indexMissing: boolean;
   /** True if the entry catalog exists but its nodes_hash does not match nodes/. */
   indexStale: boolean;
+  /** True when the curation nudge has escalated from backlog to overdue. */
+  curationLoud: boolean;
   /** Number of session logs awaiting processing (proposal extraction or curation). */
   pendingSessions: number;
   /** Total candidate proposals across pending sessions. */
@@ -164,6 +168,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     lintNudged,
     indexMissing: missing,
     indexStale,
+    curationLoud: loud,
     pendingSessions: pending,
     candidateCount: summary.candidateCount,
   };
@@ -309,28 +314,55 @@ export function buildNudgeContent(result: SessionStartResult): {
 export function buildSessionStartNotifications(
   result: SessionStartResult
 ): Array<{ title: string; body: string }> {
-  const notifications: Array<{ title: string; body: string }> = [];
+  const signals: Array<{ severity: number; title: string; body: string }> = [];
 
   if (result.indexStale) {
-    notifications.push({
-      title: 'kenkeep index is stale',
-      body: 'Run `npx kenkeep index rebuild` to refresh ENTRY.md.',
+    signals.push({
+      severity: 2,
+      title: '⚠️ kenkeep index is stale',
+      body: '⚠️ Index is stale. Run `npx kenkeep index rebuild` to refresh ENTRY.md.',
     });
   }
 
   if (result.nudged) {
-    notifications.push({
-      title: 'kenkeep curation overdue',
-      body: `${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate proposal(s). Run /kk-curate.`,
+    const urgent = result.curationLoud;
+    signals.push({
+      severity: urgent ? 3 : 1,
+      title: urgent ? '🚨 kenkeep curation overdue' : '📋 kenkeep curation backlog',
+      body: `${urgent ? '🚨' : '📋'} ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate proposal(s). Run /kk-curate.`,
     });
   }
 
   if (result.lintNudged) {
-    notifications.push({
-      title: 'kenkeep lint findings',
-      body: 'Run `npx kenkeep lint --verbose` for details.',
+    signals.push({
+      severity: 2,
+      title: '⚠️ kenkeep lint findings',
+      body: '⚠️ Lint findings found. Run `npx kenkeep lint --verbose` for details.',
     });
   }
 
-  return notifications;
+  if (signals.length <= 1) {
+    return signals.map(({ title, body }) => ({ title, body }));
+  }
+
+  const severity = Math.max(...signals.map(signal => signal.severity));
+  return [
+    {
+      title: severity >= 3 ? '🚨 kenkeep needs attention' : '⚠️ kenkeep needs attention',
+      body: signals
+        .sort((a, b) => b.severity - a.severity)
+        .map(signal => signal.body)
+        .join('\n'),
+    },
+  ];
+}
+
+export function sendSessionStartNotifications(
+  settings: Pick<EffectiveSettings, 'notifications'>,
+  result: SessionStartResult
+): void {
+  if (!settings.notifications.enabled) return;
+  for (const notification of buildSessionStartNotifications(result)) {
+    sendOsNotification(notification);
+  }
 }

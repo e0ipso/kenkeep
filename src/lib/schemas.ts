@@ -309,6 +309,7 @@ export const SettingsSchema = z
     notifications: z
       .object({
         enabled: z.boolean().optional(),
+        backends: z.object({}).strict().optional(),
       })
       .strict()
       .optional(),

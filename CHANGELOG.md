@@ -1,3 +1,9 @@
+## Unreleased
+
+### Features
+
+* add default-on native OS notifications for actionable SessionStart nudges
+
 ## [1.7.2](https://github.com/e0ipso/kenkeep/compare/v1.7.1...v1.7.2) (2026-06-28)
 
 ### Bug Fixes

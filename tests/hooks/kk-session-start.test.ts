@@ -91,6 +91,10 @@ async function waitForFileLines(file: string, expected: number): Promise<string[
     : [];
 }
 
+async function settleNotifications(): Promise<void> {
+  await new Promise(resolveFn => setTimeout(resolveFn, 100));
+}
+
 /**
  * Materialize a tree-shaped KB under the sandbox: leaves in deep branch folders
  * plus the regenerated ENTRY.md (the entry catalog carrying the global
@@ -158,7 +162,10 @@ function fakeNotifySend(root: string): { binDir: string; logFile: string } {
   const logFile = join(root, 'notify.log');
   mkdirSync(binDir, { recursive: true });
   const script = join(binDir, 'notify-send');
-  writeFileSync(script, '#!/bin/sh\nprintf "%s\\n" "$*" >> "$KK_NOTIFY_LOG"\n');
+  writeFileSync(
+    script,
+    '#!/bin/sh\n{ printf "%s" "$*"; printf "\\n"; } | tr "\\n" " " >> "$KK_NOTIFY_LOG"\nprintf "\\n" >> "$KK_NOTIFY_LOG"\n'
+  );
   chmodSync(script, 0o755);
   return { binDir, logFile };
 }
@@ -305,7 +312,67 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(ctx).toContain('kenkeep index is stale');
   });
 
-  it('Codex preserves stdout context and sends additive OS notifications for actionable nudges', async () => {
+  it('shared-result hooks preserve their output channels and send additive OS notifications', async () => {
+    const fake = fakeNotifySend(sb.root);
+    seedLeaf(sb.nodesDir, 'storage', 'map-shared-notification-drift', 'map');
+
+    const cases = [
+      {
+        harness: 'claude',
+        input: { cwd: sb.root },
+        assertOutput: (res: SpawnResult) => {
+          const parsed = JSON.parse(res.stdout) as {
+            systemMessage?: string;
+            hookSpecificOutput?: { additionalContext?: string };
+          };
+          expect(parsed.systemMessage).toContain('kenkeep queue');
+          expect(parsed.hookSpecificOutput?.additionalContext).toContain('kenkeep index is stale');
+        },
+      },
+      {
+        harness: 'codex',
+        input: { cwd: sb.root },
+        assertOutput: (res: SpawnResult) => {
+          const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+          expect(parsed.additionalContext).toContain('kenkeep index is stale');
+        },
+      },
+      {
+        harness: 'cursor',
+        input: { workspace_roots: [sb.root] },
+        assertOutput: (res: SpawnResult) => {
+          const parsed = JSON.parse(res.stdout) as { additional_context?: string };
+          expect(parsed.additional_context).toContain('kenkeep index is stale');
+        },
+      },
+      {
+        harness: 'opencode',
+        input: { cwd: sb.root },
+        assertOutput: () => {
+          const body = readFileSync(join(sb.root, '.opencode', 'AGENTS.md'), 'utf8');
+          expect(body).toContain('kenkeep index is stale');
+        },
+      },
+    ];
+
+    for (const entry of cases) {
+      const res = await runHook(hookPath(entry.harness), sb.root, entry.input, {
+        PATH: `${fake.binDir}:${process.env.PATH ?? ''}`,
+        KK_NOTIFY_LOG: fake.logFile,
+      });
+      expect(res.exitCode).toBe(0);
+      entry.assertOutput(res);
+    }
+
+    const notifications = await waitForFileLines(fake.logFile, cases.length);
+    expect(notifications).toHaveLength(cases.length);
+    for (const line of notifications) {
+      expect(line).toContain('--app-name=kenkeep');
+      expect(line).toContain('⚠️ kenkeep index is stale');
+    }
+  });
+
+  it('Codex preserves stdout context and sends one batched OS notification for actionable nudges', async () => {
     const fake = fakeNotifySend(sb.root);
     seedLeaf(sb.nodesDir, 'storage', 'map-notification-drift', 'map');
     seedPendingSession(sb.kkDir, 'notify-session');
@@ -328,12 +395,13 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(parsed.additionalContext).toContain('pending session log');
     expect(parsed.additionalContext).toContain('Last kenkeep lint');
 
-    const notifications = await waitForFileLines(fake.logFile, 3);
-    expect(notifications).toHaveLength(3);
-    expect(notifications.join('\n')).toContain('--app-name=kenkeep');
-    expect(notifications.join('\n')).toContain('kenkeep index is stale');
-    expect(notifications.join('\n')).toContain('kenkeep curation overdue');
-    expect(notifications.join('\n')).toContain('kenkeep lint findings');
+    const notifications = await waitForFileLines(fake.logFile, 1);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toContain('--app-name=kenkeep');
+    expect(notifications[0]).toContain('🚨 kenkeep needs attention');
+    expect(notifications[0]).toContain('⚠️ Index is stale');
+    expect(notifications[0]).toContain('🚨 1 pending session log(s)');
+    expect(notifications[0]).toContain('⚠️ Lint findings found');
   });
 
   it('Codex notification opt-out preserves stdout and skips OS notification attempts', async () => {
@@ -357,7 +425,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
     expect(parsed.additionalContext).toContain('pending session log');
 
-    const notifications = await waitForFileLines(fake.logFile, 1);
-    expect(notifications).toHaveLength(0);
+    await settleNotifications();
+    expect(existsSync(fake.logFile)).toBe(false);
   });
 });

@@ -1,3 +1,9 @@
+## [1.9.0](https://github.com/e0ipso/kenkeep/compare/v1.8.0...v1.9.0) (2026-06-30)
+
+### Features
+
+* add knowledge pack import ([#76](https://github.com/e0ipso/kenkeep/issues/76)) ([31c2088](https://github.com/e0ipso/kenkeep/commit/31c20885410de89dcb8966ce19b03feda4e8d2df)), closes [#72](https://github.com/e0ipso/kenkeep/issues/72)
+
 ## [1.8.0](https://github.com/e0ipso/kenkeep/compare/v1.7.2...v1.8.0) (2026-06-30)
 
 ### Features

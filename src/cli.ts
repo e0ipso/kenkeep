@@ -23,6 +23,7 @@ import { runStatus } from './commands/status.js';
 import { runValidateCommand } from './commands/validate.js';
 import { listHarnessIds } from './harnesses/registry.js';
 import { log } from './lib/log.js';
+import { SCHEMA_NAMES } from './lib/schema-registry.js';
 import { packageVersion } from './lib/version.js';
 
 async function main(): Promise<void> {
@@ -286,14 +287,19 @@ async function main(): Promise<void> {
 
   const draftsGroup = program
     .command('drafts')
-    .description('Deterministic, LLM-free primitives for the curate parallel-path draft collector.');
+    .description(
+      'Deterministic, LLM-free primitives for the curate parallel-path draft collector.'
+    );
   draftsGroup
     .command('collect')
     .description(
       'Deterministic draft collector: reads ${RUN_ID}__*.draft.json under the curator log dir, validates each batch array against a named schema (default curator-output), concatenates survivors to stdout as one JSON array, and reports counts + invalid batches on stderr. A bad batch is skipped, never fatal. Pure Node, no LLM.'
     )
     .requiredOption('--run-id <id>', 'run id whose batch draft files are aggregated')
-    .option('--schema <name>', 'registered schema each batch validates against (default: curator-output)')
+    .option(
+      '--schema <name>',
+      'registered schema each batch validates against (default: curator-output)'
+    )
     .allowExcessArguments(true)
     .action(async (opts: { runId: string; schema?: string }) => {
       const flags: Parameters<typeof runDraftsCollectCommand>[0] = { runId: opts.runId };
@@ -464,7 +470,7 @@ async function main(): Promise<void> {
   program
     .command('schema')
     .description(
-      'Print the JSON Schema for a named contract (proposal-output, curator-output, proposed-node, node), generated from the Zod definitions in src/lib/schemas.ts. Pure Node — no LLM.'
+      `Print the JSON Schema for a named contract (${SCHEMA_NAMES.join(', ')}), generated from the Zod definitions in src/lib/schemas.ts. Pure Node — no LLM.`
     )
     .argument('<name>', 'registered schema name')
     .allowExcessArguments(true)
@@ -476,7 +482,7 @@ async function main(): Promise<void> {
   program
     .command('validate')
     .description(
-      'Validate a JSON artifact against a named schema and print path-referenced errors. Reads the artifact from <file> or stdin (or `-`). Drives the skills’ produce → validate → fix loop. Pure Node — no LLM.'
+      'Validate a JSON or YAML artifact against a named schema and print path-referenced errors. Reads the artifact from <file> or stdin (or `-`). Drives the skills’ produce → validate → fix loop. Pure Node — no LLM.'
     )
     .argument('<name>', 'registered schema name')
     .argument('[file]', 'artifact path; reads stdin when omitted or `-`')

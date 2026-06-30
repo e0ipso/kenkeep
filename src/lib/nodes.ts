@@ -316,6 +316,33 @@ export function nodeFilename(id: string): string {
 }
 
 /**
+ * Checks the canonical leaf identity contract shared by lint and pack
+ * validation: `id` is `<kind>-<slug>` and the file is named `<id>.md`.
+ */
+export function validateNodeNaming(
+  node: Pick<NodeFile, 'filename' | 'frontmatter'>
+): string | null {
+  const { id, kind } = node.frontmatter;
+  if (id.trim() === '') {
+    return 'leaf has an empty id; every leaf must carry a stable id';
+  }
+  const prefix = `${kind}-`;
+  if (!id.startsWith(prefix)) {
+    return `id ${id} does not start with kind prefix ${prefix}`;
+  }
+  const bare = id.slice(prefix.length);
+  const canonicalBare = slugify(bare);
+  if (bare !== canonicalBare) {
+    return `id ${id} is not canonical; expected ${kind}-${canonicalBare}`;
+  }
+  const expectedFilename = nodeFilename(id);
+  if (node.filename !== expectedFilename) {
+    return `filename ${node.filename} does not match expected ${expectedFilename}`;
+  }
+  return null;
+}
+
+/**
  * Resolves the on-disk path for a leaf. `relDir` is the topical folder under
  * `nodes/` (POSIX-style, may be empty for the `nodes/` root).
  */

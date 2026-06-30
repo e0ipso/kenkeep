@@ -1,3 +1,9 @@
+## [1.11.0](https://github.com/e0ipso/kenkeep/compare/v1.10.0...v1.11.0) (2026-06-30)
+
+### Features
+
+* add native OS notification nudges ([#79](https://github.com/e0ipso/kenkeep/issues/79)) ([57e43ed](https://github.com/e0ipso/kenkeep/commit/57e43edf7bb0dd1d1d38870fe9de1ddbbcda077e)), closes [#40](https://github.com/e0ipso/kenkeep/issues/40) [#70](https://github.com/e0ipso/kenkeep/issues/70)
+
 ## Unreleased
 
 ### Documentation

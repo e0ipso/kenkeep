@@ -1,7 +1,7 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:20e01bb51b879e6353324adca8c52f5ba71f0e5d443aea773429ac96fd54f407'
-node_count: 69
+nodes_hash: 'sha256:4ccfaf0edf051414c51cf89e4db48fec581066ab59b2ac4307fd56805a59cc5c'
+node_count: 73
 ---
 # kenkeep
 
@@ -18,6 +18,7 @@ node_count: 69
 - Load [`index/`](nodes/index/index.md) for more information on the deterministic ENTRY/GRAPH/index generation and nodes_hash; read when touching index generation or staleness checks.
 - Load [`node-schema/`](nodes/node-schema/index.md) for more information on node frontmatter, naming, and schema-version rules; read before changing any node field or bumping the schema.
 - Load [`overview/`](nodes/overview/index.md) for more information on what kenkeep is and the on-disk .ai/kenkeep layout; read first when new to the project.
+- Load [`pack/`](nodes/pack/index.md) for more information on Knowledge pack import, export, manifest, and safety rules.
 - Load [`state/`](nodes/state/index.md) for more information on session logs and runtime state files; read when changing capture state, locks, or proposal tracking.
 
 ## Conventions (how we build)

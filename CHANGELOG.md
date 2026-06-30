@@ -1,3 +1,9 @@
+## Unreleased
+
+### Documentation
+
+* document knowledge packs
+
 ## [1.10.0](https://github.com/e0ipso/kenkeep/compare/v1.9.0...v1.10.0) (2026-06-30)
 
 ### Features

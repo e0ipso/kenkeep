@@ -1,7 +1,7 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:201e4a6ed1a82cc50d11ad0a3cb832883de68ed2a275cef968373dc87b36e635'
-node_count: 74
+nodes_hash: 'sha256:6319916bfaf75e249400974c30bb423f2c207f33dacb7d5582b4ecb7a201c9bb'
+node_count: 75
 ---
 # kenkeep
 
@@ -24,3 +24,4 @@ node_count: 74
 ## Conventions (how we build)
 - Open [**Copilot file-based SessionStart must use shared context builder**](nodes/practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) to learn about: Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status. #copilot #harness #hooks #sessionstart #context-injection #drift
 - Open [**Keep template partials out of the knowledge base**](nodes/practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build
+- Open [**Use origin-https with gh-minted auth for pushes**](nodes/practice-use-origin-https-with-gh-minted-auth-for-pushes.md) to learn about: In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH. #git #github #gh #authentication #remote #push #environment

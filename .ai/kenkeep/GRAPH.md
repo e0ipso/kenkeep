@@ -1,11 +1,11 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:201e4a6ed1a82cc50d11ad0a3cb832883de68ed2a275cef968373dc87b36e635'
-node_count: 74
+nodes_hash: 'sha256:6319916bfaf75e249400974c30bb423f2c207f33dacb7d5582b4ecb7a201c9bb'
+node_count: 75
 ---
 # kenkeep Graph
 
-Total nodes: 74
+Total nodes: 75
 
 ## map-bootstrap-incremental-command
 
@@ -642,3 +642,10 @@ Total nodes: 74
 - **path:** cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md
 - **tags:** migration, cli, schema
 - **relates_to:** practice-strict-schema-version-bump-policy, map-node-frontmatter
+
+## practice-use-origin-https-with-gh-minted-auth-for-pushes
+
+- **kind:** practice
+- **title:** Use origin-https with gh-minted auth for pushes
+- **path:** practice-use-origin-https-with-gh-minted-auth-for-pushes.md
+- **tags:** git, github, gh, authentication, remote, push, environment

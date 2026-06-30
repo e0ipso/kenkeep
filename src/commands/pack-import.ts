@@ -280,7 +280,7 @@ async function fetchJson(url: string): Promise<{ status: number; json: Record<st
 }
 
 async function downloadTarball(url: string, file: string): Promise<string> {
-  const response = await fetch(url, { headers: { Accept: 'application/octet-stream' } });
+  const response = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
   if (!response.ok) {
     throw new Error(`tarball download failed with HTTP ${response.status}`);
   }

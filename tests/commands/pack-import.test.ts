@@ -130,10 +130,15 @@ async function createTarball(packRoot: string): Promise<string> {
   return tarball;
 }
 
-function mockFetchSequence(responses: Array<{ status: number; body: unknown }>): string[] {
+function mockFetchSequence(
+  responses: Array<{ status: number; body: unknown }>,
+  opts: { captureHeaders?: boolean } = {}
+): { urls: string[]; headers: HeadersInit[] } {
   const urls: string[] = [];
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+  const headers: HeadersInit[] = [];
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     urls.push(String(input));
+    if (opts.captureHeaders) headers.push(init?.headers ?? {});
     const next = responses.shift();
     if (!next) throw new Error('unexpected fetch');
     const ok = next.status >= 200 && next.status < 300;
@@ -152,7 +157,7 @@ function mockFetchSequence(responses: Array<{ status: number; body: unknown }>):
       },
     } as Response;
   });
-  return urls;
+  return { urls, headers };
 }
 
 describe('pack import command', () => {
@@ -303,7 +308,7 @@ describe('pack source acquisition', () => {
 
   it('resolves GitHub shorthand to the latest release tarball first', async () => {
     const tarball = readFileSync(await createTarball(packRoot));
-    const urls = mockFetchSequence([
+    const { urls } = mockFetchSequence([
       { status: 200, body: { tarball_url: 'https://download.example/release.tar.gz' } },
       { status: 200, body: tarball },
     ]);
@@ -318,7 +323,7 @@ describe('pack source acquisition', () => {
 
   it('falls back to the default branch tarball when there is no latest release', async () => {
     const tarball = readFileSync(await createTarball(packRoot));
-    const urls = mockFetchSequence([
+    const { urls } = mockFetchSequence([
       { status: 404, body: {} },
       { status: 200, body: { default_branch: 'main' } },
       { status: 200, body: tarball },
@@ -333,5 +338,20 @@ describe('pack source acquisition', () => {
     expect(urls[1]).toBe('https://api.github.com/repos/e0ipso/kenkeep-pack-drupal');
     expect(urls[2]).toBe('https://api.github.com/repos/e0ipso/kenkeep-pack-drupal/tarball/main');
     expect(existsSync(join(acquired.packRoot, 'kenkeep-pack.yaml'))).toBe(true);
+  });
+
+  it('requests GitHub source tarballs with application/vnd.github+json', async () => {
+    const tarball = readFileSync(await createTarball(packRoot));
+    const { headers } = mockFetchSequence(
+      [
+        { status: 200, body: { tarball_url: 'https://api.github.com/repos/o/r/tarball/v1' } },
+        { status: 200, body: tarball },
+      ],
+      { captureHeaders: true }
+    );
+
+    await acquirePackSource('o/r', join(tmp, 'gh-headers'));
+
+    expect(headers[1]).toEqual({ Accept: 'application/vnd.github+json' });
   });
 });

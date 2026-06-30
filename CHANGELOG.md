@@ -1,3 +1,9 @@
+## [1.8.0](https://github.com/e0ipso/kenkeep/compare/v1.7.2...v1.8.0) (2026-06-30)
+
+### Features
+
+* add knowledge pack validation ([#75](https://github.com/e0ipso/kenkeep/issues/75)) ([dd8f022](https://github.com/e0ipso/kenkeep/commit/dd8f022fd386cc44c2eab4ad6fdc7a4aa5318856)), closes [#71](https://github.com/e0ipso/kenkeep/issues/71)
+
 ## [1.7.2](https://github.com/e0ipso/kenkeep/compare/v1.7.1...v1.7.2) (2026-06-28)
 
 ### Bug Fixes

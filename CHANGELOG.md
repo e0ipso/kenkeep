@@ -1,3 +1,9 @@
+## [1.11.1](https://github.com/e0ipso/kenkeep/compare/v1.11.0...v1.11.1) (2026-06-30)
+
+### Bug Fixes
+
+* pack import uses JSON ([cb4aca8](https://github.com/e0ipso/kenkeep/commit/cb4aca811c1bb569d20c8d3538013fb09c8ee8b9))
+
 ## [1.11.0](https://github.com/e0ipso/kenkeep/compare/v1.10.0...v1.11.0) (2026-06-30)
 
 ### Features

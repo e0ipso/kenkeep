@@ -4,6 +4,7 @@ import {
   CuratorOutputSchema,
   CuratorProposedNodeSchema,
   NodeFrontmatterSchema,
+  PackManifestSchema,
   ProposalOutputSchema,
 } from './schemas.js';
 
@@ -27,6 +28,8 @@ export const SCHEMA_REGISTRY: Readonly<Record<string, ZodTypeAny>> = {
   'proposed-node': CuratorProposedNodeSchema,
   // The persisted node frontmatter contract.
   node: NodeFrontmatterSchema,
+  // The publishable knowledge-pack manifest.
+  'pack-manifest': PackManifestSchema,
 };
 
 /** Sorted list of registered schema names, for help/error messages. */

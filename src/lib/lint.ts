@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 import { checkAgentsKkBlock } from './agents-block.js';
-import { INDEX_FILENAME, readAllNodes, slugify, type NodeFile } from './nodes.js';
+import { INDEX_FILENAME, readAllNodes, validateNodeNaming, type NodeFile } from './nodes.js';
 import { readRedirectsLedger, resolveRedirect } from './redirects.js';
 
 export type LintRule =
@@ -192,24 +192,7 @@ function edgeRefs(node: NodeFile): string[] {
  * placement is topical and unconstrained by kind.
  */
 function checkSlugId(node: NodeFile): string | null {
-  const { id, kind } = node.frontmatter;
-  if (id.trim() === '') {
-    return 'leaf has an empty id; every leaf must carry a stable id';
-  }
-  const prefix = `${kind}-`;
-  if (!id.startsWith(prefix)) {
-    return `id ${id} does not start with kind prefix ${prefix}`;
-  }
-  const bare = id.slice(prefix.length);
-  const canonicalBare = slugify(bare);
-  if (bare !== canonicalBare) {
-    return `id ${id} is not canonical; expected ${kind}-${canonicalBare}`;
-  }
-  const expectedFilename = `${id}.md`;
-  if (node.filename !== expectedFilename) {
-    return `filename ${node.filename} does not match expected ${expectedFilename}`;
-  }
-  return null;
+  return validateNodeNaming(node);
 }
 
 /**

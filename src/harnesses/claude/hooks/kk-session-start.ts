@@ -13,7 +13,11 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHookEntry } from '../../../lib/hook-entry.js';
-import { buildSessionStartContext } from '../../../lib/session-start.js';
+import {
+  buildNudgeContent,
+  buildSessionStartContext,
+  sendSessionStartNotifications,
+} from '../../../lib/session-start.js';
 import { lintStateFile } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { resolveSettings } from '../../../lib/settings.js';
@@ -43,15 +47,14 @@ runHookEntry({
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
       });
-      const statusLine = result.nudged
-        ? `🚨 kenkeep curation overdue: ${result.pendingSessions} pending, ${result.candidateCount} candidates — run /kk-curate`
-        : `📋 kenkeep queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s)`;
+      sendSessionStartNotifications(settings, result);
+      const { statusLine, content } = buildNudgeContent(result);
       process.stdout.write(
         `${JSON.stringify({
           systemMessage: statusLine,
           hookSpecificOutput: {
             hookEventName: 'SessionStart',
-            additionalContext: result.additionalContext,
+            additionalContext: content,
           },
         })}\n`
       );

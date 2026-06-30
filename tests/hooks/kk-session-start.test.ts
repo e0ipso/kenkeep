@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { hostname as osHostname } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
@@ -73,6 +74,28 @@ function runHookRaw(
   });
 }
 
+async function waitForFileLines(file: string, expected: number): Promise<string[]> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    if (existsSync(file)) {
+      const lines = readFileSync(file, 'utf8')
+        .split('\n')
+        .filter(line => line.length > 0);
+      if (lines.length >= expected) return lines;
+    }
+    await new Promise(resolveFn => setTimeout(resolveFn, 25));
+  }
+  return existsSync(file)
+    ? readFileSync(file, 'utf8')
+        .split('\n')
+        .filter(line => line.length > 0)
+    : [];
+}
+
+async function settleNotifications(): Promise<void> {
+  await new Promise(resolveFn => setTimeout(resolveFn, 100));
+}
+
 /**
  * Materialize a tree-shaped KB under the sandbox: leaves in deep branch folders
  * plus the regenerated ENTRY.md (the entry catalog carrying the global
@@ -98,6 +121,54 @@ function seedLeaf(nodesDir: string, relDir: string, id: string, kind: 'practice'
 function rebuildIndex(kkDir: string, nodesDir: string): void {
   const idx = generateIndex(nodesDir);
   writeIndex(join(kkDir, 'ENTRY.md'), idx.rootCatalog);
+}
+
+function seedPendingSession(kkDir: string, sessionId: string): void {
+  const sessionsDir = join(kkDir, '_sessions');
+  mkdirSync(sessionsDir, { recursive: true });
+  writeFileSync(
+    join(sessionsDir, `${sessionId}.md`),
+    matter.stringify('## session\n', {
+      schema_version: 1,
+      session_id: sessionId,
+      captured_by: 'stop',
+      captured_at: '2026-05-11T10:00:00Z',
+      transcript_hash: `sha256:${sessionId}`,
+      proposal_status: 'done',
+      proposal_completed_at: '2026-05-11T10:01:00Z',
+      proposal_error: null,
+      proposal_log: null,
+      proposals: { practice: [{ summary: 'practice' }], map: [] },
+    })
+  );
+}
+
+function seedLintFindings(kkDir: string): void {
+  const stateDir = join(kkDir, '.state');
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(
+    join(stateDir, 'lint-state.json'),
+    JSON.stringify({
+      schema_version: 1,
+      sessions_since_last_lint: 0,
+      last_lint_at: '2026-05-11T10:00:00.000Z',
+      last_errors: 1,
+      last_findings: 2,
+    })
+  );
+}
+
+function fakeNotifySend(root: string): { binDir: string; logFile: string } {
+  const binDir = join(root, 'fake-bin');
+  const logFile = join(root, 'notify.log');
+  mkdirSync(binDir, { recursive: true });
+  const script = join(binDir, 'notify-send');
+  writeFileSync(
+    script,
+    '#!/bin/sh\n{ printf "%s" "$*"; printf "\\n"; } | tr "\\n" " " >> "$KK_NOTIFY_LOG"\nprintf "\\n" >> "$KK_NOTIFY_LOG"\n'
+  );
+  chmodSync(script, 0o755);
+  return { binDir, logFile };
 }
 
 interface Sandbox {
@@ -239,6 +310,160 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(res.exitCode).toBe(0);
     const ctx = (JSON.parse(res.stdout) as { hookSpecificOutput: { additionalContext: string } })
       .hookSpecificOutput.additionalContext;
-    expect(ctx).toContain('kenkeep index is stale');
+    expect(ctx).toContain(
+      'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+    );
+    expect(ctx).toContain('Action: Run npx kenkeep index rebuild.');
+  });
+
+  it('shared-result hooks preserve their output channels and send additive OS notifications', async () => {
+    const fake = fakeNotifySend(sb.root);
+    seedLeaf(sb.nodesDir, 'storage', 'map-shared-notification-drift', 'map');
+
+    const cases = [
+      {
+        harness: 'claude',
+        input: { cwd: sb.root },
+        assertOutput: (res: SpawnResult) => {
+          const parsed = JSON.parse(res.stdout) as {
+            systemMessage?: string;
+            hookSpecificOutput?: { additionalContext?: string };
+          };
+          expect(parsed.systemMessage).toContain(
+            `kenkeep: ${sb.root.split('/').pop()} on ${osHostname()}. Action needed: Run npx kenkeep index rebuild.`
+          );
+          expect(parsed.hookSpecificOutput?.additionalContext).toContain(
+            'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+          );
+        },
+      },
+      {
+        harness: 'codex',
+        input: { cwd: sb.root },
+        assertOutput: (res: SpawnResult) => {
+          const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+          expect(parsed.additionalContext).toContain(
+            'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+          );
+        },
+      },
+      {
+        harness: 'cursor',
+        input: { workspace_roots: [sb.root] },
+        assertOutput: (res: SpawnResult) => {
+          const parsed = JSON.parse(res.stdout) as { additional_context?: string };
+          expect(parsed.additional_context).toContain(
+            'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+          );
+        },
+      },
+      {
+        harness: 'opencode',
+        input: { cwd: sb.root },
+        assertOutput: () => {
+          const body = readFileSync(join(sb.root, '.opencode', 'AGENTS.md'), 'utf8');
+          expect(body).toContain(
+            'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+          );
+        },
+      },
+      {
+        harness: 'copilot',
+        input: { cwd: sb.root },
+        assertOutput: () => {
+          const body = readFileSync(join(sb.root, '.github', 'copilot-instructions.md'), 'utf8');
+          expect(body).toContain(
+            'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+          );
+        },
+      },
+    ];
+
+    for (const entry of cases) {
+      const res = await runHook(hookPath(entry.harness), sb.root, entry.input, {
+        PATH: `${fake.binDir}:${process.env.PATH ?? ''}`,
+        KK_NOTIFY_LOG: fake.logFile,
+      });
+      expect(res.exitCode).toBe(0);
+      entry.assertOutput(res);
+    }
+
+    const notifications = await waitForFileLines(fake.logFile, cases.length);
+    expect(notifications).toHaveLength(cases.length);
+    for (const line of notifications) {
+      expect(line).toContain('--app-name=kenkeep');
+      expect(line).toContain(`kenkeep: ${sb.root.split('/').pop()} on ${osHostname()}`);
+      expect(line).toContain(`Path: ${sb.root}`);
+      expect(line).toContain('Action: Run npx kenkeep index rebuild.');
+    }
+  });
+
+  it('Codex preserves stdout context and sends one batched OS notification for actionable nudges', async () => {
+    const fake = fakeNotifySend(sb.root);
+    seedLeaf(sb.nodesDir, 'storage', 'map-notification-drift', 'map');
+    seedPendingSession(sb.kkDir, 'notify-session');
+    seedLintFindings(sb.kkDir);
+    writeFileSync(join(sb.kkDir, 'config.yaml'), 'schema_version: 1\ncurationThreshold: 1\n');
+
+    const res = await runHook(
+      hookPath('codex'),
+      sb.root,
+      { cwd: sb.root },
+      {
+        PATH: `${fake.binDir}:${process.env.PATH ?? ''}`,
+        KK_NOTIFY_LOG: fake.logFile,
+      }
+    );
+    expect(res.exitCode).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+    expect(parsed.additionalContext).toContain('# kenkeep');
+    expect(parsed.additionalContext).toContain('Project:');
+    expect(parsed.additionalContext).toContain(`Host: ${osHostname()}`);
+    expect(parsed.additionalContext).toContain(`Path: ${sb.root}`);
+    expect(parsed.additionalContext).toContain(
+      'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+    );
+    expect(parsed.additionalContext).toContain(
+      'Issue: Curation queue is overdue: 1 pending session log(s), 1 candidate proposal(s). Oldest pending capture:'
+    );
+    expect(parsed.additionalContext).toContain('Action: Run /kk-curate.');
+    expect(parsed.additionalContext).toContain(
+      'Issue: Lint findings were recorded in the last kenkeep lint run.'
+    );
+    expect(parsed.additionalContext).toContain('Action: Run npx kenkeep lint --verbose.');
+
+    const notifications = await waitForFileLines(fake.logFile, 1);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toContain('--app-name=kenkeep');
+    expect(notifications[0]).toContain(`kenkeep: ${sb.root.split('/').pop()} on ${osHostname()}`);
+    expect(notifications[0]).toContain(`Path: ${sb.root}`);
+    expect(notifications[0]).toContain('Action: Run npx kenkeep index rebuild.');
+    expect(notifications[0]).toContain('Action: Run /kk-curate.');
+    expect(notifications[0]).toContain('Action: Run npx kenkeep lint --verbose.');
+  });
+
+  it('Codex notification opt-out preserves stdout and skips OS notification attempts', async () => {
+    const fake = fakeNotifySend(sb.root);
+    seedPendingSession(sb.kkDir, 'notify-opt-out');
+    writeFileSync(
+      join(sb.kkDir, 'config.yaml'),
+      'schema_version: 1\ncurationThreshold: 1\nnotifications:\n  enabled: false\n'
+    );
+
+    const res = await runHook(
+      hookPath('codex'),
+      sb.root,
+      { cwd: sb.root },
+      {
+        PATH: `${fake.binDir}:${process.env.PATH ?? ''}`,
+        KK_NOTIFY_LOG: fake.logFile,
+      }
+    );
+    expect(res.exitCode).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
+    expect(parsed.additionalContext).toContain('Action: Run /kk-curate.');
+
+    await settleNotifications();
+    expect(existsSync(fake.logFile)).toBe(false);
   });
 });

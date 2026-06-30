@@ -12,8 +12,15 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHookEntry } from '../../../lib/hook-entry.js';
+import { lintStateFile } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { writeCopilotInstructionsSentinel } from '../hooks-config.js';
+import { resolveSettings } from '../../../lib/settings.js';
+import {
+  buildNudgeContent,
+  buildSessionStartContext,
+  sendSessionStartNotifications,
+} from '../../../lib/session-start.js';
+import { writeCopilotInstructionsSentinelWithContent } from '../hooks-config.js';
 
 const PACKAGE_TAG = '[kenkeep]';
 
@@ -31,12 +38,27 @@ runHookEntry({
 
     try {
       process.stderr.write('📖 kenkeep Index: Refreshing Copilot instructions…\n');
-      await writeCopilotInstructionsSentinel({
-        dir: join(root, '.copilot'),
-        hooksDir: join(root, '.copilot', 'hooks'),
-        skillsDir: join(root, '.github', 'skills'),
+      const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
+      const result = buildSessionStartContext({
+        kkDir: paths.kkDir,
+        nodesDir: paths.nodesDir,
+        sessionsDir: paths.sessionsDir,
+        stateFile: join(paths.stateDir, 'state.json'),
+        lintStateFile: lintStateFile(paths.stateDir),
+        threshold: settings.curationThreshold,
       });
-      process.stderr.write('🧠 kenkeep Index: Copilot instructions refreshed.\n');
+      sendSessionStartNotifications(settings, result);
+      const { statusLine, content } = buildNudgeContent(result);
+      await writeCopilotInstructionsSentinelWithContent(
+        {
+          dir: join(root, '.copilot'),
+          hooksDir: join(root, '.copilot', 'hooks'),
+          skillsDir: join(root, '.github', 'skills'),
+        },
+        content
+      );
+      process.stderr.write(`${statusLine}\n`);
+      process.stderr.write('🧠 kenkeep Index: Knowledge base loaded.\n');
     } catch (err) {
       process.stderr.write(
         `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`

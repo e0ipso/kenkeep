@@ -126,13 +126,14 @@ Per `SessionStart`:
 3. Append the descent navigation directive (pick relevant branches by intent and tags, read their index nodes, descend as needed, open only confirmed-relevant leaves, follow cross edges). It comes from the single `KK_NAVIGATION_DIRECTIVE` constant that the `kenkeep:kk-index` block in `AGENTS.md` reuses verbatim, so the two surfaces never drift.
 4. Compare the root index node's `nodes_hash` (the global hash over the whole leaf set) against the live hash of `nodes/`. On drift, append `> kenkeep index is stale, run \`npx kenkeep index rebuild\``.
 5. Count pending logs. If the count is at or above `curationThreshold` (default 20) and the last nudge was over an hour ago, append a one-line nudge and write `last_nudged_at`. The nudge escalates to a loud `🚨 kenkeep curation queue is overdue` heading when the queue is large or stale: `pending >= 10`, or `pending >= curationThreshold` with the oldest log at least `staleDays` (default 7) old.
-6. Emit through the host's native channel, with no event-name translation: Claude and Codex return `additionalContext`; Cursor relays `additional_context` (dropped where the host doesn't consume it); OpenCode writes `.opencode/AGENTS.md`; Copilot writes the `.github/copilot-instructions.md` sentinel block. The Claude shape is:
+6. For actionable nudges only — stale index, curation backlog, and lint findings — attempt a native OS notification when `notifications.enabled` is true (the default) and the platform has a local backend. macOS uses `osascript`; Linux uses `notify-send`. If several signals fire on the same SessionStart, they are batched into one urgency-aware desktop notification. The attempt is fire-and-forget, shell-free, and best effort: missing commands, denied permissions, headless sessions, SSH, WSL, missing DBus, and notification-daemon failures are silent skips. No network backend such as `ntfy` is used.
+7. Emit through the host's native channel, with no event-name translation: Claude and Codex return `additionalContext`; Cursor relays `additional_context` (dropped where the host doesn't consume it); OpenCode writes `.opencode/AGENTS.md`; Copilot writes the `.github/copilot-instructions.md` sentinel block. The Claude shape is:
 
    ```json
    {"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"..."}}
    ```
 
-The staleness line, curation nudge, and lint summary are preserved across all channels. 1s hard deadline; overrun exits 0 so session startup is not blocked.
+The staleness line, curation nudge, and lint summary are preserved across all assistant/context channels; native OS notifications are additive and never replace them. 1s hard deadline; overrun exits 0 so session startup is not blocked.
 
 ## `kk-prompt-context.cjs` (prompt-time injection)
 

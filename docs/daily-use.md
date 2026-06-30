@@ -36,7 +36,7 @@ Four in-session skills cover knowledge intake. Run them inside your harness sess
 
 ## The curate nudge
 
-You don't have to remember to curate. SessionStart counts pending session logs and, once the queue is worth your attention, appends a one-line nudge to the injected context and prints a visible warning to stderr. It escalates to a loud heading when the queue is large or stale. The thresholds are configurable — see [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume).
+You don't have to remember to curate. SessionStart counts pending session logs and, once the queue is worth your attention, appends a one-line nudge to the injected context and prints a visible warning to stderr. It also attempts a native desktop notification when supported by the OS (`osascript` on macOS, `notify-send` on Linux). Missing or headless notification backends are skipped silently. It escalates to a loud heading when the queue is large or stale. The thresholds and notification opt-out are configurable — see [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume) and [Installation → Configuration](installation.md#configuration).
 
 ## Curate
 

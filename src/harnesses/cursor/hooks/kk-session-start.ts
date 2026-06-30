@@ -7,7 +7,11 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHookEntry } from '../../../lib/hook-entry.js';
-import { buildNudgeContent, buildSessionStartContext } from '../../../lib/session-start.js';
+import {
+  buildNudgeContent,
+  buildSessionStartContext,
+  sendSessionStartNotifications,
+} from '../../../lib/session-start.js';
 import { lintStateFile } from '../../../lib/lint-state.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { resolveSettings } from '../../../lib/settings.js';
@@ -38,6 +42,7 @@ runHookEntry({
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
       });
+      sendSessionStartNotifications(settings, result);
       const { statusLine, content: context } = buildNudgeContent(result);
       process.stdout.write(JSON.stringify({ additional_context: context }));
       process.stderr.write(`${statusLine}\n`);

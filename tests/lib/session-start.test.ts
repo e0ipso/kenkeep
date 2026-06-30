@@ -9,9 +9,11 @@ import {
   DEFAULT_NUDGE_THRESHOLD,
   KK_NAVIGATION_DIRECTIVE,
   buildSessionStartContext,
+  buildSessionStartNotifications,
   countPendingSessions,
   summarizePendingSessions,
 } from '../../src/lib/session-start.js';
+import type { SessionStartResult } from '../../src/lib/session-start.js';
 import { readState } from '../../src/lib/state.js';
 
 /** Count non-overlapping occurrences of a substring. */
@@ -147,7 +149,7 @@ describe('buildSessionStartContext (index injection)', () => {
     expect(result.additionalContext.startsWith('---')).toBe(false);
     expect(result.additionalContext).toContain('# kenkeep');
     expect(result.additionalContext).toContain('practice-foo');
-    expect(result.additionalContext).not.toContain('kenkeep index is stale');
+    expect(result.additionalContext).not.toContain('ENTRY.md is stale');
     expect(result.additionalContext).not.toContain('pending session log');
   });
 
@@ -201,7 +203,7 @@ describe('buildSessionStartContext (index injection)', () => {
       stateFile: harness.stateFile,
     });
     expect(result.indexStale).toBe(true);
-    expect(result.additionalContext).toContain('kenkeep index is stale');
+    expect(result.additionalContext).toContain('ENTRY.md is stale');
   });
 });
 
@@ -221,7 +223,9 @@ describe('buildSessionStartContext (curation nudge)', () => {
       now: () => now,
     });
     expect(result.nudged).toBe(true);
+    expect(result.curationLoud).toBe(false);
     expect(result.additionalContext).toContain(`${DEFAULT_NUDGE_THRESHOLD} pending session log(s)`);
+    expect(result.additionalContext).toContain('Action: Run /kk-curate.');
     expect(readState(harness.stateFile).last_nudged_at).toBe(now.toISOString());
   });
 
@@ -236,6 +240,88 @@ describe('buildSessionStartContext (curation nudge)', () => {
     });
     expect(result.nudged).toBe(false);
     expect(result.pendingSessions).toBe(1);
+  });
+});
+
+describe('buildSessionStartNotifications', () => {
+  const baseResult: SessionStartResult = {
+    additionalContext: '# kenkeep\n',
+    nudged: false,
+    lintNudged: false,
+    indexMissing: false,
+    indexStale: false,
+    curationLoud: false,
+    pendingSessions: 0,
+    candidateCount: 0,
+    oldestPendingAgeDays: null,
+    repoRoot: '/tmp/repo',
+    projectName: 'repo',
+    hostName: 'host',
+  };
+
+  it('renders actionable project-scoped curation notifications', () => {
+    expect(
+      buildSessionStartNotifications({
+        ...baseResult,
+        nudged: true,
+        pendingSessions: 20,
+        candidateCount: 3,
+      })
+    ).toEqual([
+      {
+        title: 'kenkeep: repo on host',
+        body:
+          'Project: repo\n' +
+          'Host: host\n' +
+          'Path: /tmp/repo\n' +
+          '\n' +
+          'Issue: Curation queue is pending: 20 pending session log(s), 3 candidate proposal(s).\n' +
+          'Action: Run /kk-curate.',
+      },
+    ]);
+
+    expect(
+      buildSessionStartNotifications({
+        ...baseResult,
+        nudged: true,
+        curationLoud: true,
+        pendingSessions: 20,
+        candidateCount: 3,
+      })[0]?.body
+    ).toContain(
+      'Issue: Curation queue is overdue: 20 pending session log(s), 3 candidate proposal(s).'
+    );
+  });
+
+  it('batches multiple actionable signals into one plain-text notification', () => {
+    const notifications = buildSessionStartNotifications({
+      ...baseResult,
+      indexStale: true,
+      nudged: true,
+      curationLoud: true,
+      lintNudged: true,
+      pendingSessions: 20,
+      candidateCount: 3,
+      oldestPendingAgeDays: 8,
+    });
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.title).toBe('kenkeep: repo on host');
+    expect(notifications[0]?.body).toContain('Project: repo');
+    expect(notifications[0]?.body).toContain('Host: host');
+    expect(notifications[0]?.body).toContain('Path: /tmp/repo');
+    expect(notifications[0]?.body).toContain(
+      'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+    );
+    expect(notifications[0]?.body).toContain('Action: Run npx kenkeep index rebuild.');
+    expect(notifications[0]?.body).toContain(
+      'Issue: Curation queue is overdue: 20 pending session log(s), 3 candidate proposal(s). Oldest pending capture: 8 day(s) old.'
+    );
+    expect(notifications[0]?.body).toContain('Action: Run /kk-curate.');
+    expect(notifications[0]?.body).toContain(
+      'Issue: Lint findings were recorded in the last kenkeep lint run.'
+    );
+    expect(notifications[0]?.body).toContain('Action: Run npx kenkeep lint --verbose.');
   });
 });
 

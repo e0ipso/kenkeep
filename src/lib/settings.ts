@@ -10,10 +10,26 @@ export type ModelChoiceRole = 'proposal' | 'curator' | 'bootstrap';
 /**
  * Documented defaults for the user-facing settings.
  */
-export const SETTINGS_DEFAULTS = {
+export interface NotificationSettings {
+  enabled: boolean;
+  backends: Record<string, never>;
+}
+
+export interface SettingsDefaults {
+  curationThreshold: number;
+  logsRetentionDays: number;
+  lintEveryNSessions: number;
+  notifications: NotificationSettings;
+}
+
+export const SETTINGS_DEFAULTS: SettingsDefaults = {
   curationThreshold: 20,
   logsRetentionDays: 30,
   lintEveryNSessions: 50,
+  notifications: {
+    enabled: true,
+    backends: {},
+  },
 } as const;
 
 /**
@@ -68,7 +84,14 @@ function applyOverrides(target: EffectiveSettings, src: SettingsFile | null): vo
   for (const key of Object.keys(SETTINGS_DEFAULTS) as Array<keyof typeof SETTINGS_DEFAULTS>) {
     const value = src[key];
     if (value !== undefined) {
-      (target as Record<string, unknown>)[key] = value as never;
+      if (key === 'notifications') {
+        target.notifications = {
+          enabled: src.notifications?.enabled ?? SETTINGS_DEFAULTS.notifications.enabled,
+          backends: src.notifications?.backends ?? SETTINGS_DEFAULTS.notifications.backends,
+        };
+      } else {
+        (target as Record<string, unknown>)[key] = value;
+      }
     }
   }
   for (const key of MODEL_CHOICE_KEYS) {
@@ -116,6 +139,7 @@ export function defaultProjectConfigBody(): string {
     curationThreshold: SETTINGS_DEFAULTS.curationThreshold,
     logsRetentionDays: SETTINGS_DEFAULTS.logsRetentionDays,
     lintEveryNSessions: SETTINGS_DEFAULTS.lintEveryNSessions,
+    notifications: SETTINGS_DEFAULTS.notifications,
   };
   const header = [
     '# kenkeep project settings.',
@@ -151,6 +175,13 @@ export function defaultProjectConfigBody(): string {
     '#                                # hooks ignore this; they resolve via env',
     '#                                # detection or the explicit `--harness <id>`',
     '#                                # flag.',
+    '#',
+    '# Native OS notifications for actionable hook nudges are enabled by default',
+    '# when a supported local backend exists. Uncomment to opt out globally:',
+    '#',
+    '# notifications:',
+    '#   enabled: false',
+    '#   backends: {}   # reserved for future backend-specific options',
     '',
   ].join('\n');
   return `${header}${yaml.dump(body, { indent: 2, lineWidth: 0, noRefs: true })}`;

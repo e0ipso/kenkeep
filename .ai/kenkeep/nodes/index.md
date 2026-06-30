@@ -1,7 +1,7 @@
 ---
 schema_version: 2
-nodes_hash: 'sha256:a6e7880c95942ab44457076c688e0bffd152ddebf97a4927c41972a8e1e5f139'
-node_count: 2
+nodes_hash: 'sha256:6626f37c62759990561306449173cd72a0ac43a5518193eed68e1d65d3a859b8'
+node_count: 3
 ---
 # kenkeep Index
 
@@ -24,12 +24,15 @@ node_count: 2
 ## Conventions (how we build)
 - Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) to learn about: Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status. #copilot #harness #hooks #sessionstart #context-injection #drift
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) to learn about: In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH. #git #github #gh #authentication #remote #push #environment
 
 ## Components (what exists)
 _None yet._
 
 ## By topic
 
+### #authentication
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #build
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hook sources into self-contained CJS bundles; build-templates copies them into templates/; init deploys to the target harness directory.
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
@@ -43,6 +46,16 @@ _None yet._
 ### #drift
 - Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
 - Open [**Hook behavior changes must be applied to every harness adapter**](hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook.
+### #environment
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
+### #gh
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
+### #git
+- Open [**Never force push**](conventions/practice-never-force-push.md) — Force pushing rewrites remote history and can lose collaborators' work.
+- Open [**Conventional Commits drive semantic-release**](conventions/practice-conventional-commits-and-release.md) — Releases are automated via semantic-release on merge to main. Commit type (feat/fix/etc.) determines version bump; no manual tag or npm publish.
+- Open [**Review node changes via git**](conventions/practice-review-nodes-via-git.md) — All node changes are reviewed via git diff; accept with git commit, reject with git restore. Same workflow for curator output and bootstrap output.
+### #github
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #harness
 - Open [**Cursor harness adapter**](harnesses/map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts from agent-transcripts/; Read and ReadFile both count for usage.
 - Open [**Codex CLI harness adapter**](harnesses/map-codex-harness.md) — OpenAI Codex CLI adapter; capture and lint tick on Stop only (no SessionEnd/PreCompact); skills under .agents/skills/.
@@ -57,6 +70,10 @@ _None yet._
 - Open [**Bump the prompt's Version comment on every behavior change**](config-and-prompts/practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record the prompt so audits remain coherent.
 - Open [**Local prompt overrides fall back to bundled templates**](config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md first, then the bundled fallback. Delete the override to revert.
 - Open [**Curator drops non-productive and change-oriented candidates**](curation/practice-curator-drops-non-productive-candidates.md) — Change-oriented framing (migration stories) is auto-dropped. Hedged/plan-scoped/low-confidence-without-rationale signatures are evidence of an abandoned-session leak.
+### #push
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
+### #remote
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #sessionstart
 - Open [**kk-session-start.mjs (consume hook)**](hooks/map-session-start-hook.md) — Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may append curate nudge, emits additionalContext.
 - Open [**ENTRY.md**](index/map-entry-md.md) — Entry catalog: whole-tree totals + top-level branch list. Injected into every new session by kk-session-start. Regenerated deterministically from nodes/.

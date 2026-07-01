@@ -184,6 +184,70 @@ describe('status', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Practice nodes: 0');
     expect(result.stdout).toContain('Map nodes:      0');
-    expect(result.stdout).toContain('Session logs (pending):  0');
+    expect(result.stdout).toContain('Proposal extraction queue: 0');
+    expect(result.stdout).toContain('Curation queue:           0');
+  });
+
+  it('reports extraction and curation queues with distinct labels', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const sessionsDir = join(sandbox, '.ai/kenkeep/_sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(
+      join(sessionsDir, 'awaiting-extraction.md'),
+      [
+        '---',
+        'schema_version: 1',
+        'session_id: extraction',
+        'captured_by: stop',
+        'captured_at: "2026-05-11T10:00:00Z"',
+        'transcript_hash: sha256:extraction',
+        'proposal_status: pending',
+        'proposal_completed_at: null',
+        'proposal_error: null',
+        'proposal_log: null',
+        'topics: []',
+        'proposals: { practice: [], map: [] }',
+        '---',
+        '',
+        '## session',
+      ].join('\n')
+    );
+    writeFileSync(
+      join(sessionsDir, 'awaiting-curation.md'),
+      [
+        '---',
+        'schema_version: 1',
+        'session_id: curation',
+        'captured_by: stop',
+        'captured_at: "2026-05-11T11:00:00Z"',
+        'transcript_hash: sha256:curation',
+        'proposal_status: done',
+        'proposal_completed_at: "2026-05-11T11:01:00Z"',
+        'proposal_error: null',
+        'proposal_log: null',
+        'topics: []',
+        'proposals:',
+        '  practice:',
+        '    - kind: practice',
+        '      tags: [testing]',
+        '      title: Practice candidate',
+        '      summary: practice',
+        '      body: Practice candidate body.',
+        '      confidence: high',
+        '  map: []',
+        '---',
+        '',
+        '## session',
+      ].join('\n')
+    );
+
+    const result = await runCli(sandbox, ['status']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Proposal extraction queue: 1');
+    expect(result.stdout).toContain('Curation queue:           2');
+    expect(result.stdout).toContain('Candidate proposals:      1');
+    expect(result.stdout).toContain('Awaiting extraction:      1');
+    expect(result.stdout).toContain('Extracted:                1');
   });
 });

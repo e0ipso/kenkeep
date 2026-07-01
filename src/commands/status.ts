@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { log } from '../lib/log.js';
+import { summarizePendingSessions } from '../lib/session-start.js';
 import { readAllNodes } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 
@@ -22,6 +23,7 @@ export async function runStatus(): Promise<number> {
   };
 
   const sessionStats = scanSessions(paths.sessionsDir);
+  const curationQueue = summarizePendingSessions(paths.sessionsDir);
   const nodeCounts = countNodes(paths.nodesDir);
 
   log.plain(`kenkeep v${installed.version} (installed ${installed.installed_at})`);
@@ -31,20 +33,25 @@ export async function runStatus(): Promise<number> {
   log.plain(`  Map nodes:      ${nodeCounts.map}`);
   log.plain('');
   log.plain('Pending work');
-  log.plain(`  Session logs (pending):  ${sessionStats.pending}`);
-  log.plain(`  Session logs (done):     ${sessionStats.done}`);
-  log.plain(`  Session logs (failed):   ${sessionStats.failed}`);
-  log.plain(`  Session logs (skipped):  ${sessionStats.skipped}`);
+  log.plain(`  Proposal extraction queue: ${sessionStats.awaitingExtraction}`);
+  log.plain(`  Curation queue:           ${curationQueue.pending}`);
+  log.plain(`  Candidate proposals:      ${curationQueue.candidateCount}`);
+  log.plain('');
+  log.plain('Session log proposal status');
+  log.plain(`  Awaiting extraction:      ${sessionStats.awaitingExtraction}`);
+  log.plain(`  Extracted:                ${sessionStats.extracted}`);
+  log.plain(`  Failed extraction:        ${sessionStats.failed}`);
+  log.plain(`  Skipped extraction:       ${sessionStats.skipped}`);
   return 0;
 }
 
 function scanSessions(dir: string): {
-  pending: number;
-  done: number;
+  awaitingExtraction: number;
+  extracted: number;
   failed: number;
   skipped: number;
 } {
-  const out = { pending: 0, done: 0, failed: 0, skipped: 0 };
+  const out = { awaitingExtraction: 0, extracted: 0, failed: 0, skipped: 0 };
   if (!existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {
     if (!name.endsWith('.md')) continue;
@@ -53,7 +60,7 @@ function scanSessions(dir: string): {
       const fm = matter(readFileSync(file, 'utf8')).data as { proposal_status?: string };
       switch (fm.proposal_status) {
         case 'done':
-          out.done += 1;
+          out.extracted += 1;
           break;
         case 'failed':
           out.failed += 1;
@@ -62,10 +69,10 @@ function scanSessions(dir: string): {
           out.skipped += 1;
           break;
         default:
-          out.pending += 1;
+          out.awaitingExtraction += 1;
       }
     } catch {
-      out.pending += 1;
+      out.awaitingExtraction += 1;
     }
   }
   return out;

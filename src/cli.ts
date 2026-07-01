@@ -69,7 +69,7 @@ async function main(): Promise<void> {
 
   program
     .command('status')
-    .description('Show pending session logs and kenkeep stats.')
+    .description('Show extraction and curation queues plus kenkeep stats.')
     .action(async () => {
       process.exit(await runStatus());
     });

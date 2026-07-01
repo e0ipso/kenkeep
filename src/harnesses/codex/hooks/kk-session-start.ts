@@ -2,9 +2,10 @@
  * SessionStart hook (sync) for the Codex CLI adapter.
  *
  * Emits the current `ENTRY.md` body (plus the standard staleness and nudge
- * lines) as Codex's documented additionalContext payload. Codex consumes
- * `{ "additionalContext": "<text>" }` on stdout and injects the string into
- * the active session.
+ * lines) as Codex's documented additionalContext payload.
+ *
+ * Output format: Codex's `SessionStart` JSON contract —
+ * `{ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext } }`.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -46,7 +47,14 @@ runHookEntry({
       });
       sendSessionStartNotifications(settings, result);
       const { statusLine, content } = buildNudgeContent(result);
-      process.stdout.write(JSON.stringify({ additionalContext: content }));
+      process.stdout.write(
+        `${JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'SessionStart',
+            additionalContext: content,
+          },
+        })}\n`
+      );
       process.stderr.write(`${statusLine}\n`);
       process.stderr.write('🧠 kenkeep Index: Knowledge base loaded.\n');
     } catch (err) {

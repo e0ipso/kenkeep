@@ -58,11 +58,11 @@ export interface SessionStartResult {
   indexStale: boolean;
   /** True when the curation nudge has escalated from backlog to overdue. */
   curationLoud: boolean;
-  /** Number of session logs awaiting processing (proposal extraction or curation). */
+  /** Number of session logs in the curation backlog, including logs awaiting extraction. */
   pendingSessions: number;
-  /** Total candidate proposals across pending sessions. */
+  /** Total candidate proposals across extracted logs in the curation backlog. */
   candidateCount: number;
-  /** Age in days of the oldest pending session, when one exists. */
+  /** Age in days of the oldest session in the curation backlog, when one exists. */
   oldestPendingAgeDays: number | null;
   /** Repo root that produced this session-start result. */
   repoRoot: string;
@@ -84,7 +84,7 @@ export interface SessionStartResult {
  * 2. Detects staleness by comparing the entry catalog's frontmatter
  *    `nodes_hash` (the global hash over the whole leaf set) against the live hash
  *    of `nodes/`. If mismatched, appends a warning line.
- * 3. Counts pending session logs and, when >= threshold,
+ * 3. Counts the curation backlog and, when >= threshold,
  *    appends a nudge and persists `last_nudged_at` to `state.json`.
  *
  * Pure-ish: the only side effect is the state.json write when a nudge fires.
@@ -233,7 +233,7 @@ export interface PendingSessionsSummary {
 }
 
 /**
- * Single-pass walk over `_sessions/*.md` returning the pending count, the
+ * Single-pass walk over `_sessions/*.md` returning the curation backlog count, the
  * sum of candidate proposals across those sessions, and the oldest
  * `captured_at` timestamp. Counts both `proposal_status: 'pending'` (awaiting
  * proposal extraction) and `proposal_status: 'done'` (awaiting curation) logs
@@ -279,7 +279,7 @@ export function summarizePendingSessions(sessionsDir: string): PendingSessionsSu
 
 /**
  * Back-compat thin wrapper around `summarizePendingSessions` for callers
- * that only need the pending count.
+ * that only need the curation backlog count.
  */
 export function countPendingSessions(sessionsDir: string): number {
   return summarizePendingSessions(sessionsDir).pending;
@@ -292,7 +292,7 @@ export function buildNudgeContent(result: SessionStartResult): {
   const identity = `${result.projectName} on ${result.hostName}`;
   const statusLine =
     primaryAction(result) ??
-    `kenkeep: ${identity}. Queue: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate(s).`;
+    `kenkeep: ${identity}. Curation queue: ${result.pendingSessions} session log(s) awaiting curation, ${result.candidateCount} candidate(s).`;
   let content = statusLine + '\n\n' + result.additionalContext;
   if (result.nudged) {
     const box =
@@ -300,7 +300,7 @@ export function buildNudgeContent(result: SessionStartResult): {
       '│ 🚨 kenkeep curation is overdue       │\n' +
       '│ Run /kk-curate to process them.      │\n' +
       '└──────────────────────────────────────┘\n' +
-      `${result.pendingSessions} pending session(s), ${result.candidateCount} candidate(s)`;
+      `${result.pendingSessions} session(s) awaiting curation, ${result.candidateCount} candidate(s)`;
     content +=
       '\nIMPORTANT: After completing your response, append the following block ' +
       'verbatim at the very end:\n' +
@@ -355,11 +355,11 @@ function buildActionableSignals(result: SessionStartResult): ActionableSignal[] 
       result.oldestPendingAgeDays === null
         ? ''
         : result.oldestPendingAgeDays === 0
-          ? ' Oldest pending capture: today.'
-          : ` Oldest pending capture: ${result.oldestPendingAgeDays} day(s) old.`;
+          ? ' Oldest uncurated capture: today.'
+          : ` Oldest uncurated capture: ${result.oldestPendingAgeDays} day(s) old.`;
     signals.push({
       severity: result.curationLoud ? 3 : 1,
-      issue: `${result.curationLoud ? 'Curation queue is overdue' : 'Curation queue is pending'}: ${result.pendingSessions} pending session log(s), ${result.candidateCount} candidate proposal(s).${ageSuffix}`,
+      issue: `${result.curationLoud ? 'Curation queue is overdue' : 'Curation queue awaits review'}: ${result.pendingSessions} session log(s) awaiting curation, ${result.candidateCount} candidate proposal(s).${ageSuffix}`,
       action: 'Run /kk-curate.',
     });
   }

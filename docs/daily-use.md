@@ -36,7 +36,7 @@ Four in-session skills cover knowledge intake. Run them inside your harness sess
 
 ## The curate nudge
 
-You don't have to remember to curate. SessionStart counts pending session logs and, once the queue is worth your attention, appends a one-line nudge to the injected context and prints a visible warning to stderr. It also attempts a native desktop notification when supported by the OS (`osascript` on macOS, `notify-send` on Linux). Missing or headless notification backends are skipped silently. It escalates to a loud heading when the queue is large or stale. The thresholds and notification opt-out are configurable — see [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume) and [Installation → Configuration](installation.md#configuration).
+You don't have to remember to curate. SessionStart counts the curation queue, meaning captured sessions that still need `/kk-curate`; this includes both logs awaiting proposal extraction and extracted logs awaiting curator review. Once the queue is worth your attention, it appends a one-line nudge to the injected context and prints a visible warning to stderr. It also attempts a native desktop notification when supported by the OS (`osascript` on macOS, `notify-send` on Linux). Missing or headless notification backends are skipped silently. It escalates to a loud heading when the queue is large or stale. The thresholds and notification opt-out are configurable. See [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume) and [Installation → Configuration](installation.md#configuration).
 
 ## Curate
 
@@ -96,4 +96,4 @@ Meta-only or planning sessions may correctly yield no proposals — that is succ
 
 ## Status
 
-`npx kenkeep status` reports queued captures, pending logs, unresolved conflicts, and node counts.
+`npx kenkeep status` reports both queue names: the proposal extraction queue is logs with `proposal_status: pending`, while the curation queue is logs that `/kk-curate` still needs to process, including extracted `done` logs without `curator_processed_at`.

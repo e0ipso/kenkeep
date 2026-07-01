@@ -424,7 +424,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
       'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
     );
     expect(parsed.additionalContext).toContain(
-      'Issue: Curation queue is overdue: 1 pending session log(s), 1 candidate proposal(s). Oldest pending capture:'
+      'Issue: Curation queue is overdue: 1 session log(s) awaiting curation, 1 candidate proposal(s). Oldest uncurated capture:'
     );
     expect(parsed.additionalContext).toContain('Action: Run /kk-curate.');
     expect(parsed.additionalContext).toContain(

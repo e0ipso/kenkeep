@@ -224,7 +224,9 @@ describe('buildSessionStartContext (curation nudge)', () => {
     });
     expect(result.nudged).toBe(true);
     expect(result.curationLoud).toBe(false);
-    expect(result.additionalContext).toContain(`${DEFAULT_NUDGE_THRESHOLD} pending session log(s)`);
+    expect(result.additionalContext).toContain(
+      `${DEFAULT_NUDGE_THRESHOLD} session log(s) awaiting curation`
+    );
     expect(result.additionalContext).toContain('Action: Run /kk-curate.');
     expect(readState(harness.stateFile).last_nudged_at).toBe(now.toISOString());
   });
@@ -275,7 +277,7 @@ describe('buildSessionStartNotifications', () => {
           'Host: host\n' +
           'Path: /tmp/repo\n' +
           '\n' +
-          'Issue: Curation queue is pending: 20 pending session log(s), 3 candidate proposal(s).\n' +
+          'Issue: Curation queue awaits review: 20 session log(s) awaiting curation, 3 candidate proposal(s).\n' +
           'Action: Run /kk-curate.',
       },
     ]);
@@ -289,7 +291,7 @@ describe('buildSessionStartNotifications', () => {
         candidateCount: 3,
       })[0]?.body
     ).toContain(
-      'Issue: Curation queue is overdue: 20 pending session log(s), 3 candidate proposal(s).'
+      'Issue: Curation queue is overdue: 20 session log(s) awaiting curation, 3 candidate proposal(s).'
     );
   });
 
@@ -315,7 +317,7 @@ describe('buildSessionStartNotifications', () => {
     );
     expect(notifications[0]?.body).toContain('Action: Run npx kenkeep index rebuild.');
     expect(notifications[0]?.body).toContain(
-      'Issue: Curation queue is overdue: 20 pending session log(s), 3 candidate proposal(s). Oldest pending capture: 8 day(s) old.'
+      'Issue: Curation queue is overdue: 20 session log(s) awaiting curation, 3 candidate proposal(s). Oldest uncurated capture: 8 day(s) old.'
     );
     expect(notifications[0]?.body).toContain('Action: Run /kk-curate.');
     expect(notifications[0]?.body).toContain(

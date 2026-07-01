@@ -109,8 +109,11 @@ function claudeContext(stdout: string): string {
 
 function codexContext(stdout: string): string {
   if (stdout.trim().length === 0) return '';
-  const parsed = JSON.parse(stdout) as { additionalContext?: string };
-  return parsed.additionalContext ?? '';
+  const parsed = JSON.parse(stdout) as {
+    hookSpecificOutput?: { hookEventName?: string; additionalContext?: string };
+  };
+  expect(parsed.hookSpecificOutput?.hookEventName).toBe('UserPromptSubmit');
+  return parsed.hookSpecificOutput?.additionalContext ?? '';
 }
 
 describe('prompt-time injection hooks (built bundles)', () => {
@@ -133,7 +136,7 @@ describe('prompt-time injection hooks (built bundles)', () => {
     expect(ctx).not.toContain('SECRET_BODY_TEXT');
   });
 
-  it('Codex injects the same payload via its additionalContext channel', async () => {
+  it('Codex injects the same payload via its hookSpecificOutput channel', async () => {
     const res = await runHook(hookPath('codex'), sb.root, {
       cwd: sb.root,
       prompt: 'wire codex hooks',

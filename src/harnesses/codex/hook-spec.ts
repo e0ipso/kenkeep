@@ -20,8 +20,8 @@ export const codexHookSpecs: readonly HookSpec[] = [
   { event: 'SessionStart', scriptPath: 'kk-proposal-drain.cjs', async: true },
   { event: 'Stop', scriptPath: 'kk-lint-tick.cjs' },
   // Prompt-time injection: Codex natively fires `UserPromptSubmit` with the
-  // user's `prompt` and consumes a synchronous `{ additionalContext }` reply.
-  // Synchronous (not routed through the async launcher) so its stdout reaches
-  // the session.
+  // user's `prompt` and consumes a synchronous `hookSpecificOutput`
+  // additionalContext reply. Synchronous (not routed through the async
+  // launcher) so its stdout reaches the session.
   { event: 'UserPromptSubmit', scriptPath: 'kk-prompt-context.cjs' },
 ];

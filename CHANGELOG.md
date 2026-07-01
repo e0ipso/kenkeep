@@ -1,3 +1,9 @@
+## [1.11.3](https://github.com/e0ipso/kenkeep/compare/v1.11.2...v1.11.3) (2026-07-01)
+
+### Bug Fixes
+
+* disambiguate session queue counts ([#83](https://github.com/e0ipso/kenkeep/issues/83)) ([9630825](https://github.com/e0ipso/kenkeep/commit/96308252270612a665287a95db4766aeaa0e73c8)), closes [#81](https://github.com/e0ipso/kenkeep/issues/81)
+
 ## [1.11.2](https://github.com/e0ipso/kenkeep/compare/v1.11.1...v1.11.2) (2026-07-01)
 
 ### Bug Fixes

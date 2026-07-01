@@ -74,6 +74,14 @@ function runHookRaw(
   });
 }
 
+function codexSessionStartContext(stdout: string): string {
+  const parsed = JSON.parse(stdout) as {
+    hookSpecificOutput?: { hookEventName?: string; additionalContext?: string };
+  };
+  expect(parsed.hookSpecificOutput?.hookEventName).toBe('SessionStart');
+  return parsed.hookSpecificOutput?.additionalContext ?? '';
+}
+
 async function waitForFileLines(file: string, expected: number): Promise<string[]> {
   const deadline = Date.now() + 2_000;
   while (Date.now() < deadline) {
@@ -220,11 +228,10 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(ctx).not.toContain('practice-deep-leaf');
   });
 
-  it('Codex injects the same payload via its additionalContext channel', async () => {
+  it('Codex injects the same payload via its hookSpecificOutput channel', async () => {
     const res = await runHook(hookPath('codex'), sb.root, { cwd: sb.root });
     expect(res.exitCode).toBe(0);
-    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
-    const ctx = parsed.additionalContext ?? '';
+    const ctx = codexSessionStartContext(res.stdout);
     expect(ctx).toContain('# kenkeep');
     expect(ctx).toContain(DESCENT_PHRASE);
     expect(ctx).not.toContain(GREP_RECIPE);
@@ -237,8 +244,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
   it('Codex session-start keeps stdout machine JSON and ignores malformed stdin', async () => {
     const res = await runHookRaw(hookPath('codex'), sb.root, 'not json');
     expect(res.exitCode).toBe(0);
-    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
-    expect(parsed.additionalContext).toContain('# kenkeep');
+    expect(codexSessionStartContext(res.stdout)).toContain('# kenkeep');
     expect(res.stderr).toContain('Loading knowledge base');
 
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -341,8 +347,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
         harness: 'codex',
         input: { cwd: sb.root },
         assertOutput: (res: SpawnResult) => {
-          const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
-          expect(parsed.additionalContext).toContain(
+          expect(codexSessionStartContext(res.stdout)).toContain(
             'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
           );
         },
@@ -415,22 +420,20 @@ describe('per-harness SessionStart injection (tree descent)', () => {
       }
     );
     expect(res.exitCode).toBe(0);
-    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
-    expect(parsed.additionalContext).toContain('# kenkeep');
-    expect(parsed.additionalContext).toContain('Project:');
-    expect(parsed.additionalContext).toContain(`Host: ${osHostname()}`);
-    expect(parsed.additionalContext).toContain(`Path: ${sb.root}`);
-    expect(parsed.additionalContext).toContain(
+    const ctx = codexSessionStartContext(res.stdout);
+    expect(ctx).toContain('# kenkeep');
+    expect(ctx).toContain('Project:');
+    expect(ctx).toContain(`Host: ${osHostname()}`);
+    expect(ctx).toContain(`Path: ${sb.root}`);
+    expect(ctx).toContain(
       'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
     );
-    expect(parsed.additionalContext).toContain(
+    expect(ctx).toContain(
       'Issue: Curation queue is overdue: 1 session log(s) awaiting curation, 1 candidate proposal(s). Oldest uncurated capture:'
     );
-    expect(parsed.additionalContext).toContain('Action: Run /kk-curate.');
-    expect(parsed.additionalContext).toContain(
-      'Issue: Lint findings were recorded in the last kenkeep lint run.'
-    );
-    expect(parsed.additionalContext).toContain('Action: Run npx kenkeep lint --verbose.');
+    expect(ctx).toContain('Action: Run /kk-curate.');
+    expect(ctx).toContain('Issue: Lint findings were recorded in the last kenkeep lint run.');
+    expect(ctx).toContain('Action: Run npx kenkeep lint --verbose.');
 
     const notifications = await waitForFileLines(fake.logFile, 1);
     expect(notifications).toHaveLength(1);
@@ -460,8 +463,7 @@ describe('per-harness SessionStart injection (tree descent)', () => {
       }
     );
     expect(res.exitCode).toBe(0);
-    const parsed = JSON.parse(res.stdout) as { additionalContext?: string };
-    expect(parsed.additionalContext).toContain('Action: Run /kk-curate.');
+    expect(codexSessionStartContext(res.stdout)).toContain('Action: Run /kk-curate.');
 
     await settleNotifications();
     expect(existsSync(fake.logFile)).toBe(false);

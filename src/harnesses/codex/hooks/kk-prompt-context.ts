@@ -6,9 +6,9 @@
  * relevant nodes. This is the prompt-time complement to the SessionStart
  * `ENTRY.md` orientation injection; both surfaces coexist.
  *
- * Output format: Codex consumes `{ "additionalContext": "<text>" }` on stdout
- * and injects the string into the active turn. Registered WITHOUT async so
- * stdout reaches the session.
+ * Output format: Codex's `UserPromptSubmit` JSON contract —
+ * `{ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext } }`.
+ * Registered WITHOUT async so stdout reaches the session.
  *
  * Bounded and fail-open: a short hard deadline guards the prompt path, and any
  * missing prompt, missing/empty/malformed knowledge base, or error yields no
@@ -41,6 +41,13 @@ runHookEntry({
       return;
     }
     if (context.trim().length === 0) return;
-    process.stdout.write(JSON.stringify({ additionalContext: context }));
+    process.stdout.write(
+      `${JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'UserPromptSubmit',
+          additionalContext: context,
+        },
+      })}\n`
+    );
   },
 });

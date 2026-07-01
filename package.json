@@ -1,6 +1,6 @@
 {
   "name": "kenkeep",
-  "version": "1.11.1",
+  "version": "1.11.2",
   "description": "Builds and maintains a per-repo knowledge base from AI coding sessions, for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, and GitHub Copilot CLI.",
   "license": "MIT",
   "author": "e0ipso",

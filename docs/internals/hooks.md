@@ -127,7 +127,7 @@ Per `SessionStart`:
 4. Compare the root index node's `nodes_hash` (the global hash over the whole leaf set) against the live hash of `nodes/`. On drift, append `> kenkeep index is stale, run \`npx kenkeep index rebuild\``.
 5. Count the curation queue: session logs with `proposal_status: pending` awaiting extraction plus `proposal_status: done` logs without `curator_processed_at` awaiting curator review. If the count is at or above `curationThreshold` (default 20) and the last nudge was over an hour ago, append a one-line nudge and write `last_nudged_at`. The nudge escalates to a loud `🚨 kenkeep curation is overdue` heading when the queue is large or stale: queue count >= `2 * curationThreshold`, or queue count >= `curationThreshold` with the oldest uncurated log at least `staleDays` (default 7) old.
 6. For actionable nudges only — stale index, curation backlog, and lint findings — attempt a native OS notification when `notifications.enabled` is true (the default) and the platform has a local backend. macOS uses `osascript`; Linux uses `notify-send`. If several signals fire on the same SessionStart, they are batched into one urgency-aware desktop notification. The attempt is fire-and-forget, shell-free, and best effort: missing commands, denied permissions, headless sessions, SSH, WSL, missing DBus, and notification-daemon failures are silent skips. No network backend such as `ntfy` is used.
-7. Emit through the host's native channel, with no event-name translation: Claude and Codex return `additionalContext`; Cursor relays `additional_context` (dropped where the host doesn't consume it); OpenCode writes `.opencode/AGENTS.md`; Copilot writes the `.github/copilot-instructions.md` sentinel block. The Claude shape is:
+7. Emit through the host's native channel, with no event-name translation: Claude and Codex return `hookSpecificOutput.additionalContext`; Cursor relays `additional_context` (dropped where the host doesn't consume it); OpenCode writes `.opencode/AGENTS.md`; Copilot writes the `.github/copilot-instructions.md` sentinel block. The Claude and Codex shape is:
 
    ```json
    {"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"..."}}
@@ -145,7 +145,7 @@ Per `UserPromptSubmit`:
 2. Read the native `prompt` field. Empty or missing → exit 0 with no context.
 3. Resolve the repo root from the payload `cwd`; if the project is not initialized, exit 0.
 4. Call the shared deterministic retrieval core (`src/lib/prompt-retrieval.ts`): read the current on-disk leaf nodes via `readAllNodes`, score each against the prompt (lexical matches in `title`/`tags`/`summary` weighted above body, with a small graph-neighbor boost resolved through `nodes/.redirects.json`), and render a bounded **summaries-plus-links** block.
-5. Emit through the host's native channel — Claude `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"..."}}`; Codex `{"additionalContext":"..."}`. When nothing is relevant, emit nothing.
+5. Emit through the host's native channel — Claude and Codex `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"..."}}`. When nothing is relevant, emit nothing.
 
 The payload carries each match's title, id, repo-relative markdown link (`.ai/kenkeep/nodes/<relPath>`), summary, and tags — **never full leaf bodies** — plus a one-line instruction to open the linked node before relying on details and to verify named files/functions/flags against the live tree. Output is bounded by an internal node-count cap and a rendered-character budget (no `config.yaml` setting in the MVP).
 
@@ -158,7 +158,7 @@ The payload carries each match's title, id, repo-relative markdown link (`.ai/ke
 | Harness | Prompt-time injection | Channel |
 |---|---|---|
 | Claude Code | ✅ | native `UserPromptSubmit` → `hookSpecificOutput.additionalContext` |
-| Codex CLI | ✅ | native `UserPromptSubmit` → `{ additionalContext }` |
+| Codex CLI | ✅ | native `UserPromptSubmit` → `hookSpecificOutput.additionalContext` |
 | Cursor | ❌ | no verified native prompt-submit context channel in this repo |
 | OpenCode | ❌ | plugin events list no documented prompt-submit model-context channel |
 | GitHub Copilot CLI | ❌ | `userPromptSubmitted` output is documented as not processed |

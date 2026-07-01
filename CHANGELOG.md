@@ -1,3 +1,9 @@
+## [1.11.2](https://github.com/e0ipso/kenkeep/compare/v1.11.1...v1.11.2) (2026-07-01)
+
+### Bug Fixes
+
+* wrap Codex hook context output ([#82](https://github.com/e0ipso/kenkeep/issues/82)) ([7718e29](https://github.com/e0ipso/kenkeep/commit/7718e29e2849cd836d5754e808499ae5c1f42d78))
+
 ## [1.11.1](https://github.com/e0ipso/kenkeep/compare/v1.11.0...v1.11.1) (2026-06-30)
 
 ### Bug Fixes

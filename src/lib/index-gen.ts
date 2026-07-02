@@ -24,6 +24,14 @@ import { KK_NAVIGATION_DIRECTIVE } from './session-start.js';
 const EMBEDDED_DESCENT_DIRECTIVE = KK_NAVIGATION_DIRECTIVE;
 
 /**
+ * Per-folder index guidance. `ENTRY.md` has its own launchpad shape; this line
+ * belongs only in generated folder index files where leaf pointers are
+ * available and the reader may otherwise stop at the table of contents.
+ */
+const INDEX_LEAF_READ_DIRECTIVE =
+  '> This index only orients you; leaves hold the durable guidance. Open at least one relevant leaf before acting.';
+
+/**
  * The cap on nodes listed per tag in the reworked `## By topic`: a bounded,
  * followable "most relevant nodes for this topic" surface rather than a
  * link-less histogram.
@@ -637,6 +645,8 @@ function renderFolderIndex(args: RenderFolderArgs): string {
   // Embedded descent directive: a file dumped into context (sub-agent, mid-
   // session re-read, deep descent) must be self-describing. No body statistics.
   parts.push(EMBEDDED_DESCENT_DIRECTIVE);
+  parts.push('');
+  parts.push(INDEX_LEAF_READ_DIRECTIVE);
 
   // Subfolders section: imperative Load pointers splicing each child's
   // self-preserved summary (name fallback when absent).

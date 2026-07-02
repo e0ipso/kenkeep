@@ -396,6 +396,17 @@ describe('generateIndex actionable rendering', () => {
     expect(countOccurrences(out.folders.get('topic')!.content, DIRECTIVE_MARKER)).toBe(1);
   });
 
+  it('requires a relevant leaf read in folder index bodies but not ENTRY.md', () => {
+    seedNodes(root, [{ dir: 'topic', kind: 'map', id: 'map-a', title: 'A', summary: 's' }]);
+    const out = generateIndex(root);
+    const leafReadDirective =
+      'This index only orients you; leaves hold the durable guidance. Open at least one relevant leaf before acting.';
+
+    expect(out.folders.get('')!.content).toContain(leafReadDirective);
+    expect(out.folders.get('topic')!.content).toContain(leafReadDirective);
+    expect(out.rootCatalog).not.toContain(leafReadDirective);
+  });
+
   it('renders the parent breadcrumb on non-root indexes only', () => {
     seedNodes(root, [
       { dir: 'topic', kind: 'map', id: 'map-a', title: 'A', summary: 's' },

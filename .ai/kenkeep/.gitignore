@@ -3,3 +3,6 @@
 /hooks/
 .state/*
 !.state/installed-version
+_sessions/
+_logs/
+hooks/

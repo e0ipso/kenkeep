@@ -4,32 +4,32 @@
     "kk-add": {
       "source": "e0ipso/kenkeep",
       "sourceType": "github",
-      "skillPath": ".agents/skills/kk-add/SKILL.md",
-      "computedHash": "4924357e0da63911c54d5ac2afc2839aa80fd8b2dfd9c55f92bf2b59b91af7d4"
+      "skillPath": ".cursor/skills/kk-add/SKILL.md",
+      "computedHash": "38b7396f961fc91b7815a80f5f478bae19faddb3a01a0330fa951eaf00ae9b4b"
     },
     "kk-bootstrap": {
       "source": "e0ipso/kenkeep",
       "sourceType": "github",
-      "skillPath": ".agents/skills/kk-bootstrap/SKILL.md",
-      "computedHash": "d58f1fa5b3432804eaceb3f31c6bdf27b44568028fd6d2083d82e66046f09d98"
+      "skillPath": ".cursor/skills/kk-bootstrap/SKILL.md",
+      "computedHash": "062f8705664bb4b5905f569623de3f2f4f793bfb5110cafb2a640558526b1a83"
     },
     "kk-curate": {
       "source": "e0ipso/kenkeep",
       "sourceType": "github",
-      "skillPath": ".agents/skills/kk-curate/SKILL.md",
-      "computedHash": "edbc3873607f4cfda5b17a6ed69c72e5a7869ebe2ded675cb8b2a6cdfca6b85a"
+      "skillPath": ".cursor/skills/kk-curate/SKILL.md",
+      "computedHash": "7166041552eceea560f7280039f3519a38a27d1166a5386ecbd37f3e61690f73"
     },
     "kk-migrate": {
       "source": "e0ipso/kenkeep",
       "sourceType": "github",
-      "skillPath": ".agents/skills/kk-migrate/SKILL.md",
-      "computedHash": "a53472bed1cb2e688796f7dc49bb1be4136d66288f5cf715078d4a50eb233cab"
+      "skillPath": ".cursor/skills/kk-migrate/SKILL.md",
+      "computedHash": "7cf46c1221d9f526ddccbd7845b0027c3ae995c220df521a83455732d56fde93"
     },
     "kk-session-extract": {
       "source": "e0ipso/kenkeep",
       "sourceType": "github",
-      "skillPath": ".agents/skills/kk-session-extract/SKILL.md",
-      "computedHash": "12c4cafbc32756ad10f2513546b2eb6071aca81c90204147aed1db6a8a8dddf0"
+      "skillPath": ".cursor/skills/kk-session-extract/SKILL.md",
+      "computedHash": "6533ca9966b9e03372a85fe83b6756b7383aa04b3d3cded3ca7a162a43ba8564"
     },
     "st-create-plan": {
       "source": "e0ipso/strikethroo",

@@ -1,3 +1,9 @@
+## [1.11.4](https://github.com/e0ipso/kenkeep/compare/v1.11.3...v1.11.4) (2026-07-02)
+
+### Bug Fixes
+
+* require leaf reads from generated indexes ([b80e506](https://github.com/e0ipso/kenkeep/commit/b80e506872841f9efb53ffc8ff3f1d3fb905d81d))
+
 ## [1.11.3](https://github.com/e0ipso/kenkeep/compare/v1.11.2...v1.11.3) (2026-07-01)
 
 ### Bug Fixes

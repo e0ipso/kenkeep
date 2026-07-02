@@ -1,7 +1,7 @@
 {
-  "version": "3.6.0",
+  "version": "3.6.1",
   "workspaceSchemaVersion": 2,
-  "timestamp": "2026-06-22T21:41:51.132Z",
+  "timestamp": "2026-07-02T20:39:31.035Z",
   "files": {
     "config/STRIKETHROO.md": "98331dd4834b916d0b603263ac8d8306a6591bfd5889ea83873b04c3b0437177",
     "config/TASK_MANAGER.md": "06577a7677159d7556494cbd2b42a34ad4d27aee8dbd851a21935c2a03502901",

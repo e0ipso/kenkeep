@@ -14,15 +14,15 @@ function writeNode(sandbox: string, kind: 'practice' | 'map', id: string): void 
   const dir = join(sandbox, '.ai/kenkeep/nodes', id);
   mkdirSync(dir, { recursive: true });
   const fm = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: id,
-    kind,
+    type: kind,
+    description: 's',
     tags: [],
-    derived_from: [],
-    relates_to: [],
-    confidence: 'high',
-    summary: 's',
+    kk_derived_from: [],
+    kk_relates_to: [],
+    kk_confidence: 'high',
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify('# x\nBody.', fm));
 }

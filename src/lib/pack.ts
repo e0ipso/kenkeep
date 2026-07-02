@@ -121,7 +121,7 @@ export function validatePack(packRoot: string): PackValidationResult {
       errors.push(`${node.path}: ${namingError}`);
     }
 
-    const id = node.frontmatter.id;
+    const id = node.frontmatter.kk_id;
     const first = seen.get(id);
     if (first) {
       errors.push(`duplicate node id ${id} in pack: ${first} and ${node.path}`);

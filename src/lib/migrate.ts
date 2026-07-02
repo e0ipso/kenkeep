@@ -34,6 +34,7 @@ export interface MigrationStep {
  */
 export const MIGRATION_STEPS: readonly MigrationStep[] = [
   { id: 'flat-to-tree', from: 1, to: 2, primitives: ['place inventory', 'place apply'] },
+  { id: 'okf-v3', from: 2, to: 3, primitives: ['migrate okf-v3'] },
 ];
 
 const LEGACY_KIND_DIRS = ['practice', 'map'];
@@ -71,8 +72,11 @@ function collectLeafPaths(rootDir: string): string[] {
 
 function readSchemaVersion(file: string): number | null {
   try {
-    const raw = (matter(readFileSync(file, 'utf8')).data as Record<string, unknown>).schema_version;
-    return typeof raw === 'number' ? raw : null;
+    const data = matter(readFileSync(file, 'utf8')).data as Record<string, unknown>;
+    const kkVersion = data.kk_schema_version;
+    if (typeof kkVersion === 'number') return kkVersion;
+    const legacyVersion = data.schema_version;
+    return typeof legacyVersion === 'number' ? legacyVersion : null;
   } catch {
     return null;
   }

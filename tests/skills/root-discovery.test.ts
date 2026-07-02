@@ -11,9 +11,9 @@ const skillsDir = join(here, '../../templates/skills');
 const skills = [
   ['kk-add', '7'],
   ['kk-bootstrap', '5'],
-  ['kk-curate', '8'],
-  ['kk-migrate', '6'],
-  ['kk-session-extract', '5'],
+  ['kk-curate', '9'],
+  ['kk-migrate', '7'],
+  ['kk-session-extract', '6'],
 ] as const;
 
 describe('shipped kk skills root discovery', () => {

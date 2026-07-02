@@ -13,6 +13,7 @@ import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
 import { runSessionLogStageLiveCommand } from './commands/session-log-stage-live.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
+import { runMigrateOkfV3 } from './commands/migrate-okf-v3.js';
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
@@ -214,6 +215,16 @@ async function main(): Promise<void> {
     .allowExcessArguments(true)
     .action(async () => {
       const code = await runMigrateStatus();
+      process.exit(code);
+    });
+  migrateGroup
+    .command('okf-v3')
+    .description(
+      'Deterministic, LLM-free schema migration primitive for the 2 -> 3 OKF-native step. Mechanically rewrites v2 leaves to v3, migrates folder summaries to the sidecar, rebuilds indexes/ENTRY/GRAPH, and prints a JSON summary.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runMigrateOkfV3();
       process.exit(code);
     });
 

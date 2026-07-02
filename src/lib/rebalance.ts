@@ -112,7 +112,8 @@ export interface FolderMetricEntry {
 
 /** Estimated token size of one leaf, using the shared estimator divisor. */
 function estimateLeafTokens(node: NodeFile): number {
-  const chars = node.frontmatter.title.length + node.frontmatter.summary.length + node.body.length;
+  const chars =
+    node.frontmatter.title.length + node.frontmatter.description.length + node.body.length;
   return Math.max(0, Math.ceil(chars / CHARS_PER_TOKEN));
 }
 
@@ -127,8 +128,8 @@ function hasChildFolder(folder: string, allFolders: FolderMetricEntry[]): boolea
 function rootHomelessLeaves(leaves: NodeFile[]): NodeFile[] {
   return leaves
     .filter(leaf => {
-      const dependsOn = leaf.frontmatter.depends_on ?? [];
-      const edgeCount = leaf.frontmatter.relates_to.length + dependsOn.length;
+      const dependsOn = leaf.frontmatter.kk_depends_on ?? [];
+      const edgeCount = leaf.frontmatter.kk_relates_to.length + dependsOn.length;
       return leaf.relDir === '' && edgeCount <= ROOT_HOMELESS_EDGE_MAX;
     })
     .sort((a, b) => a.relPath.localeCompare(b.relPath));

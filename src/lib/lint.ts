@@ -1,5 +1,6 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
+import matter from 'gray-matter';
 import { checkAgentsKkBlock } from './agents-block.js';
 import { INDEX_FILENAME, readAllNodes, validateNodeNaming, type NodeFile } from './nodes.js';
 import { readRedirectsLedger, resolveRedirect } from './redirects.js';
@@ -11,6 +12,7 @@ export type LintRule =
   | 'tag-near-duplicate'
   | 'orphan'
   | 'missing-folder-index'
+  | 'okf-conformance'
   | 'agents-kb-block';
 
 const LEGACY_COMPATIBILITY_DIRS = new Set(['map', 'practice']);
@@ -40,11 +42,14 @@ export interface LintOptions {
 }
 
 export function runLint(opts: LintOptions): LintResult {
-  const nodes = readAllNodes(opts.nodesDir);
   const errors: LintEntry[] = [];
   const findings: LintEntry[] = [];
+  errors.push(...checkOkfConformance(opts.nodesDir));
+  if (errors.length > 0) return { errors: errors.sort(compareEntries), findings };
 
-  const idSet = new Set<string>(nodes.map(n => n.frontmatter.id));
+  const nodes = readAllNodes(opts.nodesDir);
+
+  const idSet = new Set<string>(nodes.map(n => n.frontmatter.kk_id));
 
   const incomingRefs = new Map<string, Set<string>>();
   for (const node of nodes) {
@@ -54,7 +59,7 @@ export function runLint(opts: LintOptions): LintResult {
         set = new Set<string>();
         incomingRefs.set(ref, set);
       }
-      set.add(node.frontmatter.id);
+      set.add(node.frontmatter.kk_id);
     }
   }
 
@@ -125,7 +130,7 @@ export function runLint(opts: LintOptions): LintResult {
         clusters.set(key, entry);
       }
       entry.original.add(tag);
-      entry.nodeIds.add(node.frontmatter.id);
+      entry.nodeIds.add(node.frontmatter.kk_id);
     }
   }
   for (const entry of clusters.values()) {
@@ -142,15 +147,15 @@ export function runLint(opts: LintOptions): LintResult {
 
   for (const node of nodes) {
     const outgoing = edgeRefs(node).length;
-    const incoming = incomingRefs.get(node.frontmatter.id);
+    const incoming = incomingRefs.get(node.frontmatter.kk_id);
     const incomingFromOthers = incoming
-      ? [...incoming].filter(src => src !== node.frontmatter.id).length
+      ? [...incoming].filter(src => src !== node.frontmatter.kk_id).length
       : 0;
     if (outgoing === 0 && incomingFromOthers === 0) {
       findings.push({
         rule: 'orphan',
         file: node.path,
-        message: `orphan node ${node.frontmatter.id}`,
+        message: `orphan node ${node.frontmatter.kk_id}`,
         action:
           'Add cross-links to neighboring nodes, or accept that this node legitimately stands alone.',
       });
@@ -177,13 +182,91 @@ export function runLint(opts: LintOptions): LintResult {
   return { errors, findings };
 }
 
+function checkOkfConformance(nodesDir: string): LintEntry[] {
+  const errors: LintEntry[] = [];
+  if (!existsSync(nodesDir)) return errors;
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.name.endsWith('.md')) continue;
+      if (entry.name === INDEX_FILENAME) {
+        errors.push(...checkIndexConformance(nodesDir, full));
+      } else if (entry.name === 'log.md') {
+        continue;
+      } else {
+        errors.push(...checkLeafConformance(full));
+      }
+    }
+  };
+  walk(nodesDir);
+  return errors;
+}
+
+function checkIndexConformance(nodesDir: string, file: string): LintEntry[] {
+  const parsed = matter(readFileSync(file, 'utf8'));
+  const rel = relative(nodesDir, file).split(sep).join(posix.sep);
+  const keys = Object.keys(parsed.data).sort();
+  if (rel === INDEX_FILENAME) {
+    if (keys.length === 1 && keys[0] === 'okf_version' && parsed.data.okf_version === '0.1') {
+      return [];
+    }
+    return [
+      {
+        rule: 'okf-conformance',
+        file,
+        message: 'bundle-root nodes/index.md frontmatter must be exactly okf_version: "0.1"',
+        action: 'Run `npx kenkeep index rebuild` to regenerate OKF reserved index files.',
+      },
+    ];
+  }
+  if (keys.length === 0) return [];
+  return [
+    {
+      rule: 'okf-conformance',
+      file,
+      message: 'reserved index.md files below the bundle root must not have frontmatter',
+      action: 'Run `npx kenkeep index rebuild` to regenerate OKF reserved index files.',
+    },
+  ];
+}
+
+function checkLeafConformance(file: string): LintEntry[] {
+  let parsed: ReturnType<typeof matter>;
+  try {
+    parsed = matter(readFileSync(file, 'utf8'));
+  } catch (err) {
+    return [
+      {
+        rule: 'okf-conformance',
+        file,
+        message: `frontmatter is not parseable YAML: ${(err as Error).message}`,
+        action: 'Fix the YAML frontmatter block so the file is a valid OKF concept document.',
+      },
+    ];
+  }
+  const type = parsed.data.type;
+  if (typeof type === 'string' && type.trim() !== '') return [];
+  return [
+    {
+      rule: 'okf-conformance',
+      file,
+      message: 'OKF concept document is missing a non-empty type field',
+      action: 'Add a non-empty `type` frontmatter field or run the schema migration.',
+    },
+  ];
+}
+
 /**
  * Every outgoing cross edge of a leaf, by id: `relates_to` (loose) followed by
  * `depends_on` (dependency). Both are id-resolved overlay edges, so lint treats
  * them identically for dangling/redirect detection and orphan counting.
  */
 function edgeRefs(node: NodeFile): string[] {
-  return [...node.frontmatter.relates_to, ...node.frontmatter.depends_on];
+  return [...node.frontmatter.kk_relates_to, ...node.frontmatter.kk_depends_on];
 }
 
 /**

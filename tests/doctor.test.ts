@@ -50,19 +50,21 @@ describe('doctor', () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const dir = join(sandbox, '.ai/kenkeep/nodes');
     mkdirSync(dir, { recursive: true });
-    // Missing required `summary` field triggers schema validation failure.
+    // Missing required `description` field triggers v3 schema validation failure
+    // (a valid schema_version so the reader takes the field-validation path, not
+    // the legacy-migrate path).
     writeFileSync(
       join(dir, 'practice-broken.md'),
       [
         '---',
-        'schema_version: 2',
-        'id: practice-broken',
+        'kk_schema_version: 3',
+        'kk_id: practice-broken',
         'title: "broken frontmatter"',
-        'kind: practice',
+        'type: practice',
         'tags: []',
-        'derived_from: []',
-        'relates_to: []',
-        'confidence: high',
+        'kk_derived_from: []',
+        'kk_relates_to: []',
+        'kk_confidence: high',
         '---',
         '',
         'body',
@@ -75,7 +77,7 @@ describe('doctor', () => {
     const combined = result.stdout + result.stderr;
     expect(combined).toContain('node frontmatter valid');
     expect(combined).toContain('practice-broken.md');
-    expect(combined).toContain('summary');
+    expect(combined).toContain('description');
     expect(combined).toContain('skipped');
   });
 

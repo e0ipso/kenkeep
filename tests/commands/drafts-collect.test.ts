@@ -29,13 +29,13 @@ function action(origin: string) {
     target_node_id: null,
     proposed_node: {
       title: `T ${origin}`,
-      kind: 'practice',
+      type: 'practice',
       tags: ['t'],
-      summary: 's',
+      description: 's',
       body: 'b',
-      confidence: 'high',
-      relates_to: [],
-      depends_on: [],
+      kk_confidence: 'high',
+      kk_relates_to: [],
+      kk_depends_on: [],
     },
     rationale: 'r',
   };
@@ -45,9 +45,7 @@ function writeDraft(root: string, runId: string, n: number, content: string): vo
   writeFileSync(join(root, `.ai/kenkeep/_logs/curator/${runId}__${n}.draft.json`), content);
 }
 
-async function capture(
-  fn: () => Promise<number>
-): Promise<{ code: number; actions: unknown[] }> {
+async function capture(fn: () => Promise<number>): Promise<{ code: number; actions: unknown[] }> {
   let stdout = '';
   const outSpy = vi
     .spyOn(process.stdout, 'write')

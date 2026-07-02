@@ -30,16 +30,16 @@ function seed(nodesDir: string, opts: SeedOpts): void {
   const dir = relDir === '' ? nodesDir : join(nodesDir, ...relDir.split('/'));
   mkdirSync(dir, { recursive: true });
   const fm = {
-    schema_version: 2,
-    id: opts.id,
+    kk_schema_version: 3,
+    kk_id: opts.id,
     title: opts.title,
-    kind: opts.kind ?? 'practice',
+    type: opts.kind ?? 'practice',
+    description: opts.summary ?? '',
     tags: opts.tags ?? [],
-    derived_from: [],
-    relates_to: opts.relates_to ?? [],
-    depends_on: opts.depends_on ?? [],
-    confidence: 'high',
-    summary: opts.summary ?? '',
+    kk_derived_from: [],
+    kk_relates_to: opts.relates_to ?? [],
+    kk_depends_on: opts.depends_on ?? [],
+    kk_confidence: 'high',
   };
   writeFileSync(join(dir, `${opts.id}.md`), matter.stringify(opts.body ?? '# body\n', fm));
 }
@@ -79,7 +79,7 @@ describe('rankNodes', () => {
     });
 
     const matches = rankNodes(readAllNodes(nodesDir), 'how do I wire codex hooks');
-    expect(matches[0]?.node.frontmatter.id).toBe('practice-codex-hooks');
+    expect(matches[0]?.node.frontmatter.kk_id).toBe('practice-codex-hooks');
     expect(matches[0]?.score).toBeGreaterThan(matches[1]?.score ?? 0);
   });
 
@@ -112,8 +112,8 @@ describe('rankNodes', () => {
     });
     seed(nodesDir, { id: 'practice-b', title: 'Beta config', tags: ['config'], summary: 'config' });
     const prompt = 'config';
-    const first = rankNodes(readAllNodes(nodesDir), prompt).map(m => m.node.frontmatter.id);
-    const second = rankNodes(readAllNodes(nodesDir), prompt).map(m => m.node.frontmatter.id);
+    const first = rankNodes(readAllNodes(nodesDir), prompt).map(m => m.node.frontmatter.kk_id);
+    const second = rankNodes(readAllNodes(nodesDir), prompt).map(m => m.node.frontmatter.kk_id);
     expect(first).toEqual(second);
     // Equal scores tie-break by id ascending.
     expect(first).toEqual(['practice-a', 'practice-b']);
@@ -146,7 +146,7 @@ describe('rankNodes', () => {
     });
 
     const matches = rankNodes(readAllNodes(nodesDir), 'retrieval scoring');
-    const order = matches.map(m => m.node.frontmatter.id);
+    const order = matches.map(m => m.node.frontmatter.kk_id);
     expect(order[0]).toBe('practice-hub');
     // Neighbor (boosted via edge to the matched hub) ranks above the unlinked loner.
     expect(order.indexOf('practice-neighbor')).toBeLessThan(order.indexOf('practice-loner'));
@@ -178,7 +178,7 @@ describe('rankNodes', () => {
     });
     writeRedirectsLedger(nodesDir, { 'practice-old-hub': ['practice-hub'] });
 
-    const order = rankNodes(readAllNodes(nodesDir), 'scoring').map(m => m.node.frontmatter.id);
+    const order = rankNodes(readAllNodes(nodesDir), 'scoring').map(m => m.node.frontmatter.kk_id);
     expect(order.indexOf('practice-neighbor')).toBeLessThan(order.indexOf('practice-loner'));
   });
 

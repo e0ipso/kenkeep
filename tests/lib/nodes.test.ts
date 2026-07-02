@@ -28,15 +28,15 @@ function seedNode(
   mkdirSync(folder, { recursive: true });
   const fm = [
     '---',
-    'schema_version: 2',
-    `id: ${id}`,
+    'kk_schema_version: 3',
+    `kk_id: ${id}`,
     `title: "${id} title"`,
-    `kind: ${kind}`,
+    `type: ${kind}`,
+    `description: "summary for ${id}"`,
     'tags: [a, b]',
-    'derived_from: []',
-    'relates_to: []',
-    'confidence: high',
-    `summary: "summary for ${id}"`,
+    'kk_derived_from: []',
+    'kk_relates_to: []',
+    'kk_confidence: high',
     '---',
     '',
     body,
@@ -56,7 +56,7 @@ describe('nodes helpers', () => {
     seedNode(root, 'map', 'map-y');
 
     const nodes = readAllNodes(root);
-    expect(nodes.map(n => n.frontmatter.id).sort()).toEqual(['map-y', 'practice-x']);
+    expect(nodes.map(n => n.frontmatter.kk_id).sort()).toEqual(['map-y', 'practice-x']);
   });
 
   it('rejects the legacy flat nodes/<kind>/ layout and points to the kk-migrate skill, not init --upgrade', () => {
@@ -81,6 +81,32 @@ describe('nodes helpers', () => {
     expect(msg).not.toMatch(/init --upgrade/);
   });
 
+  it('rejects nested schema_version 2 leaves with the migrate guidance', () => {
+    const dir = join(root, 'topic');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'practice-old.md'),
+      [
+        '---',
+        'schema_version: 2',
+        'id: practice-old',
+        'title: old',
+        'kind: practice',
+        'summary: old summary',
+        'tags: []',
+        'derived_from: []',
+        'relates_to: []',
+        'depends_on: []',
+        'confidence: high',
+        '---',
+        '',
+        'body',
+      ].join('\n')
+    );
+
+    expect(() => readAllNodes(root)).toThrow(/`\/kk-migrate` skill/);
+  });
+
   it('throws InvalidNodeFrontmatterError aggregating every malformed file', () => {
     seedNode(root, 'practice', 'practice-x');
     mkdirSync(join(root, 'bad'), { recursive: true });
@@ -89,14 +115,14 @@ describe('nodes helpers', () => {
       missingFieldPath,
       [
         '---',
-        'schema_version: 2',
-        'id: practice-missing-summary',
+        'kk_schema_version: 3',
+        'kk_id: practice-missing-summary',
         'title: "no summary"',
-        'kind: practice',
+        'type: practice',
         'tags: []',
-        'derived_from: []',
-        'relates_to: []',
-        'confidence: high',
+        'kk_derived_from: []',
+        'kk_relates_to: []',
+        'kk_confidence: high',
         '---',
         '',
         'body',
@@ -153,15 +179,15 @@ describe('nodes helpers', () => {
 
   it('writeNodeFile validates frontmatter and atomically writes a leaf (kind-independent placement)', () => {
     const fm: NodeFrontmatter = {
-      schema_version: 2,
-      id: 'practice-write-test',
+      kk_schema_version: 3,
+      kk_id: 'practice-write-test',
       title: 'Write test',
-      kind: 'practice',
+      type: 'practice',
+      description: 'For testing the node writer.',
       tags: ['x'],
-      derived_from: ['session-1.md'],
-      relates_to: [],
-      confidence: 'high',
-      summary: 'For testing the node writer.',
+      kk_derived_from: ['session-1.md'],
+      kk_relates_to: [],
+      kk_confidence: 'high',
     };
     // Default placement: nodes/ root (no kind bucket).
     const written = writeNodeFile({
@@ -171,7 +197,7 @@ describe('nodes helpers', () => {
     });
     expect(written).toBe(join(root, 'practice-write-test.md'));
     const raw = readFileSync(written, 'utf8');
-    expect(raw).toContain('id: practice-write-test');
+    expect(raw).toContain('kk_id: practice-write-test');
     expect(raw).not.toContain('proposal:');
     expect(raw).toContain('# Write test');
     expect(nodeFileExists(root, 'practice-write-test')).toBe(true);
@@ -180,7 +206,7 @@ describe('nodes helpers', () => {
     // Explicit topical folder placement.
     const inTopic = writeNodeFile({
       nodesDir: root,
-      frontmatter: { ...fm, id: 'map-topical', kind: 'map' },
+      frontmatter: { ...fm, kk_id: 'map-topical', type: 'map' },
       body: '# Topical',
       relDir: 'topic/sub',
     });
@@ -190,15 +216,15 @@ describe('nodes helpers', () => {
 
   it('writeNodeFile updates a leaf in place by id at its folder, with no relocation', () => {
     const fm: NodeFrontmatter = {
-      schema_version: 2,
-      id: 'practice-in-place',
+      kk_schema_version: 3,
+      kk_id: 'practice-in-place',
       title: 'In place',
-      kind: 'practice',
+      type: 'practice',
+      description: 'placed in a folder',
       tags: [],
-      derived_from: [],
-      relates_to: [],
-      confidence: 'high',
-      summary: 'placed in a folder',
+      kk_derived_from: [],
+      kk_relates_to: [],
+      kk_confidence: 'high',
     };
     // Initial placement into an existing folder.
     const first = writeNodeFile({
@@ -214,16 +240,95 @@ describe('nodes helpers', () => {
     // id; the filename stem stays <id>.md).
     const second = writeNodeFile({
       nodesDir: root,
-      frontmatter: { ...fm, summary: 'updated' },
+      frontmatter: { ...fm, description: 'updated' },
       body: '# Updated\n\nupdated body',
       relDir: 'storage',
     });
     expect(second).toBe(first);
     expect(readFileSync(first, 'utf8')).toContain('updated body');
-    expect(readAllNodes(root).filter(n => n.frontmatter.id === 'practice-in-place')).toHaveLength(
-      1
-    );
+    expect(
+      readAllNodes(root).filter(n => n.frontmatter.kk_id === 'practice-in-place')
+    ).toHaveLength(1);
     expect(nodeFileExists(root, 'practice-in-place')).toBe(true);
+  });
+
+  it('writeNodeFile regenerates Related and Citations sections without touching prose', () => {
+    const base: NodeFrontmatter = {
+      kk_schema_version: 3,
+      kk_id: 'map-target',
+      title: 'Target',
+      type: 'map',
+      description: 'target',
+      tags: [],
+      kk_derived_from: [],
+      kk_relates_to: [],
+      kk_confidence: 'high',
+    };
+    writeNodeFile({
+      nodesDir: root,
+      frontmatter: base,
+      body: '# Target\n\nTarget body.',
+      relDir: 'refs',
+    });
+    writeNodeFile({
+      nodesDir: root,
+      frontmatter: { ...base, kk_id: 'map-dependency', title: 'Dependency' },
+      body: '# Dependency\n\nDependency body.',
+      relDir: 'refs',
+    });
+
+    const source: NodeFrontmatter = {
+      kk_schema_version: 3,
+      kk_id: 'practice-source',
+      title: 'Source',
+      type: 'practice',
+      description: 'source',
+      tags: [],
+      kk_derived_from: ['session-1.md'],
+      kk_relates_to: ['map-target'],
+      kk_depends_on: ['map-dependency'],
+      kk_confidence: 'high',
+    };
+    const sourcePath = writeNodeFile({
+      nodesDir: root,
+      frontmatter: source,
+      body: '# Source\n\nHand prose.',
+      relDir: 'work',
+    });
+    const first = readFileSync(sourcePath, 'utf8');
+    expect(first).toContain('Hand prose.');
+    expect(first).toContain('# Related');
+    expect(first).toContain('- Related: [map-target](/refs/map-target.md)');
+    expect(first).toContain('- Depends on: [map-dependency](/refs/map-dependency.md)');
+    expect(first).toContain('# Citations');
+    expect(first).toContain('[1] [session-1.md](session-1.md)');
+
+    const parsed = readAllNodes(root).find(n => n.frontmatter.kk_id === 'practice-source')!;
+    writeNodeFile({
+      nodesDir: root,
+      frontmatter: {
+        ...parsed.frontmatter,
+        kk_relates_to: [],
+        kk_depends_on: ['map-target'],
+        kk_derived_from: ['docs/source.md'],
+      },
+      body: parsed.body,
+      relDir: parsed.relDir,
+    });
+    const second = readFileSync(sourcePath, 'utf8');
+    expect(second).toContain('Hand prose.');
+    expect(second).not.toContain('Related: [map-target]');
+    expect(second).toContain('- Depends on: [map-target](/refs/map-target.md)');
+    expect(second).toContain('[1] [docs/source.md](docs/source.md)');
+
+    const reparsed = readAllNodes(root).find(n => n.frontmatter.kk_id === 'practice-source')!;
+    writeNodeFile({
+      nodesDir: root,
+      frontmatter: reparsed.frontmatter,
+      body: reparsed.body,
+      relDir: reparsed.relDir,
+    });
+    expect(readFileSync(sourcePath, 'utf8')).toBe(second);
   });
 
   it('resolveLeafDir routes a relative folder under nodes/ and rejects escapes', () => {

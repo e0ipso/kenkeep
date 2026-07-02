@@ -52,15 +52,15 @@ function seedLeaf(
   const dir = relDir === '' ? nodesDir : join(nodesDir, ...relDir.split('/'));
   mkdirSync(dir, { recursive: true });
   const fm = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: fields.title,
-    kind,
+    type: kind,
+    description: fields.summary,
     tags: fields.tags,
-    derived_from: [],
-    relates_to: [],
-    confidence: 'high',
-    summary: fields.summary,
+    kk_derived_from: [],
+    kk_relates_to: [],
+    kk_confidence: 'high',
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify(fields.body, fm));
 }

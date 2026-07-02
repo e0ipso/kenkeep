@@ -24,15 +24,15 @@ function makeHarness(): Harness {
 // kind).
 function writeNode(harness: Harness, id: string, derivedFrom: string[]): void {
   const fm = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: id,
-    kind: 'practice',
+    type: 'practice',
+    description: 's',
     tags: [],
-    derived_from: derivedFrom,
-    relates_to: [],
-    confidence: 'high',
-    summary: 's',
+    kk_derived_from: derivedFrom,
+    kk_relates_to: [],
+    kk_confidence: 'high',
   };
   writeFileSync(join(harness.nodesDir, `${id}.md`), matter.stringify('# x\nBody.', fm));
 }

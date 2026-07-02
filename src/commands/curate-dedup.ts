@@ -102,9 +102,9 @@ function planConflictWrites(
       run_id: runId,
       candidate_origin: action.candidate_origin,
       target_node_id: action.target_node_id ?? null,
-      proposed_kind: proposedNode.kind,
+      proposed_kind: proposedNode.type,
       proposed_title: proposedNode.title,
-      proposed_confidence: proposedNode.confidence,
+      proposed_confidence: proposedNode.kk_confidence,
     };
     const body = `## Rationale\n\n${action.rationale}\n\n## Proposed node\n\n${proposedNode.body}\n`;
     conflicts.push({

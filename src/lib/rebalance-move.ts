@@ -9,7 +9,6 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
-import matter from 'gray-matter';
 import { z } from 'zod';
 import {
   deriveNodeId,
@@ -17,9 +16,10 @@ import {
   INDEX_FILENAME,
   readAllNodes,
   stampFolderSummary,
+  writeNodeFile,
 } from './nodes.js';
 import { readRedirectsLedger, writeRedirectsLedger } from './redirects.js';
-import { NodeFrontmatterSchema } from './schemas.js';
+import { NODE_SCHEMA_VERSION, NodeFrontmatterSchema } from './schemas.js';
 
 /**
  * One sub-document produced by a split-leaf: a brand new leaf carved out of the
@@ -199,8 +199,8 @@ export function applyRebalancePlan(nodesDir: string, plan: RebalancePlan): Rebal
     // Re-read the live tree for this operation so it never acts on paths a
     // prior operation already invalidated.
     const nodes = readAllNodes(nodesDir);
-    const byId = new Map(nodes.map(n => [n.frontmatter.id, n]));
-    const existingIds = new Set(nodes.map(n => n.frontmatter.id));
+    const byId = new Map(nodes.map(n => [n.frontmatter.kk_id, n]));
+    const existingIds = new Set(nodes.map(n => n.frontmatter.kk_id));
     const leafFor = (id: string): (typeof nodes)[number] => {
       const leaf = byId.get(id);
       if (!leaf) throw new Error(`rebalance: no leaf with id "${id}" exists in the tree`);
@@ -236,7 +236,7 @@ export function applyRebalancePlan(nodesDir: string, plan: RebalancePlan): Rebal
         relocateBytes(leaf.path, dest);
         results.push({
           operation: 'merge',
-          id: leaf.frontmatter.id,
+          id: leaf.frontmatter.kk_id,
           from: leaf.relPath,
           to: op.into === '' ? leaf.filename : posix.join(op.into, leaf.filename),
         });
@@ -264,37 +264,34 @@ export function applyRebalancePlan(nodesDir: string, plan: RebalancePlan): Rebal
       mkdirSync(destDir, { recursive: true });
       const mintedIds: string[] = [];
       for (const child of op.children) {
-        const base = deriveNodeId(old.frontmatter.kind, child.title);
+        const base = deriveNodeId(old.frontmatter.type, child.title);
         const id = ensureUniqueId(existingIds, base);
         existingIds.add(id);
         mintedIds.push(id);
         const fm = NodeFrontmatterSchema.parse({
-          schema_version: old.frontmatter.schema_version,
-          id,
+          type: old.frontmatter.type,
           title: child.title,
-          kind: old.frontmatter.kind,
+          description: child.summary,
           tags: child.tags,
+          kk_schema_version: NODE_SCHEMA_VERSION,
+          kk_id: id,
           // The new parts are derived from the retired leaf; preserve the chain.
-          derived_from: [old.frontmatter.id],
-          relates_to: child.relates_to,
-          confidence: old.frontmatter.confidence,
-          summary: child.summary,
+          kk_derived_from: [old.frontmatter.kk_id],
+          kk_relates_to: child.relates_to,
+          kk_confidence: old.frontmatter.kk_confidence,
         });
         const target = join(destDir, `${id}.md`);
         if (existsSync(target)) {
           throw new Error(`rebalance: refusing to overwrite existing file at ${target}`);
         }
-        const out = matter.stringify(child.body.trimEnd() + '\n', fm);
-        const tmp = `${target}.tmp`;
-        writeFileSync(tmp, out);
-        renameSync(tmp, target);
+        writeNodeFile({ nodesDir, frontmatter: fm, body: child.body, relDir: op.folder });
       }
       // Author the new folder's summary; the wrapper's rebuild self-preserves it.
       stampFolderSummary(nodesDir, op.folder, op.summary);
       // Retire the old leaf and record the redirect in history.
       rmSync(old.path);
       const ledger = readRedirectsLedger(nodesDir);
-      ledger[old.frontmatter.id] = mintedIds;
+      ledger[old.frontmatter.kk_id] = mintedIds;
       writeRedirectsLedger(nodesDir, ledger);
       results.push({
         operation: 'split-leaf',

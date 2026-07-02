@@ -28,16 +28,16 @@ function writeNode(root: string, id: string, body: string): void {
   writeFileSync(
     join(root, `.ai/kenkeep/nodes/topic/${id}.md`),
     matter.stringify(body, {
-      schema_version: 2,
-      id,
+      kk_schema_version: 3,
+      kk_id: id,
       title: `Title ${id}`,
-      kind: 'practice',
+      type: 'practice',
+      description: `summary ${id}`,
       tags: ['t'],
-      derived_from: ['s:practice:0'],
-      relates_to: [],
-      depends_on: [],
-      confidence: 'high',
-      summary: `summary ${id}`,
+      kk_derived_from: ['s:practice:0'],
+      kk_relates_to: [],
+      kk_depends_on: [],
+      kk_confidence: 'high',
     })
   );
 }
@@ -136,8 +136,7 @@ describe('kk conflict prepare', () => {
     // total_lines = 12, ratio = 0.5 (not > 0.5). lines_changed >= 5 and not high
     // confidence -> falls through both rules to s.
     const existing = Array.from({ length: 12 }, (_, i) => `line ${i}`).join('\n') + '\n';
-    const proposed =
-      Array.from({ length: 9 }, (_, i) => `line ${i}`).join('\n') + '\nX\nY\nZ\n';
+    const proposed = Array.from({ length: 9 }, (_, i) => `line ${i}`).join('\n') + '\nX\nY\nZ\n';
     writeNode(cwd, 'practice-baz', existing);
     writeConflict(cwd, {
       id: 'c3',

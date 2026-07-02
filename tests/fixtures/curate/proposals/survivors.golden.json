@@ -5,16 +5,16 @@
     "target_node_id": null,
     "proposed_node": {
       "title": "Foo",
-      "kind": "practice",
+      "type": "practice",
       "tags": [
         "a",
         "b"
       ],
-      "summary": "high summary",
+      "description": "high summary",
       "body": "high body",
-      "confidence": "high",
-      "relates_to": [],
-      "depends_on": []
+      "kk_confidence": "high",
+      "kk_relates_to": [],
+      "kk_depends_on": []
     },
     "rationale": "second add, higher confidence"
   },
@@ -24,15 +24,15 @@
     "target_node_id": "practice-bar",
     "proposed_node": {
       "title": "Bar",
-      "kind": "practice",
+      "type": "practice",
       "tags": [
         "x"
       ],
-      "summary": "bar high",
+      "description": "bar high",
       "body": "bar high body",
-      "confidence": "high",
-      "relates_to": [],
-      "depends_on": []
+      "kk_confidence": "high",
+      "kk_relates_to": [],
+      "kk_depends_on": []
     },
     "rationale": "second modify, higher confidence"
   },

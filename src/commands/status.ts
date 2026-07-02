@@ -91,8 +91,8 @@ function countNodes(nodesDir: string): { practice: number; map: number } {
   if (!existsSync(nodesDir)) return out;
   try {
     for (const node of readAllNodes(nodesDir)) {
-      if (node.frontmatter.kind === 'practice') out.practice += 1;
-      else if (node.frontmatter.kind === 'map') out.map += 1;
+      if (node.frontmatter.type === 'practice') out.practice += 1;
+      else if (node.frontmatter.type === 'map') out.map += 1;
     }
   } catch {
     return out;

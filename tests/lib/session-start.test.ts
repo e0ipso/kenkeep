@@ -93,15 +93,15 @@ function seedSession(
 // kind).
 function seedNode(harness: Harness, kind: 'practice' | 'map', id: string): void {
   const fm = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: id,
-    kind,
+    type: kind,
+    description: 's',
     tags: [],
-    derived_from: [],
-    relates_to: [],
-    confidence: 'high',
-    summary: 's',
+    kk_derived_from: [],
+    kk_relates_to: [],
+    kk_confidence: 'high',
   };
   mkdirSync(harness.nodesDir, { recursive: true });
   writeFileSync(join(harness.nodesDir, `${id}.md`), matter.stringify(`# ${id}\nBody.`, fm));

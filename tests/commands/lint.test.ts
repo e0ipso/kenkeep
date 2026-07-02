@@ -18,18 +18,18 @@ function writeNode(
   filenameBase: string,
   overrides: Partial<NodeFrontmatter>
 ): void {
-  const id = overrides.id ?? `${kind}-${filenameBase}`;
+  const id = overrides.kk_id ?? `${kind}-${filenameBase}`;
   const fm: NodeFrontmatter = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: overrides.title ?? id,
-    kind,
+    type: kind,
+    description: overrides.description ?? 's',
     tags: overrides.tags ?? [],
-    derived_from: overrides.derived_from ?? [],
-    relates_to: overrides.relates_to ?? [],
-    depends_on: overrides.depends_on ?? [],
-    confidence: overrides.confidence ?? 'high',
-    summary: overrides.summary ?? 's',
+    kk_derived_from: overrides.kk_derived_from ?? [],
+    kk_relates_to: overrides.kk_relates_to ?? [],
+    kk_depends_on: overrides.kk_depends_on ?? [],
+    kk_confidence: overrides.kk_confidence ?? 'high',
   };
   const dir = join(sandbox, '.ai/kenkeep/nodes');
   mkdirSync(dir, { recursive: true });
@@ -44,16 +44,16 @@ function writeNestedNode(
   overrides: Partial<NodeFrontmatter> = {}
 ): void {
   const fm: NodeFrontmatter = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: overrides.title ?? id,
-    kind,
+    type: kind,
+    description: overrides.description ?? 's',
     tags: overrides.tags ?? [],
-    derived_from: overrides.derived_from ?? [],
-    relates_to: overrides.relates_to ?? [],
-    depends_on: overrides.depends_on ?? [],
-    confidence: overrides.confidence ?? 'high',
-    summary: overrides.summary ?? 's',
+    kk_derived_from: overrides.kk_derived_from ?? [],
+    kk_relates_to: overrides.kk_relates_to ?? [],
+    kk_depends_on: overrides.kk_depends_on ?? [],
+    kk_confidence: overrides.kk_confidence ?? 'high',
   };
   const dir = join(sandbox, '.ai/kenkeep/nodes', relDir);
   mkdirSync(dir, { recursive: true });
@@ -102,14 +102,57 @@ describe('lint command', () => {
     expect(combined).toContain('folder topic has no index.md');
   });
 
+  it('reports a leaf missing the required OKF type field', async () => {
+    const dir = join(sandbox, '.ai/kenkeep/nodes/topic');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'practice-missing-type.md'),
+      [
+        '---',
+        'kk_schema_version: 3',
+        'kk_id: practice-missing-type',
+        'title: Missing type',
+        'description: s',
+        'tags: []',
+        'kk_derived_from: []',
+        'kk_relates_to: []',
+        'kk_depends_on: []',
+        'kk_confidence: high',
+        '---',
+        '',
+        'Body.',
+      ].join('\n')
+    );
+
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(1);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('okf-conformance');
+    expect(combined).toContain('missing a non-empty type');
+  });
+
+  it('reports frontmatter on a non-root reserved index.md', async () => {
+    writeNestedNode(sandbox, 'topic', 'practice', 'practice-topic');
+    writeFileSync(
+      join(sandbox, '.ai/kenkeep/nodes/topic/index.md'),
+      matter.stringify('# Topic\n', { schema_version: 3 })
+    );
+
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(1);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('okf-conformance');
+    expect(combined).toContain('reserved index.md files below the bundle root');
+  });
+
   it('exits 1 and names the offending file when --verbose finds a dangling edge', async () => {
     writeNode(sandbox, 'practice', 'practice-source', {
-      id: 'practice-source',
-      relates_to: ['practice-ghost'],
+      kk_id: 'practice-source',
+      kk_relates_to: ['practice-ghost'],
     });
     writeNode(sandbox, 'practice', 'practice-anchor', {
-      id: 'practice-anchor',
-      relates_to: ['practice-source'],
+      kk_id: 'practice-anchor',
+      kk_relates_to: ['practice-source'],
     });
     const result = await runCli(sandbox, ['lint', '--verbose']);
     expect(result.exitCode).toBe(1);
@@ -121,16 +164,16 @@ describe('lint command', () => {
 
   it('exits 0 and reports tag-near-duplicate and orphan findings under --verbose', async () => {
     writeNode(sandbox, 'practice', 'practice-one', {
-      id: 'practice-one',
-      relates_to: ['practice-two'],
+      kk_id: 'practice-one',
+      kk_relates_to: ['practice-two'],
       tags: ['hooks'],
     });
     writeNode(sandbox, 'practice', 'practice-two', {
-      id: 'practice-two',
-      relates_to: ['practice-one'],
+      kk_id: 'practice-two',
+      kk_relates_to: ['practice-one'],
       tags: ['hook'],
     });
-    writeNode(sandbox, 'map', 'map-loner', { id: 'map-loner' });
+    writeNode(sandbox, 'map', 'map-loner', { kk_id: 'map-loner' });
     const result = await runCli(sandbox, ['lint', '--verbose']);
     expect(result.exitCode).toBe(0);
     const combined = result.stdout + result.stderr;
@@ -144,12 +187,12 @@ describe('lint command', () => {
     // id is not a canonical slug (uppercase); the filename matches the id so
     // the file still loads, but the slug-id-mismatch rule must fire as an error.
     writeNode(sandbox, 'practice', 'practice-NotASlug', {
-      id: 'practice-NotASlug',
-      relates_to: ['practice-anchor'],
+      kk_id: 'practice-NotASlug',
+      kk_relates_to: ['practice-anchor'],
     });
     writeNode(sandbox, 'practice', 'practice-anchor', {
-      id: 'practice-anchor',
-      relates_to: ['practice-NotASlug'],
+      kk_id: 'practice-anchor',
+      kk_relates_to: ['practice-NotASlug'],
     });
     const result = await runCli(sandbox, ['lint', '--verbose']);
     expect(result.exitCode).toBe(1);
@@ -160,12 +203,12 @@ describe('lint command', () => {
 
   it('treats a dangling depends_on edge as an error, like relates_to', async () => {
     writeNode(sandbox, 'practice', 'practice-src', {
-      id: 'practice-src',
-      depends_on: ['practice-ghost'],
+      kk_id: 'practice-src',
+      kk_depends_on: ['practice-ghost'],
     });
     writeNode(sandbox, 'practice', 'practice-anchor', {
-      id: 'practice-anchor',
-      relates_to: ['practice-src'],
+      kk_id: 'practice-anchor',
+      kk_relates_to: ['practice-src'],
     });
     const result = await runCli(sandbox, ['lint', '--verbose']);
     expect(result.exitCode).toBe(1);
@@ -175,10 +218,10 @@ describe('lint command', () => {
   });
 
   it('resolves an edge to a retired id via the redirects ledger as a finding, not a dangling error', async () => {
-    writeNode(sandbox, 'practice', 'practice-new', { id: 'practice-new' });
+    writeNode(sandbox, 'practice', 'practice-new', { kk_id: 'practice-new' });
     writeNode(sandbox, 'practice', 'practice-anchor', {
-      id: 'practice-anchor',
-      relates_to: ['practice-retired'],
+      kk_id: 'practice-anchor',
+      kk_relates_to: ['practice-retired'],
     });
     // The retired id is gone from disk but the ledger maps it to the live id.
     writeFileSync(

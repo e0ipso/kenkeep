@@ -11,9 +11,10 @@ import {
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import { z } from 'zod';
+import { setFolderSummary } from './folder-summaries.js';
 import { MIGRATE_COMMAND_HINT } from './migrate-guidance.js';
+import { renderGeneratedNodeSections } from './node-sections.js';
 import {
-  IndexFrontmatterSchema,
   NODE_SCHEMA_VERSION,
   NodeFrontmatterSchema,
   type NodeFrontmatter,
@@ -77,10 +78,9 @@ export class InvalidNodeFrontmatterError extends Error {
 export class OldLayoutError extends Error {
   constructor(detail: string) {
     super(
-      `${detail} kenkeep now stores nodes in a nested topical folder tree ` +
-        `(schema_version ${NODE_SCHEMA_VERSION}); the old flat nodes/<kind>/ layout is no ` +
-        `longer readable. Migrate the knowledge base with ${MIGRATE_COMMAND_HINT}, then ` +
-        `review the result with \`git diff\`.`
+      `${detail} This knowledge base is not readable by kenkeep's current node schema ` +
+        `(schema_version ${NODE_SCHEMA_VERSION}). Migrate the knowledge base with ` +
+        `${MIGRATE_COMMAND_HINT}, then review the result with \`git diff\`.`
     );
     this.name = 'OldLayoutError';
   }
@@ -176,6 +176,12 @@ function collectLeafNodes(
       });
       continue;
     }
+    const legacySchemaVersion = (parsed.data as Record<string, unknown>).schema_version;
+    if (typeof legacySchemaVersion === 'number' && legacySchemaVersion < NODE_SCHEMA_VERSION) {
+      throw new OldLayoutError(
+        `Detected node ${fullPath} with legacy schema_version ${legacySchemaVersion}.`
+      );
+    }
     const result = NodeFrontmatterSchema.safeParse(parsed.data);
     if (!result.success) {
       failures.push({
@@ -219,7 +225,7 @@ export function formatIssue(issue: z.ZodIssue): string {
 
 export function findNodeById(nodesDir: string, id: string): NodeFile | null {
   for (const node of readAllNodes(nodesDir)) {
-    if (node.frontmatter.id === id) return node;
+    if (node.frontmatter.kk_id === id) return node;
   }
   return null;
 }
@@ -322,18 +328,18 @@ export function nodeFilename(id: string): string {
 export function validateNodeNaming(
   node: Pick<NodeFile, 'filename' | 'frontmatter'>
 ): string | null {
-  const { id, kind } = node.frontmatter;
+  const { kk_id: id, type } = node.frontmatter;
   if (id.trim() === '') {
     return 'leaf has an empty id; every leaf must carry a stable id';
   }
-  const prefix = `${kind}-`;
+  const prefix = `${type}-`;
   if (!id.startsWith(prefix)) {
-    return `id ${id} does not start with kind prefix ${prefix}`;
+    return `id ${id} does not start with type prefix ${prefix}`;
   }
   const bare = id.slice(prefix.length);
   const canonicalBare = slugify(bare);
   if (bare !== canonicalBare) {
-    return `id ${id} is not canonical; expected ${kind}-${canonicalBare}`;
+    return `id ${id} is not canonical; expected ${type}-${canonicalBare}`;
   }
   const expectedFilename = nodeFilename(id);
   if (node.filename !== expectedFilename) {
@@ -420,10 +426,14 @@ export function resolveLeafDir(nodesDir: string, relDir = ''): string {
 export function writeNodeFile(args: WriteNodeArgs): string {
   const validated = NodeFrontmatterSchema.parse(args.frontmatter);
   const targetDir = resolveLeafDir(args.nodesDir, args.relDir ?? '');
-  const filePath = join(targetDir, nodeFilename(validated.id));
+  const filePath = join(targetDir, nodeFilename(validated.kk_id));
+  const relPath = toPosixRel(args.nodesDir, filePath);
+  const pathsById = new Map(readAllNodes(args.nodesDir).map(n => [n.frontmatter.kk_id, n.relPath]));
+  pathsById.set(validated.kk_id, relPath);
   mkdirSync(dirname(filePath), { recursive: true });
   const tmp = `${filePath}.tmp`;
-  const out = matter.stringify(args.body.trimEnd() + '\n', validated);
+  const body = renderGeneratedNodeSections(args.body, validated, id => pathsById.get(id) ?? null);
+  const out = matter.stringify(body.trimEnd() + '\n', validated);
   writeFileSync(tmp, out);
   renameSync(tmp, filePath);
   return filePath;
@@ -459,22 +469,6 @@ export function writeNodeFile(args: WriteNodeArgs): string {
 export function stampFolderSummary(nodesDir: string, dirRel: string, summary: string): void {
   const trimmed = summary.trim();
   if (trimmed === '') return;
-  const dir = resolveLeafDir(nodesDir, dirRel);
-  mkdirSync(dir, { recursive: true });
-  const file = join(dir, INDEX_FILENAME);
-  let body = '# placeholder\n';
-  const base: Record<string, unknown> = {
-    schema_version: NODE_SCHEMA_VERSION,
-    nodes_hash: 'sha256:pending',
-    node_count: 0,
-  };
-  if (existsSync(file)) {
-    const parsed = matter(readFileSync(file, 'utf8'));
-    body = parsed.content;
-    Object.assign(base, parsed.data);
-  }
-  const fm = IndexFrontmatterSchema.parse({ ...base, summary: trimmed });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, matter.stringify(body, fm));
-  renameSync(tmp, file);
+  resolveLeafDir(nodesDir, dirRel);
+  setFolderSummary(nodesDir, dirRel, trimmed);
 }

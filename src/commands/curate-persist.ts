@@ -140,7 +140,7 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
     return 1;
   }
 
-  const existingIds = new Set(existingNodes.map(n => n.frontmatter.id));
+  const existingIds = new Set(existingNodes.map(n => n.frontmatter.kk_id));
   const results: PersistResult[] = [];
 
   for (const [index, action] of validated.data.entries()) {
@@ -179,19 +179,19 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
           results.push(failure(action, index, `home_folder "${home}" does not exist under nodes/`));
           continue;
         }
-        const id = ensureUniqueId(existingIds, deriveNodeId(node.kind, node.title));
+        const id = ensureUniqueId(existingIds, deriveNodeId(node.type, node.title));
         relDir = home;
         frontmatter = {
-          schema_version: NODE_SCHEMA_VERSION,
-          id,
+          type: node.type,
           title: node.title,
-          kind: node.kind,
+          description: node.description,
           tags: node.tags,
-          derived_from: [action.candidate_origin],
-          relates_to: node.relates_to,
-          depends_on: node.depends_on,
-          confidence: node.confidence,
-          summary: node.summary,
+          kk_schema_version: NODE_SCHEMA_VERSION,
+          kk_id: id,
+          kk_derived_from: [action.candidate_origin],
+          kk_relates_to: node.kk_relates_to,
+          kk_depends_on: node.kk_depends_on,
+          kk_confidence: node.kk_confidence,
         };
       } else {
         const targetId = action.target_node_id;
@@ -204,31 +204,31 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
           results.push(failure(action, index, `target node "${targetId}" does not exist`));
           continue;
         }
-        if (existing.frontmatter.kind !== node.kind) {
+        if (existing.frontmatter.type !== node.type) {
           results.push(
             failure(
               action,
               index,
-              `target node "${targetId}" is ${existing.frontmatter.kind}, not ${node.kind}`
+              `target node "${targetId}" is ${existing.frontmatter.type}, not ${node.type}`
             )
           );
           continue;
         }
         relDir = existing.relDir;
         frontmatter = {
-          schema_version: NODE_SCHEMA_VERSION,
-          id: targetId,
+          type: node.type,
           title: node.title,
-          kind: node.kind,
+          description: node.description,
           tags: node.tags,
-          derived_from: mergeDerivedFrom(
-            existing.frontmatter.derived_from,
+          kk_schema_version: NODE_SCHEMA_VERSION,
+          kk_id: targetId,
+          kk_derived_from: mergeDerivedFrom(
+            existing.frontmatter.kk_derived_from,
             action.candidate_origin
           ),
-          relates_to: node.relates_to,
-          depends_on: node.depends_on,
-          confidence: node.confidence,
-          summary: node.summary,
+          kk_relates_to: node.kk_relates_to,
+          kk_depends_on: node.kk_depends_on,
+          kk_confidence: node.kk_confidence,
         };
       }
 
@@ -247,13 +247,13 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
         body: node.body,
         relDir,
       });
-      existingIds.add(checked.data.id);
+      existingIds.add(checked.data.kk_id);
       results.push({
         index,
         action: action.action,
         candidate_origin: action.candidate_origin,
         status: 'written',
-        id: checked.data.id,
+        id: checked.data.kk_id,
         path: relPath(paths.nodesDir, filePath),
         placement:
           action.action === 'modify' ? 'in place' : relDir === '' ? 'root fallback' : relDir,

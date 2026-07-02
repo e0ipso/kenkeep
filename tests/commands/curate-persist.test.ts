@@ -23,16 +23,16 @@ function sandbox(): string {
   writeFileSync(
     join(root, '.ai/kenkeep/nodes/topic/practice-existing.md'),
     matter.stringify('Old body.\n', {
-      schema_version: 2,
-      id: 'practice-existing',
+      kk_schema_version: 3,
+      kk_id: 'practice-existing',
       title: 'Existing',
-      kind: 'practice',
+      type: 'practice',
       tags: ['old'],
-      derived_from: ['old-session:practice:0'],
-      relates_to: [],
-      depends_on: [],
-      confidence: 'medium',
-      summary: 'old summary',
+      kk_derived_from: ['old-session:practice:0'],
+      kk_relates_to: [],
+      kk_depends_on: [],
+      kk_confidence: 'medium',
+      description: 'old summary',
     })
   );
   return root;
@@ -79,12 +79,12 @@ describe('curate-persist primitive', () => {
           home_folder: 'topic',
           proposed_node: {
             title: 'Use Foo',
-            kind: 'practice',
+            type: 'practice',
             tags: ['foo'],
-            summary: 'how to use foo',
+            description: 'how to use foo',
             body: 'Foo body.',
-            confidence: 'high',
-            relates_to: [],
+            kk_confidence: 'high',
+            kk_relates_to: [],
           },
           rationale: 'new durable practice',
         },
@@ -94,13 +94,13 @@ describe('curate-persist primitive', () => {
           target_node_id: 'practice-existing',
           proposed_node: {
             title: 'Existing',
-            kind: 'practice',
+            type: 'practice',
             tags: ['new'],
-            summary: 'new summary',
+            description: 'new summary',
             body: 'New body.',
-            confidence: 'high',
-            relates_to: ['practice-use-foo'],
-            depends_on: [],
+            kk_confidence: 'high',
+            kk_relates_to: ['practice-use-foo'],
+            kk_depends_on: [],
           },
           rationale: 'refines existing node',
         },
@@ -118,12 +118,12 @@ describe('curate-persist primitive', () => {
           home_folder: 'missing',
           proposed_node: {
             title: 'Missing Folder',
-            kind: 'practice',
+            type: 'practice',
             tags: ['foo'],
-            summary: 'should fail',
+            description: 'should fail',
             body: 'No write.',
-            confidence: 'medium',
-            relates_to: [],
+            kk_confidence: 'medium',
+            kk_relates_to: [],
           },
           rationale: 'bad placement',
         },
@@ -147,16 +147,16 @@ describe('curate-persist primitive', () => {
     const added = matter(
       readFileSync(join(cwd, '.ai/kenkeep/nodes/topic/practice-use-foo.md'), 'utf8')
     );
-    expect(added.data.id).toBe('practice-use-foo');
-    expect(added.data.derived_from).toEqual(['s1:practice:0']);
+    expect(added.data.kk_id).toBe('practice-use-foo');
+    expect(added.data.kk_derived_from).toEqual(['s1:practice:0']);
     expect(added.content).toContain('Foo body.');
 
     const modified = matter(
       readFileSync(join(cwd, '.ai/kenkeep/nodes/topic/practice-existing.md'), 'utf8')
     );
-    expect(modified.data.id).toBe('practice-existing');
+    expect(modified.data.kk_id).toBe('practice-existing');
     expect(modified.data.tags).toEqual(['new']);
-    expect(modified.data.derived_from).toEqual(['old-session:practice:0', 's2:practice:0']);
+    expect(modified.data.kk_derived_from).toEqual(['old-session:practice:0', 's2:practice:0']);
     expect(modified.content).toContain('New body.');
 
     expect(existsSync(join(cwd, '.ai/kenkeep/nodes/missing/practice-missing-folder.md'))).toBe(
@@ -185,12 +185,12 @@ describe('curate-persist primitive', () => {
           home_folder: 'topic',
           proposed_node: {
             title: 'Conflicting',
-            kind: 'practice',
+            type: 'practice',
             tags: ['foo'],
-            summary: 'conflicts with existing',
+            description: 'conflicts with existing',
             body: 'Conflict body.',
-            confidence: 'high',
-            relates_to: [],
+            kk_confidence: 'high',
+            kk_relates_to: [],
           },
           rationale: 'conflicts with existing node',
         },
@@ -201,12 +201,12 @@ describe('curate-persist primitive', () => {
           home_folder: '../escape',
           proposed_node: {
             title: 'Traversal',
-            kind: 'practice',
+            type: 'practice',
             tags: ['foo'],
-            summary: 'traversal attempt',
+            description: 'traversal attempt',
             body: 'No write.',
-            confidence: 'medium',
-            relates_to: [],
+            kk_confidence: 'medium',
+            kk_relates_to: [],
           },
           rationale: 'unsafe relative placement',
         },
@@ -217,12 +217,12 @@ describe('curate-persist primitive', () => {
           home_folder: '/etc',
           proposed_node: {
             title: 'Absolute',
-            kind: 'practice',
+            type: 'practice',
             tags: ['foo'],
-            summary: 'absolute attempt',
+            description: 'absolute attempt',
             body: 'No write.',
-            confidence: 'medium',
-            relates_to: [],
+            kk_confidence: 'medium',
+            kk_relates_to: [],
           },
           rationale: 'unsafe absolute placement',
         },

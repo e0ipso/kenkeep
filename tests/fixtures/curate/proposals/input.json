@@ -5,12 +5,14 @@
     "target_node_id": null,
     "proposed_node": {
       "title": "Foo",
-      "kind": "practice",
-      "tags": ["a"],
-      "summary": "low summary",
+      "type": "practice",
+      "tags": [
+        "a"
+      ],
+      "description": "low summary",
       "body": "low body",
-      "confidence": "low",
-      "relates_to": []
+      "kk_confidence": "low",
+      "kk_relates_to": []
     },
     "rationale": "first add"
   },
@@ -20,12 +22,15 @@
     "target_node_id": null,
     "proposed_node": {
       "title": "Foo",
-      "kind": "practice",
-      "tags": ["a", "b"],
-      "summary": "high summary",
+      "type": "practice",
+      "tags": [
+        "a",
+        "b"
+      ],
+      "description": "high summary",
       "body": "high body",
-      "confidence": "high",
-      "relates_to": []
+      "kk_confidence": "high",
+      "kk_relates_to": []
     },
     "rationale": "second add, higher confidence"
   },
@@ -35,12 +40,12 @@
     "target_node_id": "practice-bar",
     "proposed_node": {
       "title": "Bar",
-      "kind": "practice",
+      "type": "practice",
       "tags": [],
-      "summary": "bar low",
+      "description": "bar low",
       "body": "bar low body",
-      "confidence": "low",
-      "relates_to": []
+      "kk_confidence": "low",
+      "kk_relates_to": []
     },
     "rationale": "first modify"
   },
@@ -50,12 +55,14 @@
     "target_node_id": "practice-bar",
     "proposed_node": {
       "title": "Bar",
-      "kind": "practice",
-      "tags": ["x"],
-      "summary": "bar high",
+      "type": "practice",
+      "tags": [
+        "x"
+      ],
+      "description": "bar high",
       "body": "bar high body",
-      "confidence": "high",
-      "relates_to": []
+      "kk_confidence": "high",
+      "kk_relates_to": []
     },
     "rationale": "second modify, higher confidence"
   },
@@ -72,12 +79,14 @@
     "target_node_id": "practice-baz",
     "proposed_node": {
       "title": "New Baz",
-      "kind": "practice",
-      "tags": ["t"],
-      "summary": "new baz summary",
+      "type": "practice",
+      "tags": [
+        "t"
+      ],
+      "description": "new baz summary",
       "body": "new baz body",
-      "confidence": "high",
-      "relates_to": []
+      "kk_confidence": "high",
+      "kk_relates_to": []
     },
     "rationale": "contradicts existing baz"
   }

@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: practice-adapters-never-cross-directories
+type: practice
 title: Adapters never reach into each other's directories
-kind: practice
+description: >-
+  Anything shared lives under src/lib, src/commands, or
+  src/templates-source/skills. Per-adapter code stays under src/harnesses/<id>/.
 tags:
   - adapter
   - architecture
   - isolation
-derived_from:
+kk_schema_version: 3
+kk_id: practice-adapters-never-cross-directories
+kk_derived_from:
   - CONTRIBUTING.md
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-harness-adapter
   - practice-no-event-translation-across-adapters
-depends_on: []
-confidence: high
-summary: >-
-  Anything shared lives under src/lib, src/commands, or
-  src/templates-source/skills. Per-adapter code stays under src/harnesses/<id>/.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Adapters never reach into each other's directories
@@ -32,3 +32,17 @@ Per-adapter code lives strictly under `src/harnesses/<id>/`. Anything shared —
 - New shared skill content? Put it under `src/templates-source/skills/`. All five harnesses install identical SKILL.md bytes from this tree.
 - New per-adapter behavior? Stays under `src/harnesses/<id>/`. The `HarnessAdapter` interface in `src/harnesses/types.ts` is the only contract the rest of the system relies on.
 - Tests for an adapter go under `tests/harnesses/<id>/`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+- Related: [practice-no-event-translation-across-adapters](/harnesses/practice-no-event-translation-across-adapters.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [CONTRIBUTING.md](CONTRIBUTING.md)
+[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

@@ -1,26 +1,26 @@
 ---
-schema_version: 2
-id: map-entry-md
+type: map
 title: ENTRY.md
-kind: map
+description: >-
+  Entry catalog: whole-tree totals + top-level branches. Injected each session
+  by kk-session-start; regenerated deterministically from nodes/.
 tags:
   - entry
   - index
   - deterministic
   - sessionstart
-derived_from:
+kk_schema_version: 3
+kk_id: map-entry-md
+kk_derived_from:
   - docs/how-it-works.md
   - docs/internals/schemas.md
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-graph-md
   - map-session-start-hook
   - map-nodes-hash
-depends_on: []
-confidence: high
-summary: >-
-  Entry catalog: whole-tree totals + top-level branch list. Injected into every
-  new session by kk-session-start. Regenerated deterministically from nodes/.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `ENTRY.md`
@@ -51,3 +51,19 @@ Regeneration paths:
 - `index rebuild --stage` from a project's own pre-commit hook (e.g. via lint-staged), which also runs `git add` so the regenerated `ENTRY.md` lands in the same commit as the `nodes/` change.
 
 `kk-session-start` injects the `ENTRY.md` body into every new AI session via the harness's `additionalContext` channel (or, on OpenCode, by writing to `.opencode/AGENTS.md`; on Copilot, into `.github/copilot-instructions.md`). Repos seeded before the rename are read from the legacy `INDEX.md` until the next rebuild.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-graph-md](/index/map-graph-md.md)
+- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
+- Related: [map-nodes-hash](/index/map-nodes-hash.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/how-it-works.md](docs/how-it-works.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[3] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

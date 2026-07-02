@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: practice-bootstrap-is-supervised-and-judgmental
+type: practice
 title: 'Bootstrap is supervised and judgmental, not exhaustive'
-kind: practice
+description: >-
+  /kk-bootstrap samples, follows cross-references, and stops to ask when scope
+  is unclear. Don't read every doc end-to-end.
 tags:
   - bootstrap
   - supervision
   - sampling
-derived_from:
+kk_schema_version: 3
+kk_id: practice-bootstrap-is-supervised-and-judgmental
+kk_derived_from:
   - docs/installation.md
   - docs/daily-use.md
   - src/templates-source/skills/kk-bootstrap/SKILL.md
-relates_to:
+kk_relates_to:
   - map-kk-bootstrap-skill
-depends_on: []
-confidence: high
-summary: >-
-  /kk-bootstrap samples, follows cross-references, and stops to ask when scope
-  is unclear. Don't read every doc end-to-end.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Bootstrap is supervised and judgmental, not exhaustive
@@ -34,3 +34,17 @@ The `/kk-bootstrap` skill is a supervised, judgmental, one-pass operation agains
 - Stop and ask the user when: docs directory is >~100 markdown files, you encounter content that's clearly contentious or version-specific, you realize you've been over-extracting, or your confidence is dropping without correction.
 
 For unsupervised re-runs after the first pass, use `bootstrap-incremental` (hash-aware, deterministic chunking).
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/daily-use.md](docs/daily-use.md)
+[3] [src/templates-source/skills/kk-bootstrap/SKILL.md](src/templates-source/skills/kk-bootstrap/SKILL.md)
+<!-- kk:citations:end -->

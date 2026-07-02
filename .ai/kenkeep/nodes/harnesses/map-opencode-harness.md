@@ -1,24 +1,24 @@
 ---
-schema_version: 2
-id: map-opencode-harness
+type: map
 title: OpenCode harness adapter
-kind: map
+description: >-
+  OpenCode adapter; plugin shim dispatches session.idle/created to kk-hooks/;
+  capture via opencode export with raw ses_ id, temp-file stdout.
 tags:
   - harness
   - opencode
   - hooks
   - plugin
-derived_from:
+kk_schema_version: 3
+kk_id: map-opencode-harness
+kk_derived_from:
   - docs/installation.md
   - docs/how-it-works.md
   - README.md
-relates_to:
+kk_relates_to:
   - map-harness-adapter
-depends_on: []
-confidence: high
-summary: >-
-  OpenCode adapter; plugin shim dispatches session.idle/session.created to
-  kk-hooks/; capture via opencode export with raw ses_ id and temp-file stdout.
+kk_depends_on: []
+kk_confidence: high
 ---
 OpenCode's idiomatic event surface is a long-lived plugin module subscribed to the runtime event bus, not per-event shell commands. The adapter ships a single TS plugin shim at `.opencode/plugins/kb.mjs` that subscribes to the event bus and dispatches `session.idle` and `session.created` to per-event Node scripts under `.opencode/kk-hooks/`.
 
@@ -39,3 +39,17 @@ Export JSON shape: `{ info, messages: [{ info: { role, time: { created } }, part
 OpenCode also has no v1 equivalent of Claude's `SessionStart` `additionalContext` stdout channel, so the session-start hook writes the current ENTRY body to `.opencode/AGENTS.md`; users opt in by referencing that file from their primary `AGENTS.md`.
 
 OpenCode exports no in-session env var; pass `--harness opencode` or set `cliDefaultHarness: opencode`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/how-it-works.md](docs/how-it-works.md)
+[3] [README.md](README.md)
+<!-- kk:citations:end -->

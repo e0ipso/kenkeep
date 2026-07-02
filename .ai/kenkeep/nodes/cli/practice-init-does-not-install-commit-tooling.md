@@ -1,21 +1,20 @@
 ---
-schema_version: 2
-id: practice-init-does-not-install-commit-tooling
+type: practice
 title: init does not install husky/lint-staged/secretlint/commitlint
-kind: practice
+description: >-
+  init writes only the KB scaffold and the harness's hooks/skills; commit-time
+  tooling (husky, lint-staged, commitlint) is the consumer's job.
 tags:
   - init
   - install
   - scope
-derived_from:
+kk_schema_version: 3
+kk_id: practice-init-does-not-install-commit-tooling
+kk_derived_from:
   - docs/installation.md
-relates_to: []
-depends_on: []
-confidence: high
-summary: >-
-  init writes the knowledge base scaffold and the harness's hooks/skills only.
-  Commit-time tooling (husky, lint-staged, secretlint, commitlint) is the
-  consumer's responsibility.
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `init` does not install husky / lint-staged / secretlint / commitlint
@@ -34,3 +33,9 @@ It does **not** install or patch husky, lint-staged, secretlint, or commitlint. 
 
 - Don't claim or imply `init` brings these. The installation doc walks consumers through opt-in setup.
 - Secret scanning (pre-commit or CI) is the consumer's job. See `docs/installation.md` for a recipe.
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+<!-- kk:citations:end -->

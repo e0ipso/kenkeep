@@ -1,25 +1,25 @@
 ---
-schema_version: 2
-id: practice-local-prompt-overrides-fall-back-to-bundled
+type: practice
 title: Local prompt overrides fall back to bundled templates
-kind: practice
+description: >-
+  Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md,
+  then the bundled fallback; delete the override to revert.
 tags:
   - prompts
   - customization
   - override
-derived_from:
+kk_schema_version: 3
+kk_id: practice-local-prompt-overrides-fall-back-to-bundled
+kk_derived_from:
   - docs/internals/prompts.md
   - docs/troubleshooting.md
-relates_to:
+kk_relates_to:
   - map-config-yaml
   - map-proposal-drain-hook
   - map-curate-command
   - map-bootstrap-incremental-command
-depends_on: []
-confidence: high
-summary: >-
-  Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md
-  first, then the bundled fallback. Delete the override to revert.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Local prompt overrides fall back to bundled templates
@@ -46,3 +46,19 @@ The agent-driven `/kk-bootstrap` skill is the exception — there is no separate
 
 - Bump the top-of-file `Version: N` comment on every behavior change. Logs record the prompt content so historic decisions stay auditable.
 - The proposal drain replaces `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` with the redacted slice; if the placeholder is removed, the transcript is appended at the end. The bootstrap prompt replaces `[CHUNK PLACEHOLDER, substituted at runtime]` similarly. The curator replaces `[BATCH PLACEHOLDER]`. Don't strip these placeholders unless you want the appended-at-end fallback.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
+- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/prompts.md](docs/internals/prompts.md)
+[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+<!-- kk:citations:end -->

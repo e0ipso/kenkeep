@@ -1,25 +1,25 @@
 ---
-schema_version: 2
-id: map-nodes-directory
+type: map
 title: nodes/ directory and the two kinds
-kind: map
+description: >-
+  Knowledge nodes are markdown files in nested topical folders under nodes/;
+  kind (practice/map) is a frontmatter facet, not a directory.
 tags:
   - nodes
   - practice
   - map
   - frontmatter
   - schema
-derived_from:
+kk_schema_version: 3
+kk_id: map-nodes-directory
+kk_derived_from:
   - docs/how-it-works.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-node-frontmatter
   - map-kenkeep-directory
-depends_on: []
-confidence: high
-summary: >-
-  Knowledge nodes are markdown files in nested topical folders under nodes/;
-  kind (practice/map) is a frontmatter facet, not a directory.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `nodes/` directory and the two kinds
@@ -34,3 +34,17 @@ The two kinds:
 Filenames are `<id>.md`, where the `id` is `<kind>-<slug>` — so the kind appears in the filename and id, but never in the directory path. The filename and `id` must agree; the `lint` command rejects mismatches as errors. The old flat `nodes/<kind>/` bucket layout is rejected by the reader; migrate with `npx kenkeep --harness <id> migrate`.
 
 When a piece of content has both aspects (e.g. "use `bravo_analytics.dispatcher`, our event-tracking service"), the proposal prompt splits combined statements: practice owns the imperative ("use the dispatcher"), map owns the entity ("what the dispatcher is").
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [map-kenkeep-directory](/overview/map-kenkeep-directory.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/how-it-works.md](docs/how-it-works.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

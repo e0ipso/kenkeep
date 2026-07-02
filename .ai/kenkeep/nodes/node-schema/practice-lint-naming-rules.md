@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: practice-lint-naming-rules
+type: practice
 title: 'Node naming: id, filename, and kind must agree'
-kind: practice
+description: >-
+  Every node's id must equal <kind>-<slug> and its filename <id>.md in its
+  topical folder under nodes/; lint reports mismatches as errors.
 tags:
   - lint
   - naming
   - nodes
-derived_from:
+kk_schema_version: 3
+kk_id: practice-lint-naming-rules
+kk_derived_from:
   - README.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-nodes-directory
   - map-node-frontmatter
-depends_on: []
-confidence: high
-summary: >-
-  Every node's id must equal <kind>-<slug>; the filename must be <id>.md in its
-  topical folder under nodes/. Lint reports mismatches as errors.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Node naming: id, filename, and kind must agree
@@ -39,3 +39,17 @@ The other two lint checks produce findings (not errors):
 - When writing nodes by hand, pick the slug carefully on the first commit; renaming a node means rewriting every inbound `relates_to`/`depends_on`.
 - Lint also runs automatically every `lintEveryNSessions` sessions (default 50) via a SessionEnd async hook; the summary surfaces at the next SessionStart as a single nudge line. Running the CLI clears it.
 - `doctor` checks install health; `lint` checks content health. Different jobs — both green is the bar.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-nodes-directory](/node-schema/map-nodes-directory.md)
+- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [README.md](README.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: map-node-frontmatter
+type: map
 title: Node frontmatter schema
-kind: map
+description: >-
+  Required node fields: schema_version, id, title, kind, tags, derived_from,
+  relates_to, depends_on, confidence, summary.
 tags:
   - schema
   - frontmatter
   - nodes
-derived_from:
+kk_schema_version: 3
+kk_id: map-node-frontmatter
+kk_derived_from:
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-nodes-directory
   - map-entry-md
   - map-graph-md
-depends_on: []
-confidence: high
-summary: >-
-  Required node fields: schema_version, id, title, kind, tags, derived_from,
-  relates_to, depends_on, confidence, summary.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Node frontmatter schema
@@ -53,3 +53,17 @@ Field meanings:
 - `summary` — ≤140-character one-liner shown in the folder index nodes.
 
 Git history is the timeline of record; the frontmatter carries no separate timestamps.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-nodes-directory](/node-schema/map-nodes-directory.md)
+- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [map-graph-md](/index/map-graph-md.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

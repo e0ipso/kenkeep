@@ -1,24 +1,24 @@
 ---
-schema_version: 2
-id: map-session-start-hook
+type: map
 title: kk-session-start.mjs (consume hook)
-kind: map
+description: >-
+  Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may
+  append curate nudge, emits additionalContext.
 tags:
   - hooks
   - consume
   - sessionstart
   - index
-derived_from:
+kk_schema_version: 3
+kk_id: map-session-start-hook
+kk_derived_from:
   - docs/internals/hooks.md
   - docs/index.md
-relates_to:
+kk_relates_to:
   - map-entry-md
   - practice-recursion-guard-kenkeep-builder-internal
-depends_on: []
-confidence: high
-summary: >-
-  Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may
-  append curate nudge, emits additionalContext.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `kk-session-start.mjs` (consume hook)
@@ -38,3 +38,17 @@ Pipeline:
    ```
 
 The OpenCode adapter has no equivalent of Claude's `additionalContext` stdout channel, so its version of this hook writes the body to `.opencode/AGENTS.md` instead; users opt in by referencing that file from their primary `AGENTS.md`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [practice-recursion-guard-kenkeep-builder-internal](/hooks/practice-recursion-guard-kenkeep-builder-internal.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/hooks.md](docs/internals/hooks.md)
+[2] [docs/index.md](docs/index.md)
+<!-- kk:citations:end -->

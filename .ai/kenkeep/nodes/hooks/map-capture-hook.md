@@ -1,22 +1,22 @@
 ---
-schema_version: 2
-id: map-capture-hook
+type: map
 title: kk-capture.mjs (capture hook)
-kind: map
+description: >-
+  Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline
+  (OpenCode 8s). Wired per-harness.
 tags:
   - hooks
   - capture
-derived_from:
+kk_schema_version: 3
+kk_id: map-capture-hook
+kk_derived_from:
   - docs/internals/hooks.md
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-session-log
   - practice-recursion-guard-kenkeep-builder-internal
-depends_on: []
-confidence: high
-summary: >-
-  Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline
-  (OpenCode 8s). Wired per-harness.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `kk-capture.mjs` (capture hook)
@@ -54,3 +54,17 @@ Failure modes table (from `docs/internals/hooks.md`):
 | Hard deadline exceeded (1s text harnesses; 8s OpenCode) | Exit silently; next trigger retries. |
 
 Secret scanning is an end-user concern (pre-commit hooks, CI). This library does not scan or redact captured transcripts.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-session-log](/state/map-session-log.md)
+- Related: [practice-recursion-guard-kenkeep-builder-internal](/hooks/practice-recursion-guard-kenkeep-builder-internal.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/hooks.md](docs/internals/hooks.md)
+[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: practice-testing-philosophy-few-tests-mostly-integration
+type: practice
 title: 'Testing philosophy: few tests, mostly integration'
-kind: practice
+description: >-
+  This repo deliberately keeps a small test suite weighted toward integration
+  tests; redundant unit tests are pruned.
 tags:
   - testing
   - philosophy
   - integration-tests
   - coverage
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  This repo deliberately keeps a small test suite weighted toward integration
-  tests; redundant unit tests are pruned.
+kk_schema_version: 3
+kk_id: practice-testing-philosophy-few-tests-mostly-integration
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The project follows "Write tests. Not too many. Mostly integration." as its governing test-design principle. Integration tests that exercise real flows (CLI commands, harness adapters, hook pipelines end to end) are the default and preferred tier.
 

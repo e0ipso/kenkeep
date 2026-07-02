@@ -1,22 +1,22 @@
 ---
-schema_version: 2
-id: map-graph-md
+type: map
 title: GRAPH.md
-kind: map
+description: >-
+  Full edge listing derived from every node's relates_to and depends_on. Not
+  injected; harness reads on demand.
 tags:
   - graph
   - deterministic
-derived_from:
+kk_schema_version: 3
+kk_id: map-graph-md
+kk_derived_from:
   - docs/how-it-works.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-entry-md
   - map-node-frontmatter
-depends_on: []
-confidence: high
-summary: >-
-  Full edge listing derived from every node's relates_to and depends_on. Not
-  injected; harness reads on demand.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `GRAPH.md`
@@ -28,3 +28,17 @@ Unlike `ENTRY.md`, `GRAPH.md` is **not** injected into every session. The harnes
 Carries `GraphFrontmatterSchema` frontmatter (same shape as `IndexFrontmatterSchema`: `schema_version`, `nodes_hash`, `node_count`).
 
 Regeneration runs alongside `ENTRY.md` at the end of every `curate` run and via `index rebuild`. The lint-staged pre-commit recipe (`index rebuild --stage`) keeps both files in lockstep with committed nodes.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/how-it-works.md](docs/how-it-works.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

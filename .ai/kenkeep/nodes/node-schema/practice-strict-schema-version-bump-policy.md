@@ -1,25 +1,22 @@
 ---
-schema_version: 2
-id: practice-strict-schema-version-bump-policy
+type: practice
 title: Strict schema-version bump policy
-kind: practice
+description: >-
+  schema_version bumps are a clean break: readers reject mismatches, no shims; a
+  hidden supervised migrate command is the escape hatch.
 tags:
   - schema
   - versioning
   - breaking-change
-derived_from:
+kk_schema_version: 3
+kk_id: practice-strict-schema-version-bump-policy
+kk_derived_from:
   - CONTRIBUTING.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-node-frontmatter
-depends_on: []
-confidence: high
-summary: >-
-  On-disk shapes carry schema_version. Breaking changes get a clean break:
-  readers reject mismatches and direct users to re-init, with no compatibility
-  shims or legacy read paths. A hidden, supervised `migrate` command is the one
-  escape-hatch for crossing breaking layout bumps without re-init; it is
-  deliberately unpublicized.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Strict schema-version bump policy
@@ -43,3 +40,16 @@ When the version is bumped, readers reject older files with a clear error direct
 - Tests must pin both the current shape and the rejection path for older shapes.
 - Note the bump in the changelog so users know to re-run `init`.
 - When a layout bump would strand curated content, add a `migrate` step rather than a new top-level command, and keep it unpublicized.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [CONTRIBUTING.md](CONTRIBUTING.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: map-curator-action
+type: map
 title: Curator action (add / modify / contradict / drop)
-kind: map
+description: >-
+  Curator emits an array of {action, candidate_origin, target_node_id,
+  proposed_node, rationale}. Wrapper applies each directly to nodes/.
 tags:
   - schema
   - curator
   - action
-derived_from:
+kk_schema_version: 3
+kk_id: map-curator-action
+kk_derived_from:
   - docs/internals/schemas.md
   - docs/internals/prompts.md
-relates_to:
+kk_relates_to:
   - map-curate-command
   - map-conflict-files
-depends_on: []
-confidence: high
-summary: >-
-  Curator emits an array of {action, candidate_origin, target_node_id,
-  proposed_node, rationale}. Wrapper applies each directly to nodes/.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Curator action
@@ -43,3 +43,17 @@ Wrapper application (`src/lib/curate.ts`):
 `suggested_resolution` is **always ignored by the wrapper** (the curator prompt instructs it to emit `null`). Conflict resolution is done by the `/kk-curate` skill walking each conflict file with the user.
 
 Failures (`add_collision`, `modify_missing_target`) are returned in `runCurate`'s `failures: FailureReport[]` array and reported in CLI output. They are not persisted; rerun after fixing the underlying issue.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-conflict-files](/curation/map-conflict-files.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+[2] [docs/internals/prompts.md](docs/internals/prompts.md)
+<!-- kk:citations:end -->

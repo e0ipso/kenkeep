@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: map-bootstrap-state-file
+type: map
 title: .state/bootstrap-state.json (per-doc hash cache)
-kind: map
+description: >-
+  Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs.
+  Gitignored.
 tags:
   - bootstrap
   - hash
   - state
   - schema
-derived_from:
+kk_schema_version: 3
+kk_id: map-bootstrap-state-file
+kk_derived_from:
   - docs/internals/schemas.md
   - docs/troubleshooting.md
-relates_to:
+kk_relates_to:
   - map-bootstrap-incremental-command
-depends_on: []
-confidence: high
-summary: >-
-  Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs.
-  Gitignored.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `.state/bootstrap-state.json`
@@ -56,3 +56,16 @@ Lifecycle:
 - **Force re-bootstrap** — delete the file.
 
 A malformed file is treated as missing. Validated by `BootstrapStateSchema`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+<!-- kk:citations:end -->

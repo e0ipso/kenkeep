@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: practice-confidence-default-medium-bootstrap
+type: practice
 title: 'Default bootstrap nodes to confidence: medium'
-kind: practice
+description: >-
+  Bootstrap nodes default to confidence: medium; use high only when the source
+  states the rule with rationale and looks actively maintained.
 tags:
   - bootstrap
   - confidence
   - calibration
-derived_from:
+kk_schema_version: 3
+kk_id: practice-confidence-default-medium-bootstrap
+kk_derived_from:
   - src/templates-source/skills/kk-bootstrap/SKILL.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-kk-bootstrap-skill
   - map-node-frontmatter
-depends_on: []
-confidence: high
-summary: >-
-  Bootstrap nodes default to confidence: medium; use high only when the source
-  doc states the rule with rationale and looks actively maintained.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Default bootstrap nodes to `confidence: medium`
@@ -32,3 +32,17 @@ When `/kk-bootstrap` (or `bootstrap-incremental`) writes a candidate node, the d
 - New bootstrap candidate, source doc says "always do X because Y" and the doc was recently touched → `high`.
 - Speculative or aspirational source content ("we should eventually…") → don't extract at all (it should be filtered, not downgraded to `low`).
 - The curator follows the same calibration when emitting `add` actions from session captures: `medium` for implicit sources, `high` when stated explicitly with rationale.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [src/templates-source/skills/kk-bootstrap/SKILL.md](src/templates-source/skills/kk-bootstrap/SKILL.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

@@ -1,24 +1,24 @@
 ---
-schema_version: 2
-id: map-cursor-harness-adapter
+type: map
 title: Cursor harness adapter
-kind: map
+description: >-
+  Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p;
+  transcripts in agent-transcripts/; Read+ReadFile both count.
 tags:
   - harness
   - cursor
   - hooks
-derived_from:
+kk_schema_version: 3
+kk_id: map-cursor-harness-adapter
+kk_derived_from:
   - docs/installation.md
   - docs/how-it-works.md
   - 'https://cursor.com/docs/hooks'
   - 'https://cursor.com/docs/cli/using'
-relates_to:
+kk_relates_to:
   - map-harness-adapter
-depends_on: []
-confidence: high
-summary: >-
-  Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p;
-  transcripts from agent-transcripts/; Read and ReadFile both count for usage.
+kk_depends_on: []
+kk_confidence: high
 ---
 The Cursor adapter is a shell-hook adapter (Codex-shaped): hook scripts under `.cursor/hooks/` and registration in `.cursor/hooks.json`. It does **not** reuse `.claude/hooks` natively. Cursor can load Claude Code hook entries from `.claude/settings.json` when the user enables third-party skills, but that bridge alone is insufficient for knowledge base parity (stdin field names, session-start stdout envelope, transcript format, and headless CLI differ).
 
@@ -43,3 +43,18 @@ Env detection: `CURSOR_VERSION` non-empty resolves to `cursor`. Claude detection
 `listMemoryFiles` returns `[]` for v1 (no documented Claude-style persisted memory IRI surface).
 
 Official docs: [Hooks](https://cursor.com/docs/hooks), [Third Party Hooks](https://cursor.com/docs/reference/third-party-hooks), [CLI using](https://cursor.com/docs/cli/using), [Skills](https://cursor.com/docs/skills), [CLI output format](https://cursor.com/docs/cli/reference/output-format).
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/how-it-works.md](docs/how-it-works.md)
+[3] [https://cursor.com/docs/hooks](https://cursor.com/docs/hooks)
+[4] [https://cursor.com/docs/cli/using](https://cursor.com/docs/cli/using)
+<!-- kk:citations:end -->

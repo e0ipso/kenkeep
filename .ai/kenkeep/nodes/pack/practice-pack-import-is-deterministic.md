@@ -1,28 +1,27 @@
 ---
-schema_version: 2
-id: practice-pack-import-is-deterministic
+type: practice
 title: Pack import is deterministic and leaves rebalance for later
-kind: practice
+description: >-
+  pack import validates and grafts markdown with no LLM under one nodes/<name>/
+  branch, rebuilds indexes; rebalance is left to curate.
 tags:
   - pack
   - import
   - determinism
   - rebalance
-derived_from:
-  - https://github.com/e0ipso/kenkeep/issues/72
-  - https://github.com/e0ipso/kenkeep/issues/74
+kk_schema_version: 3
+kk_id: practice-pack-import-is-deterministic
+kk_derived_from:
+  - 'https://github.com/e0ipso/kenkeep/issues/72'
+  - 'https://github.com/e0ipso/kenkeep/issues/74'
   - src/commands/pack-import.ts
-relates_to:
+kk_relates_to:
   - map-knowledge-pack-format
   - practice-determinism-contract
   - practice-skills-first-documentation-only-init-is-cli
-depends_on:
+kk_depends_on:
   - map-knowledge-pack-format
-confidence: high
-summary: >-
-  pack import validates and grafts reviewed markdown without an LLM, keeps the
-  pack under one nodes/<name>/ branch, rebuilds indexes, and leaves structural
-  rebalance to the later curate phase.
+kk_confidence: high
 ---
 
 # Pack import is deterministic and leaves rebalance for later
@@ -42,3 +41,20 @@ The imported branch stays reviewable as a single unit. If the project later need
 the pack split, merged, or relocated, that happens through the normal
 `/kk-curate` rebalance phase and is accepted or rejected through the usual git
 review.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
+- Related: [practice-determinism-contract](/index/practice-determinism-contract.md)
+- Related: [practice-skills-first-documentation-only-init-is-cli](/cli/practice-skills-first-documentation-only-init-is-cli.md)
+- Depends on: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [https://github.com/e0ipso/kenkeep/issues/72](https://github.com/e0ipso/kenkeep/issues/72)
+[2] [https://github.com/e0ipso/kenkeep/issues/74](https://github.com/e0ipso/kenkeep/issues/74)
+[3] [src/commands/pack-import.ts](src/commands/pack-import.ts)
+<!-- kk:citations:end -->

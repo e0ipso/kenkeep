@@ -1,21 +1,21 @@
 ---
-schema_version: 2
-id: map-hook-build-pipeline-ts-to-cjs
+type: map
 title: 'Hook build pipeline: TS sources to deployed .cjs bundles'
-kind: map
+description: >-
+  tsup compiles per-adapter TS hooks into self-contained CJS bundles;
+  build-templates copies them to templates/; init deploys to harness dir.
 tags:
   - build
   - hooks
   - tsup
   - templates
   - cjs
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  tsup compiles per-adapter TS hook sources into self-contained CJS bundles;
-  build-templates copies them into templates/; init deploys to the target
-  harness directory.
+kk_schema_version: 3
+kk_id: map-hook-build-pipeline-ts-to-cjs
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The hook build pipeline has three stages:
 

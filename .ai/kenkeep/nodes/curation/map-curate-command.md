@@ -1,24 +1,25 @@
 ---
-schema_version: 2
-id: map-curate-command
+type: map
 title: curate (CLI command + /kk-curate skill)
-kind: map
+description: >-
+  Runs the curator on processed session logs, applying
+  add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session
+  equivalent.
 tags:
   - cli
   - curate
   - skill
-derived_from:
+kk_schema_version: 3
+kk_id: map-curate-command
+kk_derived_from:
   - docs/daily-use.md
   - docs/how-it-works.md
-relates_to:
+kk_relates_to:
   - map-curator-action
   - map-conflict-files
   - practice-curator-never-auto-resolves-contradictions
-depends_on: []
-confidence: high
-summary: >-
-  Runs the curator on processed session logs. Applies add/modify/contradict/drop
-  actions directly to nodes/. /kk-curate is the in-session equivalent.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `curate` (CLI command + `/kk-curate` skill)
@@ -41,3 +42,18 @@ The in-session equivalent is the `/kk-curate` skill. The skill runs the CLI, the
 Locking: none. `curate` is single-author (one host session per invocation) and takes no `state.json` lock; running two `curate` invocations concurrently may silently drop one writer's session-stamp update (no data corruption, but some sessions reprocess on the next run). The atomic tmp+rename writes inside `curate-dedup` provide durability.
 
 Per-spawn model selection from `curatorModel: { name, effort }` in `config.yaml`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-curator-action](/curation/map-curator-action.md)
+- Related: [map-conflict-files](/curation/map-conflict-files.md)
+- Related: [practice-curator-never-auto-resolves-contradictions](/curation/practice-curator-never-auto-resolves-contradictions.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/daily-use.md](docs/daily-use.md)
+[2] [docs/how-it-works.md](docs/how-it-works.md)
+<!-- kk:citations:end -->

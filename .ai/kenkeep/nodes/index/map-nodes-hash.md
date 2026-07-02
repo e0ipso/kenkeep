@@ -1,24 +1,24 @@
 ---
-schema_version: 2
-id: map-nodes-hash
+type: map
 title: nodes_hash algorithm
-kind: map
+description: >-
+  Content-addressed, mtime-independent SHA-256 hash of the nodes/ tree. Defined
+  in computeNodesHash (src/lib/nodes.ts).
 tags:
   - hash
   - deterministic
   - sha256
-derived_from:
+kk_schema_version: 3
+kk_id: map-nodes-hash
+kk_derived_from:
   - docs/internals/schemas.md
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-entry-md
   - map-graph-md
   - practice-determinism-contract
-depends_on: []
-confidence: high
-summary: >-
-  Content-addressed, mtime-independent SHA-256 hash of the nodes/ tree. Defined
-  in computeNodesHash (src/lib/nodes.ts).
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `nodes_hash` algorithm
@@ -37,3 +37,18 @@ Steps:
 The hash is embedded in the frontmatter of `ENTRY.md` and `GRAPH.md`. Comparing the recorded hash against a fresh recompute is how `doctor` and `kk-session-start.mjs` detect that the indices have drifted from `nodes/`.
 
 Tests rely on this determinism — see `tests/lib/index-gen.test.ts` for golden-file comparisons.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [map-graph-md](/index/map-graph-md.md)
+- Related: [practice-determinism-contract](/index/practice-determinism-contract.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

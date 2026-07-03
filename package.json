@@ -44,9 +44,8 @@
     "provenance": true
   },
   "scripts": {
-    "build": "npm run build:cli && npm run build:assets && npm run build:templates",
+    "build": "npm run build:cli && npm run build:templates",
     "build:cli": "tsup",
-    "build:assets": "node ./scripts/build-notification-icon.mjs",
     "build:templates": "node ./scripts/build-templates.mjs",
     "dev": "tsup --watch",
     "lint": "eslint . && npm run lint:detect-harness",

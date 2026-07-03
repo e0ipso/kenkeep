@@ -65,6 +65,21 @@ describe('migrate okf-v3', () => {
 
   afterEach(() => cleanSandbox(sandbox));
 
+  it('preserves summaries longer than the former 140-character cap', async () => {
+    const longSummary =
+      'This summary deliberately exceeds one hundred forty characters so the migration proves it can copy v2 summary text verbatim without truncation or LLM summarization.';
+    writeV2Node(sandbox, 'long', 'practice', 'practice-long-summary', { summary: longSummary });
+
+    const result = await runCli(sandbox, ['migrate', 'okf-v3']);
+    expect(result.exitCode).toBe(0);
+
+    const parsed = matter(
+      readFileSync(join(nodesDir(sandbox), 'long', 'practice-long-summary.md'), 'utf8')
+    );
+    expect(parsed.data.description).toBe(longSummary);
+    expect((parsed.data.description as string).length).toBeGreaterThan(140);
+  });
+
   it('mechanically rewrites v2 leaves to v3, migrates summaries, and rebuilds OKF indexes', async () => {
     writeV2Node(sandbox, 'workflow', 'map', 'map-target');
     writeV2Node(sandbox, 'workflow', 'practice', 'practice-source', {

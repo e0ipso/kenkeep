@@ -44,7 +44,7 @@ _None._
 - Open [**.state/bootstrap-state.json (per-doc hash cache)**](map-bootstrap-state-file.md) — Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs. Gitignored.
 - Open [**nodes_hash algorithm**](../index/map-nodes-hash.md) — Content-addressed, mtime-independent SHA-256 hash of the nodes/ tree. Defined in computeNodesHash (src/lib/nodes.ts).
 ### #nodes
-- Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
+- Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — OKF-native type/title/description/tags plus kk_-prefixed id, edges, provenance, confidence, and schema version.
 - Open [**nodes/ directory and the two kinds**](../node-schema/map-nodes-directory.md) — Knowledge nodes are markdown files in nested topical folders under nodes/; kind (practice/map) is a frontmatter facet, not a directory.
 - Open [**Bootstrap never overwrites existing nodes**](practice-bootstrap-never-overwrites-existing-nodes.md) — Both /kk-bootstrap and bootstrap-incremental skip a candidate when a node with that id already exists; collisions are reported, not merged.
 ### #safety

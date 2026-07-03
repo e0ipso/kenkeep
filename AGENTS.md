@@ -82,12 +82,12 @@ A generated index node renders:
 
 ### Schema versions
 
-Node, index, and graph artifacts carry `schema_version: 2` (the tree-storage clean break); other frontmatter and JSON state files carry `schema_version: 1`. Policy is **[strict — clean break](.ai/kenkeep/nodes/node-schema/practice-strict-schema-version-bump-policy.md)**:
+The `nodes/` tree is a conformant **[OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)** bundle: leaves are OKF concept documents (`type` / `title` / `description` / `tags`) with kenkeep-only fields namespaced under `kk_` (`kk_schema_version`, `kk_id`, `kk_relates_to`, `kk_depends_on`, `kk_derived_from`, `kk_confidence`). Leaves carry `kk_schema_version: 3` and the kenkeep-owned `ENTRY.md` / `GRAPH.md` artifacts carry `schema_version: 3`; ordinary `nodes/**/index.md` reserved files are frontmatter-free (only the bundle-root `nodes/index.md` declares `okf_version: "0.1"`), and folder summaries live in the committed `FOLDER_SUMMARIES.md` sidecar. Other frontmatter and JSON state files carry `schema_version: 1`. Policy is **[strict — clean break](.ai/kenkeep/nodes/node-schema/practice-strict-schema-version-bump-policy.md)**:
 
 - **Bump** when removing/renaming a field, changing field semantics, or making an optional field required.
 - **Do not bump** when adding optional fields, adding enum cases, or relaxing constraints.
 
-When you bump, the reader rejects the old shape with a clear error pointing the user to run the `kk-migrate` skill in their agent session — the node reader rejects the old flat `nodes/<kind>/` layout (or `schema_version: 1` nodes) outright. The skill clusters the leaves in-session and drives the deterministic `place` primitive to relocate them; because the clustering needs the in-session agent, full migration now requires an interactive session (there is no headless/unattended migration). Migration preserves every node's id and edges and is reviewed via `git diff`; re-running `init` would not migrate existing nodes.
+When you bump, the reader rejects the old shape with a clear error pointing the user to run the `kk-migrate` skill in their agent session — the node reader rejects `schema_version: 2` trees and the old flat `nodes/<kind>/` layout (or `schema_version: 1` nodes) outright. The v2→v3 hop is the deterministic, no-LLM `migrate okf-v3` primitive; the v1→v2 hop clusters leaves in-session and drives the deterministic `place` primitive, so that hop still requires an interactive session (there is no headless/unattended migration). Migration preserves every node's id and edges and is reviewed via `git diff`; re-running `init` would not migrate existing nodes.
 
 ### Prompt versioning
 

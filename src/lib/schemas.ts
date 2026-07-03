@@ -109,7 +109,7 @@ export const ProposalCandidateSchema = z
     type: z.enum(['practice', 'map']),
     tags: z.array(z.string()),
     title: z.string(),
-    description: z.string().max(140),
+    description: z.string(),
     body: z.string(),
     kk_confidence: ConfidenceSchema,
   })
@@ -171,7 +171,7 @@ export type PackManifest = z.infer<typeof PackManifestSchema>;
 export const NodeFrontmatterSchema = z.object({
   type: NodeKindSchema,
   title: z.string(),
-  description: z.string().max(140),
+  description: z.string(),
   tags: z.array(z.string()),
   kk_schema_version: z.literal(NODE_SCHEMA_VERSION),
   kk_id: z.string(),
@@ -198,7 +198,7 @@ export const CuratorProposedNodeSchema = z
     title: z.string(),
     type: NodeKindSchema,
     tags: z.array(z.string()),
-    description: z.string().max(140),
+    description: z.string(),
     body: z.string(),
     kk_confidence: ConfidenceSchema,
     kk_relates_to: z.array(z.string()),
@@ -264,7 +264,7 @@ export const BootstrapCandidateSchema = z
     type: z.enum(['practice', 'map']),
     tags: z.array(z.string()),
     title: z.string(),
-    description: z.string().max(140),
+    description: z.string(),
     body: z.string(),
     kk_confidence: ConfidenceSchema,
   })

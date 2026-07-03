@@ -40,7 +40,7 @@ _None._
 ### #export
 - Open [**Pack export stamps schema_version from NODE_SCHEMA_VERSION**](practice-pack-export-stamps-schema-version.md) — pack export builds the manifest in code, setting schema_version from NODE_SCHEMA_VERSION before validating with PackManifestSchema.
 ### #nodes
-- Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
+- Open [**Node frontmatter schema**](../node-schema/map-node-frontmatter.md) — OKF-native type/title/description/tags plus kk_-prefixed id, edges, provenance, confidence, and schema version.
 - Open [**nodes/ directory and the two kinds**](../node-schema/map-nodes-directory.md) — Knowledge nodes are markdown files in nested topical folders under nodes/; kind (practice/map) is a frontmatter facet, not a directory.
 - Open [**Bootstrap never overwrites existing nodes**](../bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md) — Both /kk-bootstrap and bootstrap-incremental skip a candidate when a node with that id already exists; collisions are reported, not merged.
 ### #rebalance

@@ -384,7 +384,7 @@ async function main(): Promise<void> {
     .argument('<kind>', 'node kind: practice or map')
     .argument('<slug>', 'proposed id base (kind prefix added automatically when missing)')
     .option('--title <title>', 'short title (≤ 80 chars)')
-    .option('--summary <summary>', 'one-line summary (≤ 140 chars)')
+    .option('--summary <summary>', 'one-line summary')
     .option('--tags <list>', 'comma-separated tags')
     .option('--relates-to <list>', 'comma-separated node ids (loose cross edges)')
     .option('--depends-on <list>', 'comma-separated node ids this node depends on')

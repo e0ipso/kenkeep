@@ -25,7 +25,7 @@ const V2NodeFrontmatterSchema = z.object({
   id: z.string().min(1),
   title: z.string(),
   kind: NodeKindSchema,
-  summary: z.string().max(140),
+  summary: z.string(),
   tags: z.array(z.string()).default([]),
   derived_from: z.array(z.string()).default([]),
   relates_to: z.array(z.string()).default([]),

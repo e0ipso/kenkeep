@@ -42,7 +42,7 @@ Your AI conversations produce a steady stream of project-specific knowledge (con
 
 ### Built up and shared across your team
 
-The knowledge base grows in your repo as plain markdown, one node per fact, accumulated from real coding sessions. It travels with the project through `git pull`, so every teammate works from the same conventions instead of rediscovering them on their own laptop.
+The knowledge base grows in your repo as plain markdown, one node per fact, accumulated from real coding sessions. The `nodes/` tree is a conformant [Open Knowledge Format (OKF v0.1)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle — an open, vendor-neutral format any OKF tool can read — with kenkeep's own fields carried under the self-describing `kk_` extension namespace. It travels with the project through `git pull`, so every teammate works from the same conventions instead of rediscovering them on their own laptop.
 
 </td>
 <td width="50%" valign="top">

@@ -14,13 +14,13 @@ _None._
 - Open [**Node naming: id, filename, and kind must agree**](practice-lint-naming-rules.md) to learn about: Every node's id must equal <kind>-<slug> and its filename <id>.md in its topical folder under nodes/; lint reports mismatches as errors. #lint #naming #nodes
 
 ## Components (what exists)
-- Open [**Node frontmatter schema**](map-node-frontmatter.md) to learn about: Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary. #schema #frontmatter #nodes
+- Open [**Node frontmatter schema**](map-node-frontmatter.md) to learn about: OKF-native type/title/description/tags plus kk_-prefixed id, edges, provenance, confidence, and schema version. #schema #frontmatter #nodes
 - Open [**nodes/ directory and the two kinds**](map-nodes-directory.md) to learn about: Knowledge nodes are markdown files in nested topical folders under nodes/; kind (practice/map) is a frontmatter facet, not a directory. #nodes #practice #map #frontmatter #schema
 
 ## By topic
 
 ### #nodes
-- Open [**Node frontmatter schema**](map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
+- Open [**Node frontmatter schema**](map-node-frontmatter.md) — OKF-native type/title/description/tags plus kk_-prefixed id, edges, provenance, confidence, and schema version.
 - Open [**nodes/ directory and the two kinds**](map-nodes-directory.md) — Knowledge nodes are markdown files in nested topical folders under nodes/; kind (practice/map) is a frontmatter facet, not a directory.
 - Open [**Bootstrap never overwrites existing nodes**](../bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md) — Both /kk-bootstrap and bootstrap-incremental skip a candidate when a node with that id already exists; collisions are reported, not merged.
 ### #schema
@@ -28,7 +28,7 @@ _None._
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — One generic migrate command detects the current schema and dispatches the right step, rather than separate commands per bump.
 - Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state with only last_nudged_at; the proposal-drain lock is a sidecar lockfile dir (60s stale), not a JSON field.
 ### #frontmatter
-- Open [**Node frontmatter schema**](map-node-frontmatter.md) — Required node fields: schema_version, id, title, kind, tags, derived_from, relates_to, depends_on, confidence, summary.
+- Open [**Node frontmatter schema**](map-node-frontmatter.md) — OKF-native type/title/description/tags plus kk_-prefixed id, edges, provenance, confidence, and schema version.
 - Open [**nodes/ directory and the two kinds**](map-nodes-directory.md) — Knowledge nodes are markdown files in nested topical folders under nodes/; kind (practice/map) is a frontmatter facet, not a directory.
 ### #breaking-change
 - Open [**Strict schema-version bump policy**](practice-strict-schema-version-bump-policy.md) — schema_version bumps are a clean break: readers reject mismatches, no shims; a hidden supervised migrate command is the escape hatch.

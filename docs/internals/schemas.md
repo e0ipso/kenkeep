@@ -6,7 +6,7 @@ nav_order: 3
 
 # Schemas
 
-Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. Node, index, and graph artifacts carry `schema_version: 2` (the tree-storage clean break); all other shapes carry `schema_version: 1`.
+Every YAML frontmatter and JSON state file is validated by a Zod schema at read time. As of `schema_version` 3, the `nodes/` tree is a conformant [Open Knowledge Format (OKF v0.1)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle: leaves use OKF's native `type` / `title` / `description` / `tags` keys, and every kenkeep-only field rides under the `kk_` extension namespace (`kk_schema_version`, `kk_id`, `kk_relates_to`, `kk_depends_on`, `kk_derived_from`, `kk_confidence`). A leaf carries `kk_schema_version: 3`; the kenkeep-owned `ENTRY.md` and `GRAPH.md` artifacts carry `schema_version: 3`; all other shapes carry `schema_version: 1`.
 
 {% include callout.html variant="note" content="[`src/lib/schemas.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/schemas.ts) is the source of truth. When this page disagrees with the code, the code wins." %}
 
@@ -14,38 +14,38 @@ Every YAML frontmatter and JSON state file is validated by a Zod schema at read 
 
 ## Node (`nodes/<topic>/<id>.md`)
 
-Leaf nodes live in topical folders under `nodes/` at any depth; the filename is always `<id>.md`. Every folder under `nodes/` also carries a generated `index.md` (an index node, see below), which is never a leaf.
+Leaf nodes live in topical folders under `nodes/` at any depth; the filename is always `<kk_id>.md`. Every folder under `nodes/` also carries a generated `index.md` (an OKF reserved index file, see below), which is never a leaf.
 
 ```yaml
 ---
-schema_version: 2
-id: practice-prefer-constructor-injection   # <kind>-<slug>
-title: "..."
-kind: practice | map
-tags: [string, ...]
-derived_from:
+type: practice | map                      # OKF native
+title: "..."                              # OKF native
+description: "one-line summary"          # OKF native
+tags: [string, ...]                       # OKF native
+kk_schema_version: 3
+kk_id: practice-prefer-constructor-injection   # <type>-<slug>
+kk_derived_from:
   - 20260510-1014-session-abc.md
-relates_to: [string, ...]
-depends_on: [string, ...]
-confidence: low | medium | high
-summary: "≤140 char summary, used in index nodes"
+kk_relates_to: [string, ...]
+kk_depends_on: [string, ...]
+kk_confidence: low | medium | high
 ---
 ```
 
-Validated by `NodeFrontmatterSchema`. Git history is the timeline of record; the frontmatter carries no separate timestamps.
+Validated by `NodeFrontmatterSchema`. A leaf is an OKF concept document: the four unprefixed keys are OKF's own vocabulary, and the `kk_`-prefixed keys are kenkeep extensions (OKF explicitly permits producer extension keys). Git history is the timeline of record; the frontmatter carries no separate timestamps. Two body sections are regenerated deterministically from the edge/provenance arrays on every write — a labeled `Related` links section (from `kk_relates_to` / `kk_depends_on`) and a numbered `# Citations` section (from `kk_derived_from`) — so plain OKF consumers can traverse the graph and see provenance; both are fenced (`<!-- kk:related:start -->` … `<!-- kk:citations:end -->`) for idempotent regeneration and never touch hand-written prose.
 
-| Field | Meaning |
-|---|---|
-| `schema_version` | Integer schema marker. A mismatch is a parse failure; the reader rejects the old flat layout / `schema_version: 1` and points to the `kk-migrate` skill (run in an agent session; the in-host clustering drives the deterministic `place` primitive). |
-| `id` | Stable identifier `<kind>-<slug>`. Referenced by `relates_to`, `depends_on`, `derived_from`, and `target_node_id` on curator actions. All cross references are by `id`; path is presentation. |
-| `title` | Human-readable label rendered in the folder's index node. |
-| `kind` | `practice` (how we build) or `map` (what exists). A pure facet: drives only the Conventions / Components rendering split, NOT directory placement. |
-| `tags` | Free-form labels for the `## By topic` section in the folder's index node. |
-| `derived_from` | Sources (session log filename, repo-relative doc path, or absolute path). `doctor --verbose` lists dangling refs; the consume path silently ignores them. |
-| `relates_to` | Loose cross-references, rendered in `GRAPH.md`. Not enforced. |
-| `depends_on` | Strict cross-references, rendered in `GRAPH.md`. Not enforced. |
-| `confidence` | `low`, `medium`, or `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale. |
-| `summary` | ≤140-character one-liner rendered in the folder's index node. |
+| Field | OKF? | Meaning |
+|---|---|---|
+| `type` | native | `practice` (how we build) or `map` (what exists). A pure facet: drives only the Conventions / Components rendering split, NOT directory placement. |
+| `title` | native | Human-readable label rendered in the folder's index node. |
+| `description` | native | One-liner rendered in the folder's index node and used as the preview. |
+| `tags` | native | Free-form labels for the `## By topic` section in the folder's index node. |
+| `kk_schema_version` | ext | Literal `3`. A mismatch is a parse failure; the reader rejects `schema_version: 2` / the old flat layout / `schema_version: 1` and points to the `kk-migrate` skill (run in an agent session). |
+| `kk_id` | ext | Stable identifier `<type>-<slug>`. Referenced by `kk_relates_to`, `kk_depends_on`, `kk_derived_from`, and `target_node_id` on curator actions. All cross references are by id; path is presentation. OKF's own concept identity (the file path) is unstable under rebalance moves, which is why `kk_id` persists. |
+| `kk_derived_from` | ext | Provenance sources (session log filename, repo-relative doc path, or absolute path). Rendered into the `# Citations` body section. `doctor --verbose` lists dangling refs; the consume path silently ignores them. |
+| `kk_relates_to` | ext | Loose cross-references, rendered in `GRAPH.md` and the `Related` body section. Dangling-checked by lint. |
+| `kk_depends_on` | ext | Strict cross-references, rendered in `GRAPH.md` and the `Related` body section. Defaulted to `[]` so older nodes still parse. |
+| `kk_confidence` | ext | `low`, `medium`, or `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale. |
 
 ### Two kinds
 
@@ -125,21 +125,19 @@ Validated by `SessionLogFrontmatterSchema`.
 ## Proposal candidate
 
 ```yaml
-kind: practice | map
+type: practice | map
 tags: [string, ...]
 title: <string>
-summary: <≤140 chars>
+description: <one-line summary>
 body: <markdown>
-confidence: low | medium | high
-supports_existing_node: <node-id> | null
-contradicts_existing_node: <node-id> | null
+kk_confidence: low | medium | high
 ```
 
-Validated by `ProposalCandidateSchema`. Top-level: `ProposalOutputSchema = { practice: [...], map: [...] }`.
+Validated by `ProposalCandidateSchema`. Top-level: `ProposalOutputSchema = { practice: [...], map: [...] }`. The curator resolves supersede/contradict relationships during dedup, so candidates no longer carry `supports_existing_node` / `contradicts_existing_node` hints.
 
 ## Bootstrap candidate
 
-Superset of the proposal candidate with `derived_from`. `supports_existing_node` and `contradicts_existing_node` are always `null` in bootstrap output. Validated by `BootstrapCandidateSchema`.
+Same shape as the proposal candidate (`type`, `tags`, `title`, `description`, `body`, `kk_confidence`), validated by `BootstrapCandidateSchema` (`.strict()`).
 
 ## Curator action
 
@@ -154,15 +152,34 @@ suggested_resolution: supersede | keep_both | reject | null
 
 Validated by `CuratorOutputSchema` (array of actions).
 
-## Index node (`index.md`) and GRAPH.md frontmatter
+## Reserved index files, ENTRY.md / GRAPH.md, and the folder-summary sidecar
+
+Under strict OKF conformance the `nodes/**/index.md` reserved files carry no kenkeep diagnostics:
+
+- **Ordinary folder `index.md`** — no frontmatter at all; a body-only progressive-disclosure table of contents (child leaves and immediate subfolders, ordered by graph in-degree then title).
+- **Bundle-root `nodes/index.md`** — frontmatter is exactly `okf_version: "0.1"` and nothing else, then the body.
+
+Kenkeep's generated-artifact diagnostics move to files that live *outside* the OKF bundle, at `.ai/kenkeep/ENTRY.md` and `.ai/kenkeep/GRAPH.md`:
 
 ```yaml
-schema_version: 2
+# ENTRY.md and GRAPH.md frontmatter
+schema_version: 3
 nodes_hash: sha256:<hex>
-node_count: 47
+node_count: 75
 ```
 
-Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`. Every folder under `nodes/` carries a generated `index.md` index node — a deterministic table-of-contents rollup of its child leaves and immediate subfolders, ordered by graph in-degree then title. The top-level catalog `ENTRY.md` is a purpose-built whole-tree launchpad (totals plus the branch list), not a per-folder index node. For a folder index node, `node_count` is the folder's direct leaf count; for `ENTRY.md` it is the whole-tree total. Index nodes are generated artifacts, excluded from `nodes_hash`.
+Validated by `IndexFrontmatterSchema` / `GraphFrontmatterSchema`. `ENTRY.md` is the whole-tree launchpad injected at session start (totals plus the branch list); `GRAPH.md` renders the edge graph. `node_count` is the whole-tree total; index bodies are generated artifacts, excluded from `nodes_hash`.
+
+Folder summaries (branch descriptions) also leave the reserved files for a committed sidecar, `.ai/kenkeep/FOLDER_SUMMARIES.md`, keyed by POSIX folder path:
+
+```yaml
+schema_version: 1
+summaries:
+  cli: the init/upgrade commands and AGENTS.md pointer injection; …
+  hooks: the capture, session-start, drain, and lint-tick hooks; …
+```
+
+Validated by `FolderSummaryRegistrySchema`. `generateIndex` reads a folder's summary from this sidecar to render the parent's descent pointer; `harvestFolderSummaries` / `stampFolderSummary` read and write it, so a summary survives the otherwise-total rebuild. The lint OKF-conformance rule enforces that ordinary reserved indexes stay frontmatter-free and that only the bundle root declares `okf_version`.
 
 ### `nodes_hash` algorithm
 

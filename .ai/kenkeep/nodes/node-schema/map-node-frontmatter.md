@@ -1,9 +1,7 @@
 ---
 type: map
 title: Node frontmatter schema
-description: >-
-  Required node fields: schema_version, id, title, kind, tags, derived_from,
-  relates_to, depends_on, confidence, summary.
+description: OKF-native type/title/description/tags plus kk_-prefixed id, edges, provenance, confidence, and schema version.
 tags:
   - schema
   - frontmatter
@@ -22,37 +20,37 @@ kk_confidence: high
 
 # Node frontmatter schema
 
-Every leaf file under `nodes/` (in its topical folder) carries this YAML frontmatter (validated by `NodeFrontmatterSchema` in `src/lib/schemas.ts`):
+Every leaf file under `nodes/` (in its topical folder) is an OKF v0.1 concept document with this YAML frontmatter (validated by `NodeFrontmatterSchema` in `src/lib/schemas.ts`):
 
 ```yaml
 ---
-schema_version: 2
-id: <kind>-<slug>
-title: "..."
-kind: practice | map
-tags: [string, ...]
-derived_from:
+type: practice | map                    # OKF native
+title: "..."                            # OKF native
+description: "one-line summary, shown in the folder index nodes"  # OKF native
+tags: [string, ...]                     # OKF native
+kk_schema_version: 3
+kk_id: <type>-<slug>
+kk_derived_from:
   - <session-log-filename | doc-path | absolute-path>
-relates_to: [<node-id>, ...]
-depends_on: [<node-id>, ...]
-confidence: low | medium | high
-summary: "≤140 char summary, shown in the folder index nodes"
+kk_relates_to: [<kk_id>, ...]
+kk_depends_on: [<kk_id>, ...]
+kk_confidence: low | medium | high
 ---
 ```
 
-Field meanings:
+The unprefixed keys are OKF's native vocabulary; the `kk_`-prefixed keys are kenkeep extensions (OKF permits producer extension keys). Field meanings:
 
-- `id` — `<kind>-<slug>`. Used by `relates_to`, `depends_on`, `derived_from`, and curator `target_node_id`. Stable.
+- `type` — `practice` or `map`. A facet, not a directory: it does not drive placement (folders are topical); it selects the folder index node section the node renders in (Conventions vs Components) and is the prefix of the `kk_id`.
 - `title` — human label rendered in the folder index nodes and `GRAPH.md`.
-- `kind` — `practice` or `map`. A facet, not a directory: it does not drive placement (folders are topical); it selects the folder index node section the node renders in (Conventions vs Components) and is the prefix of the `id`.
+- `description` — one-liner shown in the folder index nodes (OKF's `description`, formerly `summary`).
 - `tags` — free-form labels for the `## By topic` section of the folder index nodes.
-- `derived_from` — list of sources. Dangling refs are reported by `doctor --verbose` but silently ignored by the consume path.
-- `relates_to` — loose cross-references, rendered in `GRAPH.md`. Not enforced.
-- `depends_on` — strict cross-references, rendered in `GRAPH.md`. Not enforced.
-- `confidence` — `low`, `medium`, `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale.
-- `summary` — ≤140-character one-liner shown in the folder index nodes.
+- `kk_id` — `<type>-<slug>`. Used by `kk_relates_to`, `kk_depends_on`, `kk_derived_from`, and curator `target_node_id`. Stable across rebalance moves, where OKF's own path-based identity is not.
+- `kk_derived_from` — list of sources, rendered into the `# Citations` body section. Dangling refs are reported by `doctor --verbose` but silently ignored by the consume path.
+- `kk_relates_to` — loose cross-references, rendered in `GRAPH.md` and the `Related` body section. Dangling-checked by lint.
+- `kk_depends_on` — strict cross-references, rendered in `GRAPH.md` and the `Related` body section. Defaults to `[]`.
+- `kk_confidence` — `low`, `medium`, `high`. Curator default: `medium` for implicit sources, `high` when stated explicitly with rationale.
 
-Git history is the timeline of record; the frontmatter carries no separate timestamps.
+Two body sections are regenerated deterministically from the frontmatter on every write — a labeled `Related` links section and a numbered `# Citations` section — so plain OKF consumers can traverse edges and see provenance. Git history is the timeline of record; the frontmatter carries no separate timestamps.
 
 <!-- kk:related:start -->
 # Related

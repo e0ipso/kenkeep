@@ -1,7 +1,7 @@
 title: 'kenkeep'
 description: 'A team-shared, git-native knowledge base for AI coding sessions. Built up in your repo, reviewed and versioned like code, with no extra infrastructure to run.'
-url: https://mateuaguilo.com
-baseurl: '/kenkeep'
+url: https://kenkeep.canpicasoft.com
+baseurl: ''
 
 # Just the Docs theme configuration
 remote_theme: just-the-docs/just-the-docs

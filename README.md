@@ -17,11 +17,11 @@
 </p>
 
 <p align="center">
-  <a href="https://mateuaguilo.com/kenkeep/how-it-works.html">How it works</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/kenkeep/installation.html">Installation</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/kenkeep/daily-use.html">Daily use</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/kenkeep/knowledge-packs.html">Knowledge packs</a> &nbsp;·&nbsp;
-  <a href="https://mateuaguilo.com/kenkeep/troubleshooting.html">Troubleshooting</a>
+  <a href="https://kenkeep.canpicasoft.com/how-it-works.html">How it works</a> &nbsp;·&nbsp;
+  <a href="https://kenkeep.canpicasoft.com/installation.html">Installation</a> &nbsp;·&nbsp;
+  <a href="https://kenkeep.canpicasoft.com/daily-use.html">Daily use</a> &nbsp;·&nbsp;
+  <a href="https://kenkeep.canpicasoft.com/knowledge-packs.html">Knowledge packs</a> &nbsp;·&nbsp;
+  <a href="https://kenkeep.canpicasoft.com/troubleshooting.html">Troubleshooting</a>
 </p>
 
 ---
@@ -94,7 +94,7 @@ kenkeep runs a loop around your AI sessions. Capture and recall happen on their 
   <img src="docs/assets/images/progressive-disclosure.png" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" width="100%">
 </p>
 
-Full walkthrough: [How it works](https://mateuaguilo.com/kenkeep/how-it-works.html).
+Full walkthrough: [How it works](https://kenkeep.canpicasoft.com/how-it-works.html).
 
 ## Quick start
 
@@ -160,11 +160,11 @@ npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal --as drupa
 
 Imports are deterministic and LLM-free. Colliding node ids are skipped with a
 warning, and any structural rebalancing happens later through the normal
-curation workflow. See the full guide: **[Knowledge packs](https://mateuaguilo.com/kenkeep/knowledge-packs.html)**.
+curation workflow. See the full guide: **[Knowledge packs](https://kenkeep.canpicasoft.com/knowledge-packs.html)**.
 
 ## Documentation
 
-Full documentation: **<https://mateuaguilo.com/kenkeep>**
+Full documentation: **<https://kenkeep.canpicasoft.com>**
 
 For maintainers of this package itself, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

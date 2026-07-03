@@ -1,15 +1,18 @@
 #!/usr/bin/env node
-// Generates the shipped notification icon PNG from the docs favicon palette.
-// Pure Node (zlib only) — no image runtime dependency.
+// Generates the shipped notification icon PNG from docs/assets/favicon.svg.
+// Prefers rsvg-convert when available; otherwise falls back to a pure-Node
+// renderer using the favicon palette (no image runtime dependency).
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
+const svgSource = join(root, 'docs/assets/favicon.svg');
 const outDir = join(root, 'src/templates-source/kenkeep/assets');
 const outFile = join(outDir, 'notification-icon.png');
 
@@ -17,6 +20,20 @@ const SIZE = 128;
 const CREAM = [0xf7, 0xf3, 0xec, 0xff];
 const INK = [0x19, 0x11, 0x0a, 0xff];
 const BORDER = [0x00, 0x00, 0x00, 0x14];
+
+function tryRsvgConvert() {
+  if (!existsSync(svgSource)) return false;
+  try {
+    execFileSync(
+      'rsvg-convert',
+      ['-w', String(SIZE), '-h', String(SIZE), '-o', outFile, svgSource],
+      { stdio: 'pipe' }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function crc32(buf) {
   let crc = 0xffffffff;
@@ -38,43 +55,68 @@ function chunk(type, data) {
   return Buffer.concat([len, typeBuf, data, crcBuf]);
 }
 
-function drawK(buf, x0, y0, w, h) {
-  const stemW = Math.round(w * 0.18);
-  const armH = Math.round(h * 0.12);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const gx = x0 + x;
-      const gy = y0 + y;
-      const stem = x < stemW;
-      const upperArm =
-        y >= Math.round(h * 0.42) &&
-        y < Math.round(h * 0.42) + armH &&
-        x >= stemW &&
-        x < w &&
-        x >= w - (w - stemW) * ((y - Math.round(h * 0.42)) / (h * 0.35));
-      const lowerArm =
-        y >= Math.round(h * 0.52) &&
-        y < Math.round(h * 0.52) + armH &&
-        x >= stemW &&
-        x < w &&
-        x <= stemW + (w - stemW) * ((y - Math.round(h * 0.52)) / (h * 0.35));
-      if (stem || upperArm || lowerArm) {
-        const i = (gy * SIZE + gx) * 4;
-        buf[i] = INK[0];
-        buf[i + 1] = INK[1];
-        buf[i + 2] = INK[2];
-        buf[i + 3] = INK[3];
-      }
-    }
+function insideRoundedRect(x, y, radius) {
+  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return false;
+  const corners = [
+    [radius, radius],
+    [SIZE - radius - 1, radius],
+    [radius, SIZE - radius - 1],
+    [SIZE - radius - 1, SIZE - radius - 1],
+  ];
+  for (const [cx, cy] of corners) {
+    const dx = x < cx ? cx - x : x > cx ? x - cx : 0;
+    const dy = y < cy ? cy - y : y > cy ? y - cy : 0;
+    if (dx * dx + dy * dy > radius * radius) return false;
+  }
+  return true;
+}
+
+function setPixel(buf, x, y, color) {
+  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
+  const i = (y * SIZE + x) * 4;
+  buf[i] = color[0];
+  buf[i + 1] = color[1];
+  buf[i + 2] = color[2];
+  buf[i + 3] = color[3];
+}
+
+function drawLowercaseK(buf) {
+  const stemX0 = 42;
+  const stemX1 = 54;
+  const midY = 64;
+  for (let y = 30; y < 98; y++) {
+    for (let x = stemX0; x < stemX1; x++) setPixel(buf, x, y, INK);
+  }
+  for (let y = 30; y < midY; y++) {
+    const t = (midY - y) / (midY - 30);
+    const x1 = stemX1 + Math.round(34 * t);
+    for (let x = stemX1; x <= x1; x++) setPixel(buf, x, y, INK);
+  }
+  for (let y = midY; y < 98; y++) {
+    const t = (y - midY) / (98 - midY);
+    const x1 = stemX1 + Math.round(34 * t);
+    for (let x = stemX1; x <= x1; x++) setPixel(buf, x, y, INK);
   }
 }
 
-function renderRgba() {
+function renderFallbackRgba() {
   const buf = Buffer.alloc(SIZE * SIZE * 4);
+  const radius = 28;
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       const i = (y * SIZE + x) * 4;
-      const edge = x <= 1 || y <= 1 || x >= SIZE - 2 || y >= SIZE - 2;
+      if (!insideRoundedRect(x, y, radius)) {
+        buf[i] = 0;
+        buf[i + 1] = 0;
+        buf[i + 2] = 0;
+        buf[i + 3] = 0;
+        continue;
+      }
+      const edge =
+        !insideRoundedRect(x - 1, y, radius) ||
+        !insideRoundedRect(x + 1, y, radius) ||
+        !insideRoundedRect(x, y - 1, radius) ||
+        !insideRoundedRect(x, y + 1, radius);
       const color = edge ? BORDER : CREAM;
       buf[i] = color[0];
       buf[i + 1] = color[1];
@@ -82,7 +124,7 @@ function renderRgba() {
       buf[i + 3] = 0xff;
     }
   }
-  drawK(buf, 34, 24, 60, 80);
+  drawLowercaseK(buf);
   return buf;
 }
 
@@ -114,8 +156,13 @@ function encodePng(rgba) {
 }
 
 mkdirSync(outDir, { recursive: true });
-const png = encodePng(renderRgba());
-writeFileSync(outFile, png);
+
+const mode = tryRsvgConvert() ? 'rsvg-convert' : 'fallback';
+if (mode === 'fallback') {
+  writeFileSync(outFile, encodePng(renderFallbackRgba()));
+}
+
+const png = readFileSync(outFile);
 console.log(
-  `Wrote ${outFile} (${png.length} bytes, sha256=${createHash('sha256').update(png).digest('hex').slice(0, 12)}…)`
+  `Wrote ${outFile} via ${mode} (${png.length} bytes, sha256=${createHash('sha256').update(png).digest('hex').slice(0, 12)}…)`
 );

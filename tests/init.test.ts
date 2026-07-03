@@ -49,6 +49,7 @@ describe('init', () => {
       '.ai/kenkeep/.gitignore',
       '.ai/kenkeep/scripts/kk-detect-harness.mjs',
       '.ai/kenkeep/scripts/kk-detect-root.mjs',
+      '.ai/kenkeep/assets/notification-icon.png',
     ];
 
     for (const rel of expected) {

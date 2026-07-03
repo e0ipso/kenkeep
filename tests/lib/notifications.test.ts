@@ -39,7 +39,7 @@ describe('notifications', () => {
       buildNotificationCommand(
         'linux',
         { title: 'kenkeep', body: 'nudge' },
-        { iconPath: '/repo/.ai/kenkeep/assets/notification-icon.png' }
+        '/repo/.ai/kenkeep/assets/notification-icon.png'
       )
     ).toEqual({
       command: 'notify-send',

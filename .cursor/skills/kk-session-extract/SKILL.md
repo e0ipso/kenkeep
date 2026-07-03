@@ -3,7 +3,7 @@ name: kk-session-extract
 description: Extract durable knowledge from the current live session, stage it as a validated done session log, and run it through the same curation machinery as /kk-curate. Use when the user wants to proactively process the current session before waiting for capture hooks and a later curate pass — not for dictating one node (/kk-add) or batch-processing accumulated logs (/kk-curate).
 ---
 
-<!-- Version: 5 -->
+<!-- Version: 6 -->
 
 # kk-session-extract
 
@@ -31,7 +31,7 @@ pwd
 
 3. **Substitute the placeholder.** Replace `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` in the loaded prompt with your live transcript surrogate. If the placeholder is missing from the prompt, report an extraction failure and stop with no writes.
 
-4. **Apply the prompt unchanged.** Produce a JSON object matching the strict `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has only `{ kind, tags, title, summary, body, confidence }`. Do not emit legacy `supports_existing_node` / `contradicts_existing_node` fields.
+4. **Apply the prompt unchanged.** Produce a JSON object matching the strict `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has only `{ type, tags, title, description, body, kk_confidence }`. Do not emit legacy `supports_existing_node` / `contradicts_existing_node` fields.
 
 5. **Disposition gate.** If the session is meta-only, exploratory, abandoned, unrelated, or has no durable teaching moments, report that no durable knowledge was found and **stop** — no staging, no curation, no node writes. This is success, not failure.
 

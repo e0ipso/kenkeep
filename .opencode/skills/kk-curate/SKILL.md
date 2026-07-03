@@ -3,7 +3,7 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 8 -->
+<!-- Version: 9 -->
 
 # kk-curate
 
@@ -32,7 +32,7 @@ For each session log with `proposal_status: pending`, extract proposals inline i
 4. **Process each pending log sequentially** (in `captured_at` order). Failure on one log does not abort the rest:
    a. Read the file in full.
    b. Extract the transcript section (content between `## Transcript` and `## Proposal`).
-   c. Apply the extraction rules from the prompt to produce a JSON object matching `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has `{ kind, tags, title, summary, body, confidence }`.
+   c. Apply the extraction rules from the prompt to produce a JSON object matching `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has `{ type, tags, title, description, body, kk_confidence }`.
    d. Pipe the JSON into the CLI primitive:
 
       ```bash
@@ -108,7 +108,7 @@ npx --yes kenkeep@latest drafts collect --run-id "$RUN_ID" --schema curator-outp
 If no sub-agent dispatch primitive is available, draft sequentially in this session — the shipped behaviour. For each batch:
 
 1. `Read` every session file in the batch in full.
-2. Each session's frontmatter `proposals:` block contains `practice: [...]` and `map: [...]` arrays. Each entry has `{ kind, tags, title, summary, body, confidence }`.
+2. Each session's frontmatter `proposals:` block contains `practice: [...]` and `map: [...]` arrays. Each entry has `{ type, tags, title, description, body, kk_confidence }`.
 3. For each candidate (practice and map, in order), decide an action: **add**, **modify**, **contradict**, or **drop**. Use the rules below. Use `candidate_origin = "<session_id>:<practice|map>:<index>"` where `<index>` is the zero-based position within its array.
 4. Build the action object (schema below) and append to your in-session list of all actions across all batches.
 
@@ -127,7 +127,7 @@ Signs an addition is correct:
 
 The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) if it would collide on disk — but if you sense a real overlap, prefer **drop** (or, when the candidate refines the existing node, **modify**).
 
-An `add` also carries a **home branch**: the existing folder under `nodes/` where the leaf lives. You pick it in the same reasoning pass that sets `relates_to` / `depends_on` (see "Relate and place" below) and record it on the action's `home_folder` field. Leave `home_folder` unset/null/empty to land the leaf at the `nodes/` root (the root fallback).
+An `add` also carries a **home branch**: the existing folder under `nodes/` where the leaf lives. You pick it in the same reasoning pass that sets `kk_relates_to` / `kk_depends_on` (see "Relate and place" below) and record it on the action's `home_folder` field. Leave `home_folder` unset/null/empty to land the leaf at the `nodes/` root (the root fallback).
 
 #### `modify` — refines an existing node
 
@@ -153,7 +153,7 @@ Signs a contradiction is real:
 - The user explicitly reversed a prior decision in the session that produced this candidate.
 - The candidate's scope overlaps the existing node's scope completely, not partially.
 
-**Important:** if the candidate's scope is a *subset* or *exception* to the existing node, this is NOT a contradiction; it's an addition (or modification) with `relates_to`. Example: if the existing node says "use the default cache tags," and the candidate says "for personalized pages, use per-user cache contexts instead," these can both be true — emit **add** with `relates_to: [<existing node id>]`, not `contradict`.
+**Important:** if the candidate's scope is a *subset* or *exception* to the existing node, this is NOT a contradiction; it's an addition (or modification) with `kk_relates_to`. Example: if the existing node says "use the default cache tags," and the candidate says "for personalized pages, use per-user cache contexts instead," these can both be true — emit **add** with `kk_relates_to: [<existing node id>]`, not `contradict`.
 
 A contradiction does not modify any node file. The dedup primitive writes the conflict to `.ai/kenkeep/conflicts/<id>.md`; the conflict-resolution flow (step 7 below) walks each file and asks the user. Make your `proposed_node` and `rationale` complete enough that the user can decide without re-running you.
 
@@ -168,16 +168,16 @@ A contradiction does not modify any node file. The dedup primitive writes the co
 Use when the candidate should not result in any change. Reasons to drop:
 
 - It's a near-rephrasing of an existing node with no new information.
-- The confidence is low and the content is vague.
+- The `kk_confidence` is low and the content is vague.
 - The candidate captured general programming knowledge, not project-specific.
 - The candidate is internally inconsistent or refers to things that don't exist elsewhere.
 - **Change-oriented framing** — transition narratives, migration stories, rename or removal logs, "we used to do X, now we do Y" wording. Automatic drop regardless of confidence. The knowledge base describes the project's current end state, not its history.
 - **Anything ruled out by the shared knowledge admission criteria** — maintenance/lifecycle actions, project story or history (especially plan/ticket/issue references), and incidental one-off facts dressed up as practices. Apply `.ai/kenkeep/.config/prompts/knowledge-admission.md` (which also carries the six-months keep test and the salvage rule); these are automatic drops.
-- **Non-productive provenance signals** in the candidate body or summary:
+- **Non-productive provenance signals** in the candidate body or description:
   - hedged/tentative wording ("we might", "we could", "potentially", "the idea is to"). Practice nodes describe rules, not hypotheses.
   - references to hypothetical or unrealized entities ("the planned X", "once we add Z"). Map nodes describe what is.
   - plan- or task-scoped framing ("for this plan, we will…", "the success criterion is…").
-  - low confidence + no rationale + no concrete example.
+  - low `kk_confidence` + no rationale + no concrete example.
 
   Weigh these together; drop when the combined signature suggests a non-productive session. Single-signal cases do not auto-drop.
 
@@ -188,7 +188,7 @@ Use when the candidate should not result in any change. Reasons to drop:
 The knowledge base is a nested topical folder tree under `nodes/`: a root index node, branch index nodes, and leaves at any depth. For every `add`, run a single reasoning pass that produces two outputs at once: the cross edges and the home branch. Do not make a second pass.
 
 1. **Descend the tree.** Start from the root index node (`nodes/index.md`) and follow it into the branch index nodes whose summaries are relevant to the candidate. The index nodes list their child folders and leaves, so you can walk toward the nearest existing notes the same way discovery does.
-2. **Set the cross edges.** From the nearest existing leaves, set `relates_to` (and `depends_on` where one node genuinely depends on another) by id. Edges resolve by id and are independent of where the leaf lives.
+2. **Set the cross edges.** From the nearest existing leaves, set `kk_relates_to` (and `kk_depends_on` where one node genuinely depends on another) by id. Edges resolve by id and are independent of where the leaf lives.
 3. **Rank the home branch.** From the same descent, rank the existing index nodes (folders) by how well their subtree fits the candidate's topic, and pick the single best-fitting existing folder. Record it on the action as `home_folder` (a topical path relative to `nodes/`, e.g. `cli` or `knowledge-base/index`). Identity is the id and never depends on the chosen folder.
 4. **Root fallback.** If no existing folder clears your relevance bar, leave `home_folder` unset/null/empty. The writer then places the leaf at the `nodes/` root. This is a deliberate, visible outcome, not an error; a later rebalance pass relocates it. Never force a weak fit just to avoid the root.
 
@@ -197,7 +197,7 @@ The knowledge base is a nested topical folder tree under `nodes/`: a root index 
 ### Constraints (apply to every action)
 
 - **Never cross the practice/map boundary.** A practice candidate never becomes a map node, and vice versa.
-- **Never overwrite an unrelated node.** `modify` must target a node whose scope genuinely matches the candidate; otherwise prefer `add` (with `relates_to`) or `contradict`.
+- **Never overwrite an unrelated node.** `modify` must target a node whose scope genuinely matches the candidate; otherwise prefer `add` (with `kk_relates_to`) or `contradict`.
 - **Be conservative.** When uncertain between add and modify, prefer modify (less duplication). When uncertain between modify and drop, prefer drop (less noise).
 - **Never change tree structure during curation.** The curation step (drafting and persisting leaves, Steps 2 to 6) places a leaf into an existing folder; it never creates, splits, or merges folders or branches. The only structural outcome curation may produce is the root fallback (a leaf at the `nodes/` root). Structural changes happen only in the final rebalance phase (Step 6b), and only when the deterministic trigger fires.
 
@@ -295,7 +295,7 @@ It prints exactly one JSON line:
 
 For each entry in `actions`, read only that branch (the named folder's `index.md` and its leaves, or the named leaf for `split-leaf` / `create-branch`) and decide a concrete operation. This is the only non-deterministic step in the whole run; it is quarantined behind the deterministic trigger and the human's commit gate. Do not touch any branch the trigger did not name.
 
-Map each operation class to a concrete plan entry. For every NEW folder an operation creates, also author a one-line folder `summary`: a noun phrase / sentence fragment that completes `for more information on <summary>` (lowercase start, no trailing period, concise). Make it task-keyed, not just structural: after naming what lives in the folder, append a short `; read when <task pattern>` clause naming the tasks that should trigger descent (e.g. `the five harness adapters and their isolation rules; read before adding a harness or changing hook wiring`). Agents route by matching their task against these summaries, so the trigger clause is what makes descent reliable. The move primitive stamps it into the new folder's `index.md` frontmatter, and every later deterministic rebuild self-preserves it; it is what the parent index splices into its `Load …` descent pointer.
+Map each operation class to a concrete plan entry. For every NEW folder an operation creates, also author a one-line folder `summary`: a noun phrase / sentence fragment that completes `for more information on <summary>` (lowercase start, no trailing period, concise). Make it task-keyed, not just structural: after naming what lives in the folder, append a short `; read when <task pattern>` clause naming the tasks that should trigger descent (e.g. `the five harness adapters and their isolation rules; read before adding a harness or changing hook wiring`). Agents route by matching their task against these summaries, so the trigger clause is what makes descent reliable. The move primitive stamps it into the new folder's folder-summary sidecar, and every later deterministic rebuild self-preserves it; it is what the parent index splices into its `Load …` descent pointer.
 
 - **split-folder** (`branch` is an over-full folder): cluster that folder's direct leaves into two or more topical subfolders. Emit `{"operation":"split-folder","branch":"<folder>","groups":[{"subfolder":"<name>","summary":"<fragment>","ids":["<id>", ...]}, ...]}`. Every id must be a current direct leaf of `branch`; assign each leaf to exactly one subgroup; author one `summary` per subfolder.
 - **merge** (`branch` is a sparse/redundant folder): pick the best existing destination folder `into` (a sibling or parent whose topic subsumes the sparse branch; empty string for the `nodes/` root). Emit `{"operation":"merge","branch":"<folder>","into":"<destination>"}`. A merge creates no folder, so it authors no `summary`; the destination keeps its own self-preserved summary.
@@ -356,7 +356,7 @@ It reads the pending conflict files, sorts/groups them (by `target_node_id` with
 
 For every conflict in the prepared list:
 
-1. If `first_in_group` and `existing` is non-null, show the existing node's `title`, `summary`, and the relevant body excerpt ONCE for the group.
+1. If `first_in_group` and `existing` is non-null, show the existing node's `title`, `description`, and the relevant body excerpt ONCE for the group.
 2. Show the proposed contradiction concisely: `proposed_title`, `proposed_confidence`, the `rationale`, and the `proposed_body`.
 
 (`s` is the safe default whenever there is no existing node to diff against; the primitive already encodes that.)

@@ -1,3 +1,9 @@
+## [1.13.0](https://github.com/e0ipso/kenkeep/compare/v1.12.0...v1.13.0) (2026-07-03)
+
+### Features
+
+* add kenkeep icon to Linux desktop notifications ([#88](https://github.com/e0ipso/kenkeep/issues/88)) ([37540f1](https://github.com/e0ipso/kenkeep/commit/37540f1b807299a85b25c304797f24b4b88cee15)), closes [#87](https://github.com/e0ipso/kenkeep/issues/87) [#87](https://github.com/e0ipso/kenkeep/issues/87)
+
 ## [1.12.0](https://github.com/e0ipso/kenkeep/compare/v1.11.4...v1.12.0) (2026-07-03)
 
 ### Features

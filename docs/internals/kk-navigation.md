@@ -43,7 +43,7 @@ On harnesses with a verified native prompt-submit context channel (Claude Code a
 
 The `-C 2` flag is named explicitly in the directive (not left as a bare `grep`) because it bridges layers 2 and 3.
 
-Node frontmatter has a one-line `summary:` field (see [`src/lib/schemas.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/schemas.ts)). When `grep -C 2 <term> nodes/` matches a tag, title token, or body sentence, the two surrounding lines almost always include that `summary:`. So the agent gets a slug, the hit, and a one-line description of the node, which is enough triage signal to decide whether to open the full body without a round-trip to the user or speculative opens.
+Node frontmatter has a one-line `description:` field (OKF-native; see [`src/lib/schemas.ts`](https://github.com/e0ipso/kenkeep/blob/main/src/lib/schemas.ts)). When `grep -C 2 <term> nodes/` matches a tag, title token, or body sentence, the two surrounding lines almost always include that `description:`. So the agent gets a slug, the hit, and a one-line description of the node, which is enough triage signal to decide whether to open the full body without a round-trip to the user or speculative opens.
 
 The flag is load-bearing; the value is tunable. If field experience later shows `2` is too narrow (e.g. very long frontmatter), widen to `-C 3`, but do not remove the flag.
 

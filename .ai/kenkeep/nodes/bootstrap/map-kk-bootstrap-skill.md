@@ -1,24 +1,24 @@
 ---
-schema_version: 2
-id: map-kk-bootstrap-skill
+type: map
 title: /kk-bootstrap skill
-kind: map
+description: >-
+  Supervised, agent-driven first-pass bootstrap: surveys docs and writes
+  practice/map nodes under nodes/. Reviewer accepts via git commit.
 tags:
   - skill
   - bootstrap
   - agent
-derived_from:
+kk_schema_version: 3
+kk_id: map-kk-bootstrap-skill
+kk_derived_from:
   - docs/installation.md
   - docs/daily-use.md
-relates_to:
+kk_relates_to:
   - map-bootstrap-incremental-command
   - practice-bootstrap-never-overwrites-existing-nodes
   - practice-bootstrap-is-supervised-and-judgmental
-depends_on: []
-confidence: high
-summary: >-
-  Supervised, agent-driven first-pass bootstrap. Surveys docs, writes
-  practice/map nodes directly under nodes/. Reviewer accepts via git commit.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `/kk-bootstrap` skill
@@ -37,3 +37,18 @@ Unlike `bootstrap-incremental`, the skill runs through the `Task` tool (a sub-ag
 Reviewer workflow: `git diff nodes/`, accept individual files with `git add nodes/<folder>/<file>.md && git commit`, reject the rest with `git restore nodes/<folder>/<file>.md`.
 
 For re-runs after editing docs, use the headless `bootstrap-incremental` CLI instead (hash-aware, deterministic chunking).
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+- Related: [practice-bootstrap-never-overwrites-existing-nodes](/bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
+- Related: [practice-bootstrap-is-supervised-and-judgmental](/bootstrap/practice-bootstrap-is-supervised-and-judgmental.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/daily-use.md](docs/daily-use.md)
+<!-- kk:citations:end -->

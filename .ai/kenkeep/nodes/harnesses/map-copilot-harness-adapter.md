@@ -1,32 +1,29 @@
 ---
-schema_version: 2
-id: map-copilot-harness-adapter
+type: map
 title: Copilot harness adapter
-kind: map
+description: >-
+  GitHub Copilot CLI adapter; repo-level .github/hooks/kk.json; captures on
+  sessionEnd/agentStop; skills in .github/skills/; sentinel ENTRY.
 tags:
   - harness
   - copilot
   - hooks
   - adapter
-derived_from:
+kk_schema_version: 3
+kk_id: map-copilot-harness-adapter
+kk_derived_from:
   - docs/installation.md
   - docs/how-it-works.md
   - 'https://github.com/github/copilot-cli'
   - >-
     https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference
-relates_to:
+kk_relates_to:
   - map-harness-adapter
   - map-codex-harness
   - map-opencode-harness
   - map-cursor-harness-adapter
-depends_on: []
-confidence: high
-summary: >-
-  GitHub Copilot CLI adapter; per-event JSON hook config at the repo-level
-  .github/hooks/kk.json (Copilot loads it before user-level); captures on
-  sessionEnd/agentStop from events.jsonl; skills in .github/skills/; no
-  detectFromEnv; no user-home writes; session-start ENTRY via a sentinel
-  block in .github/copilot-instructions.md.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Copilot harness adapter
@@ -51,3 +48,21 @@ Headless invocation: `copilot -p "<prompt>" --no-ask-user --allow-all-tools --ad
 No in-session env detection: Copilot exports no env var identifying an active session, so `detectFromEnv` is omitted. Selection happens via `--harness copilot`, `--hint copilot`, or `cliDefaultHarness: copilot`.
 
 Session-start context injection: Copilot documents no stdout context-injection channel on `sessionStart`. As a workaround the session-start hook writes the current ENTRY into `.github/copilot-instructions.md` under a `<!-- kk:start --> ... <!-- kk:end -->` sentinel block (idempotent, preserves user content outside the block), which Copilot reads on session start. This mirrors the OpenCode `.opencode/AGENTS.md` strategy and is a documented known limitation.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
+- Related: [map-opencode-harness](/harnesses/map-opencode-harness.md)
+- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/how-it-works.md](docs/how-it-works.md)
+[3] [https://github.com/github/copilot-cli](https://github.com/github/copilot-cli)
+[4] [https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference)
+<!-- kk:citations:end -->

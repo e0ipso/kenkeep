@@ -77,7 +77,7 @@ function parseCandidateArray(value: unknown): ProposalCandidate[] {
 
 /**
  * Cross-batch dedup: two actions producing the same node (same target on
- * modify, or same slug derived from kind+title on add) collapse into one.
+ * modify, or same slug derived from type+title on add) collapse into one.
  * Higher-confidence wins.
  */
 export function dedupActions(actions: CuratorAction[]): CuratorAction[] {
@@ -88,7 +88,7 @@ export function dedupActions(actions: CuratorAction[]): CuratorAction[] {
       continue;
     }
     const node = action.proposed_node;
-    const key = action.target_node_id ?? deriveNodeId(node.kind, node.title);
+    const key = action.target_node_id ?? deriveNodeId(node.type, node.title);
     const existing = byKey.get(key);
     if (!existing || rankConfidence(action) > rankConfidence(existing)) {
       byKey.set(key, action);
@@ -100,7 +100,7 @@ export function dedupActions(actions: CuratorAction[]): CuratorAction[] {
 function rankConfidence(action: CuratorAction): number {
   const node = action.proposed_node;
   if (!node) return 0;
-  return node.confidence === 'high' ? 3 : node.confidence === 'medium' ? 2 : 1;
+  return node.kk_confidence === 'high' ? 3 : node.kk_confidence === 'medium' ? 2 : 1;
 }
 
 /**

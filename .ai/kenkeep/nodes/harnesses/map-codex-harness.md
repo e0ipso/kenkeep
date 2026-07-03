@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: map-codex-harness
+type: map
 title: Codex CLI harness adapter
-kind: map
+description: >-
+  OpenAI Codex CLI adapter; capture and lint tick on Stop only (no
+  SessionEnd/PreCompact); skills under .agents/skills/.
 tags:
   - harness
   - codex
   - hooks
-derived_from:
+kk_schema_version: 3
+kk_id: map-codex-harness
+kk_derived_from:
   - docs/installation.md
   - docs/installation/codex-toml-hooks-coexistence.md
   - docs/how-it-works.md
-relates_to:
+kk_relates_to:
   - map-harness-adapter
-depends_on: []
-confidence: high
-summary: >-
-  OpenAI Codex CLI adapter; capture and lint tick on Stop only (no
-  SessionEnd/PreCompact); skills under .agents/skills/.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Codex CLI harness adapter
@@ -33,3 +33,17 @@ Installed paths:
 If `.codex/config.toml` already declares a `[hooks]` table, `init` refuses to write `.codex/hooks.json` and points at `docs/installation/codex-toml-hooks-coexistence.md` for the manual merge procedure. The package never auto-merges TOML because round-tripping loses comments and whitespace.
 
 Codex exports no in-session env var, so harness identity must be passed explicitly (`--harness codex` or `cliDefaultHarness: codex` in `config.yaml`).
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/installation/codex-toml-hooks-coexistence.md](docs/installation/codex-toml-hooks-coexistence.md)
+[3] [docs/how-it-works.md](docs/how-it-works.md)
+<!-- kk:citations:end -->

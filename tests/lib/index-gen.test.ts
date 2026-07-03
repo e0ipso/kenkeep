@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readFolderSummaries, setFolderSummary } from '../../src/lib/folder-summaries.js';
 import { generateGraph, generateIndex } from '../../src/lib/index-gen.js';
 import { computeNodesHash } from '../../src/lib/nodes.js';
 
@@ -23,15 +24,15 @@ function seedNodes(root: string, seeds: NodeSeed[]): void {
     mkdirSync(dir, { recursive: true });
     const body = `# ${s.title}\n\nBody.\n`;
     const fm = matter.stringify(body, {
-      schema_version: 2,
-      id: s.id,
+      kk_schema_version: 3,
+      kk_id: s.id,
       title: s.title,
-      kind: s.kind,
+      type: s.kind,
+      description: s.summary,
       tags: s.tags ?? [],
-      derived_from: [],
-      relates_to: s.relates_to ?? [],
-      confidence: 'high',
-      summary: s.summary,
+      kk_derived_from: [],
+      kk_relates_to: s.relates_to ?? [],
+      kk_confidence: 'high',
     });
     writeFileSync(join(dir, `${s.id}.md`), fm);
   }
@@ -178,9 +179,11 @@ describe('generateIndex (recursive per-folder)', () => {
     expect(out.folders.get('')!.content).toContain('_None yet._');
   });
 
-  it('frontmatter carries the bumped schema_version', () => {
+  it('emits OKF-reserved index frontmatter only at the bundle root', () => {
     seedNodes(root, [{ dir: 't', kind: 'map', id: 'map-a', title: 'A', summary: 's' }]);
-    expect(generateIndex(root).folders.get('t')!.content).toMatch(/schema_version:\s*2/);
+    const out = generateIndex(root);
+    expect(matter(out.folders.get('')!.content).data).toEqual({ okf_version: '0.1' });
+    expect(matter(out.folders.get('t')!.content).data).toEqual({});
   });
 });
 
@@ -199,15 +202,7 @@ describe('generateIndex self-preserves the folder summary', () => {
 
   /** Write a folder's index.md to disk with a self-preserve `summary`. */
   function writeFolderIndexWithSummary(dir: string, summary: string): void {
-    const d = dir ? join(root, ...dir.split('/')) : root;
-    mkdirSync(d, { recursive: true });
-    const body = matter.stringify('# placeholder\n', {
-      schema_version: 2,
-      nodes_hash: 'sha256:placeholder',
-      node_count: 0,
-      summary,
-    });
-    writeFileSync(join(d, 'index.md'), body);
+    setFolderSummary(root, dir, summary);
   }
 
   function summaryOf(content: string): string | undefined {
@@ -219,13 +214,18 @@ describe('generateIndex self-preserves the folder summary', () => {
       { dir: 'topic', kind: 'map', id: 'map-a', title: 'A', summary: 'leaf summary' },
       { dir: 'bare', kind: 'map', id: 'map-b', title: 'B', summary: 'leaf summary' },
     ]);
-    // Author a summary into one folder's index.md; leave the other bare.
+    // Author a summary into the sidecar for one folder; leave the other bare.
     writeFolderIndexWithSummary('topic', 'how we cluster topical knowledge');
 
     const out = generateIndex(root);
-    // The authored summary is carried verbatim into the regenerated frontmatter.
-    expect(summaryOf(out.folders.get('topic')!.content)).toBe('how we cluster topical knowledge');
-    // A folder with no prior index.md emits no summary key (not summary: "").
+    // The authored summary is stored in the sidecar and rendered into parent
+    // descent pointers, not into reserved index frontmatter.
+    expect(readFolderSummaries(root).get('topic')).toBe('how we cluster topical knowledge');
+    expect(out.folders.get('')!.content).toContain(
+      'for more information on how we cluster topical knowledge.'
+    );
+    expect(summaryOf(out.folders.get('topic')!.content)).toBeUndefined();
+    // A folder with no prior sidecar entry emits no summary key (not summary: "").
     const bare = out.folders.get('bare')!.content;
     expect(summaryOf(bare)).toBeUndefined();
     expect(bare).not.toContain('summary:');
@@ -265,27 +265,22 @@ describe('generateIndex self-preserves the folder summary', () => {
     seedNodes(root, [{ dir: 'topic', kind: 'map', id: 'map-a', title: 'A', summary: 's' }]);
     const authored = 'verbatim text with punctuation: keep it.';
     writeFolderIndexWithSummary('topic', authored);
-    expect(summaryOf(generateIndex(root).folders.get('topic')!.content)).toBe(authored);
+    generateIndex(root);
+    expect(readFolderSummaries(root).get('topic')).toBe(authored);
   });
 
   it('preserves a hand-authored summary even when other index frontmatter is malformed', () => {
     seedNodes(root, [{ dir: 'topic', kind: 'map', id: 'map-a', title: 'A', summary: 's' }]);
-    // A human hand-edits the folder summary but leaves a malformed nodes_hash and
-    // an out-of-schema node_count. The authored summary must still survive: it is
-    // harvested independently of the machine-owned fields the rebuild recomputes.
+    // A malformed generated index cannot erase the sidecar-owned summary.
+    setFolderSummary(root, 'topic', 'hand-authored, must survive');
     const d = join(root, 'topic');
     mkdirSync(d, { recursive: true });
-    writeFileSync(
-      join(d, 'index.md'),
-      matter.stringify('# hand edited\n', {
-        schema_version: 2,
-        nodes_hash: 12345, // wrong type (number, not string)
-        node_count: 'lots', // wrong type (string, not number)
-        summary: 'hand-authored, must survive',
-      })
-    );
+    writeFileSync(join(d, 'index.md'), '---\nnodes_hash: [unterminated\n---\n# hand edited\n');
     const out = generateIndex(root);
-    expect(summaryOf(out.folders.get('topic')!.content)).toBe('hand-authored, must survive');
+    expect(readFolderSummaries(root).get('topic')).toBe('hand-authored, must survive');
+    expect(out.folders.get('')!.content).toContain(
+      'for more information on hand-authored, must survive.'
+    );
     // ...and the folder is NOT mislabeled as missing a summary on this rebuild.
     expect(out.foldersMissingSummary).not.toContain('topic');
   });
@@ -313,8 +308,8 @@ describe('generateIndex self-preserves the folder summary', () => {
     writeFolderIndexWithSummary('b', 'summary for folder b');
 
     const before = generateIndex(root);
-    const bSummaryBefore = summaryOf(before.folders.get('b')!.content);
-    const bHashBefore = matter(before.folders.get('b')!.content).data.nodes_hash;
+    const bContentBefore = before.folders.get('b')!.content;
+    const bSummaryBefore = readFolderSummaries(root).get('b');
 
     // Edit a leaf in folder a only.
     seedNodes(root, [
@@ -322,10 +317,10 @@ describe('generateIndex self-preserves the folder summary', () => {
     ]);
 
     const after = generateIndex(root);
-    // Folder b's summary AND its per-folder nodes_hash are untouched: a leaf edit
-    // in folder a perturbs neither (hash localization + self-preserve).
-    expect(summaryOf(after.folders.get('b')!.content)).toBe(bSummaryBefore);
-    expect(matter(after.folders.get('b')!.content).data.nodes_hash).toBe(bHashBefore);
+    // Folder b's summary and generated index stay untouched by an edit in a
+    // different folder.
+    expect(readFolderSummaries(root).get('b')).toBe(bSummaryBefore);
+    expect(after.folders.get('b')!.content).toBe(bContentBefore);
   });
 });
 
@@ -358,17 +353,7 @@ describe('generateIndex actionable rendering', () => {
   const DIRECTIVE_MARKER = '> kenkeep navigation:';
 
   function writeFolderIndexWithSummary(dir: string, summary: string): void {
-    const d = dir ? join(root, ...dir.split('/')) : root;
-    mkdirSync(d, { recursive: true });
-    writeFileSync(
-      join(d, 'index.md'),
-      matter.stringify('# placeholder\n', {
-        schema_version: 2,
-        nodes_hash: 'sha256:placeholder',
-        node_count: 0,
-        summary,
-      })
-    );
+    setFolderSummary(root, dir, summary);
   }
 
   it('splices a child folder summary into a Load pointer and falls back to the Title-cased name', () => {
@@ -516,8 +501,8 @@ describe('generateIndex actionable rendering', () => {
     expect(out.folders.get('')!.content).toContain(
       'for more information on edge \\] cases and \\`code\\`.'
     );
-    // The folder's own frontmatter keeps the authored summary byte-for-byte.
-    expect(matter(out.folders.get('child')!.content).data.summary).toBe('edge ] cases and `code`');
+    // The sidecar keeps the authored summary byte-for-byte.
+    expect(readFolderSummaries(root).get('child')).toBe('edge ] cases and `code`');
   });
 });
 
@@ -614,7 +599,7 @@ describe('generateGraph', () => {
     expect(out.content).toContain('## practice-a');
     expect(out.content).toContain('## map-b');
     expect(out.content).toContain('Total nodes: 2');
-    expect(out.content).toMatch(/schema_version:\s*2/);
+    expect(out.content).toMatch(/schema_version:\s*3/);
     // Regression: removed per-node lines must not reappear.
     expect(out.content).not.toContain('**status:**');
     expect(out.content).not.toContain('**supersedes:**');

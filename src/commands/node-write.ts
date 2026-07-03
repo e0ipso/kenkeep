@@ -122,23 +122,23 @@ export async function runNodeWriteCommand(
 
     const body = await readBody(args.flags.from, deps);
 
-    const existingIds = new Set(readAllNodes(paths.nodesDir).map(n => n.frontmatter.id));
+    const existingIds = new Set(readAllNodes(paths.nodesDir).map(n => n.frontmatter.kk_id));
     const baseId = deriveNodeId(kind, slug);
     const id = ensureUniqueId(existingIds, baseId);
 
     // Build + validate frontmatter BEFORE any disk write so a schema
     // failure leaves no partial file on disk.
     const candidate: NodeFrontmatter = {
-      schema_version: NODE_SCHEMA_VERSION,
-      id,
+      type: kind,
       title,
-      kind,
+      description: summary,
       tags,
-      derived_from: [],
-      relates_to: relatesTo,
-      depends_on: dependsOn,
-      confidence,
-      summary,
+      kk_schema_version: NODE_SCHEMA_VERSION,
+      kk_id: id,
+      kk_derived_from: [],
+      kk_relates_to: relatesTo,
+      kk_depends_on: dependsOn,
+      kk_confidence: confidence,
     };
     const validated = NodeFrontmatterSchema.safeParse(candidate);
     if (!validated.success) {

@@ -1,25 +1,25 @@
 ---
-schema_version: 2
-id: practice-review-nodes-via-git
+type: practice
 title: Review node changes via git
-kind: practice
+description: >-
+  All node changes are reviewed via git diff: accept with git commit, reject
+  with git restore. Same for curator and bootstrap output.
 tags:
   - review
   - git
   - workflow
-derived_from:
+kk_schema_version: 3
+kk_id: practice-review-nodes-via-git
+kk_derived_from:
   - README.md
   - docs/how-it-works.md
   - docs/daily-use.md
   - docs/troubleshooting.md
-relates_to:
+kk_relates_to:
   - map-curate-command
   - map-kk-bootstrap-skill
-depends_on: []
-confidence: high
-summary: >-
-  All node changes are reviewed via git diff; accept with git commit, reject
-  with git restore. Same workflow for curator output and bootstrap output.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Review node changes via git
@@ -37,3 +37,19 @@ Every path that writes to `nodes/` (the curator, `/kk-bootstrap`, `bootstrap-inc
 - Don't invent in-place "accept" mechanisms in skills or CLIs; defer to `git commit` and `git restore`.
 - The pre-commit hook (when wired via lint-staged with `index rebuild --stage`) regenerates `ENTRY.md`/`GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes — don't bypass that hook.
 - For curator-detected contradictions, let the `/kk-curate` skill walk the conflict files with the user; that's the authoritative resolution path, not a separate manual edit.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [README.md](README.md)
+[2] [docs/how-it-works.md](docs/how-it-works.md)
+[3] [docs/daily-use.md](docs/daily-use.md)
+[4] [docs/troubleshooting.md](docs/troubleshooting.md)
+<!-- kk:citations:end -->

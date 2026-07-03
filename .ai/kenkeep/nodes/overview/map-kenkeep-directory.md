@@ -1,16 +1,19 @@
 ---
-schema_version: 2
-id: map-kenkeep-directory
+type: map
 title: .ai/kenkeep/ directory layout
-kind: map
+description: >-
+  Per-repo scaffold at .ai/kenkeep/: nodes/, ENTRY/GRAPH, _sessions/, _logs/,
+  .state/, .config/prompts/, conflicts/.
 tags:
   - layout
   - state
   - directory
-derived_from:
+kk_schema_version: 3
+kk_id: map-kenkeep-directory
+kk_derived_from:
   - docs/internals/architecture.md
   - docs/installation.md
-relates_to:
+kk_relates_to:
   - map-nodes-directory
   - map-session-log
   - map-entry-md
@@ -19,11 +22,8 @@ relates_to:
   - map-bootstrap-state-file
   - map-config-yaml
   - map-conflict-files
-depends_on: []
-confidence: high
-summary: >-
-  Per-repo scaffold at .ai/kenkeep/: nodes/, ENTRY/GRAPH, _sessions/, _logs/,
-  .state/, .config/prompts/, conflicts/.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `.ai/kenkeep/` directory layout
@@ -45,3 +45,23 @@ Created by `init`. Same layout across all five harnesses.
 | `config.yaml` | Project settings (committed). |
 
 The package installs a managed block in the repo `.gitignore` for the runtime state files (`_sessions/`, `_logs/`, `state.json`, `bootstrap-state.json`).
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-nodes-directory](/node-schema/map-nodes-directory.md)
+- Related: [map-session-log](/state/map-session-log.md)
+- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [map-graph-md](/index/map-graph-md.md)
+- Related: [map-state-file](/state/map-state-file.md)
+- Related: [map-bootstrap-state-file](/bootstrap/map-bootstrap-state-file.md)
+- Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
+- Related: [map-conflict-files](/curation/map-conflict-files.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/architecture.md](docs/internals/architecture.md)
+[2] [docs/installation.md](docs/installation.md)
+<!-- kk:citations:end -->

@@ -63,12 +63,12 @@ describe('session-log update-proposals CLI', () => {
     const payload = JSON.stringify({
       practice: [
         {
-          kind: 'practice',
+          type: 'practice',
           tags: ['test'],
           title: 'Test',
-          summary: 'Test summary',
+          description: 'Test summary',
           body: 'Test body',
-          confidence: 'high',
+          kk_confidence: 'high',
         },
       ],
       map: [],

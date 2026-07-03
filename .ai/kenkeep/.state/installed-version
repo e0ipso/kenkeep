@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "package": "kenkeep",
-  "version": "1.7.0",
-  "installed_at": "2026-06-22T21:42:40.276Z",
+  "version": "1.11.3",
+  "installed_at": "2026-07-02T08:11:49.424Z",
   "harnesses": [
-    "claude",
     "codex",
-    "opencode",
-    "cursor"
+    "claude",
+    "cursor",
+    "opencode"
   ]
 }

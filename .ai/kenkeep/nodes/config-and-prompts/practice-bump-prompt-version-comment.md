@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: practice-bump-prompt-version-comment
+type: practice
 title: Bump the prompt's Version comment on every behavior change
-kind: practice
+description: >-
+  Each prompt template carries a top-of-file Version: N comment. Bump it on
+  every behavior change; logs record it so audits stay coherent.
 tags:
   - prompts
   - versioning
   - audit
-derived_from:
+kk_schema_version: 3
+kk_id: practice-bump-prompt-version-comment
+kk_derived_from:
   - docs/internals/prompts.md
   - docs/troubleshooting.md
   - CONTRIBUTING.md
-relates_to:
+kk_relates_to:
   - practice-local-prompt-overrides-fall-back-to-bundled
-depends_on: []
-confidence: high
-summary: >-
-  Each prompt template carries a top-of-file Version: N comment. Bump it on
-  every behavior change; logs record the prompt so audits remain coherent.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Bump the prompt's `Version:` comment on every behavior change
@@ -31,3 +31,17 @@ Every `src/templates-source/prompts/*.md` (and the equivalent skill commands) ca
 - Behavior changes (rewording skip rules, adding examples, tightening output schema description) → bump the version.
 - Pure typo fixes or formatting changes that cannot affect model output → no bump required, but document in commit message.
 - When deploying via `init --upgrade`, sentinel comments and local overrides are preserved; the upgrade refreshes only the bundled fallback. If a user has a local override, they need to merge in the new version themselves.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-local-prompt-overrides-fall-back-to-bundled](/config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/prompts.md](docs/internals/prompts.md)
+[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+[3] [CONTRIBUTING.md](CONTRIBUTING.md)
+<!-- kk:citations:end -->

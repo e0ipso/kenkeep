@@ -39,7 +39,7 @@ Rebalance moves land in this same diff (act-and-fold), reviewed alongside the no
 
 ## 4. Recall (automatic)
 
-At the start of every session a hook injects the knowledge base back into your assistant — like capture, you don't run it. It injects **only** the entry catalog (`ENTRY.md`, the catalog of top-level branches), never the whole base, plus a directive to descend by relevance. This is **progressive disclosure**: the assistant reads the root, picks the branches whose intent and tags match the task, and opens only the leaf notes it needs, following `relates_to` / `depends_on` cross-edges to related notes in other branches. The injected payload stays small no matter how large the knowledge base grows.
+At the start of every session a hook injects the knowledge base back into your assistant — like capture, you don't run it. It injects **only** the entry catalog (`ENTRY.md`, the catalog of top-level branches), never the whole base, plus a directive to descend by relevance. This is **progressive disclosure**: the assistant reads the root, picks the branches whose intent and tags match the task, and opens only the leaf notes it needs, following `kk_relates_to` / `kk_depends_on` cross-edges to related notes in other branches. The injected payload stays small no matter how large the knowledge base grows.
 
 <p align="center">
   <img src="{{ '/assets/images/progressive-disclosure.png' | relative_url }}" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" />
@@ -47,11 +47,11 @@ At the start of every session a hook injects the knowledge base back into your a
 
 ## What's stored
 
-Every kept fact is a markdown file (a **leaf node**) under `nodes/`, in a tree of topical folders. Each note has a `kind`:
+Every kept fact is a markdown file (a **leaf node**) under `nodes/`, in a tree of topical folders. The `nodes/` tree is an OKF v0.1 bundle, and each leaf has a `type`:
 
 - **Practice**: _how we build._ Conventions, prohibitions, gotchas.
 - **Map**: _what exists._ Modules, services, vocabulary.
 
-`kind` is a label, not a location — folders are topical. Every folder also has a generated `index.md` (an **index node**): an actionable table-of-contents with verb-first `Load …` (descend) and `Open …` (read a note) pointers that splice in each target's one-line summary, an embedded "how to descend" directive, a parent breadcrumb, and a "By topic" section pointing at the most relevant notes per tag — and no bookkeeping statistics. Each folder's summary is a one-line description carried in its index frontmatter and preserved across rebuilds; it is written only when the LLM clusters folders (during migrate or rebalance) or by hand. Notes link by `id`, never by path, so a note can move without breaking a reference. `GRAPH.md` is the cross-reference graph the harness reads on demand. The `index.md` files regenerate automatically; everything is plain text, diffable and version-controlled like any code. Full frontmatter shape: [Schemas](internals/schemas.md).
+`type` is a label, not a location — folders are topical. Every folder also has a generated `index.md` (an OKF reserved index file): an actionable table-of-contents with verb-first `Load …` (descend) and `Open …` (read a note) pointers that splice in each target's `description`, an embedded "how to descend" directive, a parent breadcrumb, and a "By topic" section pointing at the most relevant notes per tag — and no bookkeeping statistics. Folder summaries live in the committed `FOLDER_SUMMARIES.md` sidecar and are preserved across rebuilds; they are written only when the LLM clusters folders (during migrate or rebalance) or by hand. Notes link by `kk_id`, never by path, so a note can move without breaking a reference. `GRAPH.md` is the cross-reference graph the harness reads on demand. The `index.md` files regenerate automatically; everything is plain text, diffable and version-controlled like any code. Full frontmatter shape: [Schemas](internals/schemas.md).
 
 For how the AI actually runs inside your harness session, see [Internals, Architecture](internals/architecture.md).

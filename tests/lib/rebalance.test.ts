@@ -36,15 +36,15 @@ function leaf(opts: {
     relDir,
     body: 'x'.repeat(opts.bodyChars ?? 10),
     frontmatter: {
-      schema_version: 2,
-      id: opts.id,
+      kk_schema_version: 3,
+      kk_id: opts.id,
       title: opts.id,
-      kind: 'practice',
+      type: 'practice',
+      description: 's',
       tags: opts.tags ?? [],
-      derived_from: opts.derived_from ?? [],
-      relates_to: opts.relates_to ?? [],
-      confidence: 'high',
-      summary: 's',
+      kk_derived_from: opts.derived_from ?? [],
+      kk_relates_to: opts.relates_to ?? [],
+      kk_confidence: 'high',
     },
   };
 }

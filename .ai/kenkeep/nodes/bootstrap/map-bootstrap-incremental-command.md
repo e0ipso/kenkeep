@@ -1,25 +1,25 @@
 ---
-schema_version: 2
-id: map-bootstrap-incremental-command
+type: map
 title: bootstrap-incremental (CLI)
-kind: map
+description: >-
+  Headless, hash-aware bootstrap from markdown docs: spawns the harness driver,
+  batches docs in 20s, records SHA-256 in bootstrap-state.json.
 tags:
   - cli
   - bootstrap
   - deterministic
-derived_from:
+kk_schema_version: 3
+kk_id: map-bootstrap-incremental-command
+kk_derived_from:
   - docs/installation.md
   - docs/daily-use.md
-relates_to:
+kk_relates_to:
   - map-kk-bootstrap-skill
   - map-bootstrap-state-file
   - practice-bootstrap-never-overwrites-existing-nodes
   - practice-dont-run-llm-pipelines-in-ci
-depends_on: []
-confidence: high
-summary: >-
-  Headless, hash-aware bootstrap from existing markdown docs. Spawns the harness
-  headless driver, batches docs in 20s, records SHA-256 in bootstrap-state.json.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `bootstrap-incremental` (CLI)
@@ -42,3 +42,19 @@ Locking: the command itself takes no `state.json` lock (single-author). The `nod
 Per-spawn model selection from `bootstrapModel: { name, effort }` in `config.yaml`.
 
 Static file-discovery skips (applied by the CLI before any LLM call): `.gitignore`, the project's include/exclude rules, and a static skip list — `LICENSE`, `CHANGELOG`, `CODE_OF_CONDUCT`, `CONTRIBUTORS`, `ENTRY.md`, `GRAPH.md`, `releases/**/*.md`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+- Related: [map-bootstrap-state-file](/bootstrap/map-bootstrap-state-file.md)
+- Related: [practice-bootstrap-never-overwrites-existing-nodes](/bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
+- Related: [practice-dont-run-llm-pipelines-in-ci](/conventions/practice-dont-run-llm-pipelines-in-ci.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/daily-use.md](docs/daily-use.md)
+<!-- kk:citations:end -->

@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeSandbox, cleanSandbox, runCli } from '../helpers.js';
+import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 
 const exec = promisify(execFile);
 
@@ -33,7 +34,7 @@ function writeFlatLeaf(nodesDir: string, id: string, kind: 'practice' | 'map'): 
   writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\n\nBody of ${id}.`, fm));
 }
 
-/** Write a nested-tree leaf carrying the current `schema_version: 2`. */
+/** Write a nested-tree leaf carrying the previous `schema_version: 2`. */
 function writeTreeLeaf(nodesDir: string, folder: string, id: string): void {
   const dir = join(nodesDir, folder);
   mkdirSync(dir, { recursive: true });
@@ -63,7 +64,7 @@ describe('migrate status (dispatch primitive)', () => {
     cleanSandbox(sandbox);
   });
 
-  it('on a v1 flat KB emits exactly one JSON line with the single flat-to-tree step', async () => {
+  it('on a v1 flat KB emits one JSON line with the full pending step chain', async () => {
     const nodesDir = join(sandbox, NODES_REL);
     writeFlatLeaf(nodesDir, 'practice-alpha', 'practice');
     writeFlatLeaf(nodesDir, 'map-beta', 'map');
@@ -77,20 +78,26 @@ describe('migrate status (dispatch primitive)', () => {
     const payload = JSON.parse(lines[0]!);
     expect(payload).toEqual({
       current: 1,
-      target: 2,
+      target: NODE_SCHEMA_VERSION,
       steps: [
         { id: 'flat-to-tree', from: 1, to: 2, primitives: ['place inventory', 'place apply'] },
+        { id: 'okf-v3', from: 2, to: 3, primitives: ['migrate okf-v3'] },
       ],
     });
   });
 
-  it('on a current v2 nested KB reports nothing to do and exits 0', async () => {
+  it('on a v2 nested KB reports the deterministic OKF migration step', async () => {
     const nodesDir = join(sandbox, NODES_REL);
     writeTreeLeaf(nodesDir, 'workflow', 'practice-alpha');
 
     const res = await runCli(sandbox, ['migrate', 'status']);
     expect(res.exitCode).toBe(0);
-    expect(res.stdout).toContain('already at schema_version 2; nothing to do.');
+    const payload = JSON.parse(res.stdout.trim());
+    expect(payload).toEqual({
+      current: 2,
+      target: NODE_SCHEMA_VERSION,
+      steps: [{ id: 'okf-v3', from: 2, to: 3, primitives: ['migrate okf-v3'] }],
+    });
   });
 
   it('with no knowledge base reports nothing to do and exits 0', async () => {

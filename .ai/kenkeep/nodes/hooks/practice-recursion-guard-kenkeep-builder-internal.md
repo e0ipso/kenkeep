@@ -1,25 +1,24 @@
 ---
-schema_version: 2
-id: practice-recursion-guard-kenkeep-builder-internal
+type: practice
 title: CLI launchers must set KENKEEP_BUILDER_INTERNAL=1 on the harness child
-kind: practice
+description: >-
+  CLI launchers and the proposal-drain hook set KENKEEP_BUILDER_INTERNAL=1 on
+  the harness child so nested SessionStart hooks don't re-fire.
 tags:
   - recursion
   - hooks
   - env
-derived_from:
+kk_schema_version: 3
+kk_id: practice-recursion-guard-kenkeep-builder-internal
+kk_derived_from:
   - docs/internals/hooks.md
   - docs/troubleshooting.md
-relates_to:
+kk_relates_to:
   - map-capture-hook
   - map-proposal-drain-hook
   - map-session-start-hook
-depends_on: []
-confidence: high
-summary: >-
-  The CLI launchers (bootstrap, curate, node add) and the proposal-drain hook
-  must set KENKEEP_BUILDER_INTERNAL=1 on the harness child they exec so the
-  nested session's SessionStart hooks do not re-fire.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # CLI launchers must set `KENKEEP_BUILDER_INTERNAL=1` on the harness child
@@ -37,3 +36,18 @@ Without the guard, a launcher's nested harness session would fire its own Sessio
 
 - Any new code path that execs a harness (`claude -p`, `codex exec`, `agent -p`, `opencode run`, etc.) for internal pipeline work must set `KENKEEP_BUILDER_INTERNAL=1` in the child's environment.
 - A wrapper script around the harness CLI that leaks the var into a normal user session breaks capture (one of the documented "nothing is being captured" causes). When wrapping the harness CLI, only propagate the var into intentionally-internal subprocesses.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-capture-hook](/hooks/map-capture-hook.md)
+- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/hooks.md](docs/internals/hooks.md)
+[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+<!-- kk:citations:end -->

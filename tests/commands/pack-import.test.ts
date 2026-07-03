@@ -7,6 +7,8 @@ import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { acquirePackSource, runPackImportCommand } from '../../src/commands/pack-import.js';
 import type { AcquiredPack } from '../../src/commands/pack-import.js';
+import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
+import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 import { defaultProjectConfigBody } from '../../src/lib/settings.js';
 
@@ -16,7 +18,7 @@ function writePackManifest(root: string, overrides: Record<string, unknown> = {}
   const values = {
     name: 'drupal',
     version: '1.2.0',
-    schema_version: 2,
+    schema_version: NODE_SCHEMA_VERSION,
     summary: 'Drupal project conventions.',
     homepage: 'https://example.com/drupal-pack',
     ...overrides,
@@ -25,14 +27,14 @@ function writePackManifest(root: string, overrides: Record<string, unknown> = {}
   writeFileSync(join(root, 'kenkeep-pack.yaml'), `${lines.join('\n')}\n`);
 }
 
-function writeIndex(dir: string, summary?: string): void {
-  const frontmatter: Record<string, unknown> = {
-    schema_version: 2,
-    nodes_hash: 'sha256:test',
-    node_count: 1,
-  };
-  if (summary !== undefined) frontmatter.summary = summary;
-  writeFileSync(join(dir, 'index.md'), matter.stringify('# Index\n', frontmatter));
+// v3 OKF reserved index files: only the bundle root (pack knowledge/) declares
+// okf_version; ordinary folder indexes carry no frontmatter.
+function writeIndex(dir: string, opts: { root?: boolean } = {}): void {
+  const body = '# Index\n';
+  writeFileSync(
+    join(dir, 'index.md'),
+    opts.root ? matter.stringify(body, { okf_version: '0.1' }) : body
+  );
 }
 
 function writePackNode(
@@ -44,26 +46,26 @@ function writePackNode(
 ): void {
   const dir = join(packRoot, 'knowledge', relDir);
   mkdirSync(dir, { recursive: true });
-  writeIndex(dir, `${relDir} summary`);
+  writeIndex(dir);
   const fm: NodeFrontmatter = {
-    schema_version: 2,
-    id,
+    kk_schema_version: NODE_SCHEMA_VERSION,
+    kk_id: id,
     title: id,
-    kind,
+    type: kind,
     tags: ['pack'],
-    derived_from: [],
-    relates_to: [],
-    depends_on: [],
-    confidence: 'high',
-    summary: `Summary for ${id}.`,
+    kk_derived_from: [],
+    kk_relates_to: [],
+    kk_depends_on: [],
+    kk_confidence: 'high',
+    description: `Summary for ${id}.`,
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify(body, fm));
 }
 
-function writePack(root: string, opts: { rootSummary?: string | undefined } = {}): string {
+function writePack(root: string): string {
   mkdirSync(join(root, 'knowledge'), { recursive: true });
   writePackManifest(root);
-  writeIndex(join(root, 'knowledge'), opts.rootSummary);
+  writeIndex(join(root, 'knowledge'), { root: true });
   writePackNode(root, 'framework', 'practice', 'practice-drupal-services');
   writePackNode(root, 'framework', 'map', 'map-drupal-hooks');
   return root;
@@ -73,16 +75,16 @@ function writeProjectNode(root: string, relDir: string, kind: NodeKind, id: stri
   const dir = join(root, '.ai/kenkeep/nodes', relDir);
   mkdirSync(dir, { recursive: true });
   const fm: NodeFrontmatter = {
-    schema_version: 2,
-    id,
+    kk_schema_version: NODE_SCHEMA_VERSION,
+    kk_id: id,
     title: id,
-    kind,
+    type: kind,
     tags: ['existing'],
-    derived_from: [],
-    relates_to: [],
-    depends_on: [],
-    confidence: 'high',
-    summary: `Summary for ${id}.`,
+    kk_derived_from: [],
+    kk_relates_to: [],
+    kk_depends_on: [],
+    kk_confidence: 'high',
+    description: `Summary for ${id}.`,
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify('# Existing\n', fm));
 }
@@ -252,9 +254,7 @@ describe('pack import command', () => {
 
   it('sets the imported branch summary from the manifest when the pack root index lacks one', async () => {
     rmSync(packRoot, { recursive: true, force: true });
-    packRoot = writePack(mkdtempSync(join(tmpdir(), 'kk-pack-fixture-')), {
-      rootSummary: undefined,
-    });
+    packRoot = writePack(mkdtempSync(join(tmpdir(), 'kk-pack-fixture-')));
 
     const result = await capture(() =>
       runPackImportCommand('fixture', {
@@ -263,10 +263,10 @@ describe('pack import command', () => {
     );
 
     expect(result.code).toBe(0);
-    const index = matter(
-      readFileSync(join(sandbox, '.ai/kenkeep/nodes/drupal/index.md'), 'utf8')
-    ).data;
-    expect(index.summary).toBe('Drupal project conventions.');
+    // v3 folder summaries live in the committed sidecar, not index.md
+    // frontmatter; the imported branch summary falls back to the manifest.
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('drupal')).toBe('Drupal project conventions.');
   });
 
   it('returns validation errors without writing on an invalid pack', async () => {
@@ -290,7 +290,7 @@ describe('pack source acquisition', () => {
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), 'kk-pack-acquire-'));
-    packRoot = writePack(join(tmp, 'wrapped-pack'), { rootSummary: 'Wrapped summary.' });
+    packRoot = writePack(join(tmp, 'wrapped-pack'));
   });
 
   afterEach(() => {

@@ -75,12 +75,12 @@ describe('node write primitive', () => {
     const file = join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md');
     expect(existsSync(file)).toBe(true);
     const parsed = matter(readFileSync(file, 'utf8'));
-    expect(parsed.data['id']).toBe('practice-use-foo');
-    expect(parsed.data['kind']).toBe('practice');
+    expect(parsed.data['kk_id']).toBe('practice-use-foo');
+    expect(parsed.data['type']).toBe('practice');
     expect(parsed.data['title']).toBe('Use Foo');
-    expect(parsed.data['summary']).toBe('How to use foo');
+    expect(parsed.data['description']).toBe('How to use foo');
     expect(parsed.data['tags']).toEqual(['a', 'b']);
-    expect(parsed.data['confidence']).toBe('high');
+    expect(parsed.data['kk_confidence']).toBe('high');
     expect(parsed.content).toContain('Details body.');
   });
 
@@ -90,15 +90,15 @@ describe('node write primitive', () => {
     writeFileSync(
       seedPath,
       matter.stringify('# Existing\nbody\n', {
-        schema_version: 2,
-        id: 'practice-foo',
+        kk_schema_version: 3,
+        kk_id: 'practice-foo',
         title: 'Existing foo',
-        kind: 'practice',
+        type: 'practice',
+        description: 'seed',
         tags: [],
-        derived_from: [],
-        relates_to: [],
-        confidence: 'high',
-        summary: 'seed',
+        kk_derived_from: [],
+        kk_relates_to: [],
+        kk_confidence: 'high',
       })
     );
     const out = capturingStdout();
@@ -119,9 +119,9 @@ describe('node write primitive', () => {
     const collidedFile = join(cwd, '.ai/kenkeep/nodes/practice-foo-2.md');
     expect(existsSync(collidedFile)).toBe(true);
     const data = matter(readFileSync(collidedFile, 'utf8')).data as Record<string, unknown>;
-    expect(data['id']).toBe('practice-foo-2');
+    expect(data['kk_id']).toBe('practice-foo-2');
     // Original untouched.
-    expect(readFileSync(seedPath, 'utf8')).toContain('id: practice-foo');
+    expect(readFileSync(seedPath, 'utf8')).toContain('kk_id: practice-foo');
   });
 
   it('rejects invalid --confidence with nonzero exit and no partial file', async () => {

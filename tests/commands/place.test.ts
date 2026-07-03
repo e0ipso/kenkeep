@@ -6,8 +6,7 @@ import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detectSchemaVersion } from '../../src/lib/migrate.js';
-import { collectDanglingDerivedFrom } from '../../src/commands/doctor.js';
-import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
+import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
 import { makeSandbox, cleanSandbox, cliPath, runCli } from '../helpers.js';
 
 const exec = promisify(execFile);
@@ -61,10 +60,6 @@ function collectLeaves(dir: string): string[] {
     }
   }
   return out;
-}
-
-function parseFm(path: string): Record<string, unknown> {
-  return matter(readFileSync(path, 'utf8')).data as Record<string, unknown>;
 }
 
 /** A byte-snapshot of the whole nodes tree: relPath -> sha256 of contents. */
@@ -124,7 +119,7 @@ async function makeFlatKb(sandbox: string): Promise<string> {
 /**
  * Builds a nested-tree KB fixture whose leaf carries `schema_version: 0`:
  * `detectSchemaVersion` reads the minimum leaf version, so the tree reads as 0
- * — a migration is pending (< NODE_SCHEMA_VERSION) but not the flat-to-tree
+ * — a migration is pending, but not the flat-to-tree
  * step (≠ 1), hitting the step-gate refusal in both place modes.
  */
 async function makeNestedKbAtVersionZero(sandbox: string): Promise<string> {
@@ -165,7 +160,7 @@ describe('place (deterministic migration primitive)', () => {
     cleanSandbox(sandbox);
   });
 
-  it('apply places every leaf, preserves ids/edges/bytes, bumps only schema_version, and stamps folder summaries', async () => {
+  it('apply places every leaf, preserves ids/edges/bytes, bumps only schema_version to v2, and stamps folder summaries', async () => {
     const nodesDir = await makeFlatKb(sandbox);
     expect(detectSchemaVersion(nodesDir)).toBe(1);
 
@@ -220,9 +215,9 @@ describe('place (deterministic migration primitive)', () => {
       const parsed = matter(readFileSync(p, 'utf8'));
       const after = parsed.data as Record<string, unknown>;
       const priorFm = beforeFm.get(id)!;
-      // Id unchanged; schema_version bumped; every edge and other field byte-equal.
+      // Id unchanged; schema_version bumped to the flat-to-tree target; every edge and other field byte-equal.
       expect(after.id).toBe(id);
-      expect(after.schema_version).toBe(NODE_SCHEMA_VERSION);
+      expect(after.schema_version).toBe(2);
       expect(after.relates_to).toEqual(priorFm.relates_to);
       expect(after.depends_on).toEqual(priorFm.depends_on);
       expect(after.derived_from).toEqual(priorFm.derived_from);
@@ -235,14 +230,11 @@ describe('place (deterministic migration primitive)', () => {
       expect(parsed.content).toBe(beforeBody.get(id));
     }
 
-    // Each created folder's index.md carries its authored, non-empty summary
-    // (stamped by the primitive; the leaf relocation is not yet rebuilt).
-    for (const folder of ['workflow', 'storage']) {
-      const indexPath = join(nodesDir, folder, 'index.md');
-      expect(existsSync(indexPath), `${folder}/index.md exists`).toBe(true);
-      const fm = parseFm(indexPath);
-      expect(fm.summary).toBe(`things related to ${folder}`);
-    }
+    // Each created folder's authored, non-empty summary is stamped into the
+    // sidecar; the leaf relocation is not yet rebuilt.
+    const folderSummaries = readFolderSummaries(nodesDir);
+    expect(folderSummaries.get('workflow')).toBe('things related to workflow');
+    expect(folderSummaries.get('storage')).toBe('things related to storage');
 
     // No git was invoked: the working tree is left dirty for the human to review.
     const status = await exec('git', ['status', '--porcelain'], { cwd: sandbox });
@@ -300,9 +292,9 @@ describe('place (deterministic migration primitive)', () => {
     expect(existsSync(join(nodesDir, 'ghost'))).toBe(false);
   });
 
-  it('apply refuses on a current v2 tree before reading the placement document, leaving zero filesystem changes', async () => {
+  it('apply refuses after the flat-to-tree step before reading the placement document, leaving zero filesystem changes', async () => {
     const nodesDir = await makeFlatKb(sandbox);
-    // Bring the KB to the current schema version via the normal flow.
+    // Bring the KB through the flat-to-tree step via the normal flow.
     const plan = {
       placements: [
         { id: 'practice-alpha', targetFolder: 'core' },
@@ -314,20 +306,20 @@ describe('place (deterministic migration primitive)', () => {
     const planPath = join(sandbox, 'plan.json');
     writeFileSync(planPath, JSON.stringify(plan));
     expect((await runCli(sandbox, ['place', 'apply', '--input', planPath])).exitCode).toBe(0);
-    expect(detectSchemaVersion(nodesDir)).toBe(NODE_SCHEMA_VERSION);
+    expect(detectSchemaVersion(nodesDir)).toBe(2);
 
     // The step gate fires before the input is even read: /dev/null is never a
     // factor, and the refusal points the caller at the dispatch primitive.
     const before = snapshotTree(nodesDir);
     const res = await runCli(sandbox, ['place', 'apply', '--input', '/dev/null']);
     expect(res.exitCode).toBe(1);
-    expect(res.stderr).toMatch(new RegExp(`already at schema_version ${NODE_SCHEMA_VERSION}`));
+    expect(res.stderr).toMatch(/step pending from schema_version 2 is 'okf-v3'/);
     expect(res.stderr).toMatch(/kenkeep migrate status/);
 
     // Zero filesystem changes: every file under nodes/ is byte-identical.
     const after = snapshotTree(nodesDir);
     expect([...after.entries()].sort()).toEqual([...before.entries()].sort());
-    expect(detectSchemaVersion(nodesDir)).toBe(NODE_SCHEMA_VERSION);
+    expect(detectSchemaVersion(nodesDir)).toBe(2);
   });
 
   it('inventory and apply both refuse when the pending migration starts from a version other than 1', async () => {
@@ -335,7 +327,7 @@ describe('place (deterministic migration primitive)', () => {
     expect(detectSchemaVersion(nodesDir)).toBe(0);
     const before = snapshotTree(nodesDir);
 
-    // Inventory: pending (0 < NODE_SCHEMA_VERSION) but not this primitive's
+    // Inventory: pending but not this primitive's
     // step — refuse, naming what the registry knows about the detected version.
     const inv = await runCli(sandbox, ['place', 'inventory']);
     expect(inv.exitCode).toBe(1);
@@ -360,7 +352,7 @@ describe('place (deterministic migration primitive)', () => {
     expect(detectSchemaVersion(nodesDir)).toBe(0);
   });
 
-  it('inventory emits the flat leaves as JSON when a migration is due, and reports nothing to do when current', async () => {
+  it('inventory emits flat leaves when v1 is due, then refuses when the OKF step is next', async () => {
     const nodesDir = await makeFlatKb(sandbox);
 
     // v1 KB: inventory emits a JSON document with every leaf id present.
@@ -377,8 +369,8 @@ describe('place (deterministic migration primitive)', () => {
       expect(leaf).toHaveProperty('sourcePath');
     }
 
-    // Migrate the KB (apply everything to one folder), then inventory reports
-    // "nothing to do" and exits 0 — the mode wiring, not the detector itself.
+    // Apply the flat-to-tree step, then inventory refuses because the next
+    // pending step is the deterministic OKF migration, not another placement.
     const plan = {
       placements: ids.map(id => ({ id, targetFolder: 'core' })),
       folders: [{ folder: 'core', summary: 'core notes' }],
@@ -386,11 +378,11 @@ describe('place (deterministic migration primitive)', () => {
     const planPath = join(sandbox, 'plan.json');
     writeFileSync(planPath, JSON.stringify(plan));
     expect((await runCli(sandbox, ['place', 'apply', '--input', planPath])).exitCode).toBe(0);
-    expect(detectSchemaVersion(nodesDir)).toBe(NODE_SCHEMA_VERSION);
+    expect(detectSchemaVersion(nodesDir)).toBe(2);
 
     const done = await runCli(sandbox, ['place', 'inventory']);
-    expect(done.exitCode).toBe(0);
-    expect(done.stdout.toLowerCase()).toContain('already at schema_version');
+    expect(done.exitCode).toBe(1);
+    expect(done.stderr).toMatch(/step pending from schema_version 2 is 'okf-v3'/);
     // Not a JSON payload: there is nothing to cluster.
     expect(() => JSON.parse(done.stdout.trim())).toThrow();
   });
@@ -403,7 +395,7 @@ describe('place (deterministic migration primitive)', () => {
     expect(res.stderr).toMatch(/never executes/i);
   });
 
-  it('after a place-apply migration no edge dangles (doctor dangling-ref detection finds nothing)', async () => {
+  it('after a place-apply migration derived_from bytes are preserved for the next migration step', async () => {
     const nodesDir = await makeFlatKb(sandbox);
     // derived_from references must resolve on disk; point one leaf at a real
     // session file and a real doc so a dangling reference would be caught.
@@ -437,7 +429,8 @@ describe('place (deterministic migration primitive)', () => {
     writeFileSync(planPath, JSON.stringify(plan));
     expect((await runCli(sandbox, ['place', 'apply', '--input', planPath])).exitCode).toBe(0);
 
-    const dangling = collectDanglingDerivedFrom(sandbox, nodesDir, sessionsDir);
-    expect(dangling).toEqual([]);
+    const moved = matter(readFileSync(join(nodesDir, 'workflow', 'practice-alpha.md'), 'utf8'));
+    expect(moved.data.derived_from).toEqual(['session-a.md', 'docs/auth.md']);
+    expect(detectSchemaVersion(nodesDir)).toBe(2);
   });
 });

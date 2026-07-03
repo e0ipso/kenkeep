@@ -8,24 +8,24 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runPackExportCommand } from '../../src/commands/pack-export.js';
 import { validatePack } from '../../src/lib/pack.js';
+import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter, NodeKind, PackManifest } from '../../src/lib/schemas.js';
 
-function writeIndex(dir: string, summary = 'Folder summary.'): void {
+// v3 OKF reserved index files: ordinary folder indexes carry no frontmatter;
+// only the bundle-root nodes/index.md declares okf_version. Folder summaries
+// live in the FOLDER_SUMMARIES.md sidecar (outside the bundle), not here.
+function writeIndex(dir: string): void {
   mkdirSync(dir, { recursive: true });
+  const body = '# Index\n';
   writeFileSync(
     join(dir, 'index.md'),
-    matter.stringify('# Index\n', {
-      schema_version: 2,
-      nodes_hash: 'sha256:test',
-      node_count: 1,
-      summary,
-    })
+    basename(dir) === 'nodes' ? matter.stringify(body, { okf_version: '0.1' }) : body
   );
 }
 
@@ -37,18 +37,18 @@ function writeNode(
   overrides: Partial<NodeFrontmatter> = {}
 ): void {
   const dir = join(root, '.ai/kenkeep/nodes', relDir);
-  writeIndex(dir, `${relDir} summary`);
+  writeIndex(dir);
   const fm: NodeFrontmatter = {
-    schema_version: 2,
-    id,
+    kk_schema_version: NODE_SCHEMA_VERSION,
+    kk_id: id,
     title: id,
-    kind,
+    type: kind,
     tags: overrides.tags ?? ['pack'],
-    derived_from: overrides.derived_from ?? [],
-    relates_to: overrides.relates_to ?? [],
-    depends_on: overrides.depends_on ?? [],
-    confidence: overrides.confidence ?? 'high',
-    summary: overrides.summary ?? `Summary for ${id}.`,
+    kk_derived_from: overrides.kk_derived_from ?? [],
+    kk_relates_to: overrides.kk_relates_to ?? [],
+    kk_depends_on: overrides.kk_depends_on ?? [],
+    kk_confidence: overrides.kk_confidence ?? 'high',
+    description: overrides.description ?? `Summary for ${id}.`,
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\nBody.\n`, fm));
 }
@@ -56,16 +56,16 @@ function writeNode(
 function seedKnowledgeBase(root: string): void {
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/nodes'), { recursive: true });
-  writeIndex(join(root, '.ai/kenkeep/nodes'), 'Root nodes summary.');
+  writeIndex(join(root, '.ai/kenkeep/nodes'));
   writeFileSync(join(root, '.ai/kenkeep/ENTRY.md'), '# ENTRY should not export\n');
   writeFileSync(join(root, '.ai/kenkeep/GRAPH.md'), '# GRAPH should not export\n');
   writeFileSync(join(root, '.ai/kenkeep/.state/usage.jsonl'), '{}\n');
   writeFileSync(join(root, '.ai/kenkeep/config.yaml'), 'schema_version: 1\n');
   writeNode(root, 'framework', 'practice', 'practice-drupal-services', {
-    relates_to: ['map-drupal-hooks'],
+    kk_relates_to: ['map-drupal-hooks'],
   });
   writeNode(root, 'framework', 'map', 'map-drupal-hooks', {
-    relates_to: ['practice-drupal-services'],
+    kk_relates_to: ['practice-drupal-services'],
   });
 }
 
@@ -148,7 +148,7 @@ describe('pack export command', () => {
     expect(manifest).toEqual({
       homepage: 'https://example.com/drupal',
       name: 'drupal',
-      schema_version: 2,
+      schema_version: NODE_SCHEMA_VERSION,
       summary: 'Drupal project conventions.',
       version: '1.2.0',
     });
@@ -186,12 +186,12 @@ describe('pack export command', () => {
     const manifest = yaml.load(
       readFileSync(join(sandbox, 'dist/kenkeep-pack.yaml'), 'utf8')
     ) as PackManifest;
-    expect(manifest.schema_version).toBe(2);
+    expect(manifest.schema_version).toBe(NODE_SCHEMA_VERSION);
   });
 
   it('fails on lint errors and leaves no partial output', async () => {
     writeNode(sandbox, 'broken', 'practice', 'practice-broken', {
-      relates_to: ['practice-missing'],
+      kk_relates_to: ['practice-missing'],
     });
 
     const result = await capture(() =>

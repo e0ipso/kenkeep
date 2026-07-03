@@ -1,23 +1,22 @@
 ---
-schema_version: 2
-id: map-proposal-candidate-schema
+type: map
 title: Proposal candidate schema
-kind: map
+description: >-
+  Shape emitted by proposal-extract per practice/map candidate;
+  supports_existing_node/contradicts_existing_node are the curator's join keys.
 tags:
   - schema
   - proposal
   - candidate
-derived_from:
+kk_schema_version: 3
+kk_id: map-proposal-candidate-schema
+kk_derived_from:
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-proposal-drain-hook
   - map-curator-action
-depends_on: []
-confidence: high
-summary: >-
-  Shape emitted by proposal-extract per practice/map candidate.
-  supports_existing_node / contradicts_existing_node are the curator's join
-  keys.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Proposal candidate schema
@@ -44,3 +43,16 @@ Top-level shape (`ProposalOutputSchema`):
 The two `*_existing_node` fields are how the curator joins candidates against the current `nodes/` tree without seeing every node body. Only nodes referenced by these fields are passed back to the curator in `existing_nodes`; if a candidate appears to overlap a node **not** in `existing_nodes`, the curator is instructed to `drop` it with a rationale naming the suspected overlap.
 
 The bootstrap variant (`BootstrapCandidateSchema`) is a superset that adds `derived_from`. In bootstrap output, both `*_existing_node` fields are always `null`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+- Related: [map-curator-action](/curation/map-curator-action.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

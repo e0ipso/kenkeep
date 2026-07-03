@@ -111,7 +111,7 @@ A pack repository root has this layout:
 ```yaml
 name: drupal
 version: 1.0.0
-schema_version: 2
+schema_version: 3
 summary: Drupal conventions for kenkeep-enabled projects
 homepage: https://github.com/e0ipso/kenkeep-pack-drupal
 ```

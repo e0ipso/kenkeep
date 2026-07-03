@@ -1,24 +1,23 @@
 ---
-schema_version: 2
-id: practice-determinism-contract
+type: practice
 title: Determinism contract for ENTRY/GRAPH generation
-kind: practice
+description: >-
+  computeNodesHash, generateIndex/Graph, slugify, deriveNodeId, ensureUniqueId
+  are pure; only crypto.randomUUID() (run_id) is random.
 tags:
   - determinism
   - indexing
   - testing
-derived_from:
+kk_schema_version: 3
+kk_id: practice-determinism-contract
+kk_derived_from:
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-nodes-hash
   - map-entry-md
   - map-graph-md
-depends_on: []
-confidence: high
-summary: >-
-  computeNodesHash, generateIndex, generateGraph, slugify, deriveNodeId,
-  ensureUniqueId are pure functions. Only randomness is crypto.randomUUID() for
-  run_id.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Determinism contract for ENTRY/GRAPH generation
@@ -37,3 +36,17 @@ The package depends on a strict determinism contract for everything that touches
 - Never introduce `Date.now()` or non-injected `new Date()` into the index/graph generators. Inject `now` via the same parameter the existing call sites use.
 - No `Math.random()` anywhere in the data path. If you genuinely need randomness, route it through `crypto.randomUUID()` and scope it to a single id mint.
 - No filesystem mtime reads in `computeNodesHash` or anything that contributes to `nodes_hash`. Hashing is by content.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-nodes-hash](/index/map-nodes-hash.md)
+- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [map-graph-md](/index/map-graph-md.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

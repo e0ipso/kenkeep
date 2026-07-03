@@ -100,7 +100,7 @@ export async function runPackImportCommand(
     let existingIds: Set<string>;
     let packNodes;
     try {
-      existingIds = new Set(readAllNodes(paths.nodesDir).map(node => node.frontmatter.id));
+      existingIds = new Set(readAllNodes(paths.nodesDir).map(node => node.frontmatter.kk_id));
       packNodes = readAllNodes(knowledgeDir);
     } catch (err) {
       if (err instanceof InvalidNodeFrontmatterError || err instanceof OldLayoutError) {
@@ -115,7 +115,7 @@ export async function runPackImportCommand(
       destinationDir,
       existingIds,
       packLeafPaths: new Set(packNodes.map(node => node.path)),
-      packLeafIds: new Map(packNodes.map(node => [node.path, node.frontmatter.id])),
+      packLeafIds: new Map(packNodes.map(node => [node.path, node.frontmatter.kk_id])),
     });
 
     ensureDestinationSummary(paths.nodesDir, destinationName, validation.manifest.summary);

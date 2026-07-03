@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, posix, sep } from 'node:path';
 import matter from 'gray-matter';
-import { NODE_SCHEMA_VERSION } from './schemas.js';
 import { atomicWriteFile } from './fs-atomic.js';
+
+const FLAT_TO_TREE_SCHEMA_VERSION = 2;
 
 /**
  * One leaf-to-folder placement: `id` is the node identity, `sourcePath` is the
@@ -54,7 +55,7 @@ function targetPathFor(nodesDir: string, placement: Placement): string {
 /**
  * Deterministic, non-LLM write primitive: places each leaf into its assigned
  * topical folder, preserving the leaf's `id` and every edge and bumping only
- * `schema_version` to the current value.
+ * `schema_version` to the tree-storage v2 value.
  *
  * Contract:
  *   - All-or-nothing: a first pass verifies no target already exists; it throws
@@ -100,7 +101,7 @@ export function writePlacements(nodesDir: string, placements: Placement[]): Plac
     const data = parsed.data as Record<string, unknown>;
     const nextFrontmatter: Record<string, unknown> = {
       ...data,
-      schema_version: NODE_SCHEMA_VERSION,
+      schema_version: FLAT_TO_TREE_SCHEMA_VERSION,
     };
     const target = targetPathFor(nodesDir, placement);
     mkdirSync(dirname(target), { recursive: true });

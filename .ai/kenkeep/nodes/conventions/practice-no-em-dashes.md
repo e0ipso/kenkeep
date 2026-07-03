@@ -1,18 +1,19 @@
 ---
-schema_version: 2
-id: practice-no-em-dashes
+type: practice
 title: No em dashes anywhere in the project
-kind: practice
+description: >-
+  Prohibit em dashes in all files to avoid patterns that signal AI-generated
+  text. Restructure with commas or periods instead.
 tags:
   - style
   - writing
   - ai-detection
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Prohibit em dashes in all files to avoid patterns that signal AI-generated
-  text. Restructure with commas or periods instead.
+kk_schema_version: 3
+kk_id: practice-no-em-dashes
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 Never use em dashes (—) in any file: code, comments, docs, commit messages, changelogs, or prose. Em dashes are a telltale pattern of AI-generated text, and their presence undermines the authenticity of the output.
 

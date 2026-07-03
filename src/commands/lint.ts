@@ -27,6 +27,7 @@ function printCounts(result: LintResult): void {
   const errBy = countBy(result.errors);
   const findBy = countBy(result.findings);
   const rules: Array<{ rule: string; bucket: 'errors' | 'findings' }> = [
+    { rule: 'okf-conformance', bucket: 'errors' },
     { rule: 'dangling-edge', bucket: 'errors' },
     { rule: 'slug-id-mismatch', bucket: 'errors' },
     { rule: 'tag-near-duplicate', bucket: 'findings' },

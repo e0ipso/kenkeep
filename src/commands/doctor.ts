@@ -156,9 +156,9 @@ export function collectDanglingDerivedFrom(
   if (!existsSync(nodesDir)) return [];
   const out: DanglingRef[] = [];
   for (const node of readAllNodes(nodesDir)) {
-    for (const ref of node.frontmatter.derived_from) {
+    for (const ref of node.frontmatter.kk_derived_from) {
       if (resolvesOnDisk(ref, root, sessionsDir)) continue;
-      out.push({ nodeId: node.frontmatter.id, reference: ref });
+      out.push({ nodeId: node.frontmatter.kk_id, reference: ref });
     }
   }
   return out;

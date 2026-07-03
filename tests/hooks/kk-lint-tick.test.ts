@@ -46,10 +46,12 @@ function seedSandbox(sandbox: string, lintEveryNSessions: number): { stateDir: s
   mkdirSync(join(kkDir, 'nodes'), { recursive: true });
   // Every folder under nodes/ carries a generated index.md (lint asserts this).
   // A real repo gets it from `index rebuild`; seed it here so the folder is
-  // well-formed and the tick tests target the tag/edge/orphan rules only.
+  // well-formed and the tick tests target the tag/edge/orphan rules only. The
+  // bundle-root nodes/index.md is an OKF reserved file: frontmatter is exactly
+  // okf_version, else okf-conformance short-circuits lint before those rules run.
   writeFileSync(
     join(kkDir, 'nodes', 'index.md'),
-    '---\nschema_version: 2\nnodes_hash: sha256:placeholder\nnode_count: 0\n---\n# kenkeep Index\n'
+    '---\nokf_version: "0.1"\n---\n# kenkeep Index\n'
   );
   writeFileSync(
     join(stateDir, 'installed-version'),
@@ -74,17 +76,17 @@ function writeNode(
   filenameBase: string,
   overrides: Partial<NodeFrontmatter>
 ): void {
-  const id = overrides.id ?? `${kind}-${filenameBase}`;
+  const id = overrides.kk_id ?? `${kind}-${filenameBase}`;
   const fm: NodeFrontmatter = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: overrides.title ?? id,
-    kind,
+    type: kind,
+    description: overrides.description ?? 's',
     tags: overrides.tags ?? [],
-    derived_from: overrides.derived_from ?? [],
-    relates_to: overrides.relates_to ?? [],
-    confidence: overrides.confidence ?? 'high',
-    summary: overrides.summary ?? 's',
+    kk_derived_from: overrides.kk_derived_from ?? [],
+    kk_relates_to: overrides.kk_relates_to ?? [],
+    kk_confidence: overrides.kk_confidence ?? 'high',
   };
   // Leaves live directly under nodes/ (topical tree, not keyed by kind).
   writeFileSync(
@@ -103,7 +105,7 @@ describe('kk-lint-tick hook (spawned)', () => {
 
   it('with lintEveryNSessions:1 and an orphan tree, one invocation persists last_findings>=1 and resets the counter', async () => {
     const { stateDir } = seedSandbox(sandbox, 1);
-    writeNode(sandbox, 'practice', 'practice-orphan', { id: 'practice-orphan' });
+    writeNode(sandbox, 'practice', 'practice-orphan', { kk_id: 'practice-orphan' });
 
     const result = await runHook(sandbox, { cwd: sandbox });
     expect(result.exitCode).toBe(0);
@@ -117,12 +119,12 @@ describe('kk-lint-tick hook (spawned)', () => {
   it('with lintEveryNSessions:3, requires three invocations to fire; intermediate ticks only increment', async () => {
     const { stateDir } = seedSandbox(sandbox, 3);
     writeNode(sandbox, 'practice', 'practice-a', {
-      id: 'practice-a',
-      relates_to: ['practice-b'],
+      kk_id: 'practice-a',
+      kk_relates_to: ['practice-b'],
     });
     writeNode(sandbox, 'practice', 'practice-b', {
-      id: 'practice-b',
-      relates_to: ['practice-a'],
+      kk_id: 'practice-b',
+      kk_relates_to: ['practice-a'],
     });
 
     await runHook(sandbox, { cwd: sandbox });
@@ -155,7 +157,7 @@ describe('kk-lint-tick on-disk state', () => {
 
   it('writes a JSON file that round-trips through readLintState', async () => {
     const { stateDir } = seedSandbox(sandbox, 1);
-    writeNode(sandbox, 'practice', 'practice-only', { id: 'practice-only' });
+    writeNode(sandbox, 'practice', 'practice-only', { kk_id: 'practice-only' });
 
     await runHook(sandbox, { cwd: sandbox });
     const file = lintStateFile(stateDir);

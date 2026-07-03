@@ -1,8 +1,9 @@
 ---
-schema_version: 2
-id: map-proposal-drain-hook
+type: map
 title: kk-proposal-drain (extraction hook)
-kind: map
+description: >-
+  Async SessionStart hook sweeps _sessions/ to extract proposals; the Claude
+  adapter's hook is a no-op (extraction runs in /kk-curate).
 tags:
   - hooks
   - extraction
@@ -10,10 +11,12 @@ tags:
   - async
   - claude
   - billing
-derived_from:
+kk_schema_version: 3
+kk_id: map-proposal-drain-hook
+kk_derived_from:
   - docs/internals/hooks.md
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-session-log
   - map-proposal-candidate-schema
   - practice-recursion-guard-kenkeep-builder-internal
@@ -23,12 +26,8 @@ relates_to:
   - map-copilot-harness-adapter
   - map-cursor-harness-adapter
   - map-opencode-harness
-depends_on: []
-confidence: high
-summary: >-
-  Async SessionStart hook that sweeps pending _sessions/ and extracts proposals;
-  the Claude adapter's hook is intentionally a no-op -- extraction runs inline
-  during /kk-curate instead.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `kk-proposal-drain` (extraction hook)
@@ -48,3 +47,24 @@ To force re-extraction of a `failed` entry, set its `proposal_status` back to `p
 **Claude adapter exception:** The Claude adapter's `kk-proposal-drain` hook is intentionally a no-op -- its `main()` only runs the recursion guard and returns immediately. The reason is billing: `claude -p` consumes the same Max plan tokens or API credits as an interactive `claude` session, so spawning a background child for proposal extraction would silently cost the user money. Instead, proposal extraction runs inline during the `/kk-curate` skill, where the user is already paying for the context window.
 
 Per-spawn model selection (non-Claude adapters): reads `proposalModel: { name, effort }` from `config.yaml`; when set, passes the appropriate model/effort flags to the headless runner. When absent, the runner's default applies.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-session-log](/state/map-session-log.md)
+- Related: [map-proposal-candidate-schema](/curation/map-proposal-candidate-schema.md)
+- Related: [practice-recursion-guard-kenkeep-builder-internal](/hooks/practice-recursion-guard-kenkeep-builder-internal.md)
+- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-claude-harness](/harnesses/map-claude-harness.md)
+- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
+- Related: [map-copilot-harness-adapter](/harnesses/map-copilot-harness-adapter.md)
+- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
+- Related: [map-opencode-harness](/harnesses/map-opencode-harness.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/hooks.md](docs/internals/hooks.md)
+[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

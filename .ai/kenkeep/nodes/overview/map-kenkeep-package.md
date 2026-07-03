@@ -1,25 +1,24 @@
 ---
-schema_version: 2
-id: map-kenkeep-package
+type: map
 title: kenkeep npm package
-kind: map
+description: >-
+  Per-repo knowledge base from AI sessions: installs hooks, captures redacted
+  slices, a curator writes nodes/, ENTRY injected each session.
 tags:
   - overview
   - package
   - npm
-derived_from:
+kk_schema_version: 3
+kk_id: map-kenkeep-package
+kk_derived_from:
   - README.md
   - docs/index.md
   - docs/how-it-works.md
-relates_to:
+kk_relates_to:
   - map-harness-adapter
   - map-kenkeep-directory
-depends_on: []
-confidence: high
-summary: >-
-  Per-repo knowledge base built from AI sessions; installs hooks, captures
-  redacted slices, lets a curator write nodes/, injects ENTRY into every new
-  session.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `kenkeep` npm package
@@ -31,3 +30,18 @@ Two cooperating pieces. The **builder tool** (this npm package) installs hooks u
 A `SessionStart` hook injects `ENTRY.md` into every new AI session so the harness starts each conversation with the team's accumulated context. The knowledge base itself is plain markdown — readable, diffable, reviewable like code.
 
 CLI binary: `kenkeep` (run via `npx kenkeep ...`). Requires Node 22+. No API key — the tool spawns the harness's own headless driver (`claude -p`, `codex exec`, `opencode run`, `cursor`, or `copilot`) and inherits its auth.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+- Related: [map-kenkeep-directory](/overview/map-kenkeep-directory.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [README.md](README.md)
+[2] [docs/index.md](docs/index.md)
+[3] [docs/how-it-works.md](docs/how-it-works.md)
+<!-- kk:citations:end -->

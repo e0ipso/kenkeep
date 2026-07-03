@@ -1,20 +1,20 @@
 ---
-schema_version: 2
-id: practice-conventional-commits-and-release
+type: practice
 title: Conventional Commits drive semantic-release
-kind: practice
+description: >-
+  semantic-release automates releases on merge to main; commit type
+  (feat/fix/etc.) sets the version bump; no manual tag or npm publish.
 tags:
   - git
   - release
   - conventional-commits
-derived_from:
+kk_schema_version: 3
+kk_id: practice-conventional-commits-and-release
+kk_derived_from:
   - CONTRIBUTING.md
-relates_to: []
-depends_on: []
-confidence: high
-summary: >-
-  Releases are automated via semantic-release on merge to main. Commit type
-  (feat/fix/etc.) determines version bump; no manual tag or npm publish.
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Conventional Commits drive semantic-release
@@ -30,3 +30,9 @@ Releases are automated via [semantic-release](https://semantic-release.gitbook.i
 - Doc updates ship in the same PR as the code change.
 - Run `npm test`, `npm run typecheck`, and `npm run lint` before pushing.
 - Behavior-affecting prompt changes get a `Version: N` bump and a changelog note (see `practice-bump-prompt-version-comment`).
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [CONTRIBUTING.md](CONTRIBUTING.md)
+<!-- kk:citations:end -->

@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: practice-dont-run-llm-pipelines-in-ci
+type: practice
 title: Don't run curate or bootstrap-incremental in CI
-kind: practice
+description: >-
+  Both spawn the model and produce changes to nodes/ that still need human
+  review. CI validates what's committed, not new LLM output.
 tags:
   - ci
   - llm
   - workflow
-derived_from:
+kk_schema_version: 3
+kk_id: practice-dont-run-llm-pipelines-in-ci
+kk_derived_from:
   - docs/installation.md
   - docs/daily-use.md
-relates_to:
+kk_relates_to:
   - map-curate-command
   - map-bootstrap-incremental-command
-depends_on: []
-confidence: high
-summary: >-
-  Both spawn the model and produce changes to nodes/ that still need human
-  review. CI validates what's committed, not new LLM output.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Don't run `curate` or `bootstrap-incremental` in CI
@@ -39,3 +39,17 @@ The last step catches commits that bypassed the pre-commit hook.
 - Never wire `curate` or `bootstrap-incremental` into a GitHub Action or other CI job.
 - `doctor` and deterministic checks (`index rebuild` with `git diff --exit-code`) are fine.
 - Run the LLM pipelines locally where the user can review their output before committing.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/installation.md](docs/installation.md)
+[2] [docs/daily-use.md](docs/daily-use.md)
+<!-- kk:citations:end -->

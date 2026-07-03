@@ -37,8 +37,8 @@ describe('kk schema', () => {
     // Shape sanity, not a golden dump: the projection is an object schema with
     // the persisted node's required fields surfacing somewhere in the document.
     expect(typeof parsed).toBe('object');
-    expect(stdout).toContain('schema_version');
-    expect(stdout).toContain('confidence');
+    expect(stdout).toContain('kk_schema_version');
+    expect(stdout).toContain('kk_confidence');
   });
 
   it('exposes the curator-output array contract', async () => {
@@ -78,13 +78,13 @@ describe('kk validate', () => {
 
   const validProposedNode = {
     title: 'Use foo',
-    kind: 'practice',
+    type: 'practice',
     tags: ['foo'],
-    summary: 'one line',
+    description: 'one line',
     body: 'body text',
-    confidence: 'high',
-    relates_to: [],
-    depends_on: [],
+    kk_confidence: 'high',
+    kk_relates_to: [],
+    kk_depends_on: [],
   };
 
   it('accepts a valid artifact and exits 0', async () => {
@@ -104,7 +104,7 @@ describe('kk validate', () => {
       [
         'name: drupal',
         'version: 1.2.0',
-        'schema_version: 2',
+        'schema_version: 3',
         'summary: Drupal project conventions.',
         'homepage: https://example.com/drupal-pack',
       ].join('\n')
@@ -118,10 +118,10 @@ describe('kk validate', () => {
 
   it('rejects an invalid artifact with a path-referenced error', async () => {
     const file = join(cwd, 'bad.json');
-    // Missing required `confidence`, wrong type for `tags`.
+    // Missing required `kk_confidence`, wrong type for `tags`.
     writeFileSync(
       file,
-      JSON.stringify({ ...validProposedNode, confidence: undefined, tags: 'foo' })
+      JSON.stringify({ ...validProposedNode, kk_confidence: undefined, tags: 'foo' })
     );
     const { code, stderr } = await capture(() =>
       runValidateCommand({ name: 'proposed-node', file })

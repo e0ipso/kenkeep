@@ -1,23 +1,23 @@
 ---
-schema_version: 2
-id: map-config-yaml
+type: map
 title: config.yaml (project settings)
-kind: map
+description: >-
+  Committed project settings at .ai/kenkeep/config.yaml. Strict: unknown keys
+  are a hard error.
 tags:
   - config
   - settings
   - model
-derived_from:
+kk_schema_version: 3
+kk_id: map-config-yaml
+kk_derived_from:
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-curate-command
   - map-bootstrap-incremental-command
   - map-proposal-drain-hook
-depends_on: []
-confidence: high
-summary: >-
-  Committed project settings at .ai/kenkeep/config.yaml. Strict: unknown keys
-  are a hard error.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `config.yaml`
@@ -62,3 +62,17 @@ proposalModel:
 - `proposalModel` — passed on proposal-drain spawns.
 - `curatorModel` — passed on `curate` spawns.
 - `bootstrapModel` — passed on `bootstrap-incremental` spawns. Also honored on a best-effort basis by the agent-driven `/kk-bootstrap` skill, but the skill ignores `bootstrapModel.effort` because the `Task` tool has no `effort` parameter.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

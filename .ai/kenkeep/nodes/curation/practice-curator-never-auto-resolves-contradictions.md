@@ -1,26 +1,26 @@
 ---
-schema_version: 2
-id: practice-curator-never-auto-resolves-contradictions
+type: practice
 title: Curator never auto-resolves contradictions
-kind: practice
+description: >-
+  Curator emits contradict; the wrapper writes a conflict file and writes
+  nothing to nodes/. Resolution is always user-driven via /kk-curate.
 tags:
   - curator
   - conflicts
   - human-in-the-loop
-derived_from:
+kk_schema_version: 3
+kk_id: practice-curator-never-auto-resolves-contradictions
+kk_derived_from:
   - docs/how-it-works.md
   - docs/daily-use.md
   - docs/internals/prompts.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-conflict-files
   - map-curator-action
   - map-curate-command
-depends_on: []
-confidence: high
-summary: >-
-  Curator emits contradict; the wrapper writes a conflict file and writes
-  nothing to nodes/. Resolution is always user-driven via /kk-curate.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Curator never auto-resolves contradictions
@@ -34,3 +34,20 @@ When the curator detects a candidate that contradicts an existing node, it emits
 - Never write logic that resolves a `contradict` action without a human prompt.
 - `suggested_resolution` is always ignored — do not read it as input to any automated decision.
 - When extending the curator or its prompt, preserve this property. Adding an "auto-supersede on high confidence" code path is the exact thing this design forbids.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-conflict-files](/curation/map-conflict-files.md)
+- Related: [map-curator-action](/curation/map-curator-action.md)
+- Related: [map-curate-command](/curation/map-curate-command.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/how-it-works.md](docs/how-it-works.md)
+[2] [docs/daily-use.md](docs/daily-use.md)
+[3] [docs/internals/prompts.md](docs/internals/prompts.md)
+[4] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

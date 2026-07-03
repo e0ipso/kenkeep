@@ -140,7 +140,7 @@ function lexicalScore(node: NodeFile, promptTerms: Set<string>): number {
   const fm = node.frontmatter;
   const titleTokens = tokenSet(fm.title);
   const tagTokens = tagTokenSet(fm.tags);
-  const summaryTokens = tokenSet(fm.summary);
+  const summaryTokens = tokenSet(fm.description);
   const bodyTokens = tokenSet(node.body);
   let score = 0;
   for (const term of promptTerms) {
@@ -173,11 +173,11 @@ export function rankNodes(
   if (promptTerms.size === 0 || nodes.length === 0) return [];
 
   const lexical = new Map<string, number>();
-  for (const node of nodes) lexical.set(node.frontmatter.id, lexicalScore(node, promptTerms));
+  for (const node of nodes) lexical.set(node.frontmatter.kk_id, lexicalScore(node, promptTerms));
 
   // Live id set plus the redirects ledger so a graph edge pointing at a retired
   // id still resolves to its live successor(s) for the boost.
-  const live = new Set(nodes.map(n => n.frontmatter.id));
+  const live = new Set(nodes.map(n => n.frontmatter.kk_id));
   const ledger = readRedirectsLedger(nodesDirOf(nodes));
 
   // Undirected adjacency over relates_to ∪ depends_on, edges resolved to live
@@ -191,15 +191,15 @@ export function rankNodes(
   };
   for (const node of nodes) {
     const fm = node.frontmatter;
-    for (const ref of [...fm.relates_to, ...fm.depends_on]) {
-      for (const target of resolveRedirect(ledger, live, ref)) addEdge(fm.id, target);
+    for (const ref of [...fm.kk_relates_to, ...fm.kk_depends_on]) {
+      for (const target of resolveRedirect(ledger, live, ref)) addEdge(fm.kk_id, target);
     }
   }
 
   const inDegree = computeInDegree(nodes);
   const matches: PromptMatch[] = [];
   for (const node of nodes) {
-    const id = node.frontmatter.id;
+    const id = node.frontmatter.kk_id;
     let score = lexical.get(id) ?? 0;
     for (const neighborId of neighbors.get(id) ?? []) {
       if ((lexical.get(neighborId) ?? 0) > 0) score += GRAPH_NEIGHBOR_BOOST;
@@ -210,9 +210,9 @@ export function rankNodes(
   matches.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     const dIn =
-      (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
+      (inDegree.get(b.node.frontmatter.kk_id) ?? 0) - (inDegree.get(a.node.frontmatter.kk_id) ?? 0);
     if (dIn !== 0) return dIn;
-    return a.node.frontmatter.id.localeCompare(b.node.frontmatter.id);
+    return a.node.frontmatter.kk_id.localeCompare(b.node.frontmatter.kk_id);
   });
   return matches.slice(0, maxNodes);
 }
@@ -269,9 +269,9 @@ export function renderPromptKnowledgeContext(
   for (const { node } of matches) {
     const fm = node.frontmatter;
     const tagPart = fm.tags.length > 0 ? ` ${fm.tags.map(t => `#${t}`).join(' ')}` : '';
-    const summary = inline(fm.summary);
+    const summary = inline(fm.description);
     const summaryPart = summary ? ` — ${summary}` : '';
-    const entry = `- [**${inline(fm.title)}**](${renderPath(node)}) (\`${fm.id}\`)${summaryPart}${tagPart}`;
+    const entry = `- [**${inline(fm.title)}**](${renderPath(node)}) (\`${fm.kk_id}\`)${summaryPart}${tagPart}`;
     // Always keep the first entry; gate the rest on the char budget.
     if (rendered > 0 && total + entry.length + 1 > maxChars) break;
     lines.push(entry);

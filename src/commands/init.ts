@@ -27,12 +27,18 @@ interface InstalledVersion {
 }
 
 const KENKEEP_GITIGNORE_LINES = [
-  '_sessions/',
-  '_logs/',
-  'hooks/',
+  '/_sessions/',
+  '/_logs/',
+  '/hooks/',
   '.state/*',
   '!.state/installed-version',
 ];
+
+// Unanchored variants kenkeep shipped before the directory patterns were
+// anchored to the bundle root. An unanchored `hooks/` also matches the
+// `nodes/hooks/` knowledge branch (and likewise for `_sessions/`/`_logs/`), so
+// upgrades must drop these legacy lines rather than leave both forms in place.
+const LEGACY_UNANCHORED_GITIGNORE_LINES = new Set(['_sessions/', '_logs/', 'hooks/']);
 
 export async function runInit(opts: InitOptions): Promise<void> {
   validateHarnesses(opts.harnesses);
@@ -253,20 +259,29 @@ function writeInstalledVersion(file: string, stateDir: string, harnesses: string
 
 /**
  * Ensures `.ai/kenkeep/.gitignore` carries every canonical generated-state
- * entry. Existing user-owned content is preserved; upgrades append only
- * missing lines so newly generated paths stay ignored without clobbering
- * local edits.
+ * entry, anchored to the bundle root. User-owned content is preserved; the
+ * canonical lines are re-emitted in order and the legacy unanchored variants
+ * (the `hooks/` footgun that also ignored `nodes/hooks/`) are dropped, so an
+ * upgrade converts an existing gitignore rather than leaving both forms.
  */
 function ensureKbGitignore(file: string): void {
   mkdirSync(dirname(file), { recursive: true });
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
-  const present = new Set(existing.split(/\r?\n/));
-  const missing = KENKEEP_GITIGNORE_LINES.filter(line => !present.has(line));
-  if (existing.length === 0) {
+  if (existing.trim().length === 0) {
     writeFileSync(file, `${KENKEEP_GITIGNORE_LINES.join('\n')}\n`);
     return;
   }
-  if (missing.length === 0) return;
-  const sep = existing.endsWith('\n') ? '' : '\n';
-  writeFileSync(file, `${existing}${sep}${missing.join('\n')}\n`);
+  const canonical = new Set(KENKEEP_GITIGNORE_LINES);
+  // Keep only user-owned lines: canonical lines are re-emitted in order below,
+  // and the legacy unanchored variants are pruned so the footgun is removed.
+  const userLines = existing
+    .replace(/\n+$/, '')
+    .split(/\r?\n/)
+    .filter(line => {
+      const trimmed = line.trim();
+      return !canonical.has(trimmed) && !LEGACY_UNANCHORED_GITIGNORE_LINES.has(trimmed);
+    });
+  const next = `${[...KENKEEP_GITIGNORE_LINES, ...userLines].join('\n')}\n`;
+  if (next === existing) return;
+  writeFileSync(file, next);
 }

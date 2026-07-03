@@ -1,19 +1,20 @@
 ---
-schema_version: 2
-id: practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters
+type: practice
 title: Hook behavior changes must be applied to every harness adapter
-kind: practice
+description: >-
+  Fixing hook logic in one harness does not fix the others; each of the five
+  adapters has its own copy of every hook.
 tags:
   - harness
   - hooks
   - architecture
   - drift
-derived_from: []
-relates_to: []
-confidence: high
-summary: >-
-  Fixing hook logic in one harness does not fix the others; each of the five
-  adapters has its own copy of every hook.
+kk_schema_version: 3
+kk_id: practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 The session-start, lint-tick, capture, and proposal-drain hooks each have five near-identical implementations under `src/harnesses/{claude,codex,copilot,cursor,opencode}/hooks/`. There is no shared runner for these files — each harness has its own full copy.
 

@@ -12,7 +12,7 @@ function writeManifest(root: string, overrides: Record<string, unknown> = {}): v
   const values = {
     name: 'drupal',
     version: '1.2.0',
-    schema_version: 2,
+    schema_version: 3,
     summary: 'Drupal project conventions.',
     homepage: 'https://example.com/drupal-pack',
     ...overrides,
@@ -49,16 +49,16 @@ function writeNode(
   const kind = id.startsWith('map-') ? 'map' : 'practice';
   const base = [
     '---',
-    'schema_version: 2',
-    `id: ${id}`,
+    'kk_schema_version: 3',
+    `kk_id: ${id}`,
     `title: ${id}`,
-    `kind: ${kind}`,
+    `type: ${kind}`,
+    `description: Summary for ${id}.`,
     'tags: [drupal]',
-    'derived_from: []',
-    'relates_to: []',
-    'depends_on: []',
-    'confidence: high',
-    `summary: Summary for ${id}.`,
+    'kk_derived_from: []',
+    'kk_relates_to: []',
+    'kk_depends_on: []',
+    'kk_confidence: high',
   ];
   writeFileSync(join(dir, filename), [...base, ...overrides, '---', '', '# Body'].join('\n'));
 }
@@ -148,14 +148,14 @@ describe('validatePack', () => {
       join(knowledge, 'bad', 'practice-missing-summary.md'),
       [
         '---',
-        'schema_version: 2',
-        'id: practice-missing-summary',
+        'kk_schema_version: 3',
+        'kk_id: practice-missing-summary',
         'title: Missing summary',
-        'kind: practice',
+        'type: practice',
         'tags: []',
-        'derived_from: []',
-        'relates_to: []',
-        'confidence: high',
+        'kk_derived_from: []',
+        'kk_relates_to: []',
+        'kk_confidence: high',
         '---',
         '# Body',
       ].join('\n')
@@ -165,7 +165,7 @@ describe('validatePack', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('invalid node frontmatter');
-    expect(result.errors.join('\n')).toContain('summary');
+    expect(result.errors.join('\n')).toContain('description');
   });
 
   it('rejects naming violations', () => {

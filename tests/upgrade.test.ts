@@ -149,10 +149,12 @@ describe('init --upgrade', () => {
     expect(readFileSync(helper, 'utf8')).toBe(customized);
   });
 
-  it('appends the shared hooks ignore entry on upgrade without clobbering local entries', async () => {
+  it('anchors the shared ignore entries to the bundle root on upgrade, pruning legacy unanchored variants and preserving local entries', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
 
     const kkGitignore = join(sandbox, '.ai/kenkeep/.gitignore');
+    // Simulate a project written by a pre-anchoring kenkeep: unanchored dir
+    // patterns (the `hooks/` footgun also ignores the nodes/hooks/ branch).
     writeFileSync(
       kkGitignore,
       '_sessions/\n_logs/\n.state/*\n!.state/installed-version\ncustom/\n'
@@ -165,9 +167,15 @@ describe('init --upgrade', () => {
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
-    const body = readFileSync(kkGitignore, 'utf8');
-    expect(body).toContain('hooks/');
-    expect(body).toContain('custom/');
+    const lines = readFileSync(kkGitignore, 'utf8').split('\n');
+    // Anchored to the bundle root so nodes/hooks/ (a knowledge branch) stays tracked.
+    expect(lines).toContain('/hooks/');
+    // Legacy unanchored variants are replaced, not left alongside the anchored ones.
+    expect(lines).not.toContain('hooks/');
+    expect(lines).not.toContain('_sessions/');
+    expect(lines).not.toContain('_logs/');
+    // User-owned entries are preserved.
+    expect(lines).toContain('custom/');
   });
 
   it('does not overwrite a user-edited detector helper on upgrade', async () => {

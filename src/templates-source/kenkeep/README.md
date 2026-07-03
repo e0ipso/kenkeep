@@ -16,13 +16,20 @@ When you (or a teammate) run an AI coding session against this repo, the tool wa
 
 ## How to read a node
 
-Each `.md` file in `nodes/` has a frontmatter header and a markdown body. Key fields:
+Each leaf `.md` file in `nodes/` is an OKF concept document: the native OKF
+fields are `type`, `title`, `description`, and `tags`; kenkeep-specific fields
+use the `kk_` prefix. Key fields:
 
-- `kind`: `practice` (how we build things: conventions, prohibitions, gotchas) or `map` (what exists in the project: features, vocabulary, locations).
-- `tags`: free-form labels grouped under `## By topic` in the folder index nodes (`index.md`).
-- `derived_from`: list of session log filenames or doc paths that produced or refined this node. (Note: `_sessions/` is gitignored by default, so provenance only resolves for the original contributor unless your team commits it.)
-- `relates_to`: cross-references rendered in `GRAPH.md`.
-- `summary`: ≤140-character one-liner shown in the folder index nodes (`index.md`). Git history is the timeline of record for when a node was written or rewritten.
+- `type`: `practice` (how we build things: conventions, prohibitions, gotchas)
+  or `map` (what exists in the project: features, vocabulary, locations).
+- `description`: one-line preview shown in generated folder indexes.
+- `tags`: free-form labels grouped under `## By topic` in folder indexes.
+- `kk_id`: stable node identity. References use ids, not paths, so leaves can
+  move between topical folders.
+- `kk_derived_from`: session log filenames, doc paths, or URLs that produced or
+  refined this node.
+- `kk_relates_to` / `kk_depends_on`: cross-references rendered in `GRAPH.md` and
+  in each leaf's generated Related section.
 
 ## Manually adding a node
 
@@ -39,10 +46,14 @@ If your repo already has READMEs, ADRs, and module docs, you can seed the knowle
 
 ## Subdirectories
 
-- `nodes/`: knowledge nodes in nested topical folders (`kind` — `practice`/`map` — is a frontmatter facet, not a directory). Reviewed via git.
+- `nodes/`: an OKF v0.1 bundle of knowledge nodes in nested topical folders
+  (`type` — `practice`/`map` — is a frontmatter facet, not a directory).
+  Reviewed via git.
 - `_sessions/`: raw captured transcripts (gitignored by default).
 - `_logs/`: stream-json traces from LLM-driven runs (gitignored).
 - `conflicts/`: one markdown file per curator-detected contradiction, surfaced by the kk-curate skill and reviewed via `git diff`.
+- `FOLDER_SUMMARIES.md`: committed sidecar that stores folder descriptions used
+  by generated indexes.
 - `ENTRY.md`: the entry catalog (whole-tree totals + top-level branch list); injected into every new session. Regenerated automatically on commit.
 - `GRAPH.md`: full edge listing of nodes; available for the harness to read on demand. Regenerated automatically on commit.
 

@@ -60,16 +60,25 @@ function splitConflictBody(content: string): { rationale: string; proposedBody: 
   let rationale = '';
   let proposedBody = '';
   if (proposedIdx >= 0) {
-    proposedBody = content.slice(proposedIdx + proposedMarker.length).replace(/^\s+/, '').trimEnd();
+    proposedBody = content
+      .slice(proposedIdx + proposedMarker.length)
+      .replace(/^\s+/, '')
+      .trimEnd();
     const head = content.slice(0, proposedIdx);
     const rIdx = head.indexOf(rationaleMarker);
     if (rIdx >= 0) {
-      rationale = head.slice(rIdx + rationaleMarker.length).replace(/^\s+/, '').trimEnd();
+      rationale = head
+        .slice(rIdx + rationaleMarker.length)
+        .replace(/^\s+/, '')
+        .trimEnd();
     }
   } else {
     const rIdx = content.indexOf(rationaleMarker);
     if (rIdx >= 0) {
-      rationale = content.slice(rIdx + rationaleMarker.length).replace(/^\s+/, '').trimEnd();
+      rationale = content
+        .slice(rIdx + rationaleMarker.length)
+        .replace(/^\s+/, '')
+        .trimEnd();
     }
   }
   return { rationale, proposedBody };
@@ -97,8 +106,7 @@ function lineDiffCount(a: string[], b: string[]): number {
     const curr = new Array<number>(m + 1).fill(0);
     const ai = a[i];
     for (let j = m - 1; j >= 0; j--) {
-      curr[j] =
-        ai === b[j] ? (prev[j + 1] ?? 0) + 1 : Math.max(prev[j] ?? 0, curr[j + 1] ?? 0);
+      curr[j] = ai === b[j] ? (prev[j + 1] ?? 0) + 1 : Math.max(prev[j] ?? 0, curr[j + 1] ?? 0);
     }
     prev = curr;
   }
@@ -245,10 +253,10 @@ export async function runConflictPrepareCommand(
       const node = findNodeById(nodesDir, target);
       if (node) {
         existing = {
-          id: node.frontmatter.id,
+          id: node.frontmatter.kk_id,
           path: `nodes/${node.relPath}`,
           title: node.frontmatter.title,
-          summary: node.frontmatter.summary,
+          summary: node.frontmatter.description,
           body: node.body,
         };
       }

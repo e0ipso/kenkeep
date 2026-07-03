@@ -1,8 +1,9 @@
 ---
-schema_version: 2
-id: map-harness-adapter
+type: map
 title: Harness adapter
-kind: map
+description: >-
+  Per-runtime HarnessAdapter declaring event vocabulary, hook/skill paths, and
+  scripts. Five ship: claude, codex, cursor, opencode, copilot.
 tags:
   - harness
   - adapter
@@ -12,24 +13,22 @@ tags:
   - opencode
   - copilot
   - architecture
-derived_from:
+kk_schema_version: 3
+kk_id: map-harness-adapter
+kk_derived_from:
   - README.md
   - docs/installation.md
   - docs/internals/architecture.md
   - CONTRIBUTING.md
-relates_to:
+kk_relates_to:
   - map-claude-harness
   - map-codex-harness
   - map-cursor-harness-adapter
   - map-opencode-harness
   - map-copilot-harness-adapter
   - practice-explicit-harness-flag-outside-claude
-depends_on: []
-confidence: high
-summary: >-
-  Per-runtime adapter implementing HarnessAdapter; declares its event
-  vocabulary, hook/skill paths, and hook scripts. Five ship: claude, codex,
-  cursor, opencode, copilot.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Harness adapter
@@ -43,3 +42,23 @@ Active-harness resolution priority (in `src/harnesses/detect.ts`): explicit `--h
 The central registry is `src/harnesses/registry.ts`. The `HarnessAdapter` interface provides `id`, `hooks`, `paths`, `install`, `upgrade`, `parseTranscript`, `renderTranscript`, `runHeadless`, `buildHarnessOpts`, `doctorChecks`, and optional `detectFromEnv`.
 
 Each hook declaration is a `HookSpec`: `{ event, scriptPath, matcher?, async?, payload? }`. `payload?: Record<string, unknown>` is an opaque per-adapter blob consumed only by that adapter's hooks-config writer; shared code never reads it. Copilot uses it to carry the per-event `{ type, timeoutSec, env }` knobs its JSON hook format requires.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-claude-harness](/harnesses/map-claude-harness.md)
+- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
+- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
+- Related: [map-opencode-harness](/harnesses/map-opencode-harness.md)
+- Related: [map-copilot-harness-adapter](/harnesses/map-copilot-harness-adapter.md)
+- Related: [practice-explicit-harness-flag-outside-claude](/harnesses/practice-explicit-harness-flag-outside-claude.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [README.md](README.md)
+[2] [docs/installation.md](docs/installation.md)
+[3] [docs/internals/architecture.md](docs/internals/architecture.md)
+[4] [CONTRIBUTING.md](CONTRIBUTING.md)
+<!-- kk:citations:end -->

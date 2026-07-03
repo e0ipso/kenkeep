@@ -6,6 +6,7 @@ import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 import { FOLDER_OCCUPANCY_MAX } from '../../src/lib/rebalance.js';
+import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
 
 const exec = promisify(execFile);
 
@@ -22,15 +23,15 @@ function writeLeaf(
   const dir = relDir === '' ? nodesDir(sandbox) : join(nodesDir(sandbox), relDir);
   mkdirSync(dir, { recursive: true });
   const fm = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: id,
-    kind: 'practice',
+    type: 'practice',
+    description: 's',
     tags: opts.tags ?? [],
-    derived_from: [],
-    relates_to: opts.relates_to ?? [],
-    confidence: 'high',
-    summary: 's',
+    kk_derived_from: [],
+    kk_relates_to: opts.relates_to ?? [],
+    kk_confidence: 'high',
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify(opts.body ?? 'Body.', fm));
 }
@@ -125,7 +126,7 @@ describe('rebalance trigger and move (integration)', () => {
       join(nodesDir(sandbox), 'over-full', 'sub-a', 'practice-leaf-1.md')
     );
     expect(sampleAfter.equals(sampleBefore)).toBe(true);
-    expect(matter(sampleAfter.toString()).data.id).toBe('practice-leaf-1');
+    expect(matter(sampleAfter.toString()).data.kk_id).toBe('practice-leaf-1');
 
     // git records renames (R entries), no content delta on moved leaves.
     await exec('git', ['add', '-A'], { cwd: sandbox });
@@ -138,16 +139,11 @@ describe('rebalance trigger and move (integration)', () => {
     expect(existsSync(join(nodesDir(sandbox), 'over-full', 'sub-a', 'index.md'))).toBe(true);
     expect(existsSync(join(nodesDir(sandbox), 'over-full', 'sub-b', 'index.md'))).toBe(true);
 
-    // Success Criterion 5: each new subfolder's authored summary landed in its
-    // index.md frontmatter, and the move wrapper's rebuild self-preserved it.
-    const subAFm = matter(
-      readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-a', 'index.md'), 'utf8')
-    ).data;
-    const subBFm = matter(
-      readFileSync(join(nodesDir(sandbox), 'over-full', 'sub-b', 'index.md'), 'utf8')
-    ).data;
-    expect(subAFm.summary).toBe('the first cluster of split leaves');
-    expect(subBFm.summary).toBe('the second cluster of split leaves');
+    // Success Criterion 5: each new subfolder's authored summary landed in the
+    // folder-summary sidecar, and the move wrapper's rebuild self-preserved it.
+    const summaries = readFolderSummaries(nodesDir(sandbox));
+    expect(summaries.get('over-full/sub-a')).toBe('the first cluster of split leaves');
+    expect(summaries.get('over-full/sub-b')).toBe('the second cluster of split leaves');
   });
 
   it('split-leaf becomes a folder of an index plus 2+ docs, mints new ids, records a redirect', async () => {
@@ -187,7 +183,7 @@ describe('rebalance trigger and move (integration)', () => {
     expect(docs.length).toBeGreaterThanOrEqual(2);
     expect(existsSync(join(folderDir, 'index.md'))).toBe(true);
     // The authored new-folder summary persisted through the rebuild.
-    expect(matter(readFileSync(join(folderDir, 'index.md'), 'utf8')).data.summary).toBe(
+    expect(readFolderSummaries(nodesDir(sandbox)).get('bloat/practice-bloated')).toBe(
       'the two concepts carved out of the bloated leaf'
     );
 
@@ -230,10 +226,10 @@ describe('rebalance trigger and move (integration)', () => {
     expect(existsSync(join(nodesDir(sandbox), 'regrouped', 'practice-a1.md'))).toBe(true);
     expect(existsSync(join(nodesDir(sandbox), 'practice-a2.md'))).toBe(true);
     expect(existsSync(join(nodesDir(sandbox), 'sparse'))).toBe(false);
-    // The new branch's authored summary persisted into its index.md.
-    expect(
-      matter(readFileSync(join(nodesDir(sandbox), 'regrouped', 'index.md'), 'utf8')).data.summary
-    ).toBe('leaves regrouped out of the merged sparse folder');
+    // The new branch's authored summary persisted into the sidecar.
+    expect(readFolderSummaries(nodesDir(sandbox)).get('regrouped')).toBe(
+      'leaves regrouped out of the merged sparse folder'
+    );
   });
 
   it('post-move rebuild is byte-stable (a second rebuild is a no-op)', async () => {

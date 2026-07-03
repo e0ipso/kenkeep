@@ -1,8 +1,9 @@
 ---
-schema_version: 2
-id: practice-use-origin-https-with-gh-minted-auth-for-pushes
+type: practice
 title: Use origin-https with gh-minted auth for pushes
-kind: practice
+description: >-
+  In this environment, push GitHub changes through origin-https using a token
+  minted by gh rather than SSH.
 tags:
   - git
   - github
@@ -11,13 +12,12 @@ tags:
   - remote
   - push
   - environment
-derived_from: []
-relates_to: []
-depends_on: []
-confidence: high
-summary: >-
-  In this environment, push GitHub changes through origin-https using a token
-  minted by gh rather than SSH.
+kk_schema_version: 3
+kk_id: practice-use-origin-https-with-gh-minted-auth-for-pushes
+kk_derived_from: []
+kk_relates_to: []
+kk_depends_on: []
+kk_confidence: high
 ---
 When pushing changes to GitHub from this environment, use the `origin-https` remote instead of the SSH `origin` remote. Authenticate the push with a token minted by `gh`, because GitHub CLI authentication is available here while SSH host trust and keys may not be.
 

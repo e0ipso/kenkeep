@@ -62,7 +62,7 @@ flowchart TB
         PP2["Map pass<br/>USER or AGENT turns"]
         PF2{"Task-specific scope?<br/>one-off names · 'in this PR'<br/>this file / this function"}
         PF3{"End-state framing?<br/>present tense<br/>no transition narrative"}
-        PO["Practice + Map candidates<br/>tags · title · summary · body · confidence"]
+        PO["Practice + Map candidates<br/>tags · title · description · body · kk_confidence"]
 
         PI --> PG
         PG -- "non-productive" --> PEMPTY
@@ -97,7 +97,7 @@ flowchart TB
 
     subgraph curator["Curator skill · kk-curate/SKILL.md"]
         direction TB
-        CI["Batch of candidates<br/>existing_nodes always empty<br/>(overlap judged from candidate framing)"]
+        CI["Batch of candidates<br/>plus the live KB tree<br/>(overlap judged by reading indexes/leaves)"]
         CG{"Non-productive<br/>provenance signals?<br/>hedged · hypothetical · plan-scoped"}
         CCF{"Change-oriented framing?<br/>'used to X, now Y' · rename · removal"}
         CSAL{"Clean end-state claim<br/>salvageable?"}
@@ -105,7 +105,7 @@ flowchart TB
         CNEG{"Direct negation?<br/>(both cannot be true<br/>in the same scope)"}
         CEXT{"Extends without<br/>negating?"}
 
-        CADD["add<br/>writes nodes/&lt;kind&gt;/&lt;slug&gt;.md"]
+        CADD["add<br/>writes nodes/&lt;topic&gt;/&lt;kk_id&gt;.md"]
         CMOD["modify<br/>overwrites target node<br/>requires target_node_id on disk<br/>end-state rewrite rule"]
         CCON["contradict<br/>writes conflicts/&lt;id&gt;.md<br/>no node touched"]
         CDROP["drop<br/>(rationale recorded)"]
@@ -173,13 +173,13 @@ The kk-curate skill's `SKILL.md` decides what happens to every proposal candidat
 ```json
 {
   "existing_nodes": [
-    { "id": "...", "title": "...", "kind": "practice", "tags": ["..."], "summary": "...", "body": "..." }
+    { "kk_id": "...", "title": "...", "type": "practice", "tags": ["..."], "description": "...", "body": "..." }
   ],
   "batch": [
     {
       "session_id": "...",
       "captured_at": "...",
-      "derived_from": "session-<id>.md",
+      "candidate_origin": "session-<id>:practice:0",
       "practice_candidates": [...],
       "map_candidates": [...]
     }
@@ -187,7 +187,10 @@ The kk-curate skill's `SKILL.md` decides what happens to every proposal candidat
 }
 ```
 
-`existing_nodes` carries only nodes referenced by `supports_existing_node` / `contradicts_existing_node` in the batch. The curator is told to `drop` any candidate that appears to overlap an existing node not present in `existing_nodes`, with a rationale naming the suspected overlap.
+The candidate arrays carry proposal records only; they no longer contain legacy
+`supports_existing_node` / `contradicts_existing_node` hints. The curator reads
+the live KB tree to decide add/modify/contradict/drop, then records the chosen
+target on `target_node_id` when needed.
 
 ### Output
 
@@ -198,13 +201,13 @@ A single JSON array. Each element:
   "action": "add | modify | contradict | drop",
   "candidate_origin": "<session_id>:<practice|map>:<index>",
   "target_node_id": "<id-or-null>",
-  "proposed_node": { /* full node, or null for drop */ },
+  "proposed_node": { /* full proposed node, or null for drop */ },
   "rationale": "...",
-  "suggested_resolution": null
+  "home_folder": "cli"
 }
 ```
 
-The skill applies actions through two deterministic primitives in sequence. `curate-dedup` runs first: it keeps the higher-confidence action per `proposed_node.id`, writes `contradict` actions to `conflicts/`, stamps the source session logs, and emits the surviving `add`/`modify` actions as a **survivor batch**. The skill then pipes that batch to `curate-persist`, which performs every write to `nodes/` and reports per-action `written` / `dropped` / `failed` counts plus the placement decision for each leaf:
+The skill applies actions through two deterministic primitives in sequence. `curate-dedup` runs first: it deduplicates by target id for modifies or by the derived `type`+title id for adds, writes `contradict` actions to `conflicts/`, stamps the source session logs, and emits the surviving `add`/`modify` actions as a **survivor batch**. The skill then pipes that batch to `curate-persist`, which performs every write to `nodes/` and reports per-action `written` / `dropped` / `failed` counts plus the placement decision for each leaf:
 
 | Action | Behavior |
 |---|---|
@@ -215,7 +218,8 @@ The skill applies actions through two deterministic primitives in sequence. `cur
 
 `curate-persist` emits a `PERSIST_SUMMARY` whose `results` carry the per-leaf placement (the chosen folder, or `root fallback`). The skill reports these so the human reviews placement alongside content.
 
-`suggested_resolution` is always emitted as `null`; resolution happens via the in-session walkthrough.
+Only `add` actions set `home_folder`; `modify`, `contradict`, and `drop` omit
+it. Conflict resolution happens via the in-session walkthrough.
 
 ### Verifying
 
@@ -226,7 +230,7 @@ The skill applies actions through two deterministic primitives in sequence. `cur
 
 - Modifications that rephrase existing content (drop instead).
 - Additions when a near-duplicate exists (modify instead).
-- Suggesting a `suggested_resolution` value (it is ignored; the user picks via the kk-curate skill).
+- Emitting legacy `supports_existing_node`, `contradicts_existing_node`, or `suggested_resolution` keys; the schemas reject them.
 - Crossing the practice/map boundary.
 - **Change-oriented framing** (transition narratives, migration stories, rename or removal logs): automatic drop regardless of confidence, unless a clean end-state claim can be salvaged.
 - **Durability-filter violations** (see [above](#the-durability-filter)): automatic drop, unless a durable operating principle or current-state fact can be salvaged.
@@ -260,15 +264,15 @@ The final phase of `/kk-curate` calls `rebalance trigger`, a pure function of th
 - **split-folder** — a folder whose direct-leaf occupancy is strictly greater than `FOLDER_OCCUPANCY_MAX` (12).
 - **merge** — a non-root branch whose occupancy is strictly less than `BRANCH_OCCUPANCY_MIN` (2) **and that has no child folders**. A sparse folder that still parents subfolders is never a merge candidate (collapsing it would orphan its children); recursive merge is deliberately not implemented by the trigger. The `nodes/` root is also never a merge candidate — it is the deliberate fallback home.
 - **split-leaf** — a single leaf whose estimated size exceeds `LEAF_SIZE_SPLIT_THRESHOLD` (1500 tokens) **and** whose distinct-tag count is at least `LEAF_CONCEPT_MIN` (3), the LLM-free stand-in for "covers two or more concepts".
-- **create-branch** — one or more leaves sitting at the `nodes/` root with zero `relates_to` + `depends_on` edges (the curate root-fallback signal for a homeless, novel top-level topic). Root leaves sharing a useful tag are **grouped into a single `create-branch` action**: the action carries a stable representative `branch`, the full `branches` array naming every leaf in the group, and the shared `topic` tag. Older consumers can read the one `branch`; the skill reads `branches` as the complete named group to cluster together. `branches` and `topic` are absent for a lone homeless leaf.
+- **create-branch** — one or more leaves sitting at the `nodes/` root with zero `kk_relates_to` + `kk_depends_on` edges (the curate root-fallback signal for a homeless, novel top-level topic). Root leaves sharing a useful tag are **grouped into a single `create-branch` action**: the action carries a stable representative `branch`, the full `branches` array naming every leaf in the group, and the shared `topic` tag. Older consumers can read the one `branch`; the skill reads `branches` as the complete named group to cluster together. `branches` and `topic` are absent for a lone homeless leaf.
 
 The decision is sorted by branch path then operation, so identical input yields byte-identical output.
 
 ## Folder-summary authoring (migrate and rebalance clustering)
 
-A folder's one-line `summary` is the single non-deterministic field of a generated index node (see [Architecture, Knowledge base storage](architecture.md#knowledge-base-storage-tree-over-dag)). It cannot be derived from leaf text, so it is authored only at the two existing quarantined LLM clustering moments; deterministic code merely carries it.
+A folder's one-line `summary` is the single non-deterministic field in the committed `FOLDER_SUMMARIES.md` sidecar (see [Architecture, Knowledge base storage](architecture.md#knowledge-base-storage-tree-over-dag)). It cannot be derived from leaf text, so it is authored only at the two existing quarantined LLM clustering moments; deterministic code merely carries it.
 
-- **v1→v2 migrate clustering** (kk-migrate SKILL.md §2): the in-host skill clusters flat leaves into topical folders in the user's current session and authors one `summary` per folder it creates. The placement-and-folders document the skill produces has the shape `{"placements":[{"id","targetFolder"}],"folders":[{"folder","summary"}]}`; the deterministic `place apply` primitive stamps each summary into the new folder's `index.md` frontmatter, and the subsequent rebuild self-preserves it.
+- **v1→v2 migrate clustering** (kk-migrate SKILL.md §2): the in-host skill clusters flat leaves into topical folders in the user's current session and authors one `summary` per folder it creates. The placement-and-folders document the skill produces has the shape `{"placements":[{"id","targetFolder"}],"folders":[{"folder","summary"}]}`; the deterministic `place apply` primitive stamps each summary into `FOLDER_SUMMARIES.md`, and the subsequent rebuild carries it.
 - **Rebalance clustering** (kk-curate SKILL.md §6b.2): the `split-folder` (per subfolder), `create-branch`, and `split-leaf` operations carry a `summary` for each new folder. `merge` creates no folder, so it authors none; the destination keeps its own self-preserved summary.
 
 **Phrasing contract.** A folder `summary` must read as a noun phrase / sentence fragment that completes the rendered imperative prefixes — `for more information on <summary>` and `to learn about: <summary>`. Author it with a lowercase start, no trailing period, and concise (≤ ~140 chars). This is enforced in the prompt text at both authoring sites, not mass-applied to existing leaf summaries.
@@ -303,7 +307,7 @@ These do not write `_logs/curator/*.jsonl` or `_logs/bootstrap/*.jsonl`; the wor
 |---|---|
 | **`written: 0` despite a non-empty batch** | Read the `curate-persist` `PERSIST_SUMMARY` in the transcript: each `failed` result names its cause (slug collision after resolution, or a missing modify target). |
 | **Conflict not surfacing in `/kk-curate`** | Check `.ai/kenkeep/conflicts/` for a file with `status: pending`. The skill walks from there. |
-| **Duplicates after dedup** | `curate-dedup` keeps the higher-confidence action per `proposed_node.id`. Duplicates mean inconsistent slugification produced different ids. |
+| **Duplicates after dedup** | `curate-dedup` keeps the higher-confidence action per target id or derived add id. Duplicates mean inconsistent title/type choices produced different ids. |
 
 To re-run a single batch: clear `curator_processed_at` and `curator_run_id` from the affected session log and re-run `curate`.
 

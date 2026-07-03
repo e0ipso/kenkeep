@@ -1,12 +1,11 @@
 import { z } from 'zod';
 
 /**
- * Schema version for node, index, and graph artifacts. At version 2, `kind` is a
- * frontmatter facet that does not determine directory placement, leaves live in a
- * nested topical folder tree, and every folder carries a generated `index.md`. The
- * reader rejects any `schema_version: 1` artifact and points the user at `migrate`.
+ * Schema version for node artifacts. Version 3 stores leaves as OKF v0.1
+ * concept documents: native OKF keys for type/title/description/tags, plus
+ * kenkeep-owned extension keys under the `kk_` namespace.
  */
-export const NODE_SCHEMA_VERSION = 2;
+export const NODE_SCHEMA_VERSION = 3;
 
 export const CaptureTriggerSchema = z.enum(['stop', 'session_end', 'pre_compact', 'manual']);
 export type CaptureTrigger = z.infer<typeof CaptureTriggerSchema>;
@@ -107,12 +106,12 @@ export type ModelChoice = z.infer<typeof ModelChoiceSchema>;
  */
 export const ProposalCandidateSchema = z
   .object({
-    kind: z.enum(['practice', 'map']),
+    type: z.enum(['practice', 'map']),
     tags: z.array(z.string()),
     title: z.string(),
-    summary: z.string(),
+    description: z.string(),
     body: z.string(),
-    confidence: ConfidenceSchema,
+    kk_confidence: ConfidenceSchema,
   })
   .strict();
 
@@ -170,20 +169,20 @@ export const PackManifestSchema = z
 export type PackManifest = z.infer<typeof PackManifestSchema>;
 
 export const NodeFrontmatterSchema = z.object({
-  schema_version: z.literal(NODE_SCHEMA_VERSION),
-  id: z.string(),
+  type: NodeKindSchema,
   title: z.string(),
-  kind: NodeKindSchema,
+  description: z.string(),
   tags: z.array(z.string()),
-  derived_from: z.array(z.string()),
-  relates_to: z.array(z.string()),
+  kk_schema_version: z.literal(NODE_SCHEMA_VERSION),
+  kk_id: z.string(),
+  kk_derived_from: z.array(z.string()),
+  kk_relates_to: z.array(z.string()),
   // Cross-tree edges resolved by id. `relates_to` is a loose association;
   // `depends_on` records that this node genuinely depends on another. Both are
   // rendered in GRAPH.md and dangling-checked by lint. Defaulted so nodes
   // written before the field existed still parse.
-  depends_on: z.array(z.string()).default([]),
-  confidence: ConfidenceSchema,
-  summary: z.string(),
+  kk_depends_on: z.array(z.string()).default([]),
+  kk_confidence: ConfidenceSchema,
 });
 export type NodeFrontmatter = z.infer<typeof NodeFrontmatterSchema>;
 
@@ -197,13 +196,13 @@ export type NodeFrontmatter = z.infer<typeof NodeFrontmatterSchema>;
 export const CuratorProposedNodeSchema = z
   .object({
     title: z.string(),
-    kind: NodeKindSchema,
+    type: NodeKindSchema,
     tags: z.array(z.string()),
-    summary: z.string(),
+    description: z.string(),
     body: z.string(),
-    confidence: ConfidenceSchema,
-    relates_to: z.array(z.string()),
-    depends_on: z.array(z.string()).default([]),
+    kk_confidence: ConfidenceSchema,
+    kk_relates_to: z.array(z.string()),
+    kk_depends_on: z.array(z.string()).default([]),
   })
   .strict();
 export type CuratorProposedNode = z.infer<typeof CuratorProposedNodeSchema>;
@@ -262,12 +261,12 @@ export type GraphFrontmatter = z.infer<typeof GraphFrontmatterSchema>;
  */
 export const BootstrapCandidateSchema = z
   .object({
-    kind: z.enum(['practice', 'map']),
+    type: z.enum(['practice', 'map']),
     tags: z.array(z.string()),
     title: z.string(),
-    summary: z.string(),
+    description: z.string(),
     body: z.string(),
-    confidence: ConfidenceSchema,
+    kk_confidence: ConfidenceSchema,
   })
   .strict();
 export type BootstrapCandidate = z.infer<typeof BootstrapCandidateSchema>;

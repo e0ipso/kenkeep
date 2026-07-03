@@ -113,15 +113,15 @@ function seedLeaf(nodesDir: string, relDir: string, id: string, kind: 'practice'
   const dir = relDir === '' ? nodesDir : join(nodesDir, ...relDir.split('/'));
   mkdirSync(dir, { recursive: true });
   const fm = {
-    schema_version: 2,
-    id,
+    kk_schema_version: 3,
+    kk_id: id,
     title: id,
-    kind,
+    type: kind,
+    description: 'leaf summary',
     tags: ['x'],
-    derived_from: [],
-    relates_to: [],
-    confidence: 'high',
-    summary: 'leaf summary',
+    kk_derived_from: [],
+    kk_relates_to: [],
+    kk_confidence: 'high',
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\nBody of ${id}.`, fm));
 }

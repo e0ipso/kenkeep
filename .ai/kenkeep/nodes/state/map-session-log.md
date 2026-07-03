@@ -1,25 +1,25 @@
 ---
-schema_version: 2
-id: map-session-log
+type: map
 title: Session log (_sessions/*.md)
-kind: map
+description: >-
+  Per-session checkpoint _sessions/<YYYYMMDD-HHmm-id>.md, one per session_id;
+  frontmatter tracks capture, proposal, and curator phases.
 tags:
   - session
   - capture
   - state
   - schema
-derived_from:
+kk_schema_version: 3
+kk_id: map-session-log
+kk_derived_from:
   - docs/internals/hooks.md
   - docs/internals/schemas.md
   - docs/internals/architecture.md
-relates_to:
+kk_relates_to:
   - map-capture-hook
   - map-proposal-drain-hook
-depends_on: []
-confidence: high
-summary: >-
-  Per-session checkpoint at _sessions/<YYYYMMDD-HHmm-id>.md; one file per
-  session_id; frontmatter tracks capture, proposal, and curator phases.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Session log (`_sessions/*.md`)
@@ -53,3 +53,18 @@ Lifecycle:
 1. `kk-capture.mjs` writes the file with `proposal_status: pending` and the transcript slice.
 2. `kk-proposal-drain.mjs` (next `SessionStart`, async) processes pending entries, populates `proposals.{practice,map}` and `topics`, and sets `proposal_status: done` (or `failed` with `proposal_error`).
 3. `curate` reads `done` logs, applies actions to `nodes/`, sets `curator_processed_at` and `curator_run_id`.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-capture-hook](/hooks/map-capture-hook.md)
+- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/hooks.md](docs/internals/hooks.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[3] [docs/internals/architecture.md](docs/internals/architecture.md)
+<!-- kk:citations:end -->

@@ -49,12 +49,12 @@ function validPayload() {
   return JSON.stringify({
     practice: [
       {
-        kind: 'practice',
+        type: 'practice',
         tags: ['test'],
         title: 'Test practice',
-        summary: 'Test summary',
+        description: 'Test summary',
         body: 'Test body',
-        confidence: 'high',
+        kk_confidence: 'high',
       },
     ],
     map: [],
@@ -166,12 +166,12 @@ describe('session-log stage-live CLI', () => {
       JSON.stringify({
         practice: [
           {
-            kind: 'practice',
+            type: 'practice',
             tags: ['test'],
             title: 'Test',
-            summary: 'Test summary',
+            description: 'Test summary',
             body: 'Test body',
-            confidence: 'high',
+            kk_confidence: 'high',
             supports_existing_node: 'practice-old',
           },
         ],

@@ -1,15 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { atomicWriteFile } from './fs-atomic.js';
-import { join, posix } from 'node:path';
+import { posix } from 'node:path';
 import matter from 'gray-matter';
-import {
-  CHARS_PER_TOKEN,
-  computeNodesHash,
-  hashLeaves,
-  INDEX_FILENAME,
-  readAllNodes,
-  type NodeFile,
-} from './nodes.js';
+import { readFolderSummaries } from './folder-summaries.js';
+import { CHARS_PER_TOKEN, computeNodesHash, readAllNodes, type NodeFile } from './nodes.js';
 import { GraphFrontmatterSchema, IndexFrontmatterSchema, NODE_SCHEMA_VERSION } from './schemas.js';
 import { KK_NAVIGATION_DIRECTIVE } from './session-start.js';
 
@@ -108,9 +102,9 @@ export interface GeneratedGraph {
  */
 export function computeInDegree(nodes: NodeFile[]): Map<string, number> {
   const m = new Map<string, number>();
-  for (const n of nodes) m.set(n.frontmatter.id, 0);
+  for (const n of nodes) m.set(n.frontmatter.kk_id, 0);
   for (const n of nodes) {
-    for (const targetId of n.frontmatter.relates_to) {
+    for (const targetId of n.frontmatter.kk_relates_to) {
       m.set(targetId, (m.get(targetId) ?? 0) + 1);
     }
   }
@@ -162,7 +156,7 @@ export const hrefFromEntryCatalog: LeafHref = relPath => posix.join('nodes', rel
  */
 function renderLeafPointer(n: NodeFile, href: LeafHref): string {
   const tagPart = n.frontmatter.tags.map(t => ` #${t}`).join('');
-  const summary = escapeInlineMarkdown(n.frontmatter.summary);
+  const summary = escapeInlineMarkdown(n.frontmatter.description);
   const learn = summary ? ` to learn about: ${summary}` : '';
   return `- Open [**${escapeInlineMarkdown(n.frontmatter.title)}**](${href(n.relPath)})${learn}${tagPart}`;
 }
@@ -205,7 +199,7 @@ function tagJaccard(a: readonly string[], b: readonly string[]): number {
 
 function makeCatalogComparator(inDegree: Map<string, number>) {
   return (a: NodeFile, b: NodeFile): number => {
-    const d = (inDegree.get(b.frontmatter.id) ?? 0) - (inDegree.get(a.frontmatter.id) ?? 0);
+    const d = (inDegree.get(b.frontmatter.kk_id) ?? 0) - (inDegree.get(a.frontmatter.kk_id) ?? 0);
     if (d !== 0) return d;
     return a.frontmatter.title.localeCompare(b.frontmatter.title);
   };
@@ -249,7 +243,8 @@ function rankTagCohorts(
     scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       const dIn =
-        (inDegree.get(b.node.frontmatter.id) ?? 0) - (inDegree.get(a.node.frontmatter.id) ?? 0);
+        (inDegree.get(b.node.frontmatter.kk_id) ?? 0) -
+        (inDegree.get(a.node.frontmatter.kk_id) ?? 0);
       if (dIn !== 0) return dIn;
       return a.node.frontmatter.title.localeCompare(b.node.frontmatter.title);
     });
@@ -307,7 +302,7 @@ export function renderTagIndex(
     const ranked = rankedCohorts.get(tag) ?? [];
     lines.push(`### #${tag}`);
     for (const node of ranked.slice(0, BY_TOPIC_MAX_PER_TAG)) {
-      const summary = escapeInlineMarkdown(node.frontmatter.summary);
+      const summary = escapeInlineMarkdown(node.frontmatter.description);
       const summaryPart = summary ? ` — ${summary}` : '';
       lines.push(
         `- Open [**${escapeInlineMarkdown(node.frontmatter.title)}**](${href(node.relPath)})${summaryPart}`
@@ -381,7 +376,7 @@ function renderRootCatalog(args: RenderRootCatalogArgs): string {
   // Root-level leaves render only when present; the empty headings the
   // per-folder template would emit at the root are dropped here.
   const byKind: Record<'practice' | 'map', NodeFile[]> = { practice: [], map: [] };
-  for (const n of rootLeaves) byKind[n.frontmatter.kind].push(n);
+  for (const n of rootLeaves) byKind[n.frontmatter.type].push(n);
   byKind.practice.sort(cmp);
   byKind.map.sort(cmp);
   if (byKind.practice.length > 0) {
@@ -411,7 +406,7 @@ function estimateTokens(nodes: NodeFile[]): number {
   let chars = 0;
   for (const n of nodes) {
     chars += n.frontmatter.title.length;
-    chars += n.frontmatter.summary.length;
+    chars += n.frontmatter.description.length;
     chars += n.body.length;
   }
   return Math.max(0, Math.ceil(chars / CHARS_PER_TOKEN));
@@ -477,12 +472,12 @@ function harvestFolderSummaries(
   dirs: Iterable<string>,
   entryFile?: string
 ): Map<string, string> {
-  const summaries = new Map<string, string>();
-  for (const dir of dirs) {
-    const file = dir === '' ? entryFile : join(nodesDir, ...dir.split('/'), INDEX_FILENAME);
-    if (!file) continue;
-    const summary = harvestSummary(file);
-    if (summary !== undefined) summaries.set(dir, summary);
+  const summaries = readFolderSummaries(nodesDir);
+  const rootSummary = entryFile ? harvestSummary(entryFile) : undefined;
+  if (rootSummary !== undefined) summaries.set('', rootSummary);
+  const allowed = new Set(dirs);
+  for (const key of [...summaries.keys()]) {
+    if (!allowed.has(key)) summaries.delete(key);
   }
   return summaries;
 }
@@ -553,11 +548,6 @@ export function generateIndex(nodesDir: string, entryFile?: string): GeneratedIn
       subDirs,
       rankedCohorts,
       inDegree,
-      // Per-folder hash: a leaf edit only perturbs the hash recorded in that
-      // leaf's own folder index, leaving unrelated folder indexes byte-stable.
-      // The whole-tree `## By topic` block is rendered into the body but is NOT
-      // fed into hashLeaves, so cross-tree churn never moves this hash.
-      nodesHash: hashLeaves(leaves),
       summary: harvestedSummaries.get(dir),
       folderSummaries: harvestedSummaries,
     });
@@ -609,7 +599,6 @@ interface RenderFolderArgs {
   /** Per-tag whole-tree ranking (precomputed once) for the `## By topic` block. */
   rankedCohorts: Map<string, NodeFile[]>;
   inDegree: Map<string, number>;
-  nodesHash: string;
   /** Self-preserved folder summary, carried verbatim from the prior index.md. */
   summary?: string | undefined;
   /** Self-preserved summaries for every folder (keyed by POSIX relDir). */
@@ -624,7 +613,7 @@ function renderFolderIndex(args: RenderFolderArgs): string {
   const href = hrefFromFolder(relDir);
 
   const byKind: Record<'practice' | 'map', NodeFile[]> = { practice: [], map: [] };
-  for (const n of leaves) byKind[n.frontmatter.kind].push(n);
+  for (const n of leaves) byKind[n.frontmatter.type].push(n);
   byKind.practice.sort(cmp);
   byKind.map.sort(cmp);
 
@@ -679,15 +668,8 @@ function renderFolderIndex(args: RenderFolderArgs): string {
   parts.push(renderTagIndex(leaves, rankedCohorts, href));
 
   const body = parts.join('\n');
-  // The summary is the only non-deterministic field; emit no key when absent so
-  // an un-summarized folder never stamps `summary: ""`.
-  const fm = IndexFrontmatterSchema.parse({
-    schema_version: NODE_SCHEMA_VERSION,
-    nodes_hash: `sha256:${args.nodesHash}`,
-    node_count: leaves.length,
-    ...(args.summary ? { summary: args.summary } : {}),
-  });
-  return matter.stringify(body, fm);
+  if (!isRoot) return body;
+  return matter.stringify(body, { okf_version: '0.1' });
 }
 
 /**
@@ -696,7 +678,7 @@ function renderFolderIndex(args: RenderFolderArgs): string {
  */
 export function generateGraph(nodesDir: string): GeneratedGraph {
   const nodes = readAllNodes(nodesDir);
-  nodes.sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id));
+  nodes.sort((a, b) => a.frontmatter.kk_id.localeCompare(b.frontmatter.kk_id));
   const hash = computeNodesHash(nodesDir);
 
   const lines: string[] = [`# kenkeep Graph`, ''];
@@ -707,16 +689,18 @@ export function generateGraph(nodesDir: string): GeneratedGraph {
     lines.push('');
     for (const n of nodes) {
       const fm = n.frontmatter;
-      lines.push(`## ${fm.id}`);
+      lines.push(`## ${fm.kk_id}`);
       lines.push('');
-      lines.push(`- **kind:** ${fm.kind}`);
+      lines.push(`- **kind:** ${fm.type}`);
       lines.push(`- **title:** ${fm.title}`);
       lines.push(`- **path:** ${n.relPath}`);
       if (fm.tags.length > 0) lines.push(`- **tags:** ${fm.tags.join(', ')}`);
-      if (fm.relates_to.length > 0) lines.push(`- **relates_to:** ${fm.relates_to.join(', ')}`);
-      if (fm.depends_on.length > 0) lines.push(`- **depends_on:** ${fm.depends_on.join(', ')}`);
-      if (fm.derived_from.length > 0)
-        lines.push(`- **derived_from:** ${fm.derived_from.join(', ')}`);
+      if (fm.kk_relates_to.length > 0)
+        lines.push(`- **relates_to:** ${fm.kk_relates_to.join(', ')}`);
+      if (fm.kk_depends_on.length > 0)
+        lines.push(`- **depends_on:** ${fm.kk_depends_on.join(', ')}`);
+      if (fm.kk_derived_from.length > 0)
+        lines.push(`- **derived_from:** ${fm.kk_derived_from.join(', ')}`);
       lines.push('');
     }
   }

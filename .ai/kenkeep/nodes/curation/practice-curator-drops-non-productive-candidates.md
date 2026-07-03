@@ -1,24 +1,23 @@
 ---
-schema_version: 2
-id: practice-curator-drops-non-productive-candidates
+type: practice
 title: Curator drops non-productive and change-oriented candidates
-kind: practice
+description: >-
+  Change-oriented framing is auto-dropped; hedged, plan-scoped, or
+  low-confidence signatures signal an abandoned-session leak.
 tags:
   - curator
   - prompts
   - calibration
   - anti-pattern
-derived_from:
+kk_schema_version: 3
+kk_id: practice-curator-drops-non-productive-candidates
+kk_derived_from:
   - docs/internals/prompts.md
-relates_to:
+kk_relates_to:
   - map-curator-action
   - map-proposal-candidate-schema
-depends_on: []
-confidence: high
-summary: >-
-  Change-oriented framing (migration stories) is auto-dropped.
-  Hedged/plan-scoped/low-confidence-without-rationale signatures are evidence of
-  an abandoned-session leak.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # Curator drops non-productive and change-oriented candidates
@@ -34,3 +33,16 @@ Two related calibrations from the curator prompt (v3):
 
 - When tuning the curator prompt or its tests, preserve both rules. Both are load-bearing for knowledge base quality (the "is this the right thing to remember" judgement at the §4 manual-test check.).
 - Other documented anti-patterns to keep on the drop list: modifications that rephrase existing content (drop instead); additions when a near-duplicate exists (modify instead); emitting any non-null `suggested_resolution`; crossing the practice/map boundary.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-curator-action](/curation/map-curator-action.md)
+- Related: [map-proposal-candidate-schema](/curation/map-proposal-candidate-schema.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/prompts.md](docs/internals/prompts.md)
+<!-- kk:citations:end -->

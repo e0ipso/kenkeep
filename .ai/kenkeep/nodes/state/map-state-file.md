@@ -1,24 +1,23 @@
 ---
-schema_version: 2
-id: map-state-file
+type: map
 title: .state/state.json (lock + nudge state)
-kind: map
+description: >-
+  Gitignored runtime state with only last_nudged_at; the proposal-drain lock is
+  a sidecar lockfile dir (60s stale), not a JSON field.
 tags:
   - state
   - lock
   - schema
-derived_from:
+kk_schema_version: 3
+kk_id: map-state-file
+kk_derived_from:
   - docs/internals/architecture.md
   - docs/internals/schemas.md
-relates_to:
+kk_relates_to:
   - map-bootstrap-state-file
   - map-proposal-drain-hook
-depends_on: []
-confidence: high
-summary: >-
-  Gitignored runtime state. Carries only last_nudged_at; the proposal-drain lock
-  is a sidecar proper-lockfile directory (60s stale, auto-reclaimed), not a JSON
-  field.
+kk_depends_on: []
+kk_confidence: high
 ---
 
 # `.state/state.json`
@@ -43,3 +42,17 @@ Only the **proposal-drain hook** locks `state.json`. It uses `proper-lockfile` (
 **Curate, bootstrap, and consume do not lock `state.json`.** Curate and bootstrap each run in a single host harness session per invocation (single-author by design); the atomic tmp+rename writes inside `node write` and `curate-dedup` provide durability. `node write` does take a `proper-lockfile` lock, but on the separate `bootstrap-state.json` (with retries, to serialise concurrent `--source-doc` writers); `reconcileUsage` locks `usage.jsonl`. Neither touches `state.json`.
 
 Manual recovery (rare): remove the `.ai/kenkeep/.state/state.json.lock` directory if a stale lock somehow persists past the 60s window.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-bootstrap-state-file](/bootstrap/map-bootstrap-state-file.md)
+- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+<!-- kk:related:end -->
+
+<!-- kk:citations:start -->
+# Citations
+
+[1] [docs/internals/architecture.md](docs/internals/architecture.md)
+[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+<!-- kk:citations:end -->

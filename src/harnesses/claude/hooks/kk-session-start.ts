@@ -47,7 +47,7 @@ runHookEntry({
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
       });
-      sendSessionStartNotifications(settings, result);
+      sendSessionStartNotifications(settings, result, paths.kkDir);
       const { statusLine, content } = buildNudgeContent(result);
       process.stdout.write(
         `${JSON.stringify({

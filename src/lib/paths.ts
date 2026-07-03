@@ -15,6 +15,14 @@ export function packageTemplatesDir(): string {
   return join(packageRoot(), 'templates');
 }
 
+const NOTIFICATION_ICON_PNG = 'notification-icon.png';
+
+/** Resolved path to the shipped kenkeep notification icon, if present. */
+export function notificationIconPath(kkDir: string): string | null {
+  const png = join(kkDir, 'assets', NOTIFICATION_ICON_PNG);
+  return existsSync(png) ? png : null;
+}
+
 /**
  * Walks upward from `from` looking for a directory containing a `.git`
  * folder or the package's install marker at `.ai/kenkeep/.state/`.

@@ -17,9 +17,14 @@ type SpawnFn = (
   options: { detached: boolean; shell: false; stdio: 'ignore' }
 ) => Pick<ChildProcess, 'unref' | 'on'>;
 
+export interface BuildNotificationCommandOptions {
+  iconPath?: string | null;
+}
+
 export interface SendOsNotificationOptions {
   platform?: NodeJS.Platform;
   spawn?: SpawnFn;
+  iconPath?: string | null;
 }
 
 export function escapeAppleScriptString(value: string): string {
@@ -28,9 +33,12 @@ export function escapeAppleScriptString(value: string): string {
 
 export function buildNotificationCommand(
   platform: NodeJS.Platform,
-  notification: OsNotification
+  notification: OsNotification,
+  opts: BuildNotificationCommandOptions = {}
 ): NotificationCommand | null {
   if (platform === 'darwin') {
+    // macOS AppleScript display notification does not accept a standalone icon
+    // path; the host shows the Terminal/script runner icon instead.
     return {
       command: 'osascript',
       args: [
@@ -41,9 +49,14 @@ export function buildNotificationCommand(
   }
 
   if (platform === 'linux') {
+    const args = ['--app-name=kenkeep'];
+    if (opts.iconPath) {
+      args.push(`--icon=${opts.iconPath}`);
+    }
+    args.push(notification.title, notification.body);
     return {
       command: 'notify-send',
-      args: ['--app-name=kenkeep', notification.title, notification.body],
+      args,
     };
   }
 
@@ -55,7 +68,11 @@ export function sendOsNotification(
   opts: SendOsNotificationOptions = {}
 ): void {
   const platform = opts.platform ?? process.platform;
-  const command = buildNotificationCommand(platform, notification);
+  const command = buildNotificationCommand(
+    platform,
+    notification,
+    opts.iconPath == null ? {} : { iconPath: opts.iconPath }
+  );
   if (command === null) return;
 
   const spawn = opts.spawn ?? nodeSpawn;

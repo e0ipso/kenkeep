@@ -114,6 +114,23 @@ describe('init --upgrade', () => {
     expect(readFileSync(helper, 'utf8')).toContain('kk-detect-harness');
   });
 
+  it('re-copies the notification icon when missing on upgrade', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+
+    const icon = join(sandbox, '.ai/kenkeep/assets/notification-icon.png');
+    expect(existsSync(icon)).toBe(true);
+    rmSync(icon);
+
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
+    installed.version = '0.0.0-test-old';
+    writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(icon)).toBe(true);
+  });
+
   it('ships the root-detector helper on first install and re-copies it when missing on upgrade', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
 

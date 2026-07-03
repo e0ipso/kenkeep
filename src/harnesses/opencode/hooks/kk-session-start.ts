@@ -51,7 +51,7 @@ runHookEntry({
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
       });
-      sendSessionStartNotifications(settings, result);
+      sendSessionStartNotifications(settings, result, paths.kkDir);
       const { statusLine, content } = buildNudgeContent(result);
       const target = join(root, '.opencode', 'AGENTS.md');
       mkdirSync(dirname(target), { recursive: true });

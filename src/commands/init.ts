@@ -193,6 +193,7 @@ async function runUpgrade(
   // skills invoke) into existing repos. Upgrade does not re-copy the whole
   // skeleton, so copy any missing script without clobbering user-owned files.
   ensureKkScripts(join(templatesDir, 'kenkeep', 'scripts'), join(paths.kkDir, 'scripts'));
+  ensureKkAssets(join(templatesDir, 'kenkeep', 'assets'), join(paths.kkDir, 'assets'));
 
   ensureKbGitignore(paths.kkGitignoreFile);
   ensureAgentsKkBlock(join(root, 'AGENTS.md'));
@@ -222,6 +223,16 @@ async function runUpgrade(
  * overwrites a file the user may have edited.
  */
 function ensureKkScripts(src: string, dst: string): void {
+  if (!existsSync(src)) return;
+  mkdirSync(dst, { recursive: true });
+  for (const name of readdirSync(src)) {
+    const dstPath = join(dst, name);
+    if (existsSync(dstPath)) continue;
+    cpSync(join(src, name), dstPath);
+  }
+}
+
+function ensureKkAssets(src: string, dst: string): void {
   if (!existsSync(src)) return;
   mkdirSync(dst, { recursive: true });
   for (const name of readdirSync(src)) {

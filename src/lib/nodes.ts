@@ -23,6 +23,7 @@ import {
 
 /** Filename of a generated per-folder index node. Never a leaf. */
 export const INDEX_FILENAME = 'index.md';
+const RESERVED_NODE_FILENAMES = new Set([INDEX_FILENAME, 'log.md']);
 
 /**
  * Rough chars-per-token divisor shared by every token estimator (index-gen
@@ -163,7 +164,7 @@ function collectLeafNodes(
       continue;
     }
     if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === INDEX_FILENAME) continue;
+    if (RESERVED_NODE_FILENAMES.has(entry.name)) continue;
     const raw = readFileSync(fullPath, 'utf8');
     let parsed: ReturnType<typeof matter>;
     try {
@@ -265,8 +266,8 @@ function walkMarkdown(rootDir: string, currentDir: string, out: string[]): void 
       continue;
     }
     if (!name.name.endsWith('.md')) continue;
-    // Generated index nodes are derived artifacts, never hashed.
-    if (name.name === INDEX_FILENAME) continue;
+    // OKF reserved files are not leaf nodes and do not contribute to the leaf hash.
+    if (RESERVED_NODE_FILENAMES.has(name.name)) continue;
     const rel = relative(rootDir, fullPath).split(sep).join(posix.sep);
     const sha = createHash('sha256').update(readFileSync(fullPath)).digest('hex');
     out.push(`${rel}\t${sha}`);

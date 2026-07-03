@@ -59,6 +59,18 @@ describe('nodes helpers', () => {
     expect(nodes.map(n => n.frontmatter.kk_id).sort()).toEqual(['map-y', 'practice-x']);
   });
 
+  it('ignores OKF reserved log.md files when reading and hashing leaves', () => {
+    seedNode(root, 'practice', 'practice-x');
+    const before = computeNodesHash(root);
+    writeFileSync(join(root, 'log.md'), '# Bundle log\n');
+    mkdirSync(join(root, 'topic'), { recursive: true });
+    writeFileSync(join(root, 'topic', 'log.md'), '# Topic log\n');
+
+    const nodes = readAllNodes(root);
+    expect(nodes.map(n => n.frontmatter.kk_id)).toEqual(['practice-x']);
+    expect(computeNodesHash(root)).toBe(before);
+  });
+
   it('rejects the legacy flat nodes/<kind>/ layout and points to the kk-migrate skill, not init --upgrade', () => {
     // A v1 flat bucket: leaf docs under nodes/practice/ with no generated index.md.
     const bucket = join(root, 'practice');

@@ -1,3 +1,9 @@
+## [1.12.0](https://github.com/e0ipso/kenkeep/compare/v1.11.4...v1.12.0) (2026-07-03)
+
+### Features
+
+* use OKF as the storage format ([#86](https://github.com/e0ipso/kenkeep/issues/86)) ([033de5a](https://github.com/e0ipso/kenkeep/commit/033de5a5ab33e30f857ebada2e11d7645ee060a8))
+
 ## [1.11.4](https://github.com/e0ipso/kenkeep/compare/v1.11.3...v1.11.4) (2026-07-02)
 
 ### Bug Fixes

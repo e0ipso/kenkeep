@@ -36,6 +36,10 @@
 
 ## Unreleased
 
+### Features
+
+* add kenkeep icon to Linux desktop notifications ([#87](https://github.com/e0ipso/kenkeep/issues/87))
+
 ### Documentation
 
 * document knowledge packs

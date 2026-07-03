@@ -117,7 +117,11 @@ cliDefaultHarness: codex      # harness to assume when none is detected
 
 Actionable SessionStart nudges also attempt a native desktop notification by
 default when a local backend is available: `osascript` on macOS and
-`notify-send` on Linux. This is additive; the same nudge still goes through the
+`notify-send` on Linux. On Linux, notifications include the kenkeep mark from
+`.ai/kenkeep/assets/notification-icon.png` when that file is present (shipped on
+`init` and copied on `init --upgrade` when missing). macOS does not support a
+custom icon via AppleScript `display notification`, so those alerts keep the
+host script runner icon. This is additive; the same nudge still goes through the
 normal assistant/context channel. Missing binaries, denied OS permissions,
 headless sessions, SSH, WSL, missing DBus, and unavailable notification daemons
 are skipped silently. Set `notifications.enabled: false` to disable all OS

@@ -34,6 +34,24 @@ describe('notifications', () => {
     });
   });
 
+  it('adds a Linux notification icon when an icon path is provided', () => {
+    expect(
+      buildNotificationCommand(
+        'linux',
+        { title: 'kenkeep', body: 'nudge' },
+        '/repo/.ai/kenkeep/assets/notification-icon.png'
+      )
+    ).toEqual({
+      command: 'notify-send',
+      args: [
+        '--app-name=kenkeep',
+        '--icon=/repo/.ai/kenkeep/assets/notification-icon.png',
+        'kenkeep',
+        'nudge',
+      ],
+    });
+  });
+
   it('skips unsupported platforms', () => {
     expect(buildNotificationCommand('win32', { title: 'x', body: 'y' })).toBeNull();
   });

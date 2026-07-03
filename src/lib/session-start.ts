@@ -5,6 +5,7 @@ import matter from 'gray-matter';
 import { computeNodesHash } from './nodes.js';
 import { readLintState } from './lint-state.js';
 import { sendOsNotification } from './notifications.js';
+import { notificationIconPath } from './paths.js';
 import { IndexFrontmatterSchema, SessionLogFrontmatterSchema } from './schemas.js';
 import type { EffectiveSettings } from './settings.js';
 import { readState, writeState } from './state.js';
@@ -325,11 +326,13 @@ export function buildSessionStartNotifications(
 
 export function sendSessionStartNotifications(
   settings: Pick<EffectiveSettings, 'notifications'>,
-  result: SessionStartResult
+  result: SessionStartResult,
+  kkDir: string
 ): void {
   if (!settings.notifications.enabled) return;
+  const iconPath = notificationIconPath(kkDir);
   for (const notification of buildSessionStartNotifications(result)) {
-    sendOsNotification(notification);
+    sendOsNotification(notification, { iconPath });
   }
 }
 

@@ -438,6 +438,9 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     const notifications = await waitForFileLines(fake.logFile, 1);
     expect(notifications).toHaveLength(1);
     expect(notifications[0]).toContain('--app-name=kenkeep');
+    const iconPath = join(sb.kkDir, 'assets', 'notification-icon.png');
+    expect(existsSync(iconPath)).toBe(true);
+    expect(notifications[0]).toContain(`--icon=${iconPath}`);
     expect(notifications[0]).toContain(`kenkeep: ${sb.root.split('/').pop()} on ${osHostname()}`);
     expect(notifications[0]).toContain(`Path: ${sb.root}`);
     expect(notifications[0]).toContain('Action: Run npx kenkeep index rebuild.');

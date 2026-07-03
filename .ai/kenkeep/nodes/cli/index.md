@@ -74,5 +74,6 @@ _None._
 ### #scope
 - Open [**init does not install husky/lint-staged/secretlint/commitlint**](practice-init-does-not-install-commit-tooling.md) — init writes only the KB scaffold and the harness's hooks/skills; commit-time tooling (husky, lint-staged, commitlint) is the consumer's job.
 ### #skills
-- Open [**Shipped skills and hook scripts must be self-contained**](../hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
 - Open [**Skills-first documentation, only init is CLI**](practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
+- Open [**Shipped skills and hook scripts must be self-contained**](../hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
+- Open [**kk-session-extract**](../curation/map-kk-session-extract.md) — Shared skill for extracting durable knowledge from the visible live session and immediately curating it.

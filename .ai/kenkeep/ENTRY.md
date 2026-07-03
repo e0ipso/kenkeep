@@ -1,7 +1,7 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:4bd12ef1d5b1e99d9840f6d1ec86b46923362c7d0a10b9b6321144e4c7f170e5'
-node_count: 75
+nodes_hash: 'sha256:b700f97499dbcf87e8379cd205496742204987653fb7ed9936a4706c5564394b'
+node_count: 83
 ---
 # kenkeep
 
@@ -13,6 +13,7 @@ node_count: 75
 - Load [`config-and-prompts/`](nodes/config-and-prompts/index.md) for more information on config.yaml settings and the prompt templates with their versioning; read when adding a setting or touching a prompt.
 - Load [`conventions/`](nodes/conventions/index.md) for more information on commit, release, testing, CI, and writing-style rules; read before committing, releasing, or writing docs.
 - Load [`curation/`](nodes/curation/index.md) for more information on the curator pipeline from proposals to nodes, including conflicts; read when changing curation, dedup, or conflict handling.
+- Load [`git/`](nodes/git/index.md) for more information on GitHub remote push authentication in this environment; read before pushing branches or debugging GitHub auth from this workspace.
 - Load [`harnesses/`](nodes/harnesses/index.md) for more information on the five harness adapters and their isolation rules; read before adding a harness, changing hook wiring, or debugging a host integration.
 - Load [`hooks/`](nodes/hooks/index.md) for more information on the capture, session-start, drain, and lint-tick hooks and how they are built; read when changing any hook behavior.
 - Load [`index/`](nodes/index/index.md) for more information on the deterministic ENTRY/GRAPH/index generation and nodes_hash; read when touching index generation or staleness checks.
@@ -24,4 +25,3 @@ node_count: 75
 ## Conventions (how we build)
 - Open [**Copilot file-based SessionStart must use shared context builder**](nodes/practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) to learn about: Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status. #copilot #harness #hooks #sessionstart #context-injection #drift
 - Open [**Keep template partials out of the knowledge base**](nodes/practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build
-- Open [**Use origin-https with gh-minted auth for pushes**](nodes/practice-use-origin-https-with-gh-minted-auth-for-pushes.md) to learn about: In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH. #git #github #gh #authentication #remote #push #environment

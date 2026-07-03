@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:4bd12ef1d5b1e99d9840f6d1ec86b46923362c7d0a10b9b6321144e4c7f170e5'
-node_count: 75
+nodes_hash: 'sha256:b700f97499dbcf87e8379cd205496742204987653fb7ed9936a4706c5564394b'
+node_count: 83
 ---
 # kenkeep Graph
 
-Total nodes: 75
+Total nodes: 83
 
 ## map-bootstrap-incremental-command
 
@@ -41,7 +41,7 @@ Total nodes: 75
 - **path:** harnesses/map-claude-harness.md
 - **tags:** harness, claude, hooks
 - **relates_to:** map-harness-adapter, map-capture-hook, map-proposal-drain-hook, map-session-start-hook
-- **derived_from:** docs/installation.md, docs/how-it-works.md, docs/internals/hooks.md
+- **derived_from:** docs/installation.md, docs/how-it-works.md, docs/internals/hooks.md, 696e9b15-ef7a-409d-8445-493a3ee76eaa:map:0
 
 ## map-codex-harness
 
@@ -95,6 +95,15 @@ Total nodes: 75
 - **tags:** cli, curate, skill
 - **relates_to:** map-curator-action, map-conflict-files, practice-curator-never-auto-resolves-contradictions
 - **derived_from:** docs/daily-use.md, docs/how-it-works.md
+
+## map-curate-dedup-scoped-session-mode
+
+- **kind:** map
+- **title:** curate-dedup scoped session mode
+- **path:** curation/map-curate-dedup-scoped-session-mode.md
+- **tags:** curation, dedup, sessions
+- **relates_to:** map-curate-command, map-session-log, map-kk-session-extract
+- **derived_from:** 4c12545c-3224-4602-8b5a-14c752d26975:map:2
 
 ## map-curator-action
 
@@ -157,6 +166,15 @@ Total nodes: 75
 - **relates_to:** map-nodes-directory, map-session-log, map-entry-md, map-graph-md, map-state-file, map-bootstrap-state-file, map-config-yaml, map-conflict-files
 - **derived_from:** docs/internals/architecture.md, docs/installation.md
 
+## map-kenkeep-docs-site-custom-domain
+
+- **kind:** map
+- **title:** kenkeep docs site custom domain
+- **path:** overview/map-kenkeep-docs-site-custom-domain.md
+- **tags:** docs, github-pages, jekyll
+- **relates_to:** map-kenkeep-package
+- **derived_from:** 3b7523b7-c758-4524-8c4f-b1263c500087:map:0
+
 ## map-kenkeep-package
 
 - **kind:** map
@@ -174,6 +192,24 @@ Total nodes: 75
 - **tags:** skill, bootstrap, agent
 - **relates_to:** map-bootstrap-incremental-command, practice-bootstrap-never-overwrites-existing-nodes, practice-bootstrap-is-supervised-and-judgmental
 - **derived_from:** docs/installation.md, docs/daily-use.md
+
+## map-kk-prompt-context-cjs-prompt-time-injection
+
+- **kind:** map
+- **title:** kk-prompt-context.cjs (prompt-time injection)
+- **path:** hooks/map-kk-prompt-context-cjs-prompt-time-injection.md
+- **tags:** hooks, prompt-time, codex, claude
+- **relates_to:** map-session-start-hook, map-codex-harness, map-claude-harness
+- **derived_from:** 019f1e24-76c6-7751-a01f-9a408a7e44e8:map:0
+
+## map-kk-session-extract
+
+- **kind:** map
+- **title:** kk-session-extract
+- **path:** curation/map-kk-session-extract.md
+- **tags:** skills, curation, sessions
+- **relates_to:** map-session-log-stage-live, map-curate-dedup-scoped-session-mode, map-curate-command
+- **derived_from:** 4c12545c-3224-4602-8b5a-14c752d26975:map:1
 
 ## map-knowledge-pack-format
 
@@ -229,6 +265,15 @@ Total nodes: 75
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, README.md
 
+## map-per-repo-notification-icon-asset
+
+- **kind:** map
+- **title:** Per-repo notification icon asset
+- **path:** hooks/map-per-repo-notification-icon-asset.md
+- **tags:** hooks, notifications, assets
+- **relates_to:** map-session-start-hook, map-kenkeep-directory
+- **derived_from:** 96b49c42-b254-4bca-a9c2-40579b0ed896:map:0
+
 ## map-proposal-candidate-schema
 
 - **kind:** map
@@ -253,8 +298,17 @@ Total nodes: 75
 - **title:** Session log (_sessions/*.md)
 - **path:** state/map-session-log.md
 - **tags:** session, capture, state, schema
-- **relates_to:** map-capture-hook, map-proposal-drain-hook
-- **derived_from:** docs/internals/hooks.md, docs/internals/schemas.md, docs/internals/architecture.md
+- **relates_to:** map-capture-hook, map-proposal-drain-hook, map-session-log-stage-live
+- **derived_from:** docs/internals/hooks.md, docs/internals/schemas.md, docs/internals/architecture.md, 4c12545c-3224-4602-8b5a-14c752d26975:map:3
+
+## map-session-log-stage-live
+
+- **kind:** map
+- **title:** session-log stage-live
+- **path:** state/map-session-log-stage-live.md
+- **tags:** session-log, cli, curation
+- **relates_to:** map-session-log, map-curate-command
+- **derived_from:** 4c12545c-3224-4602-8b5a-14c752d26975:map:0
 
 ## map-session-start-hook
 
@@ -281,6 +335,15 @@ Total nodes: 75
 - **path:** cli/map-update-agents-md-kk-index-pointer-injection-into-agents-md.md
 - **tags:** init, upgrade, agents-md, markers, index
 - **relates_to:** map-entry-md, practice-init-does-not-install-commit-tooling
+
+## map-usage-ledger-depends-on-successful-capture
+
+- **kind:** map
+- **title:** Usage ledger depends on successful capture
+- **path:** state/map-usage-ledger-depends-on-successful-capture.md
+- **tags:** usage, capture, state, hooks
+- **relates_to:** map-capture-hook, map-session-log
+- **derived_from:** 019f1e24-76c6-7751-a01f-9a408a7e44e8:map:1
 
 ## practice-adapters-never-cross-directories
 
@@ -457,6 +520,15 @@ Total nodes: 75
 - **path:** hooks/practice-hook-status-messages-include-kk-prefix-after-emoji.md
 - **tags:** hooks, messaging, ux
 - **relates_to:** map-capture-hook, map-session-start-hook, map-proposal-drain-hook, map-claude-harness
+
+## practice-ignore-harness-javascript-artifacts-in-prettier
+
+- **kind:** practice
+- **title:** Ignore harness JavaScript artifacts in Prettier
+- **path:** conventions/practice-ignore-harness-javascript-artifacts-in-prettier.md
+- **tags:** prettier, harnesses, formatting
+- **relates_to:** map-hook-build-pipeline-ts-to-cjs, map-copilot-harness-adapter
+- **derived_from:** c65744ae-f92d-453a-97cb-16f2298e6645:practice:0
 
 ## practice-init-and-upgrade-inject-a-static-kk-index-pointer-into-agents-md
 
@@ -647,5 +719,5 @@ Total nodes: 75
 
 - **kind:** practice
 - **title:** Use origin-https with gh-minted auth for pushes
-- **path:** practice-use-origin-https-with-gh-minted-auth-for-pushes.md
+- **path:** git/practice-use-origin-https-with-gh-minted-auth-for-pushes.md
 - **tags:** git, github, gh, authentication, remote, push, environment

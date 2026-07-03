@@ -60,8 +60,8 @@ _None._
 - Open [**curate (CLI command + /kk-curate skill)**](../curation/map-curate-command.md) — Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent.
 - Open [**/kk-bootstrap skill**](map-kk-bootstrap-skill.md) — Supervised, agent-driven first-pass bootstrap: surveys docs and writes practice/map nodes under nodes/. Reviewer accepts via git commit.
 ### #state
+- Open [**Session log (_sessions/*.md)**](../state/map-session-log.md) — Per-session checkpoint _sessions/<YYYYMMDD-HHmm-id>.md, one per session_id; frontmatter tracks capture, proposal, and curator phases.
 - Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state with only last_nudged_at; the proposal-drain lock is a sidecar lockfile dir (60s stale), not a JSON field.
 - Open [**.state/bootstrap-state.json (per-doc hash cache)**](map-bootstrap-state-file.md) — Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs. Gitignored.
-- Open [**Session log (_sessions/*.md)**](../state/map-session-log.md) — Per-session checkpoint _sessions/<YYYYMMDD-HHmm-id>.md, one per session_id; frontmatter tracks capture, proposal, and curator phases.
 ### #supervision
 - Open [**Bootstrap is supervised and judgmental, not exhaustive**](practice-bootstrap-is-supervised-and-judgmental.md) — /kk-bootstrap samples, follows cross-references, and stops to ask when scope is unclear. Don't read every doc end-to-end.

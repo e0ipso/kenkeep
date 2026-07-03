@@ -16,6 +16,9 @@ summaries:
   curation: >-
     the curator pipeline from proposals to nodes, including conflicts; read when
     changing curation, dedup, or conflict handling
+  git: >-
+    GitHub remote push authentication in this environment; read before pushing
+    branches or debugging GitHub auth from this workspace
   harnesses: >-
     the five harness adapters and their isolation rules; read before adding a
     harness, changing hook wiring, or debugging a host integration
@@ -43,6 +46,7 @@ summaries:
 - `config-and-prompts`: config.yaml settings and the prompt templates with their versioning; read when adding a setting or touching a prompt
 - `conventions`: commit, release, testing, CI, and writing-style rules; read before committing, releasing, or writing docs
 - `curation`: the curator pipeline from proposals to nodes, including conflicts; read when changing curation, dedup, or conflict handling
+- `git`: GitHub remote push authentication in this environment; read before pushing branches or debugging GitHub auth from this workspace
 - `harnesses`: the five harness adapters and their isolation rules; read before adding a harness, changing hook wiring, or debugging a host integration
 - `hooks`: the capture, session-start, drain, and lint-tick hooks and how they are built; read when changing any hook behavior
 - `index`: the deterministic ENTRY/GRAPH/index generation and nodes_hash; read when touching index generation or staleness checks

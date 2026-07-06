@@ -1,3 +1,9 @@
+## [1.13.1](https://github.com/e0ipso/kenkeep/compare/v1.13.0...v1.13.1) (2026-07-06)
+
+### Bug Fixes
+
+* authenticate OpenCode install in host-drift workflow ([#98](https://github.com/e0ipso/kenkeep/issues/98)) ([d80fb0c](https://github.com/e0ipso/kenkeep/commit/d80fb0cbcdd7b8aa68390110ca7afda685fa051c))
+
 ## [1.13.0](https://github.com/e0ipso/kenkeep/compare/v1.12.0...v1.13.0) (2026-07-03)
 
 ### Features

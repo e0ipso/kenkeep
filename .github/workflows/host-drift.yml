@@ -30,12 +30,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install latest harness CLIs
+      - name: Install npm harness CLIs
+        run: npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
+
+      - name: Install Cursor CLI
         run: |
-          npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
           curl -fsSL https://cursor.com/install | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          curl -fsSL https://opencode.ai/install | bash
+
+      - name: Install OpenCode CLI
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(curl -sf -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/anomalyco/opencode/releases/latest \
+            | jq -r .tag_name | sed 's/^v//')
+          curl -fsSL https://opencode.ai/install | bash -s -- --version "$VERSION"
           echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
 
       - name: Probe host contracts

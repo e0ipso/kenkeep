@@ -18,6 +18,22 @@ Every AI coding tool has some answer to the memory problem. Most answers are eit
 | Cursor rules / Copilot instructions / AGENTS.md | Committed markdown files | Yes — via git | Hand-edit only | None |
 | **kenkeep** | **Committed markdown in repo** | **Yes — via git pull** | **Every node needs git commit** | **Node 22+ and git** |
 
+## Not the same as auto-generated code docs
+
+A separate family of tools reads your source and generates wiki-style reference
+documentation from it — architecture overviews, module summaries, call graphs.
+These answer **"what is this code?"** kenkeep answers a different question:
+**"what do we know about working here that the code doesn't say?"** — the
+gotchas, the rationale behind a decision, the convention that isn't written down
+anywhere because it lives in someone's head.
+
+The two are complementary, not competing. Generated docs stay exhaustive and
+current with the source automatically; kenkeep accumulates the experiential
+layer that only a human can validate and that no amount of reading the code will
+reveal. A team can run both: one keeps the structural map fresh, the other
+captures the hard-won knowledge that would otherwise evaporate when a session
+ends.
+
 ## Why this matters
 
 - **The knowledge base is a team artifact.** It travels with the repo. Every teammate who clones gets all accumulated knowledge — no plugin to install, no account to create, no sync step beyond `git pull`.

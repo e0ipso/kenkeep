@@ -239,4 +239,29 @@ describe('lint command', () => {
     // a `dangling-edge: 0` count line, so assert on the error message itself).
     expect(combined).not.toContain('references unknown node practice-retired');
   });
+
+  it('reports tag-whitespace and empty-summary findings without changing exit code', async () => {
+    writeNode(sandbox, 'practice', 'practice-tag-space', {
+      kk_id: 'practice-tag-space',
+      tags: [' hooks '],
+    });
+    const topicDir = join(sandbox, '.ai/kenkeep/nodes/topic');
+    mkdirSync(topicDir, { recursive: true });
+    writeFileSync(join(topicDir, 'index.md'), '# Topic\n');
+    writeFileSync(
+      join(sandbox, '.ai/kenkeep/FOLDER_SUMMARIES.md'),
+      matter.stringify('# kenkeep Folder Summaries\n\n', {
+        schema_version: 1,
+        summaries: { topic: '   ' },
+      })
+    );
+
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('tag-whitespace');
+    expect(combined).toContain('practice-tag-space.md');
+    expect(combined).toContain('empty-summary');
+    expect(combined).toContain('FOLDER_SUMMARIES.md');
+  });
 });

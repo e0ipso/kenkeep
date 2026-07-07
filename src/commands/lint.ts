@@ -31,6 +31,8 @@ function printCounts(result: LintResult): void {
     { rule: 'dangling-edge', bucket: 'errors' },
     { rule: 'slug-id-mismatch', bucket: 'errors' },
     { rule: 'tag-near-duplicate', bucket: 'findings' },
+    { rule: 'tag-whitespace', bucket: 'findings' },
+    { rule: 'empty-summary', bucket: 'findings' },
     { rule: 'orphan', bucket: 'findings' },
   ];
   for (const { rule, bucket } of rules) {

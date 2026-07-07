@@ -1,3 +1,15 @@
+## [1.13.2](https://github.com/e0ipso/kenkeep/compare/v1.13.1...v1.13.2) (2026-07-07)
+
+### Bug Fixes
+
+* split docs Pages build and deploy jobs ([#100](https://github.com/e0ipso/kenkeep/issues/100)) ([98a188a](https://github.com/e0ipso/kenkeep/commit/98a188a35e0d232440a46a7719cf68edddd616d2))
+
+## [1.13.1](https://github.com/e0ipso/kenkeep/compare/v1.13.0...v1.13.1) (2026-07-06)
+
+### Bug Fixes
+
+* authenticate OpenCode install in host-drift workflow ([#98](https://github.com/e0ipso/kenkeep/issues/98)) ([d80fb0c](https://github.com/e0ipso/kenkeep/commit/d80fb0cbcdd7b8aa68390110ca7afda685fa051c))
+
 ## [1.13.0](https://github.com/e0ipso/kenkeep/compare/v1.12.0...v1.13.0) (2026-07-03)
 
 ### Features

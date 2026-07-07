@@ -78,7 +78,9 @@ async function main(): Promise<void> {
 
   program
     .command('doctor')
-    .description('Verify hook installation and schema validity.')
+    .description(
+      'Verify hook installation, schema validity, per-harness install status, and frontmatter hygiene.'
+    )
     .option('-v, --verbose', 'show extra diagnostics', false)
     .action(async (opts: { verbose: boolean }) => {
       const code = await runDoctor({ ...opts, harness: program.opts().harness });
@@ -88,7 +90,7 @@ async function main(): Promise<void> {
   program
     .command('lint')
     .description(
-      'Run mechanical kenkeep content health checks (dangling edges, slug/id mismatch, tag duplicates, orphans).'
+      'Run mechanical kenkeep content health checks (dangling edges, slug/id mismatch, tag duplicates, tag whitespace, empty folder summaries in FOLDER_SUMMARIES.md, orphans).'
     )
     .option('-v, --verbose', 'list every error and finding individually', false)
     .action(async (opts: { verbose: boolean }) => {

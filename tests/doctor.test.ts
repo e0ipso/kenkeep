@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
@@ -159,6 +160,114 @@ describe('doctor', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout + result.stderr).toContain('settings file is valid');
     expect(result.stdout + result.stderr).toContain('schema validation failed');
+  });
+
+  it.each(['claude', 'codex', 'copilot', 'cursor', 'opencode'])(
+    'prints per-harness install status block [%s]',
+    async id => {
+      const stubBin = writeHarnessBinaryStubs(sandbox);
+      const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+      if (id === 'copilot') env['COPILOT_HOME'] = join(sandbox, 'copilot-home');
+      await runCli(sandbox, ['init', '--harnesses', id], env);
+      const result = await runCli(sandbox, ['doctor', '-v'], env);
+      const combined = result.stdout + result.stderr;
+      expect(combined).toContain(`Harness ${id} install status`);
+      expect(combined).toContain('detection:');
+      if (id === 'codex' || id === 'copilot' || id === 'opencode') {
+        expect(combined).toContain('no detector (n/a)');
+      }
+      if (id === 'copilot' || id === 'opencode') {
+        expect(combined).toContain('kk-hooks');
+      }
+      expect(result.exitCode).toBe(0);
+    }
+  );
+
+  it('scopes per-harness status to --harness copilot only', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = {
+      PATH: `${stubBin}:${process.env['PATH'] ?? ''}`,
+      COPILOT_HOME: join(sandbox, 'copilot-home'),
+    };
+    await runCli(sandbox, ['init', '--harnesses', 'claude,copilot'], env);
+    const result = await runCli(sandbox, ['doctor', '--harness', 'copilot'], env);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('Harness copilot install status');
+    expect(combined).not.toContain('Harness claude install status');
+  });
+
+  it('surfaces hygiene findings from lint and reports dangling derived_from once', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
+    writeFileSync(
+      join(nodesDir, 'practice-whitespace-tag.md'),
+      [
+        '---',
+        'kk_schema_version: 3',
+        'kk_id: practice-whitespace-tag',
+        'title: "whitespace tag"',
+        'type: practice',
+        'description: s',
+        'tags: [" hooks "]',
+        'kk_derived_from: ["docs/missing.md"]',
+        'kk_relates_to: []',
+        'kk_confidence: high',
+        '---',
+        '',
+        'body',
+      ].join('\n')
+    );
+    const topicDir = join(nodesDir, 'topic');
+    mkdirSync(topicDir, { recursive: true });
+    writeFileSync(join(topicDir, 'index.md'), '# Topic\n');
+    writeFileSync(
+      join(sandbox, '.ai/kenkeep/FOLDER_SUMMARIES.md'),
+      matter.stringify('# kenkeep Folder Summaries\n\n', {
+        schema_version: 1,
+        summaries: { topic: '' },
+      })
+    );
+
+    const lintResult = await runCli(sandbox, ['lint', '--verbose']);
+    expect(lintResult.exitCode).toBe(0);
+    const lintCombined = lintResult.stdout + lintResult.stderr;
+    expect(lintCombined).toContain('tag-whitespace');
+    expect(lintCombined).toContain('empty-summary');
+
+    const doctorResult = await runCli(sandbox, ['doctor', '-v']);
+    expect(doctorResult.exitCode).toBe(0);
+    const doctorCombined = doctorResult.stdout + doctorResult.stderr;
+    expect(doctorCombined).toContain('tag-whitespace');
+    expect(doctorCombined).toContain('empty-summary');
+    const danglingMatches = doctorCombined.match(/docs\/missing\.md/g) ?? [];
+    expect(danglingMatches.length).toBe(1);
+  });
+
+  it('skips hygiene surfacing when node frontmatter is invalid', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const dir = join(sandbox, '.ai/kenkeep/nodes');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'practice-broken-hygiene.md'),
+      [
+        '---',
+        'kk_schema_version: 3',
+        'kk_id: practice-broken-hygiene',
+        'title: "broken"',
+        'type: practice',
+        'tags: [" hooks "]',
+        'kk_derived_from: []',
+        'kk_relates_to: []',
+        'kk_confidence: high',
+        '---',
+        '',
+        'body',
+      ].join('\n')
+    );
+    const result = await runCli(sandbox, ['doctor']);
+    const combined = result.stdout + result.stderr;
+    expect(combined).not.toContain('tag-whitespace');
+    expect(combined).toContain('skipped');
   });
 });
 

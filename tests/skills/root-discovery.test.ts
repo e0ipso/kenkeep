@@ -10,8 +10,8 @@ const skillsDir = join(here, '../../templates/skills');
 
 const skills = [
   ['kk-add', '7'],
-  ['kk-bootstrap', '5'],
-  ['kk-curate', '10'],
+  ['kk-bootstrap', '6'],
+  ['kk-curate', '11'],
   ['kk-migrate', '7'],
   ['kk-session-extract', '6'],
 ] as const;

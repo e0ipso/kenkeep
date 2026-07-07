@@ -3,7 +3,7 @@ name: kk-bootstrap
 description: First-time bootstrap of the project knowledge base from existing markdown documentation. Surveys docs, follows cross-references, and writes new node files directly under `.ai/kenkeep/nodes/`. Supervised by the user, who reviews each node on disk before accepting or deleting it. Use when the user wants to seed an empty knowledge base from the project's existing docs.
 ---
 
-<!-- Version: 5 -->
+<!-- Version: 6 -->
 
 # kk-bootstrap
 
@@ -78,6 +78,8 @@ Triggers in docs: imperative verbs ("use," "do," "avoid," "always," "never," "mu
 - File-tree locations of major systems.
 
 Triggers in docs: section headers naming components ("## Bravo Cards Module"); definition patterns ("X is our service for Y"); explicit file-path references ("`modules/custom/x/`").
+
+**Optional change-oriented clause (evidence-gated).** When the source doc states what to watch for when changing this entity — a check to run, an invariant to preserve, a related rule that constrains edits — you may end the map body with one short "When changing this, verify…" sentence that captures it. Add it only when the doc evidences it; never invent watch-out guidance to fill a template. If the doc says nothing about editing the entity, omit the clause.
 
 When a piece of content has both aspects (e.g. "Use bravo_analytics.dispatcher, our service for tracking events"), split it: practice owns "use the dispatcher"; map owns "what the dispatcher is."
 

@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 4
+  Version: 5
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -110,6 +110,8 @@ These describe the entities, features, vocabulary, and locations of the project:
 - **Architectural relationships:** "Module X depends on service Y."
 
 **Map nodes can be extracted from either `[USER]:` or `[AGENT]:` turns.** Sometimes the agent surfaces a module name or file location during exploration that's worth recording. Both roles are valid sources.
+
+**Optional change-oriented clause (evidence-gated).** When the transcript actually surfaces what an editor must watch for when changing this entity — a check to run, an invariant to preserve, a related rule that constrains edits — you may end the map body with one short "When changing this, verify…" sentence that captures it. Include it only when the session evidenced the guidance; never invent a watch-out to fill a template. If nothing in the transcript speaks to editing the entity, omit the clause entirely.
 
 ---
 

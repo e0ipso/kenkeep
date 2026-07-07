@@ -3,6 +3,8 @@ import { isAbsolute, join } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { getHarness, hasHarness } from '../harnesses/registry.js';
+import { EXPECTED_SKILLS } from '../lib/install-skills.js';
+import { runLint } from '../lib/lint.js';
 import { log } from '../lib/log.js';
 import {
   CHARS_PER_TOKEN,
@@ -13,10 +15,13 @@ import {
   readAllNodes,
 } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { sharedHarnessHooksDirForRoot, sharedHookScriptPath } from '../lib/shared-hooks.js';
 import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
 import { packageVersion } from '../lib/version.js';
 
 const EXPECTED_PROMPTS = ['proposal-extract.md'];
+const KK_HOOKS_TEMPLATE_IDS = new Set(['copilot', 'opencode']);
+const HYGIENE_LINT_RULES = new Set(['tag-whitespace', 'empty-summary']);
 
 export interface DoctorOptions {
   verbose?: boolean;
@@ -109,6 +114,23 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     } else {
       log.error(`${c.name}: ${c.result.detail}`);
       failures += 1;
+    }
+  }
+
+  for (const id of scoped) {
+    if (!hasHarness(id)) continue;
+    if (opts.harness && !installed.includes(id)) continue;
+    renderHarnessInstallStatus(root, id, warningsRef => {
+      warnings += warningsRef;
+    });
+  }
+
+  if (frontmatterCheck.canEnumerate) {
+    const lintResult = runLint({ nodesDir: paths.nodesDir, root, kkDir: paths.kkDir });
+    for (const finding of lintResult.findings) {
+      if (!HYGIENE_LINT_RULES.has(finding.rule)) continue;
+      log.warn(`${finding.rule} ${finding.file}: ${finding.message} | ${finding.action}`);
+      warnings += 1;
     }
   }
 
@@ -354,4 +376,72 @@ function checkKbignore(file: string): CheckResult {
     return trimmed.length > 0 && !trimmed.startsWith('#');
   });
   return hasPattern ? ok('present with pattern(s)') : warn(KKIGNORE_WARNING);
+}
+
+function renderHarnessInstallStatus(
+  root: string,
+  harnessId: string,
+  onWarn: (n: number) => void
+): void {
+  const adapter = getHarness(harnessId);
+  const locs = adapter.paths(root);
+  const hooksDir = locs.hooksDir ?? sharedHarnessHooksDirForRoot(root, harnessId);
+
+  log.plain('');
+  log.info(`Harness ${harnessId} install status`);
+
+  const missingScripts: string[] = [];
+  const presentScripts: string[] = [];
+  for (const spec of adapter.hooks) {
+    const expected = sharedHookScriptPath(harnessId, spec.scriptPath);
+    if (existsSync(join(hooksDir, spec.scriptPath))) {
+      presentScripts.push(`${spec.scriptPath} (${expected})`);
+    } else {
+      missingScripts.push(`${spec.scriptPath} (${expected})`);
+    }
+  }
+  if (missingScripts.length === 0) {
+    log.success(`hooks: all ${presentScripts.length} script(s) present`);
+    for (const line of presentScripts) log.plain(`    ${line}`);
+  } else {
+    log.warn(`hooks: missing ${missingScripts.length} script(s)`);
+    for (const line of missingScripts) log.plain(`    ${line}`);
+    onWarn(1);
+  }
+
+  const skillsDir = locs.skillsDir;
+  if (!existsSync(skillsDir)) {
+    log.warn(`skills: missing directory ${skillsDir}`);
+    onWarn(1);
+  } else {
+    const missingSkills = EXPECTED_SKILLS.filter(
+      name => !existsSync(join(skillsDir, name, 'SKILL.md'))
+    );
+    if (missingSkills.length === 0) {
+      log.success(`skills: all expected skills present (${EXPECTED_SKILLS.join(', ')})`);
+    } else {
+      log.warn(`skills: missing ${missingSkills.join(', ')}`);
+      onWarn(1);
+    }
+  }
+
+  if (!adapter.detectFromEnv) {
+    log.info('detection: no detector (n/a)');
+  } else {
+    const fires = adapter.detectFromEnv(process.env);
+    log.info(fires ? 'detection: would fire' : 'detection: would not fire here');
+  }
+
+  const dest = sharedHarnessHooksDirForRoot(root, harnessId);
+  const expectedScripts = [...new Set(adapter.hooks.map(spec => spec.scriptPath))];
+  const missingAtDest = expectedScripts.filter(name => !existsSync(join(dest, name)));
+  const templateNote = KK_HOOKS_TEMPLATE_IDS.has(harnessId)
+    ? ' (shipped from kk-hooks template)'
+    : '';
+  if (missingAtDest.length === 0) {
+    log.success(`hook placement: scripts at ${dest}${templateNote}`);
+  } else {
+    log.warn(`hook placement: missing at ${dest}: ${missingAtDest.join(', ')}${templateNote}`);
+    onWarn(1);
+  }
 }

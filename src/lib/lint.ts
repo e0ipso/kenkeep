@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import { checkAgentsKkBlock } from './agents-block.js';
+import { folderSummariesFileForNodesDir, FolderSummaryRegistrySchema } from './folder-summaries.js';
 import { INDEX_FILENAME, readAllNodes, validateNodeNaming, type NodeFile } from './nodes.js';
 import { readRedirectsLedger, resolveRedirect } from './redirects.js';
 
@@ -10,6 +11,8 @@ export type LintRule =
   | 'redirected-edge'
   | 'slug-id-mismatch'
   | 'tag-near-duplicate'
+  | 'tag-whitespace'
+  | 'empty-summary'
   | 'orphan'
   | 'missing-folder-index'
   | 'okf-conformance'
@@ -144,6 +147,22 @@ export function runLint(opts: LintOptions): LintResult {
       });
     }
   }
+
+  for (const node of nodes) {
+    for (const tag of node.frontmatter.tags) {
+      const normalized = normalizeTagWhitespace(tag);
+      if (tag !== normalized) {
+        findings.push({
+          rule: 'tag-whitespace',
+          file: node.path,
+          message: `tag "${tag}" has stray whitespace`,
+          action: `Use "${normalized}" instead.`,
+        });
+      }
+    }
+  }
+
+  findings.push(...checkEmptyFolderSummaries(opts.nodesDir));
 
   for (const node of nodes) {
     const outgoing = edgeRefs(node).length;
@@ -311,6 +330,35 @@ function normalizeTag(tag: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '')
     .replace(/s$/, '');
+}
+
+function normalizeTagWhitespace(tag: string): string {
+  return tag.replace(/\s+/g, ' ').trim();
+}
+
+function checkEmptyFolderSummaries(nodesDir: string): LintEntry[] {
+  const file = folderSummariesFileForNodesDir(nodesDir);
+  if (!existsSync(file)) return [];
+  try {
+    const parsed = matter(readFileSync(file, 'utf8'));
+    const registry = FolderSummaryRegistrySchema.safeParse(parsed.data);
+    if (!registry.success) return [];
+    const out: LintEntry[] = [];
+    for (const [path, summary] of Object.entries(registry.data.summaries)) {
+      if (typeof summary !== 'string' || summary.trim() !== '') continue;
+      const label = path === '' ? '.' : path;
+      out.push({
+        rule: 'empty-summary',
+        file,
+        message: `folder "${label}" has an empty summary`,
+        action:
+          'Author a non-empty one-line folder summary in FOLDER_SUMMARIES.md, or run rebalance/migrate clustering to generate one.',
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 function compareEntries(a: LintEntry, b: LintEntry): number {

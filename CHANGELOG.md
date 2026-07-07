@@ -1,3 +1,9 @@
+## [1.15.0](https://github.com/e0ipso/kenkeep/compare/v1.14.0...v1.15.0) (2026-07-07)
+
+### Features
+
+* **prompts:** surgical-update discipline in kk-curate ([#102](https://github.com/e0ipso/kenkeep/issues/102)) ([b54249c](https://github.com/e0ipso/kenkeep/commit/b54249c2407e1e2b391625438299457ad78634a2)), closes [#91](https://github.com/e0ipso/kenkeep/issues/91)
+
 ## [1.14.0](https://github.com/e0ipso/kenkeep/compare/v1.13.2...v1.14.0) (2026-07-07)
 
 ### Features

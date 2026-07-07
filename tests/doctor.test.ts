@@ -197,7 +197,9 @@ describe('doctor', () => {
   });
 
   it('surfaces hygiene findings from lint and reports dangling derived_from once', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
     const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
     writeFileSync(
       join(nodesDir, 'practice-whitespace-tag.md'),
@@ -234,7 +236,7 @@ describe('doctor', () => {
     expect(lintCombined).toContain('tag-whitespace');
     expect(lintCombined).toContain('empty-summary');
 
-    const doctorResult = await runCli(sandbox, ['doctor', '-v']);
+    const doctorResult = await runCli(sandbox, ['doctor', '-v'], env);
     expect(doctorResult.exitCode).toBe(0);
     const doctorCombined = doctorResult.stdout + doctorResult.stderr;
     expect(doctorCombined).toContain('tag-whitespace');
@@ -244,7 +246,9 @@ describe('doctor', () => {
   });
 
   it('skips hygiene surfacing when node frontmatter is invalid', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
     const dir = join(sandbox, '.ai/kenkeep/nodes');
     mkdirSync(dir, { recursive: true });
     writeFileSync(
@@ -264,7 +268,7 @@ describe('doctor', () => {
         'body',
       ].join('\n')
     );
-    const result = await runCli(sandbox, ['doctor']);
+    const result = await runCli(sandbox, ['doctor'], env);
     const combined = result.stdout + result.stderr;
     expect(combined).not.toContain('tag-whitespace');
     expect(combined).toContain('skipped');

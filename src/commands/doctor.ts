@@ -3,6 +3,7 @@ import { isAbsolute, join } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { getHarness, hasHarness } from '../harnesses/registry.js';
+import { computeFreshness } from '../lib/freshness.js';
 import { log } from '../lib/log.js';
 import {
   CHARS_PER_TOKEN,
@@ -97,6 +98,12 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
     },
     { name: 'node frontmatter valid', result: frontmatterCheck.result },
     { name: 'derived_from references resolve', result: danglingResult },
+    {
+      name: 'nodes describe current code',
+      result: !frontmatterCheck.canEnumerate
+        ? ok('skipped; fix node frontmatter first.')
+        : checkFreshness(root, paths.nodesDir),
+    },
   ];
 
   let failures = 0;
@@ -171,6 +178,21 @@ function resolvesOnDisk(ref: string, root: string, sessionsDir: string): boolean
   if (existsSync(join(root, ref))) return true;
   if (!ref.includes('/') && existsSync(join(sessionsDir, ref))) return true;
   return false;
+}
+
+/**
+ * Advisory freshness signal: how many nodes may describe source code that
+ * changed since they were last curated. Always a warn (never a failure) so it
+ * cannot flip doctor's exit code, and reports "no signal" when git history is
+ * unavailable rather than warning on a tree it could not analyze.
+ */
+function checkFreshness(root: string, nodesDir: string): CheckResult {
+  const report = computeFreshness({ root, nodesDir });
+  if (!report.available) return ok('no signal (needs a git repository with history).');
+  if (report.flaggedCount === 0) return ok('no nodes appear to describe changed code');
+  return warn(
+    `${report.flaggedCount} node(s) may describe code changed since curation; run \`npx kenkeep freshness --verbose\`.`
+  );
 }
 
 function checkNodeFrontmatter(nodesDir: string): FrontmatterCheck {

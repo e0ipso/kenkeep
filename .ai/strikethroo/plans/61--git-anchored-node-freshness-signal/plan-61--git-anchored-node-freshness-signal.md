@@ -220,11 +220,11 @@ graph TD
 **Parallel Tasks:**
 - ✔️ Task 001: Freshness core engine and node→code path mapping
 
-### Phase 2: Read Surfaces
+### ✅ Phase 2: Read Surfaces
 **Parallel Tasks:**
-- Task 002: `kenkeep freshness` CLI command (depends on: 001)
-- Task 003: Surface freshness in doctor and status (depends on: 001)
-- Task 004: Budgeted, fail-open SessionStart advisory (depends on: 001)
+- ✔️ Task 002: `kenkeep freshness` CLI command (depends on: 001)
+- ✔️ Task 003: Surface freshness in doctor and status (depends on: 001)
+- ✔️ Task 004: Budgeted, fail-open SessionStart advisory (depends on: 001)
 
 ### Phase 3: Documentation
 **Parallel Tasks:**

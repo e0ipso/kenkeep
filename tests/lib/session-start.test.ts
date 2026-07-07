@@ -256,6 +256,7 @@ describe('buildSessionStartNotifications', () => {
     pendingSessions: 0,
     candidateCount: 0,
     oldestPendingAgeDays: null,
+    freshnessAdvisory: null,
     repoRoot: '/tmp/repo',
     projectName: 'repo',
     hostName: 'host',
@@ -379,5 +380,68 @@ describe('pending-session accounting', () => {
     const summary = summarizePendingSessions(harness.sessionsDir);
     expect(summary.pending).toBe(1);
     expect(summary.candidateCount).toBe(1);
+  });
+});
+
+describe('SessionStart freshness advisory', () => {
+  let harness: Harness;
+  beforeEach(() => {
+    harness = makeHarness();
+  });
+  afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
+
+  const availableReport = (flaggedCount: number) => ({
+    available: true,
+    consideredNodes: 10,
+    flaggedCount,
+    flagged: [],
+    perBranch: [
+      { branch: 'harnesses', flagged: 2 },
+      { branch: 'hooks', flagged: 1 },
+    ],
+  });
+
+  it('adds one advisory line naming the most-affected branches when nodes are flagged', () => {
+    const result = buildSessionStartContext({
+      kkDir: harness.kkDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      freshness: () => availableReport(3),
+    });
+    expect(result.freshnessAdvisory).toContain('3 node(s) may be stale');
+    expect(result.freshnessAdvisory).toContain('`harnesses/`');
+    expect(result.additionalContext).toContain('3 node(s) may be stale');
+    expect(result.additionalContext).toContain('Run npx kenkeep freshness --verbose.');
+  });
+
+  it('omits the advisory (fail-open) when the probe returns null, leaving the payload unchanged', () => {
+    const base = {
+      kkDir: harness.kkDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+    };
+    const failOpen = buildSessionStartContext({ ...base, freshness: () => null });
+    const noFlags = buildSessionStartContext({
+      ...base,
+      freshness: () => ({ ...availableReport(0), flaggedCount: 0 }),
+    });
+    expect(failOpen.freshnessAdvisory).toBeNull();
+    expect(failOpen.additionalContext).not.toContain('may be stale');
+    // Fail-open and "available but zero flagged" render an identical payload.
+    expect(failOpen.additionalContext).toBe(noFlags.additionalContext);
+  });
+
+  it('emits no advisory when the report is unavailable (non-git / no signal)', () => {
+    const result = buildSessionStartContext({
+      kkDir: harness.kkDir,
+      nodesDir: harness.nodesDir,
+      sessionsDir: harness.sessionsDir,
+      stateFile: harness.stateFile,
+      freshness: () => ({ ...availableReport(5), available: false }),
+    });
+    expect(result.freshnessAdvisory).toBeNull();
+    expect(result.additionalContext).not.toContain('may be stale');
   });
 });

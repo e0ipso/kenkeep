@@ -2,7 +2,7 @@
 id: 4
 group: "surfaces"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-07-07
 skills:
   - typescript

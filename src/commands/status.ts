@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
+import { computeFreshness } from '../lib/freshness.js';
 import { log } from '../lib/log.js';
 import { summarizePendingSessions } from '../lib/session-start.js';
 import { readAllNodes } from '../lib/nodes.js';
@@ -25,12 +26,16 @@ export async function runStatus(): Promise<number> {
   const sessionStats = scanSessions(paths.sessionsDir);
   const curationQueue = summarizePendingSessions(paths.sessionsDir);
   const nodeCounts = countNodes(paths.nodesDir);
+  const freshness = computeFreshness({ root, nodesDir: paths.nodesDir });
 
   log.plain(`kenkeep v${installed.version} (installed ${installed.installed_at})`);
   log.plain('');
   log.plain('Knowledge base');
   log.plain(`  Practice nodes: ${nodeCounts.practice}`);
   log.plain(`  Map nodes:      ${nodeCounts.map}`);
+  log.plain(
+    `  Nodes describing changed code: ${freshness.available ? freshness.flaggedCount : 'n/a'}`
+  );
   log.plain('');
   log.plain('Pending work');
   log.plain(`  Proposal extraction queue: ${sessionStats.awaitingExtraction}`);

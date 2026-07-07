@@ -7,6 +7,7 @@ import { runConflictPrepareCommand } from './commands/conflict-prepare.js';
 import { runDoctor } from './commands/doctor.js';
 import { runDraftsCollectCommand } from './commands/drafts-collect.js';
 import { runFindDocsCommand } from './commands/finddocs.js';
+import { runFreshness } from './commands/freshness.js';
 import { runIndexRebuild } from './commands/index-rebuild.js';
 import { runInit } from './commands/init.js';
 import { runLintCommand } from './commands/lint.js';
@@ -93,6 +94,16 @@ async function main(): Promise<void> {
     .action(async (opts: { verbose: boolean }) => {
       const code = await runLintCommand({ verbose: opts.verbose });
       process.exit(code);
+    });
+
+  program
+    .command('freshness')
+    .description(
+      'Deterministic, read-only advisory: report how many nodes may describe source code that changed since the node was last curated. Baselines come from git history (no stamp, no state); pure Node, no LLM. Always exits 0.'
+    )
+    .option('-v, --verbose', 'list every flagged node and the paths that changed', false)
+    .action(async (opts: { verbose: boolean }) => {
+      process.exit(await runFreshness({ verbose: opts.verbose }));
     });
 
   program

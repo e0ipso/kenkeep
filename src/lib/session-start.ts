@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { hostname as osHostname } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import matter from 'gray-matter';
+import { computeFreshness, type FreshnessReport } from './freshness.js';
 import { computeNodesHash } from './nodes.js';
 import { readLintState } from './lint-state.js';
 import { sendOsNotification } from './notifications.js';
@@ -12,6 +13,47 @@ import { readState, writeState } from './state.js';
 
 export const DEFAULT_NUDGE_THRESHOLD = 20;
 export const DEFAULT_STALE_DAYS = 7;
+
+/**
+ * Hot-path budget for the SessionStart freshness advisory: cap the git history
+ * scan to the most recent N commits so the synchronous startup cost stays
+ * bounded. Older changes fall outside the window (conservative under-report),
+ * never an error. The unbudgeted, authoritative computation is `kenkeep
+ * freshness`.
+ */
+export const SESSION_START_FRESHNESS_MAX_COMMITS = 500;
+
+/**
+ * Default freshness probe for SessionStart: a budgeted, fail-open git
+ * computation. `computeFreshness` already fails open (never throws), and the
+ * try/catch is a second guard so a probe failure can never break startup.
+ */
+function budgetedFreshnessProbe(opts: { root: string; nodesDir: string }): FreshnessReport | null {
+  try {
+    return computeFreshness({
+      root: opts.root,
+      nodesDir: opts.nodesDir,
+      maxCommits: SESSION_START_FRESHNESS_MAX_COMMITS,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * One-line advisory naming the branch(es) with the most nodes that may describe
+ * code changed since curation, or null when there is no signal. Kept separate
+ * from backend computation so it renders identically wherever it is surfaced.
+ */
+function freshnessAdvisoryLine(report: FreshnessReport | null): string | null {
+  if (report === null || !report.available || report.flaggedCount === 0) return null;
+  const branches = report.perBranch
+    .slice(0, 2)
+    .map(b => `\`${b.branch}/\``)
+    .join(', ');
+  const suffix = branches.length > 0 ? ` (most affected: ${branches})` : '';
+  return `${report.flaggedCount} node(s) may be stale — code changed since curation${suffix}.`;
+}
 
 /**
  * The descent navigation directive. The single source of truth for "how to
@@ -44,6 +86,11 @@ export interface SessionStartContext {
   threshold?: number;
   staleDays?: number;
   now?: () => Date;
+  /**
+   * Injectable freshness probe (defaults to a budgeted, fail-open git
+   * computation). A seam like `now`/`hostName` — not a test-only branch.
+   */
+  freshness?: (opts: { root: string; nodesDir: string }) => FreshnessReport | null;
 }
 
 export interface SessionStartResult {
@@ -65,6 +112,11 @@ export interface SessionStartResult {
   candidateCount: number;
   /** Age in days of the oldest session in the curation backlog, when one exists. */
   oldestPendingAgeDays: number | null;
+  /**
+   * One-line advisory when nodes may describe code changed since curation, or
+   * null when there is no signal (no flagged nodes, non-git tree, or fail-open).
+   */
+  freshnessAdvisory: string | null;
   /** Repo root that produced this session-start result. */
   repoRoot: string;
   /** Human-facing project name derived from the repo root. */
@@ -144,6 +196,12 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     }
   }
 
+  const freshnessReport = (ctx.freshness ?? budgetedFreshnessProbe)({
+    root: repoRoot,
+    nodesDir: ctx.nodesDir,
+  });
+  const freshnessAdvisory = freshnessAdvisoryLine(freshnessReport);
+
   const result: SessionStartResult = {
     additionalContext: '',
     nudged: shouldNudge,
@@ -154,6 +212,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
     pendingSessions: pending,
     candidateCount: summary.candidateCount,
     oldestPendingAgeDays: summary.oldestCapturedAt === null ? null : oldestAgeDays,
+    freshnessAdvisory,
     repoRoot,
     projectName,
     hostName,
@@ -372,6 +431,14 @@ function buildActionableSignals(result: SessionStartResult): ActionableSignal[] 
       severity: 2,
       issue: 'Lint findings were recorded in the last kenkeep lint run.',
       action: 'Run npx kenkeep lint --verbose.',
+    });
+  }
+
+  if (result.freshnessAdvisory !== null) {
+    signals.push({
+      severity: 2,
+      issue: result.freshnessAdvisory,
+      action: 'Run npx kenkeep freshness --verbose.',
     });
   }
 

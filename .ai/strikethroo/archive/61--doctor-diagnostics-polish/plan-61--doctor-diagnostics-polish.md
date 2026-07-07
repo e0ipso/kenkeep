@@ -234,19 +234,19 @@ graph TD
 
 No circular dependencies; the graph is acyclic.
 
-### Phase 1: Feature Foundations (independent tracks)
+### Phase 1: Feature Foundations (independent tracks) ✔️
 **Parallel Tasks:**
-- Task 001: Per-harness install-status view in doctor (`src/commands/doctor.ts`)
-- Task 002: Two frontmatter-hygiene lint rules (`src/lib/lint.ts`)
+- ✔️ Task 001: Per-harness install-status view in doctor (`src/commands/doctor.ts`) — `completed`
+- ✔️ Task 002: Two frontmatter-hygiene lint rules (`src/lib/lint.ts`) — `completed`
 
-### Phase 2: Doctor Convergence
+### Phase 2: Doctor Convergence ✔️
 **Parallel Tasks:**
-- Task 003: doctor surfaces hygiene findings (depends on: 001, 002)
+- ✔️ Task 003: doctor surfaces hygiene findings (depends on: 001, 002) — `completed`
 
-### Phase 3: Verification and Documentation
+### Phase 3: Verification and Documentation ✔️
 **Parallel Tasks:**
-- Task 004: Tests across five harnesses (depends on: 001, 002, 003)
-- Task 005: Update doctor/lint documentation (depends on: 001, 002, 003)
+- ✔️ Task 004: Tests across five harnesses (depends on: 001, 002, 003) — `completed`
+- ✔️ Task 005: Update doctor/lint documentation (depends on: 001, 002, 003) — `completed`
 
 ### Post-phase Actions
 - After each phase: `npm run build && npm run typecheck && npm run lint` must
@@ -257,3 +257,18 @@ No circular dependencies; the graph is acyclic.
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 5
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-07-07
+
+### Results
+Delivered per-harness install-status blocks in `doctor` (hooks, skills, detection, kk-hooks placement), two new non-blocking lint rules (`tag-whitespace`, `empty-summary` via `FOLDER_SUMMARIES.md`), doctor surfacing of those hygiene findings, parametrized tests across all five harnesses, and updated CLI help plus `AGENTS.md` documentation. All 526 vitest tests pass; build, typecheck, and lint are green.
+
+### Noteworthy Events
+- Empty-folder-summary detection targets `FOLDER_SUMMARIES.md` (the current OKF v3 sidecar) rather than `index.md` frontmatter, which reserved folder indexes no longer carry. This matches the live schema model and avoids okf-conformance false errors in tests.
+- Initial test fixtures used `index.md` frontmatter for empty summaries; lint exited 1 due to okf-conformance blocking before hygiene findings could surface. Tests were corrected to use `FOLDER_SUMMARIES.md`.
+
+### Necessary follow-ups
+- None required for plan completion. Merge `feature/61--doctor-diagnostics-polish` via PR to close GitHub issue #95.

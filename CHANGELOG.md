@@ -1,3 +1,9 @@
+## [1.16.0](https://github.com/e0ipso/kenkeep/compare/v1.15.0...v1.16.0) (2026-07-07)
+
+### Features
+
+* **prompts:** change-oriented "what to watch when editing" guidance on map nodes ([#103](https://github.com/e0ipso/kenkeep/issues/103)) ([d57ca42](https://github.com/e0ipso/kenkeep/commit/d57ca42286df660487e081c117931e743b1e3a11)), closes [#92](https://github.com/e0ipso/kenkeep/issues/92)
+
 ## [1.15.0](https://github.com/e0ipso/kenkeep/compare/v1.14.0...v1.15.0) (2026-07-07)
 
 ### Features

@@ -226,9 +226,9 @@ graph TD
 - ✔️ Task 003: Surface freshness in doctor and status (depends on: 001)
 - ✔️ Task 004: Budgeted, fail-open SessionStart advisory (depends on: 001)
 
-### Phase 3: Documentation
+### ✅ Phase 3: Documentation
 **Parallel Tasks:**
-- Task 005: Document the freshness primitive and its surfaces (depends on: 002, 003, 004)
+- ✔️ Task 005: Document the freshness primitive and its surfaces (depends on: 002, 003, 004)
 
 ### Post-phase Actions
 
@@ -237,3 +237,30 @@ After each phase, run the referenced validation gate (`/config/hooks/POST_PHASE.
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 5
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-07-07
+
+### Results
+Delivered the git-anchored node freshness signal for issue #89 with no schema change, no stamp, and no new persisted state:
+
+- **Core engine** (`src/lib/freshness.ts`): a deterministic, read-only `computeFreshness` that derives each node's baseline from git history (the last commit touching the node's file) and flags nodes whose referenced source paths changed strictly after that baseline. The node→code map is the union of body Markdown-link / inline-code tokens resolving to git-tracked files and tracked `kk_derived_from` entries; `.ai/kenkeep/` paths and the node's own file are excluded. Bounded to a constant number of git calls (recency-ranked in a single `git log --name-only` pass) and fully fail-open (non-git tree, git error, shallow history, or empty tree → unavailable empty report, never throws). An optional `maxCommits` budget caps the scan for hot-path callers.
+- **`kenkeep freshness [-v]`**: a top-level, always-exit-0 primitive rendering the headline, per-branch rollup, and a verbose per-node/per-path listing.
+- **`doctor`**: a warn-only advisory check ("nodes describe current code") that never flips the exit code and reports "no signal" when git history is unavailable.
+- **`status`**: a "Nodes describing changed code" summary line.
+- **SessionStart**: one budgeted, fail-open advisory line naming the most-affected branch(es), added to the actionable-signal path and included in OS notifications; the context hook stays synchronous and the payload is byte-identical when there is no signal.
+- **Docs**: `docs/internals/architecture.md` (primitive list + freshness design), `docs/daily-use.md` (Freshness section), and `docs/internals/hooks.md` (SessionStart step 6 + renumbering).
+- **Tests**: new suites for the core (`tests/lib/freshness.test.ts`), the command (`tests/commands/freshness.test.ts`), doctor/status surfacing (`tests/commands/freshness-surfaces.test.ts`), and the SessionStart advisory (added to `tests/lib/session-start.test.ts`). Full suite: 533 tests passing, typecheck and lint clean.
+
+Verified on the live dogfood repo: `freshness` flags 22 of 83 nodes with an accurate per-branch rollup and correct changed-path attribution (e.g. `map-capture-hook → docs/internals/hooks.md`).
+
+### Noteworthy Events
+- The maintainer rejected both initially proposed baseline mechanisms — a single gitignored `.state/` baseline ("loses a lot of usefulness") and a per-node committed `kk_` frontmatter stamp ("recurring merge conflicts"). The adopted design derives per-node baselines from git history and stamps nothing, resolving both objections (per-node accuracy with zero churn / zero merge surface).
+- The freshness advisory is intentionally computed on the synchronous SessionStart hot path; it is bounded by `SESSION_START_FRESHNESS_MAX_COMMITS` and fails open so it can never slow or block startup, consistent with the repo's context-hook-stays-synchronous rule.
+- Pre-existing `doctor` errors in this dev container (missing harness CLIs / uninstalled hooks) are environmental and unrelated to this change; the freshness check surfaces only as a warning and never affects the exit code.
+
+### Necessary follow-ups
+- The read-only CI check that consumes this signal and any richer per-node stamping remain deferred to separate follow-up issues, per issue #89's "Follow-ups".
+- AGENTS.md was intentionally not hand-edited (its primitive enumeration is illustrative and the new primitive is documented under `docs/`); if a durable convention emerges, record it via the normal kenkeep curation flow.

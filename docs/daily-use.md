@@ -96,4 +96,10 @@ Meta-only or planning sessions may correctly yield no proposals — that is succ
 
 ## Status
 
-`npx kenkeep status` reports both queue names: the proposal extraction queue is logs with `proposal_status: pending`, while the curation queue is logs that `/kk-curate` still needs to process, including extracted `done` logs without `curator_processed_at`.
+`npx kenkeep status` reports both queue names: the proposal extraction queue is logs with `proposal_status: pending`, while the curation queue is logs that `/kk-curate` still needs to process, including extracted `done` logs without `curator_processed_at`. It also prints how many nodes may describe changed code (see Freshness).
+
+## Freshness
+
+`npx kenkeep freshness` reports how many nodes may describe **source code that changed since the node was last curated** — the number-one way a knowledge base silently rots. It is read-only and advisory: it never rewrites nodes, never runs the LLM, and always exits 0. Add `--verbose` to list each flagged node and the paths that changed, then feed that into `/kk-curate` to refresh them.
+
+There is no stamp to maintain: each node's "curated at" point is derived from git history (the last commit that touched the node's file), and a node is flagged when a source path it references — named in its body or its `kk_derived_from` — changed after that point. Because the signal comes from git, it needs a git repository with useful history; on a shallow clone it degrades to fewer flags, never to an error. The same signal also appears as an advisory line in `doctor` and one line at the start of a session so a descending agent applies mild skepticism to branches whose code moved.

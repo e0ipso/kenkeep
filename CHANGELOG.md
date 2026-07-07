@@ -1,3 +1,10 @@
+## [1.14.0](https://github.com/e0ipso/kenkeep/compare/v1.13.2...v1.14.0) (2026-07-07)
+
+### Features
+
+* add git-anchored node freshness signal ([#101](https://github.com/e0ipso/kenkeep/issues/101)) ([4209d88](https://github.com/e0ipso/kenkeep/commit/4209d881dc4f567d146a4fde569398741437d73e)), closes [#89](https://github.com/e0ipso/kenkeep/issues/89) [#89](https://github.com/e0ipso/kenkeep/issues/89)
+* **doctor:** per-harness install status and frontmatter hygiene ([#99](https://github.com/e0ipso/kenkeep/issues/99)) ([8ceec9f](https://github.com/e0ipso/kenkeep/commit/8ceec9f7416eeb81de71aa70ea9174a0bc412336)), closes [#100](https://github.com/e0ipso/kenkeep/issues/100)
+
 ## [1.13.2](https://github.com/e0ipso/kenkeep/compare/v1.13.1...v1.13.2) (2026-07-07)
 
 ### Bug Fixes

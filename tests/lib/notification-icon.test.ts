@@ -53,6 +53,7 @@ describe('sendSessionStartNotifications', () => {
     pendingSessions: 1,
     candidateCount: 0,
     oldestPendingAgeDays: null,
+    freshnessAdvisory: null,
     repoRoot: '/tmp/repo',
     projectName: 'repo',
     hostName: 'host',

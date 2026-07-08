@@ -20,7 +20,7 @@
  *   { hook_event_name: "stop", cwd: "...", session_id: "...",
  *     assistant_response: "..." }
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
@@ -40,9 +40,13 @@ function pickString(payload: Record<string, unknown>, ...keys: string[]): string
 }
 
 /**
- * Resolves the path to the Kiro session JSON file for a given session ID.
- * Kiro stores sessions at `~/.kiro/sessions/cli/<session_id>.json`.
+ * Validates that `value` is a non-empty UUID v4 string safe to use as a
+ * filename component. Rejects anything containing path separators or other
+ * characters that could cause path traversal.
  */
+function isValidSessionId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 function kiroSessionPath(sessionId: string): string {
   return join(homedir(), '.kiro', 'sessions', 'cli', `${sessionId}.json`);
 }
@@ -61,6 +65,10 @@ runHookEntry({
       const sessionId = pickString(payload, 'session_id');
       if (!sessionId) {
         process.stderr.write(`${PACKAGE_TAG} capture: no session_id in payload; skipping.\n`);
+        return;
+      }
+      if (!isValidSessionId(sessionId)) {
+        process.stderr.write(`${PACKAGE_TAG} capture: invalid session_id format; skipping.\n`);
         return;
       }
       const sessionFile = kiroSessionPath(sessionId);

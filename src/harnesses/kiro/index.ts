@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { findRepoRoot } from '../../lib/paths.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import type { HarnessAdapter, ModelChoiceRole } from '../types.js';
@@ -26,7 +27,7 @@ function kiroListMemoryFilesImpl(root: string, home: string): string[] {
       if (!existsSync(dir)) continue;
       for (const name of readdirSync(dir)) {
         if (!name.endsWith('.md')) continue;
-        out.push(`file://${join(dir, name)}`);
+        out.push(pathToFileURL(join(dir, name)).href);
       }
     } catch {
       // Non-fatal: directory may have changed between existsSync and readdirSync

@@ -11,6 +11,7 @@ import {
   writeCopilotHookConfig,
   writeCopilotInstructionsSentinel,
 } from '../../src/harnesses/copilot/hooks-config.js';
+import { kiroAdapter } from '../../src/harnesses/kiro/index.js';
 import { KK_NAVIGATION_DIRECTIVE } from '../../src/lib/session-start.js';
 import type { HarnessPaths } from '../../src/harnesses/types.js';
 
@@ -373,5 +374,15 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     await writeCopilotInstructionsSentinel(copilotPaths(root));
     const body = readFileSync(join(root, '.github', 'copilot-instructions.md'), 'utf8');
     expect(body.split(KK_NAVIGATION_DIRECTIVE)).toHaveLength(2); // exactly one occurrence
+  });
+});
+
+describe('kiroAdapter hook registration (v1: no hooks)', () => {
+  // Kiro v1 ships no session lifecycle hook events — KIRO_HOOK_SPECS is empty.
+  // The parametrized round-trip table requires non-empty hooks to make sense,
+  // so Kiro is tested in a dedicated block instead.
+  it('has an empty hooks array in v1 (no session lifecycle events available yet)', () => {
+    expect(kiroAdapter.hooks).toHaveLength(0);
+    expect(kiroAdapter.hooks).toEqual([]);
   });
 });

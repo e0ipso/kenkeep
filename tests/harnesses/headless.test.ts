@@ -68,6 +68,14 @@ const execaHeadlessCases: Array<{
     ],
     noResult: [JSON.stringify({ type: 'session.idle' })],
   },
+  {
+    id: 'kiro',
+    // Kiro has no structured stream-json; it reads buffered stdout and calls
+    // extractJsonPayload on the combined output. A fenced JSON block satisfies
+    // the payload contract.
+    success: payload => [`\`\`\`json\n${JSON.stringify(payload)}\n\`\`\``],
+    noResult: [],
+  },
 ];
 
 describe('adapter.runHeadless (parametrized over execa-backed harnesses)', () => {
@@ -278,5 +286,31 @@ describe('cursor headless option mapping', () => {
     expect(captured.command).toBe('/tmp/fake-agent');
     expect(captured.args).toContain('-p');
     expect(captured.args).toContain('--output-format');
+  });
+});
+
+describe('kiro headless option mapping', () => {
+  const kiro = getHarness('kiro');
+  afterEach(() => vi.clearAllMocks());
+
+  it('spawns kiro-cli-chat with chat, --no-interactive, --trust-all-tools, and forces the recursion guard', async () => {
+    const { captured } = mockExecaOnce([`\`\`\`json\n${JSON.stringify({ ok: true, n: 1 })}\n\`\`\``]);
+    const out = await kiro.runHeadless('hello kiro', '', Schema);
+    expect(out).toEqual({ ok: true, n: 1 });
+    expect(captured.command).toBe('kiro-cli-chat');
+    expect(captured.args).toContain('chat');
+    expect(captured.args).toContain('--no-interactive');
+    expect(captured.args).toContain('--trust-all-tools');
+    const env = captured.options?.['env'] as NodeJS.ProcessEnv;
+    expect(env['KENKEEP_BUILDER_INTERNAL']).toBe('1');
+  });
+
+  it('appends --model when provided in harnessOpts', async () => {
+    const { captured } = mockExecaOnce([`\`\`\`json\n${JSON.stringify({ ok: true, n: 2 })}\n\`\`\``]);
+    await kiro.runHeadless('prompt', '', Schema, {
+      harnessOpts: { model: 'claude-sonnet-4' },
+    });
+    expect(captured.args).toContain('--model');
+    expect(captured.args).toContain('claude-sonnet-4');
   });
 });

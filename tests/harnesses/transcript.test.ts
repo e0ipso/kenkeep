@@ -84,6 +84,19 @@ const textTranscriptCases: Array<{
       { role: 'agent', text: 'Run `npm test` from the repo root.' },
     ],
   },
+  {
+    id: 'kiro',
+    text: readFileSync(
+      join(import.meta.dirname, '../fixtures/kiro-transcript/session.json'),
+      'utf8'
+    ),
+    // Kiro session metadata stores only assistant turns; user turns are emitted
+    // as empty placeholders so the interleaved structure is valid.
+    expected: [
+      { role: 'user', text: '' },
+      { role: 'agent', text: 'Hello from Kiro.' },
+    ],
+  },
 ];
 
 describe('adapter.parseTranscript (parametrized over registered harnesses)', () => {

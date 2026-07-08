@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
+import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import {
   errCheck,
   ok,
@@ -11,26 +12,29 @@ import {
   type DoctorCheckResult,
   type NamedDoctorCheck,
 } from '../types.js';
+import { KIRO_HOOK_SPECS } from './hook-spec.js';
+import { checkKiroHookConfig } from './hooks-config.js';
 import { kiroPaths } from './install.js';
 
 const exec = promisify(execFile);
 
-const KIRO_DOCS_URL = 'https://kiro.dev';
+const KIRO_DOCS_URL = 'https://kiro.dev/cli/';
 
 /**
  * Returns doctor checks specific to the Kiro CLI adapter:
  *   - `kiro-cli-chat` binary on PATH
  *   - `.kiro/skills/` exists and contains expected skill directories
- *   - `.kiro/steering/` readable (warn if absent, not error — steering is
- *     optional; projects can run without it)
- *
- * Note: no hook registration check in v1 since `KIRO_HOOK_SPECS` is empty.
+ *   - Hook scripts installed under `.ai/kenkeep/hooks/kiro/`
+ *   - `.kiro/agents/kk-hooks.json` exists and contains all required hook entries
+ *   - `.kiro/steering/` readable (warn if absent — optional but recommended)
  */
 export async function kiroDoctorChecks(paths: RepoPaths): Promise<NamedDoctorCheck[]> {
   const locs = kiroPaths(paths.root);
   return [
     { name: 'kiro-cli-chat binary on PATH', result: await checkKiroCli() },
     { name: 'Kiro skills installed', result: checkKiroSkills(locs.skillsDir) },
+    { name: 'Kiro hook scripts installed', result: checkKiroHookScripts(locs.hooksDir!) },
+    { name: 'Kiro hooks registered', result: checkKiroHooks(paths.root) },
     { name: 'Kiro steering directory', result: checkKiroSteering(paths.root) },
   ];
 }
@@ -58,6 +62,26 @@ function checkKiroSkills(skillsDir: string): DoctorCheckResult {
     : errCheck(
         `missing SKILL.md for: ${missing.join(', ')}. Re-run \`npx kenkeep init --harnesses kiro --upgrade\`.`
       );
+}
+
+function checkKiroHookScripts(hooksDir: string): DoctorCheckResult {
+  const expected = [...new Set(KIRO_HOOK_SPECS.map(s => s.scriptPath))];
+  const missing = expected.filter(name => !existsSync(join(hooksDir, name)));
+  if (missing.length > 0) {
+    return errCheck(
+      `missing hook scripts under ${hooksDir}: ${missing.join(', ')}. Re-run \`npx kenkeep init --harnesses kiro --upgrade\`.`
+    );
+  }
+  return ok(expected.join(', '));
+}
+
+function checkKiroHooks(root: string): DoctorCheckResult {
+  const error = checkKiroHookConfig(root);
+  if (error !== null) {
+    return errCheck(`${error}. Re-run \`npx kenkeep init --harnesses kiro --upgrade\`.`);
+  }
+  const requiredEvents = [...new Set(KIRO_HOOK_SPECS.map(s => s.event))];
+  return ok(`hook entries present for: ${requiredEvents.join(', ')}`);
 }
 
 function checkKiroSteering(root: string): DoctorCheckResult {

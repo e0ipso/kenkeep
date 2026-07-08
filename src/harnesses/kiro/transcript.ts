@@ -64,7 +64,17 @@ export function parseKiroTranscript(text: string): RoleTaggedTranscript {
 
     if (!ok) continue;
 
-    // Emit a placeholder user turn — user text is not stored in session metadata
+    // NOTE: Kiro's session JSON stores only the assistant's response in
+    // user_turn_metadatas. The user's original message text is referenced only
+    // by UUID in message_ids and is not present in this structure. An empty
+    // placeholder user turn is emitted so the interleaved shape remains valid,
+    // but ALL Kiro session captures will have blank user turns. This degrades
+    // proposal-extract quality because user intent is absent from the transcript.
+    // A future improvement requires reading the raw message objects from a
+    // separate endpoint or file that Kiro does not currently expose in this
+    // session format.
+    //
+    // Known limitation: track at https://github.com/e0ipso/kenkeep/issues
     interleaved.push({ role: 'user', text: '' });
 
     const content = (ok as Record<string, unknown>)?.['content'];

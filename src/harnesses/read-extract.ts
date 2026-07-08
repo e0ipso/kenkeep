@@ -379,6 +379,10 @@ export function extractOpenCodeReads(exportJson: unknown): string[] {
  * and returns, in document order with duplicates preserved, markdown path
  * candidates from the assistant response text in each turn.
  *
+ * Accepts the raw session JSON text (as passed by the capture pipeline's
+ * `extractReads` callback). Parses it internally and falls back to `[]` on
+ * any parse error.
+ *
  * Kiro's session format stores assistant responses in
  * `session_state.conversation_metadata.user_turn_metadatas[n].result.Ok.content[].data`.
  * User turn text is not stored. The read-extract scans assistant text for
@@ -389,7 +393,13 @@ export function extractOpenCodeReads(exportJson: unknown): string[] {
  * session JSON; this extractor operates on the visible assistant text only.
  * Best-effort and non-fatal — any malformed shape yields no entries.
  */
-export function extractKiroReads(sessionJson: unknown): string[] {
+export function extractKiroReads(rawText: string): string[] {
+  let sessionJson: unknown;
+  try {
+    sessionJson = JSON.parse(rawText);
+  } catch {
+    return [];
+  }
   const out: string[] = [];
   if (!sessionJson || typeof sessionJson !== 'object') return out;
   const turns = (

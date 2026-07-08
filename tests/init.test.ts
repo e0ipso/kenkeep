@@ -330,8 +330,9 @@ describe('init', () => {
     // Kiro's skills directory must be denied so agent instructions are not
     // scanned as project knowledge.
     expect(body).toContain('.kiro/skills/');
-    // Kiro has no `specs` directory — .kiro/specs must not appear in the
-    // generated stub (it was a mistaken early draft path).
+    // Kiro has a `specs` directory (.kiro/specs/) that contains SDD artifacts
+    // which should be scanned by kk-bootstrap. It must NOT be denied in the
+    // generated .kkignore stub.
     expect(body).not.toContain('.kiro/specs');
   });
 

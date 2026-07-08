@@ -11,7 +11,13 @@ import {
   writeCopilotHookConfig,
   writeCopilotInstructionsSentinel,
 } from '../../src/harnesses/copilot/hooks-config.js';
+import {
+  checkKiroHookConfig,
+  KIRO_HOOKS_AGENT_FILE,
+  writeKiroHookConfig,
+} from '../../src/harnesses/kiro/hooks-config.js';
 import { kiroAdapter } from '../../src/harnesses/kiro/index.js';
+import { KIRO_HOOK_SPECS } from '../../src/harnesses/kiro/hook-spec.js';
 import { KK_NAVIGATION_DIRECTIVE } from '../../src/lib/session-start.js';
 import type { HarnessPaths } from '../../src/harnesses/types.js';
 
@@ -377,12 +383,67 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
   });
 });
 
-describe('kiroAdapter hook registration (v1: no hooks)', () => {
-  // Kiro v1 ships no session lifecycle hook events — KIRO_HOOK_SPECS is empty.
-  // The parametrized round-trip table requires non-empty hooks to make sense,
+describe('kiroAdapter hook registration', () => {
+  // Kiro's hook config is a JSON agent file (.kiro/agents/kk-hooks.json).
+  // The parametrized round-trip table tests a different config format,
   // so Kiro is tested in a dedicated block instead.
-  it('has an empty hooks array in v1 (no session lifecycle events available yet)', () => {
-    expect(kiroAdapter.hooks).toHaveLength(0);
-    expect(kiroAdapter.hooks).toEqual([]);
+  it('declares agentSpawn, stop, and userPromptSubmit lifecycle hooks', () => {
+    const events = new Set(kiroAdapter.hooks.map(h => h.event));
+    expect(events.has('agentSpawn')).toBe(true);
+    expect(events.has('stop')).toBe(true);
+    expect(events.has('userPromptSubmit')).toBe(true);
+    // kk-proposal-drain is async (via launcher); kk-session-start is sync
+    const drainSpec = kiroAdapter.hooks.find(h => h.scriptPath === 'kk-proposal-drain.cjs');
+    expect(drainSpec?.async).toBe(true);
+    const sessionStartSpec = kiroAdapter.hooks.find(h => h.scriptPath === 'kk-session-start.cjs');
+    expect(sessionStartSpec?.async).toBeUndefined();
+  });
+});
+
+describe('writeKiroHookConfig', () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'kk-kiro-hooks-')); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+
+  it('writes .kiro/agents/kk-hooks.json with all required events and walk-up commands', () => {
+    writeKiroHookConfig(tmp);
+    const file = join(tmp, '.kiro', 'agents', KIRO_HOOKS_AGENT_FILE);
+    expect(existsSync(file)).toBe(true);
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
+      description: string;
+      hooks: Record<string, Array<{ command: string; timeout?: number }>>;
+    };
+    // All required events present
+    const requiredEvents = [...new Set(KIRO_HOOK_SPECS.map(s => s.event))];
+    for (const ev of requiredEvents) {
+      expect(Array.isArray(parsed.hooks[ev])).toBe(true);
+      expect(parsed.hooks[ev]!.length).toBeGreaterThan(0);
+    }
+    // Commands use the walk-up pattern
+    for (const entries of Object.values(parsed.hooks)) {
+      for (const entry of entries) {
+        expect(entry.command).toContain('.ai/kenkeep/hooks/kiro/');
+        expect(entry.command).toContain('exec node');
+      }
+    }
+  });
+
+  it('is idempotent — re-running produces identical bytes and skips the write', () => {
+    writeKiroHookConfig(tmp);
+    const file = join(tmp, '.kiro', 'agents', KIRO_HOOKS_AGENT_FILE);
+    const first = readFileSync(file, 'utf8');
+    writeKiroHookConfig(tmp);
+    expect(readFileSync(file, 'utf8')).toBe(first);
+  });
+
+  it('checkKiroHookConfig returns null after a valid write', () => {
+    writeKiroHookConfig(tmp);
+    expect(checkKiroHookConfig(tmp)).toBeNull();
+  });
+
+  it('checkKiroHookConfig returns an error string when the file is missing', () => {
+    const result = checkKiroHookConfig(tmp);
+    expect(typeof result).toBe('string');
+    expect(result).toContain('not found');
   });
 });

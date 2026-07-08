@@ -97,14 +97,18 @@ describe('copilot adapter shape', () => {
 });
 
 describe('kiro adapter shape', () => {
-  it('exposes documented paths, has no hooks (v1), and detects KIRO_SESSION_ID', () => {
+  it('exposes documented paths, declares lifecycle hooks, and detects KIRO_SESSION_ID', () => {
     const paths = kiroAdapter.paths('/repo');
     expect(paths.dir).toBe('/repo/.kiro');
     expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/kiro');
     expect(paths.skillsDir).toBe('/repo/.kiro/skills');
-    expect(paths.settingsFile).toBeUndefined();
-    // Kiro v1 has no session lifecycle hooks
-    expect(kiroAdapter.hooks).toHaveLength(0);
+    expect(paths.settingsFile).toBe('/repo/.kiro/agents/kk-hooks.json');
+    // Full lifecycle hooks: agentSpawn, stop, userPromptSubmit
+    const events = new Set(kiroAdapter.hooks.map(h => h.event));
+    expect(events.has('agentSpawn')).toBe(true);
+    expect(events.has('stop')).toBe(true);
+    expect(events.has('userPromptSubmit')).toBe(true);
+    expect(kiroAdapter.hooks.length).toBeGreaterThan(0);
     expect(kiroAdapter.detectFromEnv?.({ KIRO_SESSION_ID: 'ses_abc123' })).toBe(true);
     expect(kiroAdapter.detectFromEnv?.({ KIRO_SESSION_ID: '' })).toBe(false);
     expect(kiroAdapter.detectFromEnv?.({})).toBe(false);

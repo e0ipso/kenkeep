@@ -92,7 +92,7 @@ export type CopilotModelChoice = z.infer<typeof CopilotModelChoiceSchema>;
 export const KiroModelChoiceSchema = z
   .object({
     harness: z.literal('kiro'),
-    model: z.string(),
+    model: z.string().min(1),
   })
   .strict();
 export type KiroModelChoice = z.infer<typeof KiroModelChoiceSchema>;

@@ -1,0 +1,209 @@
+name: kenkeep-check
+
+# Read-only, deterministic, LLM-free knowledge-base health check.
+#
+# Copy this file to `.github/workflows/kenkeep-check.yml` in your repo to use
+# it. GitHub does NOT auto-discover workflows outside `.github/workflows/`, so
+# shipping it under `examples/` is safe — it only runs once you copy it into
+# place. See `docs/continuous-integration.md` for the full guide.
+#
+# What it does (NEVER writes to `nodes/`, NEVER runs an LLM, NEVER commits):
+#   1. `kenkeep lint`     — naming, dangling edges, index presence (errors fail)
+#   2. `kenkeep doctor`   — structural staleness, nodes_hash drift (hard errors
+#                           fail; warnings — incl. harness-install — are surfaced)
+#   3. `kenkeep freshness`— advisory only, never fails (needs `fetch-depth: 0`)
+#   4. `index rebuild && git diff --exit-code` — read-only drift-catcher. The
+#                           regeneration is LOCAL computation in the CI workspace
+#                           only: never staged, never committed, never writes to
+#                           `nodes/`. `git diff --exit-code` is the read-only
+#                           verifier (exit 1 = drift). Endorsed by
+#                           `practice-dont-run-llm-pipelines-in-ci`.
+#   5. Posts/updates a single PR comment with a summary + remediation nudge.
+#
+# This is NOT the OpenWiki unattended-agent-PR model. Kenkeep constitution §3
+# mandates human-in-the-loop curation (a human runs the curation skill and
+# `git commit`s the result); the LLM does its work in a human-supervised
+# session, not in a CI runner. See `docs/continuous-integration.md` for the
+# rationale and the OpenWiki contrast.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.ai/kenkeep/**'
+      # Consumers: widen or narrow this filter to match where your KB lives.
+      # Removing `paths` runs the check on every PR.
+
+# Optional: cancel superseded runs on the same PR. Remove if you prefer every
+# push to run to completion.
+concurrency:
+  group: kenkeep-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  # No id-token, no secrets, no packages — least privilege by design.
+
+jobs:
+  kenkeep-check:
+    name: KB health (read-only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for freshness)
+        uses: actions/checkout@v5
+        with:
+          # MANDATORY for `kenkeep freshness`: it is git-anchored and silently
+          # degrades to "no signal" on a shallow clone. Keep `0` (full history).
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+          # Idiomatic npm cache. If your consumer repo has NO `package-lock.json`,
+          # remove the `cache` key to avoid a setup-node error. (This workflow
+          # does not run `npm ci` — it consumes the published `kenkeep` package
+          # via `npx` — so a missing lockfile only affects this cache hint.)
+          cache: 'npm'
+
+      # --- kenkeep health signals (each --verbose, output captured to a file) ---
+
+      - name: kenkeep lint
+        id: lint
+        # Errors (dangling edges, slug/id mismatch, missing index) fail the job.
+        # Findings like orphans / tag-near-duplicate are stderr warnings and are
+        # non-fatal; they are captured for the PR comment.
+        run: |
+          set -o pipefail
+          npx --yes kenkeep lint --verbose 2>&1 | tee "$RUNNER_TEMP/lint.txt"
+
+      - name: kenkeep doctor
+        id: doctor
+        continue-on-error: true
+        # Hard errors would fail the job, but `continue-on-error` keeps the
+        # comment step alive so findings are still posted. The final gate below
+        # re-fails the job on a doctor hard error. Warnings — including expected
+        # harness-install warnings on a generic CI runner with no harness CLI —
+        # are captured verbatim. See docs/continuous-integration.md#caveats.
+        run: |
+          set -o pipefail
+          npx --yes kenkeep doctor --verbose 2>&1 | tee "$RUNNER_TEMP/doctor.txt"
+
+      - name: kenkeep freshness
+        id: freshness
+        # Always exits 0 by contract (advisory only). Fails open on non-git /
+        # error / empty. Output is captured for the comment.
+        run: |
+          set -o pipefail
+          npx --yes kenkeep freshness --verbose 2>&1 | tee "$RUNNER_TEMP/freshness.txt"
+
+      - name: kenkeep drift-catcher (read-only)
+        id: drift
+        continue-on-error: true
+        # Read-only drift verifier endorsed by `practice-dont-run-llm-pipelines-in-ci`.
+        # `index rebuild` regenerates ENTRY.md / GRAPH.md in the CI workspace ONLY
+        # (never staged, never committed, never writes to `nodes/`); the files are
+        # discarded at job end. `git diff --exit-code` is the read-only verifier —
+        # exit 1 means the committed artifacts drifted from the deterministic
+        # regeneration. The final gate re-fails the job on drift.
+        run: |
+          set -o pipefail
+          npx --yes kenkeep index rebuild 2>&1 | tee "$RUNNER_TEMP/index-rebuild.txt"
+          git diff --exit-code .ai/kenkeep/ENTRY.md .ai/kenkeep/GRAPH.md 2>&1 | tee "$RUNNER_TEMP/drift.txt"
+
+      # --- Build the PR comment body (always runs, even on failures above) ---
+
+      - name: Build comment body
+        id: body
+        if: always()
+        # Truncates each section to keep the comment readable; full output lives
+        # in the workflow run log. The stable `<!-- kenkeep-check -->` marker lets
+        # `find-comment` update the same comment in place across pushes.
+        run: |
+          set +e
+          {
+            echo "COMMENT_BODY<<KENKEEP_COMMENT_EOF"
+            echo "<!-- kenkeep-check -->"
+            echo "## 🧪 kenkeep knowledge-base health"
+            echo ""
+            echo "<sub>[workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · this check is read-only and never mutates \`nodes/\`</sub>"
+            echo ""
+            render_section() {
+              local label="$1" file="$2" outcome="$3"
+              local icon="✅"
+              [ "$outcome" = "failure" ] && icon="❌"
+              [ "$outcome" = "skipped" ] && icon="⏭️"
+              echo "### ${icon} ${label}"
+              echo ""
+              if [ -s "$file" ]; then
+                echo "<details><summary>output (truncated to 4 KB)</summary>"
+                echo ""
+                echo '```'
+                head -c 4096 "$file"
+                echo ""
+                echo '```'
+                echo "</details>"
+              else
+                echo "_no output_"
+              fi
+              echo ""
+            }
+            render_section "lint" "$RUNNER_TEMP/lint.txt" "${{ steps.lint.outcome }}"
+            echo "> \`lint\` errors fail the job. Warnings (orphans, tag-near-duplicate) are advisory."
+            echo ""
+            render_section "doctor" "$RUNNER_TEMP/doctor.txt" "${{ steps.doctor.outcome }}"
+            echo "> Hard errors fail the job (re-checked by the final gate). **Harness-install warnings are expected in CI** — the runner has no harness CLI/hooks installed. See docs."
+            echo ""
+            render_section "freshness" "$RUNNER_TEMP/freshness.txt" "${{ steps.freshness.outcome }}"
+            echo "> Advisory only, never fails. Counts nodes that may describe source changed since curation."
+            echo ""
+            render_section "drift-catcher (read-only)" "$RUNNER_TEMP/drift.txt" "${{ steps.drift.outcome }}"
+            echo "> \`index rebuild\` regenerates ENTRY.md/GRAPH.md in the CI workspace only (never committed, never writes to \`nodes/\`). A diff here means the committed artifacts are stale."
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 🔧 Remediation"
+            echo ""
+            echo "Process accumulated session captures (see the curation skill in"
+            echo "\`docs/continuous-integration.md\`), or run \`kenkeep index rebuild\`"
+            echo "locally and commit the regenerated \`ENTRY.md\`/\`GRAPH.md\`."
+            echo ""
+            echo "KENKEEP_COMMENT_EOF"
+          } >> "$GITHUB_ENV"
+
+      # --- Upsert the PR comment (find existing by marker, then create/update) ---
+
+      - name: Find existing comment
+        id: find
+        if: always()
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: '<!-- kenkeep-check -->'
+
+      - name: Create or update comment
+        id: comment
+        if: always()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find.outputs.comment-id }}
+          body: ${{ env.COMMENT_BODY }}
+          edit-mode: replace
+
+      # --- Final gate: re-fail the job if doctor or drift hard-errored ---
+
+      - name: Final status gate
+        if: always()
+        # `lint` already fails the job directly. `doctor` and `drift` used
+        # `continue-on-error` so the comment could still post; this step
+        # propagates their failures after the comment is up.
+        run: |
+          set -e
+          if [ "${{ steps.doctor.outcome }}" = "failure" ] || [ "${{ steps.drift.outcome }}" = "failure" ]; then
+            echo "::error::kenkeep check failed (doctor and/or drift). See the PR comment and the workflow run log."
+            exit 1
+          fi
+          echo "kenkeep check passed (lint clean, doctor no hard errors, no drift)."

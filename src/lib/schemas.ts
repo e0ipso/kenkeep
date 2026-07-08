@@ -89,12 +89,21 @@ export const CopilotModelChoiceSchema = z
   .strict();
 export type CopilotModelChoice = z.infer<typeof CopilotModelChoiceSchema>;
 
+export const KiroModelChoiceSchema = z
+  .object({
+    harness: z.literal('kiro'),
+    model: z.string(),
+  })
+  .strict();
+export type KiroModelChoice = z.infer<typeof KiroModelChoiceSchema>;
+
 export const ModelChoiceSchema = z.discriminatedUnion('harness', [
   ClaudeModelChoiceSchema,
   CodexModelChoiceSchema,
   OpenCodeModelChoiceSchema,
   CursorModelChoiceSchema,
   CopilotModelChoiceSchema,
+  KiroModelChoiceSchema,
 ]);
 export type ModelChoice = z.infer<typeof ModelChoiceSchema>;
 

@@ -373,3 +373,42 @@ export function extractOpenCodeReads(exportJson: unknown): string[] {
   }
   return out;
 }
+
+/**
+ * Kiro: walks the parsed Kiro session JSON (`~/.kiro/sessions/cli/<uuid>.json`)
+ * and returns, in document order with duplicates preserved, markdown path
+ * candidates from the assistant response text in each turn.
+ *
+ * Kiro's session format stores assistant responses in
+ * `session_state.conversation_metadata.user_turn_metadatas[n].result.Ok.content[].data`.
+ * User turn text is not stored. The read-extract scans assistant text for
+ * markdown path candidates (shell command patterns via
+ * `extractCommandMarkdownCandidates`).
+ *
+ * Note: dedicated file-read tool calls are not separately surfaced in Kiro's
+ * session JSON; this extractor operates on the visible assistant text only.
+ * Best-effort and non-fatal — any malformed shape yields no entries.
+ */
+export function extractKiroReads(sessionJson: unknown): string[] {
+  const out: string[] = [];
+  if (!sessionJson || typeof sessionJson !== 'object') return out;
+  const turns = (
+    (sessionJson as Record<string, unknown>)?.['session_state'] as Record<string, unknown>
+  )?.['conversation_metadata'] as Record<string, unknown>;
+  const metadatas = turns?.['user_turn_metadatas'];
+  if (!Array.isArray(metadatas)) return out;
+  for (const turn of metadatas) {
+    const ok = (turn as Record<string, unknown>)?.['result'] !== undefined
+      ? ((turn as Record<string, unknown>)['result'] as Record<string, unknown>)?.['Ok']
+      : undefined;
+    if (!ok) continue;
+    const content = (ok as Record<string, unknown>)?.['content'];
+    if (!Array.isArray(content)) continue;
+    for (const c of content as Array<Record<string, unknown>>) {
+      if (c?.['kind'] !== 'text') continue;
+      const text = String(c['data'] ?? '');
+      if (text.length > 0) out.push(...extractCommandMarkdownCandidates(text));
+    }
+  }
+  return out;
+}

@@ -17,6 +17,13 @@ export interface KiroHeadlessOptions extends HeadlessRunOptions {
    * answer.
    */
   kiroCli?: string;
+  /**
+   * Repository root passed as the working directory of the headless child so
+   * Kiro's file-system tools (`read`, `write`, shell commands) operate on the
+   * correct project root regardless of the CWD the hook was invoked from.
+   * Defaults to `process.cwd()`.
+   */
+  repoRoot?: string;
 }
 
 /**
@@ -47,6 +54,7 @@ export async function runHeadlessKiro<T>(
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const harnessOpts = KiroHarnessOptsSchema.parse(opts.harnessOpts ?? {});
   const cli = opts.kiroCli ?? 'kiro-cli-chat';
+  const repoRoot = opts.repoRoot ?? process.cwd();
 
   const fullPrompt = stdin.length > 0 ? `${promptBody}\n\n--- input ---\n${stdin}` : promptBody;
 
@@ -66,8 +74,8 @@ export async function runHeadlessKiro<T>(
 
   const proc = execa(cli, args, {
     env,
+    cwd: repoRoot,
     timeout: timeoutMs,
-    stdin: 'pipe',
     stdout: 'pipe',
     reject: false,
   });

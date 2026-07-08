@@ -187,7 +187,7 @@ interface Sandbox {
 
 async function initTreeKb(): Promise<Sandbox> {
   const root = makeSandbox('kk-session-start-');
-  await runCli(root, ['init', '--harnesses', 'claude,codex,copilot,cursor,opencode']);
+  await runCli(root, ['init', '--harnesses', 'claude,codex,copilot,cursor,kiro,opencode']);
   const kkDir = join(root, '.ai', 'kenkeep');
   const nodesDir = join(kkDir, 'nodes');
   // Root-level leaf plus deep-branch leaves: a real tree.
@@ -285,6 +285,17 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(body).not.toContain(GREP_RECIPE);
   });
 
+  it('Kiro injects the root index node body plus directive via raw stdout (agentSpawn exit 0)', async () => {
+    const res = await runHook(hookPath('kiro'), sb.root, { cwd: sb.root });
+    expect(res.exitCode).toBe(0);
+    // Kiro adds raw stdout to the agent context on agentSpawn exit 0 — no JSON wrapper.
+    expect(res.stdout).toContain('# kenkeep');
+    expect(res.stdout).toContain(DESCENT_PHRASE);
+    expect(res.stdout).not.toContain(GREP_RECIPE);
+    // Must not write a copilot-style file — Kiro uses stdout, not a side file.
+    expect(existsSync(join(sb.root, '.kiro', 'AGENTS.md'))).toBe(false);
+  });
+
   it('keeps the injected payload bounded as deep leaves are added', async () => {
     const before = (await runHook(hookPath('claude'), sb.root, { cwd: sb.root })).stdout;
     const ctxBefore = (JSON.parse(before) as { hookSpecificOutput: { additionalContext: string } })
@@ -378,6 +389,16 @@ describe('per-harness SessionStart injection (tree descent)', () => {
         assertOutput: () => {
           const body = readFileSync(join(sb.root, '.github', 'copilot-instructions.md'), 'utf8');
           expect(body).toContain(
+            'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
+          );
+        },
+      },
+      {
+        harness: 'kiro',
+        input: { cwd: sb.root },
+        assertOutput: (res: SpawnResult) => {
+          // Kiro uses raw stdout for context injection.
+          expect(res.stdout).toContain(
             'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
           );
         },

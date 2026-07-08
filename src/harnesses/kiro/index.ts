@@ -12,21 +12,6 @@ import { buildKiroHarnessOpts } from './opts.js';
 import { parseKiroTranscript, renderKiroTranscript } from './transcript.js';
 
 /**
- * Kiro CLI (`kiro-cli-chat`) harness adapter.
- *
- * Kiro v1 has no session lifecycle hook events — `KIRO_HOOK_SPECS` is empty
- * and no hook scripts are installed. The adapter still provides the full
- * kenkeep surface: transcript parsing, headless programmatic mode, skills
- * installation, doctor checks, and listMemoryFiles (reading project and user
- * steering files as auto-memory inputs for bootstrap/curate).
- *
- * `detectFromEnv` checks for `KIRO_SESSION_ID` — a non-empty string that
- * Kiro exports in active sessions.
- *
- * Skills install to `.kiro/skills/<name>/SKILL.md` (Kiro's documented
- * project skill location). No hook configuration file is written in v1.
- */
-/**
  * Returns `file://` IRIs for `.kiro/steering/*.md` files in both the project
  * directory and the user home directory (`~/.kiro/steering/*.md`).
  *
@@ -40,10 +25,15 @@ import { parseKiroTranscript, renderKiroTranscript } from './transcript.js';
  * Optional `root` and `home` parameters override the defaults (repo root from
  * `findRepoRoot()` and `homedir()`); used only in tests.
  */
-export function kiroListMemoryFiles(root?: string, home?: string): string[] {
-  const resolvedRoot = root ?? findRepoRoot();
-  const resolvedHome = home ?? homedir();
-  const dirs = [join(resolvedRoot, '.kiro', 'steering'), join(resolvedHome, '.kiro', 'steering')];
+/**
+ * Internal implementation of `listMemoryFiles` extracted for testability.
+ * The optional `root` and `home` parameters allow tests to inject temporary
+ * directories without relying on `vi.mock` hoisting (which cannot reference
+ * `beforeEach`-allocated variables). This is the only test-injection surface;
+ * production calls always use the zero-argument async wrapper below.
+ */
+function kiroListMemoryFilesImpl(root: string, home: string): string[] {
+  const dirs = [join(root, '.kiro', 'steering'), join(home, '.kiro', 'steering')];
   const out: string[] = [];
   for (const dir of dirs) {
     try {
@@ -59,6 +49,21 @@ export function kiroListMemoryFiles(root?: string, home?: string): string[] {
   return out;
 }
 
+/**
+ * Kiro CLI (`kiro-cli-chat`) harness adapter.
+ *
+ * Kiro v1 has no session lifecycle hook events — `KIRO_HOOK_SPECS` is empty
+ * and no hook scripts are installed. The adapter still provides the full
+ * kenkeep surface: transcript parsing, headless programmatic mode, skills
+ * installation, doctor checks, and listMemoryFiles (reading project and user
+ * steering files as auto-memory inputs for bootstrap/curate).
+ *
+ * `detectFromEnv` checks for `KIRO_SESSION_ID` — a non-empty string that
+ * Kiro exports in active sessions.
+ *
+ * Skills install to `.kiro/skills/<name>/SKILL.md` (Kiro's documented
+ * project skill location). No hook configuration file is written in v1.
+ */
 export const kiroAdapter: HarnessAdapter = {
   id: 'kiro',
   launchBinary: 'kiro-cli-chat',
@@ -80,5 +85,15 @@ export const kiroAdapter: HarnessAdapter = {
   },
   // listMemoryFiles is sync (FS reads only, no headless spawn); async wrapper
   // satisfies the interface signature Promise<string[]>.
-  listMemoryFiles: async () => kiroListMemoryFiles(),
+  listMemoryFiles: async () => kiroListMemoryFilesImpl(findRepoRoot(), homedir()),
 };
+
+/**
+ * Test helper: calls the internal memory-file implementation with explicit
+ * `root` and `home` directories. Production code always uses the adapter's
+ * `listMemoryFiles()` method (which resolves these from `findRepoRoot()` and
+ * `homedir()`). Exported only for tests — do not call from production code.
+ */
+export function kiroListMemoryFiles(root: string, home: string): string[] {
+  return kiroListMemoryFilesImpl(root, home);
+}

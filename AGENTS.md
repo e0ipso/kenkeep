@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`kenkeep` — npm package that builds and maintains a per-repo knowledge base from AI coding sessions for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, and GitHub Copilot CLI. It installs harness hooks, captures session slices, runs human-supervised curation, and injects the resulting `ENTRY.md` into every new session. TypeScript, Node 22+, ESM, bundled via `tsup`.
+`kenkeep` — npm package that builds and maintains a per-repo knowledge base from AI coding sessions for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, GitHub Copilot CLI, and Kiro CLI. It installs harness hooks, captures session slices, runs human-supervised curation, and injects the resulting `ENTRY.md` into every new session. TypeScript, Node 22+, ESM, bundled via `tsup`.
 
 Authoritative product spec: [PRD.md](PRD.md).
 
@@ -38,7 +38,7 @@ src/
     types.ts              # HarnessAdapter contract
     registry.ts           # central adapter registry
     detect.ts             # env-based active-harness resolver
-    claude/ codex/ cursor/ opencode/ copilot/
+    claude/ codex/ cursor/ opencode/ copilot/ kiro/
   lib/                    # shared utilities, schemas, paths, logging
   templates-source/       # source for the shipped templates/ tree
     skills/               # SKILL.md files shared across all harnesses (kk-bootstrap, kk-curate, kk-add)
@@ -79,6 +79,7 @@ A generated index node renders:
 - **[No event-name translation across adapters.](.ai/kenkeep/nodes/harnesses/practice-no-event-translation-across-adapters.md)** `HookEvent` is opaque `string`; each adapter declares the event names its runtime emits natively (Claude: `Stop`/`SessionEnd`/`PreCompact`; Codex: `Stop`/`PreCompact`; Cursor: `stop`/`sessionEnd`/`preCompact`; OpenCode: `session.idle`/`session.created`; Copilot: `sessionStart`/`sessionEnd`/`agentStop`). Do not introduce a global enum.
 - Adapters with per-event shell hooks use `paths(root).hooksDir`. Adapters with a long-lived plugin module (OpenCode) use `pluginsDir`; the build pipeline auto-detects a sibling `plugins/` source dir and renames hook output to `kk-hooks/` to avoid the runtime-reserved `.opencode/hooks/`. An adapter with no plugin shim that still needs its scripts kept apart from a config-bearing `<dir>/hooks/` (Copilot's `kk.json` lives there) opts into the same `kk-hooks/` output via a `src/harnesses/<id>/.kk-hooks-output` marker file. Per-entry hook metadata the host's config schema needs (Copilot's `{ type, timeoutSec, env }`) rides on the optional `HookSpec.payload` blob, consumed only by that adapter's `hooks-config` writer. See [map-opencode-harness](.ai/kenkeep/nodes/harnesses/map-opencode-harness.md) and [map-copilot-harness-adapter](.ai/kenkeep/nodes/harnesses/map-copilot-harness-adapter.md).
 - New harness env detectors must be added to **both** the adapter's `detectFromEnv` **and** the shared `ENV_DETECTORS` array in `src/templates-source/kenkeep/scripts/kk-detect-harness.mjs` (the helper the kk skills invoke, shipped to `.ai/kenkeep/scripts/`). `npm run lint:detect-harness` fails CI on drift.
+- The Kiro adapter (`kiro`) installs skills only in v1 — capture hooks require Kiro session lifecycle events which are not yet available.
 
 ### Schema versions
 

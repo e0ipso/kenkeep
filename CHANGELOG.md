@@ -1,3 +1,9 @@
+## [1.16.1](https://github.com/e0ipso/kenkeep/compare/v1.16.0...v1.16.1) (2026-07-09)
+
+### Bug Fixes
+
+* **docs:** remove Callout component tag ([#108](https://github.com/e0ipso/kenkeep/issues/108)) ([8b26cee](https://github.com/e0ipso/kenkeep/commit/8b26ceefcd9646546430ab145f0c4c232a0cf271))
+
 ## [1.16.0](https://github.com/e0ipso/kenkeep/compare/v1.15.0...v1.16.0) (2026-07-07)
 
 ### Features

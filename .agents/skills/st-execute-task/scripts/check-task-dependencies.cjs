@@ -33,8 +33,8 @@ __export(check_task_dependencies_exports, {
   _main: () => _main
 });
 module.exports = __toCommonJS(check_task_dependencies_exports);
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var fs5 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
 
 // src/skill-scripts/shared/plan-resolve.ts
 var fs3 = __toESM(require("fs"));
@@ -43,7 +43,7 @@ var path3 = __toESM(require("path"));
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var EXPECTED_SCHEMA = true ? 2 : 2;
+var EXPECTED_SCHEMA = true ? 4 : 4;
 var isValidStrikethrooRoot = (strikethrooPath) => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
@@ -244,43 +244,31 @@ var resolvePlan = (input, startPath = process.cwd()) => {
   return resolveByIdInAncestry(planId, startPath);
 };
 
-// src/skill-scripts/check-task-dependencies.ts
-var _printError = (message) => {
-  console.error(`ERROR: ${message}`);
-};
-var _printSuccess = (message) => {
-  console.log(`\u2713 ${message}`);
-};
-var _printWarning = (message) => {
-  console.log(`\u26A0 ${message}`);
-};
-var _printInfo = (message) => {
-  console.log(message);
-};
-var _extractFrontmatter = (content) => {
+// src/skill-scripts/shared/task-file.ts
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+var extractFrontmatter = (content) => {
   const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   return match && match[1] ? match[1] : null;
 };
-var _findTaskFile = (planDir, taskId) => {
+var findTaskFile = (planDir, taskId) => {
   const taskDir = path4.join(planDir, "tasks");
-  if (!fs4.existsSync(taskDir)) {
-    return null;
-  }
-  const variations = [taskId, taskId.padStart(2, "0"), taskId.replace(/^0+/, "") || "0"];
+  if (!fs4.existsSync(taskDir)) return null;
+  const idStr = String(taskId);
+  const variations = [idStr, idStr.padStart(2, "0"), idStr.replace(/^0+/, "") || "0"];
   const uniqueVariations = [...new Set(variations)];
   try {
     const files = fs4.readdirSync(taskDir);
-    const found = uniqueVariations.reduce((acc, v) => {
+    return uniqueVariations.reduce((acc, v) => {
       if (acc) return acc;
       const match = files.find((f) => f.startsWith(`${v}--`) && f.endsWith(".md"));
       return match ? path4.join(taskDir, match) : null;
-    }, null);
-    return found;
+    }, null) ?? null;
   } catch (_err) {
     return null;
   }
 };
-var _extractDependencies = (frontmatter) => {
+var extractDependencies = (frontmatter) => {
   const lines = frontmatter.split("\n");
   const dependencies = [];
   let inDependenciesSection = false;
@@ -300,21 +288,85 @@ var _extractDependencies = (frontmatter) => {
     }
     if (inDependenciesSection && line.match(/^[ \t]*-/)) {
       const dep = line.replace(/^[ \t]*-[ \t]*/, "").replace(/[ \t]*$/, "").replace(/['"]/g, "");
-      if (dep.length > 0) {
-        dependencies.push(dep);
-      }
+      if (dep.length > 0) dependencies.push(dep);
     }
   }
   return dependencies;
 };
-var _extractStatus = (frontmatter) => {
-  const lines = frontmatter.split("\n");
-  for (const line of lines) {
+var extractStatus = (frontmatter) => {
+  for (const line of frontmatter.split("\n")) {
     if (line.match(/^status:/)) {
       return line.replace(/^status:[ \t]*/, "").replace(/^["']/, "").replace(/["']$/, "").trim();
     }
   }
   return null;
+};
+var collectTaskReadinessIssues = (planDir, taskId) => {
+  const issues = [];
+  const taskFile = findTaskFile(planDir, taskId);
+  const idLabel = String(taskId);
+  if (!taskFile || !fs4.existsSync(taskFile)) {
+    issues.push({ taskId: idLabel, kind: "missing", detail: "task file not found" });
+    return issues;
+  }
+  const taskContent = fs4.readFileSync(taskFile, "utf8");
+  const frontmatter = extractFrontmatter(taskContent);
+  if (!frontmatter) {
+    issues.push({ taskId: idLabel, kind: "missing", detail: "task frontmatter not found" });
+    return issues;
+  }
+  const status = extractStatus(frontmatter);
+  if (status === "needs-clarification") {
+    issues.push({
+      taskId: idLabel,
+      kind: "needs-clarification",
+      detail: "status is needs-clarification"
+    });
+  }
+  for (const depId of extractDependencies(frontmatter)) {
+    const depFile = findTaskFile(planDir, depId);
+    if (!depFile || !fs4.existsSync(depFile)) {
+      issues.push({
+        taskId: idLabel,
+        kind: "unresolved-dependency",
+        detail: `dependency ${depId} not found`
+      });
+      continue;
+    }
+    const depContent = fs4.readFileSync(depFile, "utf8");
+    const depFrontmatter = extractFrontmatter(depContent);
+    if (!depFrontmatter) {
+      issues.push({
+        taskId: idLabel,
+        kind: "unresolved-dependency",
+        detail: `dependency ${depId} has no frontmatter`
+      });
+      continue;
+    }
+    const depStatus = extractStatus(depFrontmatter);
+    if (depStatus !== "completed") {
+      issues.push({
+        taskId: idLabel,
+        kind: "unresolved-dependency",
+        detail: `dependency ${depId} status is ${depStatus ?? "unknown"}`
+      });
+    }
+  }
+  return issues;
+};
+
+// src/skill-scripts/check-task-dependencies.ts
+var _printError = (message) => {
+  console.error(`ERROR: ${message}`);
+};
+var _printSuccess = (message) => {
+  console.log(`\u2713 ${message}`);
+};
+var _printWarning = (message) => {
+  console.log(`\u26A0 ${message}`);
+};
+var _printInfo = (message) => {
+  console.log(message);
 };
 var _main = (startPath = process.cwd()) => {
   if (process.argv.length !== 4) {
@@ -336,20 +388,29 @@ var _main = (startPath = process.cwd()) => {
   }
   const { planDir, planId } = resolved;
   _printInfo(`Found plan directory: ${planDir}`);
-  const taskFile = _findTaskFile(planDir, taskId);
-  if (!taskFile || !fs4.existsSync(taskFile)) {
+  const taskFile = findTaskFile(planDir, taskId);
+  if (!taskFile) {
     _printError(`Task with ID ${taskId} not found in plan ${planId}`);
     process.exit(1);
   }
-  _printInfo(`Checking task: ${path4.basename(taskFile)}`);
+  _printInfo(`Checking task: ${path5.basename(taskFile)}`);
   console.log("");
-  const taskContent = fs4.readFileSync(taskFile, "utf8");
-  const frontmatter = _extractFrontmatter(taskContent);
+  const issues = collectTaskReadinessIssues(planDir, taskId);
+  const dependencyIssues = issues.filter((issue) => issue.kind === "unresolved-dependency");
+  const blockingIssues = issues.filter((issue) => issue.kind !== "unresolved-dependency");
+  if (blockingIssues.length > 0) {
+    for (const issue of blockingIssues) {
+      _printError(issue.detail);
+    }
+    process.exit(1);
+  }
+  const taskContent = fs5.readFileSync(taskFile, "utf8");
+  const frontmatter = extractFrontmatter(taskContent);
   if (!frontmatter) {
     _printError("Could not extract frontmatter from task file");
     process.exit(1);
   }
-  const dependencies = _extractDependencies(frontmatter);
+  const dependencies = extractDependencies(frontmatter);
   if (dependencies.length === 0) {
     _printSuccess("Task has no dependencies - ready to execute!");
     process.exit(0);
@@ -359,57 +420,38 @@ var _main = (startPath = process.cwd()) => {
     console.log(`  - Task ${dep}`);
   });
   console.log("");
-  let allResolved = true;
-  const unresolvedDeps = [];
-  let resolvedCount = 0;
-  const totalDeps = dependencies.length;
   _printInfo("Checking dependency status...");
   console.log("");
+  let resolvedCount = 0;
   for (const depId of dependencies) {
-    const depFile = _findTaskFile(planDir, depId);
-    if (!depFile || !fs4.existsSync(depFile)) {
-      _printError(`Dependency task ${depId} not found`);
-      allResolved = false;
-      unresolvedDeps.push(`${depId} (not found)`);
-      continue;
-    }
-    const depContent = fs4.readFileSync(depFile, "utf8");
-    const depFrontmatter = _extractFrontmatter(depContent);
-    if (!depFrontmatter) {
-      _printError(`Could not extract frontmatter from dependency task ${depId}`);
-      allResolved = false;
-      unresolvedDeps.push(`${depId} (no frontmatter)`);
-      continue;
-    }
-    const status = _extractStatus(depFrontmatter);
-    if (status === "completed") {
+    const depFile = findTaskFile(planDir, depId);
+    const depFrontmatter = depFile ? extractFrontmatter(fs5.readFileSync(depFile, "utf8")) : null;
+    const depStatus = depFrontmatter ? extractStatus(depFrontmatter) : null;
+    if (depStatus === "completed") {
       _printSuccess(`Task ${depId} - Status: completed \u2713`);
       resolvedCount++;
     } else {
-      _printWarning(`Task ${depId} - Status: ${status || "unknown"} \u2717`);
-      allResolved = false;
-      unresolvedDeps.push(`${depId} (${status || "unknown"})`);
+      _printWarning(`Task ${depId} - Status: ${depStatus ?? "unknown"} \u2717`);
     }
   }
   console.log("");
   _printInfo("=========================================");
   _printInfo("Dependency Check Summary");
   _printInfo("=========================================");
-  _printInfo(`Total dependencies: ${totalDeps}`);
+  _printInfo(`Total dependencies: ${dependencies.length}`);
   _printInfo(`Resolved: ${resolvedCount}`);
-  _printInfo(`Unresolved: ${totalDeps - resolvedCount}`);
+  _printInfo(`Unresolved: ${dependencies.length - resolvedCount}`);
   console.log("");
-  if (allResolved) {
+  if (dependencyIssues.length === 0) {
     _printSuccess(`All dependencies are resolved! Task ${taskId} is ready to execute.`);
     process.exit(0);
-  } else {
-    _printError(`Task ${taskId} has unresolved dependencies:`);
-    unresolvedDeps.forEach((dep) => {
-      console.log(dep);
-    });
-    _printInfo("Please complete the dependencies before executing this task.");
-    process.exit(1);
   }
+  _printError(`Task ${taskId} has unresolved dependencies:`);
+  dependencyIssues.forEach((issue) => {
+    console.log(issue.detail);
+  });
+  _printInfo("Please complete the dependencies before executing this task.");
+  process.exit(1);
 };
 if (require.main === module) {
   _main();

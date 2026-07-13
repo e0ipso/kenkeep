@@ -54,7 +54,7 @@ var path3 = __toESM(require("path"));
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var EXPECTED_SCHEMA = true ? 2 : 2;
+var EXPECTED_SCHEMA = true ? 4 : 4;
 var isValidStrikethrooRoot = (strikethrooPath) => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
@@ -280,14 +280,13 @@ var _hasUncommittedChanges = () => {
   return status !== null && status.length > 0;
 };
 var _branchExists = (branchName) => {
-  const localBranches = execGit("git branch --list");
-  if (localBranches && localBranches.split("\n").some((b) => b.trim().replace("* ", "") === branchName)) {
-    return true;
+  const localMatch = execGit(`git branch --list "${branchName}"`);
+  if (localMatch) {
+    const names = localMatch.split("\n").map((b) => b.trim().replace(/^\*\s*/, "")).filter(Boolean);
+    if (names.includes(branchName)) return true;
   }
-  const remoteBranches = execGit("git branch -r --list");
-  if (remoteBranches && remoteBranches.split("\n").some((b) => b.trim().includes(branchName))) {
-    return true;
-  }
+  const remoteMatch = execGit(`git branch -r --list "origin/${branchName}"`);
+  if (remoteMatch && remoteMatch.trim().length > 0) return true;
   return false;
 };
 var _sanitizeBranchName = (planName) => {
@@ -336,8 +335,17 @@ var main = (startPath = process.cwd()) => {
   const sanitizedName = _sanitizeBranchName(planName);
   const branchName = `feature/${planId}--${sanitizedName}`;
   if (_branchExists(branchName)) {
+    if (currentBranch === branchName) {
+      _printSuccess(`Already on branch: ${branchName}`);
+      process.exit(0);
+    }
     _printWarning(`Branch "${branchName}" already exists`);
-    _printInfo("Proceeding with existing branch");
+    const checkoutResult = execGit(`git checkout "${branchName}"`);
+    if (checkoutResult === null) {
+      _printError(`Failed to checkout branch "${branchName}"`);
+      process.exit(1);
+    }
+    _printSuccess(`Switched to existing branch: ${branchName}`);
     process.exit(0);
   }
   const createResult = execGit(`git checkout -b "${branchName}"`);

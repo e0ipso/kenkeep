@@ -35,37 +35,37 @@
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "templates/harness/skills/st-create-plan/SKILL.md",
-      "computedHash": "8bca64a5062fd272e0373615e1b09f4cf3790a32c0fb3900c56abb41cbb4050d"
+      "computedHash": "f20c1ee1599a9530052443b47550758d3a52e3a9dc0e771e937f058b72df6b28"
     },
     "st-execute-blueprint": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "templates/harness/skills/st-execute-blueprint/SKILL.md",
-      "computedHash": "0ad7092a90c4ec7ccbbcb4e484508c324b8ada669a1f83b09be2ba557ec45b0b"
+      "computedHash": "ffa070e79030c1266d1e81698886ffe6a965db558cb65decc09905cf2260c39c"
     },
     "st-execute-task": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "templates/harness/skills/st-execute-task/SKILL.md",
-      "computedHash": "888050cee785f9902656de6c9958b1de8202ba1bc66f9b0d41611306d9bcdfee"
+      "computedHash": "9b68d62d8fe980bc80af34a40b4deb4574c3ce38ffa157d27289afed283dc65e"
     },
     "st-full-workflow": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "templates/harness/skills/st-full-workflow/SKILL.md",
-      "computedHash": "053d3f592d54802cd3590bf1b28914427e9ce0b7b0070519af068264f7c113ad"
+      "computedHash": "c0399961a61b4da5fa2a1f05a34f2950fa77193b09c4539a42df7ed98839cd46"
     },
     "st-generate-tasks": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "templates/harness/skills/st-generate-tasks/SKILL.md",
-      "computedHash": "bdf97ede2ee24fa9e4e95538d05da551abc20f318b3195a9132eeb542744e468"
+      "computedHash": "7afab5611a80641f9cda75fc4c3cef21d81c46c9d8157a807786b9a8c4d797e9"
     },
     "st-refine-plan": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "templates/harness/skills/st-refine-plan/SKILL.md",
-      "computedHash": "90f2cccdea4e0fac85b769a2b78f7a50256135d403a374d654aaff9c63393527"
+      "computedHash": "e881da8184d3665ba4cf3a186b98c555c82cf9079030819d2cdd0e35e743c3c6"
     },
     "task-create-plan": {
       "source": "e0ipso/ai-task-manager",

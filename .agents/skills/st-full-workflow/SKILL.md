@@ -222,13 +222,48 @@ For each task, identify:
 
 A task B depends on A if B requires A's output or artifacts, modifies code created by A, or tests functionality implemented by A. Validate that the final dependency graph is acyclic.
 
-#### 7. Allocate task IDs
+#### 7. Complexity analysis
+
+For every candidate task, assign a `complexity_score` (integer 1–10) before
+writing any file. Base the score on these four dimensions:
+
+| Score | Skill breadth | Acceptance-criteria clarity | Integration surface | Decomposition depth |
+| --- | --- | --- | --- | --- |
+| 1–3 | One well-known skill | Criteria are concrete and observable | None or a single file/module | No further split possible |
+| 4–5 | One primary skill plus a familiar adjacent skill | Criteria are clear with few edge cases | One component or API boundary | Already atomic |
+| 6–7 | Two distinct skills, or one skill with ambiguous requirements | Criteria need clarification or have multiple edge cases | Multiple components or contracts | Could still be split |
+| 8–10 | Three or more skills, or cross-cutting design decisions | Criteria are vague, unknown, or depend on unresolved choices | Wide integration surface or external systems | Must be decomposed further |
+
+**Pre-emission sanity rules** — apply these before any task is written:
+
+- 3+ skills assigned → split the task into smaller tasks, each with 1–2 skills.
+- Vague acceptance criteria → sharpen them until they include at least one
+  concrete, runnable verification step.
+- Trivially small adjacent tasks → merge them into a single task.
+- Score ≥ 8 → decompose further; do not emit as-is.
+- Score 6–7 → either sharpen criteria or split; do not emit without an
+  explicit reason.
+
+**Required frontmatter:**
+
+- Every emitted task MUST include `complexity_score` (integer 1–10).
+- Optionally include `complexity_notes` when the score needs justification,
+  such as "Ambiguous API contract" or "Decomposed from a higher-score parent".
+
+**Loop-back rule:**
+
+After applying split, sharpen, or merge, re-run dependency analysis and
+re-score the adjusted tasks. Repeat this loop no more than three times. If
+complexity is still unresolved after three passes, stop and surface the
+blocker to the user.
+
+#### 8. Allocate task IDs
 
 Run `scripts/get-next-task-id.cjs <plan-id>` to obtain the first available task ID. Allocate subsequent IDs by incrementing in-process. Use the unpadded integer in the task frontmatter `id` field and the zero-padded form (`{padded-id}--{slug}`) for the filename.
 
 The slug derives from a short task title: lowercase, alphanumeric and hyphens only, collapsed, trimmed.
 
-#### 8. Emit the task files
+#### 9. Emit the task files
 
 Write each task to:
 
@@ -246,11 +281,19 @@ including required frontmatter fields:
 - `created` (YYYY-MM-DD)
 - `skills` (array of 1–2 kebab-case skills)
 
-Optional frontmatter for high-complexity or decomposed tasks:
+Required additional frontmatter:
 
-- `complexity_score` (number, 1–10, include only if >4 or for decomposed
-  tasks)
-- `complexity_notes` (string)
+- `complexity_score` (integer 1–10, required on every emitted task)
+
+Optional frontmatter:
+
+- `complexity_notes` (string) — include when the score needs justification,
+  such as "Decomposed from a cross-cutting parent task" or "Ambiguous API
+  contract".
+- `execution` (mapping) — a task-only execution override. When present,
+  `model` is required and must be an exact string. `reasoning_effort` and a
+  different external `harness` are optional. Do not create plan defaults,
+  inheritance, aliases, model discovery, or model-name translation.
 
 The body sections (Objective, Skills Required, Acceptance Criteria, Technical
 Requirements, Input Dependencies, Output Artifacts, Implementation Notes)
@@ -258,7 +301,7 @@ must be filled with task-specific content. Place detailed implementation
 guidance inside a `<details>` block under "Implementation Notes" — write it
 so a non-thinking LLM could execute the task from that section alone.
 
-#### 9. Validation checklist
+#### 10. Validation checklist
 
 Before declaring task generation complete, verify:
 
@@ -276,16 +319,59 @@ Before declaring task generation complete, verify:
 - Minimization applied (20–30% reduction target).
 - Test tasks focus on business logic, not framework functionality.
 - No gold-plating: only plan requirements are addressed.
+- After writing the task files, run
+  `scripts/validate-plan-blueprint.cjs <plan-id> complexityScoresValid`. Stop
+  unless it prints `yes`; if it prints `no`, run
+  `scripts/validate-plan-blueprint.cjs <plan-id> invalidComplexityTasks` to see
+  which files are missing, non-integer, or out-of-range, fix them, and re-run.
+  Every generated task must carry an integer `complexity_score` from 1 to 10.
+- Add `complexity_notes` only when a score needs explanation (typically atomic
+  tasks scoring greater than 4).
 
-#### 10. Run the POST_TASK_GENERATION_ALL hook
+#### 11. Route task execution
 
-Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. This typically requires:
+Read `<root>/config/hooks/TASK_EXECUTION_ROUTING.md` and follow its
+instructions together with this procedure:
 
-- Sanity-checking complexity.
+1. Run `scripts/route-task-execution.cjs profiles <plan-id>` and interpret
+   its JSON result. On `no-config` or `disabled`, routing is off: skip the
+   remaining routing steps and continue. On `invalid-config`, stop and
+   surface the errors to the user — do not generate the blueprint.
+2. Classify every task in the plan's `tasks/` directory against the
+   configured profile descriptions. For tasks generated in this run, use the
+   task content already in your context — objective, acceptance criteria,
+   technical requirements, `skills`, and `complexity_score`; do not reread
+   the emitted task files to reconstruct information you already hold. If
+   the plan carried task files from an earlier generation run, read those
+   files (and only those) to classify them — the mapping must cover every
+   task in the plan. Assign each task ID exactly one configured profile
+   name. Never invent a profile name, model, or harness.
+3. Write the complete task-ID-to-profile mapping as a JSON object to a
+   temporary file, for example `{"1": "routine", "2": "demanding"}`.
+4. Run
+   `scripts/route-task-execution.cjs apply <plan-id> <mapping-file> <current-harness>`,
+   where `<current-harness>` is the exact supported harness identifier
+   running this skill. The helper validates the mapping (every task exactly
+   once, only configured profiles), deterministically selects each task's
+   execution target, writes the exact `execution` frontmatter, and verifies
+   the written files.
+5. On `routed`, delete the temporary mapping file and continue. On any
+   failure result (`invalid-assignments`, `invalid-tasks`,
+   `resolver-failure`, `routing-failure`, `infrastructure-failure`), stop
+   and surface the JSON errors to the user. Never proceed to blueprint
+   generation with partially routed tasks.
+
+Profile names are transient routing labels: never write them into task
+frontmatter or task bodies.
+
+#### 12. Run the POST_TASK_GENERATION_ALL hook
+
+Read `<root>/config/hooks/POST_TASK_GENERATION_ALL.md` and follow its instructions. Run it only after routing succeeded or reported routing off. This typically requires:
+
 - Appending an Execution Blueprint section to the plan document, including a Mermaid dependency diagram and explicit phase groupings.
 - Use `<root>/config/templates/BLUEPRINT_TEMPLATE.md` for structure.
 
-#### 11. Emit the Phase 2 structured summary
+#### 13. Emit the Phase 2 structured summary
 
 Conclude Phase 2 with exactly this block:
 
@@ -330,7 +416,7 @@ If `taskCount` is 0 or `blueprintExists` is `no`:
 
 #### 3. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>`. The script creates a branch named after the plan and prints the branch name. Continue execution regardless of whether a branch is created.
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. When the script exits with an error (for example, uncommitted changes on `main`/`master`), halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 #### 4. Load execution blueprint
 
@@ -346,12 +432,48 @@ Read these files in order:
 Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
 
 ##### 5a. Phase pre-execution
+Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
+
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
 ##### 5b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_EXECUTION.md` and execute its instructions before starting any implementation work.
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
-Deploy all selected agents simultaneously using your internal Task tool. Each agent MUST:
+Resolve every selected task's execution route first. Invoke one resolver per selected
+task simultaneously in a single parallel tool operation:
+
+```text
+scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+Resolvers never launch external processes. After interpreting all route results, issue
+all `external-override` executions and all native Task-tool agents **together in one
+parallel tool operation**. External execution uses:
+
+```text
+scripts/dispatch-task-execution.cjs execute <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+This two-step protocol is mandatory: do not execute external tasks during route
+resolution, do not serialize external commands, and do not wait for external completion
+before launching ready native agents. If an execute-time pre-flight returns `fallback`,
+record its reason and immediately launch the ordinary native path without override prose.
+
+`<current-harness>` is the exact supported harness identifier running this
+skill and `<workspace>` is the project working directory. Interpret its JSON
+result before choosing a route: `native-default` uses ordinary native dispatch;
+`native-override` uses native dispatch with explicit exact-model prose and
+reasoning-effort prose only when returned; `fallback` visibly records its
+reason then uses ordinary native dispatch with no override prose;
+`launched-success` has already completed externally and receives normal status
+and evidence review; `launched-failure` is a failed task and must enter the
+existing error-hook/status path without any native retry; `infrastructure-failure`
+is also a failed task, must be marked failed, and must run
+`<root>/config/hooks/POST_ERROR_DETECTION.md` without native retry. The command
+always emits exactly one JSON line; exit code `2` identifies entrypoint/infrastructure
+failure while exit code `1` identifies a launched task failure.
+
+Deploy all remaining native agents simultaneously using your internal Task tool. Each agent MUST:
 
 1. Read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any implementation work.
 2. Execute the task according to its requirements.
@@ -403,6 +525,7 @@ Preserve the entire folder structure (including all tasks and subdirectories) to
 - **Plan ID script fails.** Re-check the resolved root and re-run. If it continues to fail, surface stderr to the user and stop — do not guess an ID.
 - **Plan directory already exists for the allocated ID in Phase 1.** Re-run the next-plan-id script and retry once. If the conflict persists, stop and report.
 - **Plan ID does not resolve in Phase 2 or 3.** Stop and surface the script's stderr. Do not guess a different ID.
+- **Execution routing fails in Phase 2.** Surface the routing helper's JSON errors and stop before blueprint generation. Do not guess profile assignments, hand-write `execution` frontmatter, or continue with partially routed tasks.
 - **Missing blueprint after auto-generation in Phase 3.** If automatic task generation fails to produce tasks or a blueprint, stop and report failure. Do not attempt execution without a blueprint.
 - **Hook failure during execution.** If `PRE_PHASE.md`, `POST_PHASE.md`, or `POST_EXECUTION.md` fails, halt execution. The plan remains in `plans/` for debugging and potential re-execution.
 - **Execution errors.** If a task fails, read `<root>/config/hooks/POST_ERROR_DETECTION.md`, document the error in Noteworthy Events, halt the phase, and request user direction before continuing.

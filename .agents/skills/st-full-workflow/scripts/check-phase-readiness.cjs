@@ -27,12 +27,61 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/skill-scripts/validate-plan-blueprint.ts
-var validate_plan_blueprint_exports = {};
-__export(validate_plan_blueprint_exports, {
+// src/skill-scripts/check-phase-readiness.ts
+var check_phase_readiness_exports = {};
+__export(check_phase_readiness_exports, {
   main: () => main
 });
-module.exports = __toCommonJS(validate_plan_blueprint_exports);
+module.exports = __toCommonJS(check_phase_readiness_exports);
+var fs5 = __toESM(require("fs"));
+
+// src/skill-scripts/shared/blueprint-parse.ts
+var BLUEPRINT_SECTION_RE = /^##[ \t]+Execution Blueprint[ \t]*$/m;
+var PHASE_HEADING_RE = /^###[ \t]+(?:✅[ \t]*)?Phase[ \t]+(\d+)[ \t]*:?[ \t]*(.*?)[ \t]*$/gm;
+var TASK_REF_RE = /Task[ \t]+0*(\d+)/i;
+var parseBlueprintPhases = (planBody) => {
+  const sectionMatch = planBody.match(BLUEPRINT_SECTION_RE);
+  if (!sectionMatch || sectionMatch.index === void 0) return void 0;
+  const blueprint = planBody.slice(sectionMatch.index);
+  const headings = [];
+  PHASE_HEADING_RE.lastIndex = 0;
+  let m;
+  while ((m = PHASE_HEADING_RE.exec(blueprint)) !== null) {
+    headings.push({
+      index: m.index,
+      afterHeading: m.index + m[0].length,
+      name: (m[2] ?? "").trim()
+    });
+  }
+  if (headings.length === 0) return void 0;
+  const phases = [];
+  for (let i = 0; i < headings.length; i++) {
+    const current = headings[i];
+    const next = headings[i + 1];
+    const end = next ? next.index : blueprint.length;
+    const segment = blueprint.slice(current.afterHeading, end);
+    const taskIds = [];
+    for (const line of segment.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("-") && !trimmed.startsWith("*")) continue;
+      const ref = trimmed.match(TASK_REF_RE);
+      if (ref && ref[1] !== void 0) {
+        const id = parseInt(ref[1], 10);
+        if (!Number.isNaN(id) && !taskIds.includes(id)) taskIds.push(id);
+      }
+    }
+    phases.push({
+      index: i + 1,
+      name: current.name.length > 0 ? current.name : void 0,
+      taskIds
+    });
+  }
+  return phases;
+};
+
+// src/skill-scripts/shared/plan-resolve.ts
+var fs3 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
 
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
@@ -166,8 +215,6 @@ var getAllPlans = (taskManagerRoot) => {
 };
 
 // src/skill-scripts/shared/plan-resolve.ts
-var fs3 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
 var isValidRootDir = (strikethrooPath) => {
   try {
     if (!fs3.existsSync(strikethrooPath)) return false;
@@ -240,185 +287,180 @@ var resolvePlan = (input, startPath = process.cwd()) => {
   return resolveByIdInAncestry(planId, startPath);
 };
 
-// src/skill-scripts/shared/blueprint-detection.ts
-var fs4 = __toESM(require("fs"));
-var hasExecutionBlueprint = (planFile) => {
-  try {
-    const content = fs4.readFileSync(planFile, "utf8");
-    return /^## Execution Blueprint/m.test(content);
-  } catch (_err) {
-    return false;
-  }
-};
-
-// src/skill-scripts/shared/task-count.ts
-var fs5 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
-var countTaskFiles = (planDir) => {
-  const tasksDir = path4.join(planDir, "tasks");
-  if (!fs5.existsSync(tasksDir)) return 0;
-  try {
-    const stat = fs5.lstatSync(tasksDir);
-    if (!stat.isDirectory()) return 0;
-    return fs5.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).length;
-  } catch (_err) {
-    return 0;
-  }
-};
-
-// src/skill-scripts/shared/task-complexity.ts
-var fs6 = __toESM(require("fs"));
-var path5 = __toESM(require("path"));
-
-// src/skill-scripts/shared/complexity-score.ts
-var validateComplexityScore = (value) => {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) {
-    return { valid: false, reason: "non-integer" };
-  }
-  const parsed = Number.parseInt(trimmed, 10);
-  if (parsed < 1 || parsed > 10) {
-    return { valid: false, reason: "out-of-range", value: parsed };
-  }
-  return { valid: true, value: parsed };
-};
-
 // src/skill-scripts/shared/task-file.ts
+var fs4 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
 var extractFrontmatter = (content) => {
   const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   return match && match[1] ? match[1] : null;
 };
-
-// src/skill-scripts/shared/task-complexity.ts
-var validateTaskComplexityScores = (planDir) => {
-  const tasksDir = path5.join(planDir, "tasks");
-  if (!fs6.existsSync(tasksDir)) return [];
-  let files;
+var findTaskFile = (planDir, taskId) => {
+  const taskDir = path4.join(planDir, "tasks");
+  if (!fs4.existsSync(taskDir)) return null;
+  const idStr = String(taskId);
+  const variations = [idStr, idStr.padStart(2, "0"), idStr.replace(/^0+/, "") || "0"];
+  const uniqueVariations = [...new Set(variations)];
   try {
-    if (!fs6.lstatSync(tasksDir).isDirectory()) return [];
-    files = fs6.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).sort();
+    const files = fs4.readdirSync(taskDir);
+    return uniqueVariations.reduce((acc, v) => {
+      if (acc) return acc;
+      const match = files.find((f) => f.startsWith(`${v}--`) && f.endsWith(".md"));
+      return match ? path4.join(taskDir, match) : null;
+    }, null) ?? null;
   } catch (_err) {
-    return [];
+    return null;
   }
-  const invalid = [];
-  for (const file of files) {
-    let content;
-    try {
-      content = fs6.readFileSync(path5.join(tasksDir, file), "utf8");
-    } catch (_err) {
-      invalid.push(`${file}: unreadable`);
+};
+var extractDependencies = (frontmatter) => {
+  const lines = frontmatter.split("\n");
+  const dependencies = [];
+  let inDependenciesSection = false;
+  for (const line of lines) {
+    if (line.match(/^dependencies:/)) {
+      inDependenciesSection = true;
+      const arrayMatch = line.match(/\[(.*)\]/);
+      if (arrayMatch && arrayMatch[1]) {
+        const deps = arrayMatch[1].split(",").map((dep) => dep.trim().replace(/['"]/g, "")).filter((dep) => dep.length > 0);
+        dependencies.push(...deps);
+        inDependenciesSection = false;
+      }
       continue;
     }
-    const frontmatter = extractFrontmatter(content);
-    const match = frontmatter ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im) : null;
-    if (!match || match[1] === void 0) {
-      invalid.push(`${file}: missing complexity_score`);
-      continue;
+    if (inDependenciesSection && line.match(/^[^ ]/) && !line.match(/^[ \t]*-/)) {
+      inDependenciesSection = false;
     }
-    const raw = match[1].trim();
-    const result = validateComplexityScore(raw);
-    if (result.valid) continue;
-    if (result.reason === "non-integer") {
-      invalid.push(`${file}: non-integer complexity_score "${raw}"`);
-      continue;
+    if (inDependenciesSection && line.match(/^[ \t]*-/)) {
+      const dep = line.replace(/^[ \t]*-[ \t]*/, "").replace(/[ \t]*$/, "").replace(/['"]/g, "");
+      if (dep.length > 0) dependencies.push(dep);
     }
-    invalid.push(`${file}: complexity_score ${result.value} out of range 1-10`);
   }
-  return invalid;
+  return dependencies;
+};
+var extractStatus = (frontmatter) => {
+  for (const line of frontmatter.split("\n")) {
+    if (line.match(/^status:/)) {
+      return line.replace(/^status:[ \t]*/, "").replace(/^["']/, "").replace(/["']$/, "").trim();
+    }
+  }
+  return null;
+};
+var collectTaskReadinessIssues = (planDir, taskId) => {
+  const issues = [];
+  const taskFile = findTaskFile(planDir, taskId);
+  const idLabel = String(taskId);
+  if (!taskFile || !fs4.existsSync(taskFile)) {
+    issues.push({ taskId: idLabel, kind: "missing", detail: "task file not found" });
+    return issues;
+  }
+  const taskContent = fs4.readFileSync(taskFile, "utf8");
+  const frontmatter = extractFrontmatter(taskContent);
+  if (!frontmatter) {
+    issues.push({ taskId: idLabel, kind: "missing", detail: "task frontmatter not found" });
+    return issues;
+  }
+  const status = extractStatus(frontmatter);
+  if (status === "needs-clarification") {
+    issues.push({
+      taskId: idLabel,
+      kind: "needs-clarification",
+      detail: "status is needs-clarification"
+    });
+  }
+  for (const depId of extractDependencies(frontmatter)) {
+    const depFile = findTaskFile(planDir, depId);
+    if (!depFile || !fs4.existsSync(depFile)) {
+      issues.push({
+        taskId: idLabel,
+        kind: "unresolved-dependency",
+        detail: `dependency ${depId} not found`
+      });
+      continue;
+    }
+    const depContent = fs4.readFileSync(depFile, "utf8");
+    const depFrontmatter = extractFrontmatter(depContent);
+    if (!depFrontmatter) {
+      issues.push({
+        taskId: idLabel,
+        kind: "unresolved-dependency",
+        detail: `dependency ${depId} has no frontmatter`
+      });
+      continue;
+    }
+    const depStatus = extractStatus(depFrontmatter);
+    if (depStatus !== "completed") {
+      issues.push({
+        taskId: idLabel,
+        kind: "unresolved-dependency",
+        detail: `dependency ${depId} status is ${depStatus ?? "unknown"}`
+      });
+    }
+  }
+  return issues;
 };
 
-// src/skill-scripts/validate-plan-blueprint.ts
-var VALID_FIELDS = [
-  "planFile",
-  "planDir",
-  "taskCount",
-  "blueprintExists",
-  "strikethrooRoot",
-  "planId",
-  "complexityScoresValid",
-  "invalidComplexityTasks"
-];
-var usage = () => {
-  const lines = [
-    "Plan ID or absolute path is required",
-    "",
-    "Usage: node validate-plan-blueprint.cjs <plan-id-or-path> [field-name]",
-    "",
-    "Examples:",
-    "  node validate-plan-blueprint.cjs 47",
-    "  node validate-plan-blueprint.cjs /path/to/plan.md",
-    "  node validate-plan-blueprint.cjs 47 planFile",
-    "  node validate-plan-blueprint.cjs 47 blueprintExists"
-  ];
-  lines.forEach((l) => process.stderr.write(`[ERROR] ${l}
-`));
+// src/skill-scripts/check-phase-readiness.ts
+var _printError = (message) => {
+  console.error(`ERROR: ${message}`);
 };
-var listAvailablePlans = (startPath) => {
-  const tmRoot = findStrikethrooRoot(startPath);
-  if (!tmRoot) return [];
-  const plans = getAllPlans(tmRoot);
-  return plans.map((p) => p.name).sort((a, b) => {
-    const aMatch = a.match(/^(\d+)--/);
-    const bMatch = b.match(/^(\d+)--/);
-    if (!aMatch || !bMatch || !aMatch[1] || !bMatch[1]) return 0;
-    return parseInt(aMatch[1], 10) - parseInt(bMatch[1], 10);
-  });
+var _printSuccess = (message) => {
+  console.log(`\u2713 ${message}`);
 };
-var main = () => {
+var _printInfo = (message) => {
+  console.log(message);
+};
+var main = (startPath = process.cwd()) => {
+  if (process.argv.length !== 4) {
+    _printError("Invalid number of arguments");
+    console.log("Usage: node check-phase-readiness.cjs <plan-id-or-path> <phase-number>");
+    console.log("Example: node check-phase-readiness.cjs 16 1");
+    process.exit(1);
+  }
   const inputId = process.argv[2];
-  const fieldName = process.argv[3];
-  if (!inputId) {
-    usage();
+  const phaseNumber = parseInt(process.argv[3], 10);
+  if (Number.isNaN(phaseNumber) || phaseNumber < 1) {
+    _printError("Phase number must be a positive integer");
     process.exit(1);
   }
-  const numericInput = parseInt(inputId, 10);
-  const isNumeric = !Number.isNaN(numericInput);
-  const isAbsolutePath = inputId.startsWith("/");
-  if (!isNumeric && !isAbsolutePath) {
-    process.stderr.write(`[ERROR] Invalid plan ID: "${inputId}" is not a valid number
-`);
-    process.exit(1);
-  }
-  const resolved = resolvePlan(inputId);
+  const resolved = resolvePlan(inputId, startPath);
   if (!resolved) {
-    process.stderr.write(`[ERROR] Plan ID ${inputId} not found or invalid
-`);
-    process.stderr.write("[ERROR] \n");
-    const available = listAvailablePlans(process.cwd());
-    if (available.length > 0) {
-      process.stderr.write("[ERROR] Available plans:\n");
-      available.forEach((name) => process.stderr.write(`[ERROR]   ${name}
-`));
-    }
+    _printError(`Plan "${inputId}" not found or invalid`);
     process.exit(1);
   }
-  const invalidComplexity = validateTaskComplexityScores(resolved.planDir);
-  const result = {
-    planFile: resolved.planFile,
-    planDir: resolved.planDir,
-    strikethrooRoot: resolved.strikethrooRoot,
-    planId: resolved.planId,
-    taskCount: countTaskFiles(resolved.planDir),
-    blueprintExists: hasExecutionBlueprint(resolved.planFile) ? "yes" : "no",
-    complexityScoresValid: invalidComplexity.length === 0 ? "yes" : "no",
-    invalidComplexityTasks: invalidComplexity.join("; ")
-  };
-  if (fieldName) {
-    if (!VALID_FIELDS.includes(fieldName)) {
-      process.stderr.write(`[ERROR] Invalid field name: ${fieldName}
-`);
-      process.stderr.write(`[ERROR] Valid fields: ${VALID_FIELDS.join(", ")}
-`);
-      process.exit(1);
-    }
-    const value = result[fieldName];
-    process.stdout.write(`${String(value)}
-`);
-  } else {
-    process.stdout.write(`${JSON.stringify(result, null, 2)}
-`);
+  const { planDir, planFile, planId } = resolved;
+  const planBody = fs5.readFileSync(planFile, "utf8");
+  const phases = parseBlueprintPhases(planBody);
+  if (!phases || phases.length === 0) {
+    _printError("No Execution Blueprint section with phases found in plan");
+    process.exit(1);
   }
-  process.exit(0);
+  const phase = phases.find((p) => p.index === phaseNumber);
+  if (!phase) {
+    _printError(`Phase ${phaseNumber} not found in plan ${planId}`);
+    process.exit(1);
+  }
+  _printInfo(`Checking phase ${phaseNumber} readiness for plan ${planId}`);
+  if (phase.name) _printInfo(`Phase name: ${phase.name}`);
+  if (phase.taskIds.length === 0) {
+    _printError(`Phase ${phaseNumber} has no tasks listed in the blueprint`);
+    process.exit(1);
+  }
+  _printInfo(`Tasks in phase: ${phase.taskIds.join(", ")}`);
+  console.log("");
+  const allIssues = phase.taskIds.flatMap(
+    (taskId) => collectTaskReadinessIssues(planDir, taskId).map((issue) => ({
+      ...issue,
+      phaseTaskId: String(taskId)
+    }))
+  );
+  if (allIssues.length === 0) {
+    _printSuccess(`Phase ${phaseNumber} is ready to execute`);
+    process.exit(0);
+  }
+  _printError(`Phase ${phaseNumber} is not ready:`);
+  for (const issue of allIssues) {
+    console.log(`  - Task ${issue.phaseTaskId}: ${issue.detail}`);
+  }
+  process.exit(1);
 };
 if (require.main === module) {
   main();

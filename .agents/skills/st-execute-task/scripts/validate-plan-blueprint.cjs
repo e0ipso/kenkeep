@@ -33,13 +33,11 @@ __export(validate_plan_blueprint_exports, {
   main: () => main
 });
 module.exports = __toCommonJS(validate_plan_blueprint_exports);
-var fs4 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
 
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var EXPECTED_SCHEMA = true ? 2 : 2;
+var EXPECTED_SCHEMA = true ? 4 : 4;
 var isValidStrikethrooRoot = (strikethrooPath) => {
   try {
     if (!fs.existsSync(strikethrooPath)) return false;
@@ -242,27 +240,9 @@ var resolvePlan = (input, startPath = process.cwd()) => {
   return resolveByIdInAncestry(planId, startPath);
 };
 
-// src/skill-scripts/validate-plan-blueprint.ts
-var VALID_FIELDS = [
-  "planFile",
-  "planDir",
-  "taskCount",
-  "blueprintExists",
-  "strikethrooRoot",
-  "planId"
-];
-var countTasks = (planDir) => {
-  const tasksDir = path4.join(planDir, "tasks");
-  if (!fs4.existsSync(tasksDir)) return 0;
-  try {
-    const stat = fs4.lstatSync(tasksDir);
-    if (!stat.isDirectory()) return 0;
-    return fs4.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).length;
-  } catch (_err) {
-    return 0;
-  }
-};
-var checkBlueprintExists = (planFile) => {
+// src/skill-scripts/shared/blueprint-detection.ts
+var fs4 = __toESM(require("fs"));
+var hasExecutionBlueprint = (planFile) => {
   try {
     const content = fs4.readFileSync(planFile, "utf8");
     return /^## Execution Blueprint/m.test(content);
@@ -270,6 +250,94 @@ var checkBlueprintExists = (planFile) => {
     return false;
   }
 };
+
+// src/skill-scripts/shared/task-count.ts
+var fs5 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+var countTaskFiles = (planDir) => {
+  const tasksDir = path4.join(planDir, "tasks");
+  if (!fs5.existsSync(tasksDir)) return 0;
+  try {
+    const stat = fs5.lstatSync(tasksDir);
+    if (!stat.isDirectory()) return 0;
+    return fs5.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).length;
+  } catch (_err) {
+    return 0;
+  }
+};
+
+// src/skill-scripts/shared/task-complexity.ts
+var fs6 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
+
+// src/skill-scripts/shared/complexity-score.ts
+var validateComplexityScore = (value) => {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return { valid: false, reason: "non-integer" };
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (parsed < 1 || parsed > 10) {
+    return { valid: false, reason: "out-of-range", value: parsed };
+  }
+  return { valid: true, value: parsed };
+};
+
+// src/skill-scripts/shared/task-file.ts
+var extractFrontmatter = (content) => {
+  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+  return match && match[1] ? match[1] : null;
+};
+
+// src/skill-scripts/shared/task-complexity.ts
+var validateTaskComplexityScores = (planDir) => {
+  const tasksDir = path5.join(planDir, "tasks");
+  if (!fs6.existsSync(tasksDir)) return [];
+  let files;
+  try {
+    if (!fs6.lstatSync(tasksDir).isDirectory()) return [];
+    files = fs6.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).sort();
+  } catch (_err) {
+    return [];
+  }
+  const invalid = [];
+  for (const file of files) {
+    let content;
+    try {
+      content = fs6.readFileSync(path5.join(tasksDir, file), "utf8");
+    } catch (_err) {
+      invalid.push(`${file}: unreadable`);
+      continue;
+    }
+    const frontmatter = extractFrontmatter(content);
+    const match = frontmatter ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im) : null;
+    if (!match || match[1] === void 0) {
+      invalid.push(`${file}: missing complexity_score`);
+      continue;
+    }
+    const raw = match[1].trim();
+    const result = validateComplexityScore(raw);
+    if (result.valid) continue;
+    if (result.reason === "non-integer") {
+      invalid.push(`${file}: non-integer complexity_score "${raw}"`);
+      continue;
+    }
+    invalid.push(`${file}: complexity_score ${result.value} out of range 1-10`);
+  }
+  return invalid;
+};
+
+// src/skill-scripts/validate-plan-blueprint.ts
+var VALID_FIELDS = [
+  "planFile",
+  "planDir",
+  "taskCount",
+  "blueprintExists",
+  "strikethrooRoot",
+  "planId",
+  "complexityScoresValid",
+  "invalidComplexityTasks"
+];
 var usage = () => {
   const lines = [
     "Plan ID or absolute path is required",
@@ -324,13 +392,16 @@ var main = () => {
     }
     process.exit(1);
   }
+  const invalidComplexity = validateTaskComplexityScores(resolved.planDir);
   const result = {
     planFile: resolved.planFile,
     planDir: resolved.planDir,
     strikethrooRoot: resolved.strikethrooRoot,
     planId: resolved.planId,
-    taskCount: countTasks(resolved.planDir),
-    blueprintExists: checkBlueprintExists(resolved.planFile) ? "yes" : "no"
+    taskCount: countTaskFiles(resolved.planDir),
+    blueprintExists: hasExecutionBlueprint(resolved.planFile) ? "yes" : "no",
+    complexityScoresValid: invalidComplexity.length === 0 ? "yes" : "no",
+    invalidComplexityTasks: invalidComplexity.join("; ")
   };
   if (fieldName) {
     if (!VALID_FIELDS.includes(fieldName)) {

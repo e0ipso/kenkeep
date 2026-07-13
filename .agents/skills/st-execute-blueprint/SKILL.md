@@ -57,14 +57,14 @@ Inspect the `taskCount` and `blueprintExists` values returned by the validation 
 If `taskCount` is 0 or `blueprintExists` is `no`:
 
 - Notify the user: "Tasks or execution blueprint not found. Generating tasks automatically..."
-- Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to produce the execution blueprint.
+- Follow the `st-generate-tasks` skill for this plan ID. Execute its operating procedure in full, including running `POST_TASK_GENERATION_ALL.md` to write the Execution Blueprint.
 - After generation completes, re-run `scripts/validate-plan-blueprint.cjs <plan-id> planFile` (and the other fields) to refresh the resolved paths and counts.
 
 If generation still leaves the plan without tasks or a blueprint, stop and report failure. Do not attempt execution without a valid blueprint.
 
 ### 5. Optionally create a feature branch
 
-Run `scripts/create-feature-branch.cjs <plan-id>`. The script creates a branch named after the plan and prints the branch name. Continue execution regardless of whether a branch is created (some projects may skip this step).
+Run `scripts/create-feature-branch.cjs <plan-id>` once before phase execution. Branch creation is best-effort: when the script reports that it skipped creation (for example, not on `main`/`master`), continue on the current branch and do not retry or create a branch manually. When the script exits with an error (for example, uncommitted changes on `main`/`master`), halt and report the error. Do not treat a skipped branch as a failure or spend effort working around a skip.
 
 ### 6. Load project context and execution blueprint
 
@@ -80,12 +80,48 @@ Read these files, in order:
 Use an internal task or todo tracker to monitor progress. For each phase defined in the Execution Blueprint:
 
 #### 7a. Phase pre-execution
+Run `scripts/check-phase-readiness.cjs <plan-id> <phase-number>`. If the script exits non-zero, halt the phase and report the blocking issues before continuing.
+
 Read `<root>/config/hooks/PRE_PHASE.md` and execute its instructions before starting the phase.
 
 #### 7b. Task dispatch
-Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_EXECUTION.md` and execute its instructions before starting any implementation work.
+Identify all tasks scheduled for this phase whose dependencies are fully satisfied. Read `<root>/config/hooks/PRE_TASK_ASSIGNMENT.md` and follow its instructions for agent selection before dispatching tasks.
 
-Deploy all selected agents simultaneously using your internal Task tool. Each agent MUST:
+Resolve every selected task's execution route first. Invoke one resolver per selected
+task simultaneously in a single parallel tool operation:
+
+```text
+scripts/dispatch-task-execution.cjs resolve <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+Resolvers never launch external processes. After interpreting all route results, issue
+all `external-override` executions and all native Task-tool agents **together in one
+parallel tool operation**. External execution uses:
+
+```text
+scripts/dispatch-task-execution.cjs execute <task-file> <current-harness> <workspace> <plan-id> <task-id>
+```
+
+This two-step protocol is mandatory: do not execute external tasks during route
+resolution, do not serialize external commands, and do not wait for external completion
+before launching ready native agents. If an execute-time pre-flight returns `fallback`,
+record its reason and immediately launch the ordinary native path without override prose.
+
+`<current-harness>` is the exact supported harness identifier running this
+skill and `<workspace>` is the project working directory. Interpret its JSON
+result before choosing a route: `native-default` uses ordinary native dispatch;
+`native-override` uses native dispatch with explicit exact-model prose and
+reasoning-effort prose only when returned; `fallback` visibly records its
+reason then uses ordinary native dispatch with no override prose;
+`launched-success` has already completed externally and receives normal status
+and evidence review; `launched-failure` is a failed task and must enter the
+existing error-hook/status path without any native retry; `infrastructure-failure`
+is also a failed task, must be marked failed, and must run
+`<root>/config/hooks/POST_ERROR_DETECTION.md` without native retry. The command
+always emits exactly one JSON line; exit code `2` identifies entrypoint/infrastructure
+failure while exit code `1` identifies a launched task failure.
+
+Deploy all remaining native agents simultaneously using your internal Task tool. Each agent MUST:
 
 1. Read and execute `<root>/config/hooks/PRE_TASK_EXECUTION.md` before starting any implementation work.
 2. Execute the task according to its requirements.

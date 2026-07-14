@@ -1,6 +1,9 @@
 {
   "name": "${localWorkspaceFolderBasename}",
+  "initializeCommand": "docker network inspect ${localWorkspaceFolderBasename}-devcontainer >/dev/null 2>&1 || docker network create ${localWorkspaceFolderBasename}-devcontainer",
   "runArgs": [
+    "--network",
+    "${localWorkspaceFolderBasename}-devcontainer",
     "--hostname=${localWorkspaceFolderBasename}-dev",
     "--publish",
     "127.0.0.1:25442:34489"

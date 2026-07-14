@@ -32,6 +32,45 @@ Kenkeep is a **team-shared, git-native knowledge base** for AI coding assistants
 
 Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
 
+## Overview
+
+<table>
+<tr>
+<td width="33%" valign="top">
+<a href="docs/assets/images/kenkeep-slide-01.png">
+<img src="docs/assets/images/kenkeep-slide-01.png" alt="Your AI sessions have value. Don't lose it." width="100%" />
+</a>
+</td>
+<td width="33%" valign="top">
+<a href="docs/assets/images/kenkeep-slide-02.png">
+<img src="docs/assets/images/kenkeep-slide-02.png" alt="How Kenkeep captures knowledge in three simple ways." width="100%" />
+</a>
+</td>
+<td width="33%" valign="top">
+<a href="docs/assets/images/kenkeep-slide-03.png">
+<img src="docs/assets/images/kenkeep-slide-03.png" alt="Right knowledge at the right time through progressive disclosure." width="100%" />
+</a>
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+<a href="docs/assets/images/kenkeep-slide-04.png">
+<img src="docs/assets/images/kenkeep-slide-04.png" alt="Why teams love Kenkeep." width="100%" />
+</a>
+</td>
+<td width="33%" valign="top">
+<a href="docs/assets/images/kenkeep-slide-05.png">
+<img src="docs/assets/images/kenkeep-slide-05.png" alt="Privacy-first and open-source." width="100%" />
+</a>
+</td>
+<td width="33%" valign="top">
+<a href="docs/assets/images/kenkeep-slide-06.png">
+<img src="docs/assets/images/kenkeep-slide-06.png" alt="Turn AI interactions into long-term advantage." width="100%" />
+</a>
+</td>
+</tr>
+</table>
+
 ## Why kenkeep
 
 <table>

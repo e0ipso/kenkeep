@@ -16,6 +16,41 @@ Kenkeep is a **team-shared, git-native knowledge base** for AI coding assistants
 
 Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
 
+## Overview
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:1rem;">
+<div>
+<a href="{{ '/assets/images/kenkeep-slide-01.png' | relative_url }}">
+<img src="{{ '/assets/images/kenkeep-slide-01.png' | relative_url }}" alt="Your AI sessions have value. Don't lose it." />
+</a>
+</div>
+<div>
+<a href="{{ '/assets/images/kenkeep-slide-02.png' | relative_url }}">
+<img src="{{ '/assets/images/kenkeep-slide-02.png' | relative_url }}" alt="How Kenkeep captures knowledge in three simple ways." />
+</a>
+</div>
+<div>
+<a href="{{ '/assets/images/kenkeep-slide-03.png' | relative_url }}">
+<img src="{{ '/assets/images/kenkeep-slide-03.png' | relative_url }}" alt="Right knowledge at the right time through progressive disclosure." />
+</a>
+</div>
+<div>
+<a href="{{ '/assets/images/kenkeep-slide-04.png' | relative_url }}">
+<img src="{{ '/assets/images/kenkeep-slide-04.png' | relative_url }}" alt="Why teams love Kenkeep." />
+</a>
+</div>
+<div>
+<a href="{{ '/assets/images/kenkeep-slide-05.png' | relative_url }}">
+<img src="{{ '/assets/images/kenkeep-slide-05.png' | relative_url }}" alt="Privacy-first and open-source." />
+</a>
+</div>
+<div>
+<a href="{{ '/assets/images/kenkeep-slide-06.png' | relative_url }}">
+<img src="{{ '/assets/images/kenkeep-slide-06.png' | relative_url }}" alt="Turn AI interactions into long-term advantage." />
+</a>
+</div>
+</div>
+
 ## Why kenkeep?
 
 How is kenkeep different from solutions like [`claude-mem`](https://github.com/thedotmack/claude-mem) or [`MemPalace`](https://github.com/mempalace/mempalace)?

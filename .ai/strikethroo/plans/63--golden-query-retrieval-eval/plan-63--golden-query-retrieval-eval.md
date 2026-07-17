@@ -208,9 +208,9 @@ No circular dependencies; the graph is acyclic.
 - ✔️ Task 1: Vendor the curated Drupal retrieval corpus — `completed`
 - ✔️ Task 2: Author the synthetic retrieval control corpus — `completed`
 
-### Phase 2: Integrated Golden Evaluation
+### ✅ Phase 2: Integrated Golden Evaluation
 **Parallel Tasks:**
-- Task 3: Build the golden retrieval suite and query specs (depends on: 1, 2)
+- ✔️ Task 3: Build the golden retrieval suite and query specs (depends on: 1, 2) — `completed`
 
 ### Phase 3: Mutation Validation
 **Parallel Tasks:**

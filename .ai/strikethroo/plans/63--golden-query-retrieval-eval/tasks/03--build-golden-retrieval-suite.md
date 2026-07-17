@@ -2,7 +2,7 @@
 id: 3
 group: "retrieval-eval-suite"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-07-17
 skills:
   - vitest

@@ -1,0 +1,53 @@
+cases:
+  - id: body-only-xylophone
+    category: retrieval
+    prompt: xylophone
+    expect_ids_in_top_k: [practice-hidden-instrument]
+  - id: overflow-title-tag
+    category: retrieval
+    prompt: overflow
+    expect_ids_in_top_k:
+      - practice-overflow-alpha
+      - practice-overflow-beta
+      - practice-overflow-delta
+      - practice-overflow-epsilon
+      - practice-overflow-gamma
+  - id: symmetry-tie-candidates
+    category: retrieval
+    prompt: symmetry
+    expect_ids_in_top_k:
+      - practice-symmetry-alpha
+      - practice-symmetry-beta
+      - practice-symmetry-central
+      - practice-symmetry-low
+  - id: quasar-redirect-candidates
+    category: retrieval
+    prompt: quasar
+    expect_ids_in_top_k:
+      - practice-live-quasar-hub
+      - practice-redirected-quasar-neighbor
+      - practice-unlinked-quasar-peer
+  - id: cobalt-direct-match
+    category: retrieval
+    prompt: cobalt
+    expect_ids_in_top_k: [practice-cobalt-anchor, practice-direct-cobalt-match]
+  - id: unrelated-nautical
+    category: refusal
+    prompt: nautical sextant navigation
+    expect_empty: true
+  - id: unrelated-zeppelin
+    category: refusal
+    prompt: zeppelin envelope aerodynamics
+    expect_empty: true
+  - id: cobalt-opaque-boost-only
+    category: multi-hop
+    prompt: cobalt
+    expect_id_present_only_via_boost: practice-opaque-companion
+  - id: redirected-neighbor-boost-order
+    category: multi-hop
+    prompt: quasar
+    expect_ids_in_top_k: [practice-live-quasar-hub, practice-redirected-quasar-neighbor]
+  - id: centrality-neighbor-cluster
+    category: multi-hop
+    prompt: symmetry
+    expect_ids_in_top_k: [practice-symmetry-central, practice-symmetry-low]

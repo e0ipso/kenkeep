@@ -212,9 +212,9 @@ No circular dependencies; the graph is acyclic.
 **Parallel Tasks:**
 - ✔️ Task 3: Build the golden retrieval suite and query specs (depends on: 1, 2) — `completed`
 
-### Phase 3: Mutation Validation
+### ✅ Phase 3: Mutation Validation
 **Parallel Tasks:**
-- Task 4: Verify every ranking lever triggers a named golden failure (depends on: 3)
+- ✔️ Task 4: Verify every ranking lever triggers a named golden failure (depends on: 3) — `completed`
 
 ### Post-phase Actions
 - After Phase 1, verify both fixture counts, schemas, ids, graph endpoints, redirect ledger, provenance, and licensing before authoring goldens.

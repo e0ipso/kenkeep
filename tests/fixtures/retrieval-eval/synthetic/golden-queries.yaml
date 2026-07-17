@@ -12,6 +12,18 @@ cases:
       - practice-overflow-delta
       - practice-overflow-epsilon
       - practice-overflow-gamma
+  - id: title-weight-overflow-omega
+    category: retrieval
+    prompt: overflow omega
+    expect_ids_in_top_k: [practice-overflow-zeta]
+  - id: tag-weight-overflow-tangerine
+    category: retrieval
+    prompt: overflow tangerine
+    expect_ids_in_top_k: [practice-overflow-zeta]
+  - id: summary-weight-overflow-saffron
+    category: retrieval
+    prompt: overflow saffron
+    expect_ids_in_top_k: [practice-overflow-zeta]
   - id: symmetry-tie-candidates
     category: retrieval
     prompt: symmetry

@@ -1,8 +1,8 @@
 ---
 type: practice
-title: Overflow zeta
-description: "Overflow rendering control zeta carries a deliberately extended summary so the ranked context consumes a substantial and predictable share of the 1800-character default budget. Its prose is synthetic, stable, and intentionally repetitive in purpose while remaining distinct enough for a reviewer to identify the sixth budget entry."
-tags: [overflow, budget]
+title: Overflow omega
+description: "Overflow rendering control zeta carries a deliberately extended summary with the unique saffron sentinel so the ranked context consumes a substantial and predictable share of the 1800-character default budget. Its prose is synthetic, stable, and intentionally repetitive in purpose while remaining distinct enough for a reviewer to identify the sixth budget entry."
+tags: [overflow, budget, tangerine]
 kk_schema_version: 3
 kk_id: practice-overflow-zeta
 kk_derived_from: []

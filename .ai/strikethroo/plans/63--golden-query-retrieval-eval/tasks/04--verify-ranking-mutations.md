@@ -2,7 +2,7 @@
 id: 4
 group: "retrieval-eval-validation"
 dependencies: [3]
-status: "pending"
+status: "completed"
 created: 2026-07-17
 skills:
   - mutation-testing

@@ -223,3 +223,33 @@ No circular dependencies; the graph is acyclic.
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 4
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-07-17
+
+### Results
+
+Added frozen Drupal and synthetic retrieval corpora, 34 declarative golden
+queries, a deterministic Vitest retrieval-quality suite, category-level pass
+reporting, fixture documentation, and a six-arm mutation verification record.
+
+### Noteworthy Events
+
+- Feature-branch creation was skipped because execution resumed on the existing
+  `feat/109--golden-corpus` branch.
+- The first Phase 1 commit attempt passed typecheck and tests but commitlint
+  rejected an overlong body line; the message was wrapped and committed without
+  changing implementation files.
+- Title, tag, and description weight mutations initially passed silently. The
+  synthetic corpus gained three field-exclusive cases, after which every
+  ranking lever and the selected stopword produced a named golden failure.
+- Final validation passed with 70 test files and 577 tests. Lint completed with
+  zero errors and three pre-existing warnings in Strikethroo skill scripts.
+
+### Necessary follow-ups
+
+Copy the mutation mapping from `mutation-verification.md` into the pull request
+description for issue #109. No implementation follow-up or technical debt was
+identified.

@@ -1,5 +1,5 @@
 {
-  "name": "Kenkeep",
+  "name": "kenkeep",
   "skills": [
     "./templates/skills/kk-add",
     "./templates/skills/kk-bootstrap",

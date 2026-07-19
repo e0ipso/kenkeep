@@ -7,6 +7,7 @@ import { readAllNodes, type NodeFile } from '../../src/lib/nodes.js';
 import {
   buildPromptKnowledgeContext,
   DEFAULT_MAX_CHARS,
+  DEFAULT_MAX_NODES,
   rankNodes,
 } from '../../src/lib/prompt-retrieval.js';
 
@@ -36,6 +37,12 @@ const fixtureRoot = join(
 );
 const categories: Category[] = ['retrieval', 'refusal', 'multi-hop'];
 const passed = new Map<Category, number>(categories.map(category => [category, 0]));
+const passedNames: string[] = [];
+
+// Every golden window is authored against the production default of 5. If the
+// default drifts, this suite must fail loudly (see the guard test below) so the
+// windows are re-authored rather than silently evaluating different behavior.
+const TOP_K = 5;
 
 function parseCases(file: string): GoldenCase[] {
   const value = yaml.load(readFileSync(file, 'utf8'));
@@ -66,9 +73,12 @@ function parseCases(file: string): GoldenCase[] {
       candidate.expect_ids_in_top_k !== undefined &&
       (!Array.isArray(candidate.expect_ids_in_top_k) ||
         candidate.expect_ids_in_top_k.length === 0 ||
+        candidate.expect_ids_in_top_k.length > TOP_K ||
         candidate.expect_ids_in_top_k.some(id => typeof id !== 'string'))
     )
-      throw new Error(`${file}: ${label}: expect_ids_in_top_k must be a non-empty string array`);
+      throw new Error(
+        `${file}: ${label}: expect_ids_in_top_k must be a string array of 1 to ${TOP_K} ids`
+      );
     if (candidate.expect_empty !== undefined && candidate.expect_empty !== true)
       throw new Error(`${file}: ${label}: expect_empty must be true`);
     if (
@@ -85,6 +95,11 @@ function loadCorpus(name: string): Corpus {
   const nodesDir = join(dir, 'nodes');
   const nodes = readAllNodes(nodesDir);
   const cases = parseCases(join(dir, 'golden-queries.yaml'));
+  const caseIds = new Set<string>();
+  for (const golden of cases) {
+    if (caseIds.has(golden.id)) throw new Error(`${name}: duplicate case id ${golden.id}`);
+    caseIds.add(golden.id);
+  }
   const nodeIds = new Set(nodes.map(node => node.frontmatter.kk_id));
   for (const golden of cases) {
     const expectedIds =
@@ -99,8 +114,8 @@ function loadCorpus(name: string): Corpus {
 
 const corpora = ['drupal', 'synthetic'].map(loadCorpus);
 
-function ids(nodes: NodeFile[], prompt: string): string[] {
-  return rankNodes(nodes, prompt, { maxNodes: 5 }).map(match => match.node.frontmatter.kk_id);
+function ids(nodes: NodeFile[], prompt: string, maxNodes = DEFAULT_MAX_NODES): string[] {
+  return rankNodes(nodes, prompt, { maxNodes }).map(match => match.node.frontmatter.kk_id);
 }
 
 describe('golden prompt retrieval', () => {
@@ -121,45 +136,100 @@ describe('golden prompt retrieval', () => {
             expect(ids(isolated, golden.prompt)).not.toContain(target);
           }
           passed.set(golden.category, (passed.get(golden.category) ?? 0) + 1);
+          passedNames.push(`${corpus.name}/${golden.category}/${golden.id}`);
         });
       }
     });
   }
 
-  it('proves redirect boosts, deterministic ties, body-only matching, and default budget', () => {
-    const synthetic = corpora.find(corpus => corpus.name === 'synthetic')!;
-    const quasar = ids(synthetic.nodes, 'quasar');
+  const synthetic = () => corpora.find(corpus => corpus.name === 'synthetic')!;
+
+  it('redirect-resolved edge boosts the redirected neighbor above its unlinked peer', () => {
+    const quasar = ids(synthetic().nodes, 'quasar');
     expect(quasar.indexOf('practice-redirected-quasar-neighbor')).toBeLessThan(
       quasar.indexOf('practice-unlinked-quasar-peer')
     );
-    expect(ids(synthetic.nodes, 'symmetry').slice(0, 4)).toEqual([
+  });
+
+  it('breaks equal-score ties by relates_to in-degree, then kk_id', () => {
+    expect(ids(synthetic().nodes, 'symmetry').slice(0, 4)).toEqual([
       'practice-symmetry-central',
       'practice-symmetry-low',
       'practice-symmetry-alpha',
       'practice-symmetry-beta',
     ]);
-    expect(ids(synthetic.nodes, 'xylophone')).toContain('practice-hidden-instrument');
-    const cobalt = ids(synthetic.nodes, 'cobalt');
+  });
+
+  it('never lets a boost-only node outrank a direct lexical match', () => {
+    const cobalt = ids(synthetic().nodes, 'cobalt');
     expect(cobalt.indexOf('practice-direct-cobalt-match')).toBeLessThan(
       cobalt.indexOf('practice-opaque-companion')
     );
-    const rendered = buildPromptKnowledgeContext(synthetic.nodesDir, 'overflow');
+  });
+
+  it('golden windows match the production default node cap', () => {
+    expect(DEFAULT_MAX_NODES).toBe(TOP_K);
+  });
+
+  // The three equality pins below hold only at the exact shipped constants, so
+  // ANY nonzero perturbation of a single ranking constant (either direction)
+  // breaks at least one pinned tie and reorders a mirrored pair.
+
+  it('pins TITLE_WEIGHT to TAG_WEIGHT plus BODY_WEIGHT in both tie directions', () => {
+    // 6 = 5 + 1: both nodes tie, so order falls to kk_id. The mirrored pair
+    // reverses which side owns the smaller id, catching drift either way.
+    expect(ids(synthetic().nodes, 'argonite')).toEqual([
+      'practice-argonite-heading',
+      'practice-argonite-tagged',
+    ]);
+    expect(ids(synthetic().nodes, 'brenite')).toEqual([
+      'practice-brenite-anchor',
+      'practice-brenite-title',
+    ]);
+  });
+
+  it('pins two SUMMARY_WEIGHT hits to one TITLE_WEIGHT hit in both tie directions', () => {
+    // 3 + 3 = 6 over a two-term prompt, mirrored as above.
+    expect(ids(synthetic().nodes, 'corvane duskel')).toEqual([
+      'practice-corvane-double',
+      'practice-corvane-heading',
+    ]);
+    expect(ids(synthetic().nodes, 'velune farrow')).toEqual([
+      'practice-velune-heading',
+      'practice-velune-paired',
+    ]);
+  });
+
+  it('pins two GRAPH_NEIGHBOR_BOOST hits to one BODY_WEIGHT hit via an interleaved tie', () => {
+    // 0.5 + 0.5 = 1: body-only and boost-only members tie and interleave by
+    // kk_id; any boost or body drift splits the tie group into blocks.
+    expect(ids(synthetic().nodes, 'flux', 10)).toEqual([
+      'practice-flux-north',
+      'practice-flux-south',
+      'practice-flux-alpha',
+      'practice-flux-bravo',
+      'practice-flux-carol',
+      'practice-flux-delta',
+    ]);
+  });
+
+  it('truncates whole entries mid-list at the default char budget', () => {
+    const rendered = buildPromptKnowledgeContext(synthetic().nodesDir, 'overflow');
     expect(rendered.length).toBeLessThanOrEqual(DEFAULT_MAX_CHARS + 1);
     expect(rendered).toContain('practice-overflow-alpha');
-    expect(rendered).not.toContain('practice-overflow-zeta');
+    // epsilon is inside the ranked top-5 but past the char budget; its absence
+    // proves budget truncation rather than the maxNodes cap.
+    expect(rendered).not.toContain('practice-overflow-epsilon');
   });
 });
 
 afterAll(() => {
-  const caseOrder = corpora.flatMap(corpus =>
-    corpus.cases.map(golden => `${corpus.name}/${golden.category}/${golden.id}`)
-  );
   const summary = categories
     .map(
       category =>
         `${category} ${passed.get(category) ?? 0}/${corpora.reduce((sum, corpus) => sum + corpus.cases.filter(item => item.category === category).length, 0)}`
     )
     .join(' | ');
-  process.stdout.write(`Golden retrieval cases passed: ${caseOrder.join(', ')}\n`);
+  process.stdout.write(`Golden retrieval cases passed: ${passedNames.join(', ')}\n`);
   process.stdout.write(`Golden retrieval summary: ${summary}\n`);
 });

@@ -72,16 +72,20 @@ cases:
     prompt: quantum chromodynamics neutrino oscillation
     expect_empty: true
   - id: secure-api-to-security-map
-    category: multi-hop
+    category: retrieval
     prompt: Drupal security patterns context for API endpoints
     expect_ids_in_top_k: [practice-secure-api-endpoints, map-drupal-security-patterns-by-context]
   - id: jsonrpc-crud-access-cluster
-    category: multi-hop
+    category: retrieval
     prompt: guard JSON RPC entity CRUD access
     expect_ids_in_top_k:
       [practice-guard-jsonrpc-entity-crud-access, practice-use-jsonapi-for-entity-crud]
   - id: custom-table-security-cluster
-    category: multi-hop
+    category: retrieval
     prompt: secure custom table SQL queries
     expect_ids_in_top_k:
       [practice-secure-custom-table-queries, practice-prevent-sql-injection-with-safe-query-apis]
+  - id: jsonrpcmethod-testing-boost-only
+    category: multi-hop
+    prompt: JsonRpcMethod
+    expect_id_present_only_via_boost: practice-test-jsonrpc-through-handler-and-http

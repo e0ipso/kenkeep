@@ -10,4 +10,4 @@ kk_relates_to: [practice-symmetry-central, practice-symmetry-low]
 kk_depends_on: []
 kk_confidence: high
 ---
-An edge-control node without symmetry query vocabulary.
+An edge-control node that stays outside the tie-cluster query vocabulary.

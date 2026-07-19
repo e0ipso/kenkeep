@@ -59,7 +59,3 @@ cases:
     category: multi-hop
     prompt: quasar
     expect_ids_in_top_k: [practice-live-quasar-hub, practice-redirected-quasar-neighbor]
-  - id: centrality-neighbor-cluster
-    category: multi-hop
-    prompt: symmetry
-    expect_ids_in_top_k: [practice-symmetry-central, practice-symmetry-low]

@@ -145,6 +145,7 @@ The per-folder [`index.md`](.ai/kenkeep/nodes/index/map-entry-md.md) tree (plus 
 
 - `npm test` runs vitest with the harness binary **mocked via `vi.mock('execa')`**, so tests run against any harness without a real binary on PATH. Tests must not require a real harness binary except where explicitly marked as integration smoke.
 - Fixtures live under `tests/fixtures/`. Per-adapter behavior is parametrized over the registered harnesses in `tests/harnesses/{transcript,headless,hooks-config,list-memory-files}.test.ts` (with `tests/harnesses/copilot-headless.test.ts` covering Copilot's spawned headless path) rather than per-adapter directories. A new adapter must cover transcript parsing, hook registration round-trip, doctor checks, and headless-run option mapping at minimum: add it to the relevant parametrized case tables, and rely on the live `tests/doctor.test.ts` run for the doctor-checks assertion.
+- Run `npx vitest run tests/lib/prompt-retrieval-golden.test.ts` for the frozen-corpus golden retrieval evaluation.
 - Before a release that touches schema, capture/curate behavior, or the pinned Claude Code CLI version, work through [`docs/internals/manual-test-plan.md`](docs/internals/manual-test-plan.md) and record results in the release PR description.
 - **Never** add environment-detection branches or test-only conditionals in production source files. Fix root causes. Green tests must mean the code actually works.
 

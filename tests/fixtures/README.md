@@ -2,6 +2,8 @@
 
 These fixtures drive the integration and golden-file tests described in IMPLEMENTATION.md §13.
 
+The `retrieval-eval/` family contains frozen Drupal and synthetic corpora plus declarative golden queries for production prompt-retrieval evaluation.
+
 ## `transcripts/`
 
 ### `routine-zero/`

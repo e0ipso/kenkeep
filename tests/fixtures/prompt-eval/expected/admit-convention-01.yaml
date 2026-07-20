@@ -1,0 +1,13 @@
+fixture_id: admit-convention-01
+category: admit-convention
+expect_empty: false
+expected_points:
+  - id: atlas-preview-revision-token
+    type: practice
+    must_match_all:
+      - 'atlas editorial'
+      - 'revision_token'
+      - 'preview response'
+max_unexpected_proposals: 0
+notes: >-
+  Tests extraction of mandatory stale-preview metadata taught as an Atlas Editorial convention.

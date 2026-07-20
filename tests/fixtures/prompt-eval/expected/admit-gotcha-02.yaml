@@ -1,0 +1,14 @@
+fixture_id: admit-gotcha-02
+category: admit-gotcha
+expect_empty: false
+expected_points:
+  - id: atlas-tenant-metadata
+    type: practice
+    must_match_all:
+      - 'atlas batch'
+      - 'atlas_tenant'
+      - 'request metadata'
+      - 'edge proxy'
+max_unexpected_proposals: 0
+notes: >-
+  Tests a proxy integration gotcha that only the functional HTTP path exposes.

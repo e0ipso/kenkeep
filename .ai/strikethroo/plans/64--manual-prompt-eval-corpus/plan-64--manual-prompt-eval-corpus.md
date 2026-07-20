@@ -226,10 +226,10 @@ graph TD
     002 --> 004
 ```
 
-### Phase 1: Deterministic Scorer and Corpus Authoring
+### ✅ Phase 1: Deterministic Scorer and Corpus Authoring
 **Parallel Tasks:**
-- Task 001: Implement deterministic scorer with unit tests
-- Task 002: Author the labeled fixture corpus (supervised)
+- ✔️ Task 001: Implement deterministic scorer with unit tests
+- ✔️ Task 002: Author the labeled fixture corpus (supervised)
 
 ### Phase 2: Corpus Guard and Procedure Documentation
 **Parallel Tasks:**

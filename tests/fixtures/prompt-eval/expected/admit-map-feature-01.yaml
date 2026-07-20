@@ -1,0 +1,14 @@
+fixture_id: admit-map-feature-01
+category: admit-map-feature
+expect_empty: false
+expected_points:
+  - id: beacon-review-lane
+    type: map
+    must_match_all:
+      - 'beacon review lane'
+      - 'beacon_review'
+      - 'atlas editorial'
+      - 'publish clearance'
+max_unexpected_proposals: 0
+notes: >-
+  Tests mapping a newly introduced feature and its explicit integration seams.

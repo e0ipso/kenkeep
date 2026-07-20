@@ -1,0 +1,14 @@
+fixture_id: admit-map-location-01
+category: admit-map-location
+expect_empty: false
+expected_points:
+  - id: harbor-exchange-location
+    type: map
+    must_match_all:
+      - 'modules/custom/harbor_exchange'
+      - 'src/bridge'
+      - 'partner-specific adapters'
+      - 'ownership boundary'
+max_unexpected_proposals: 0
+notes: >-
+  Tests mapping a major subsystem location and the seam where adapters belong.

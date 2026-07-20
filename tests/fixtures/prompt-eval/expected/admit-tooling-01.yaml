@@ -1,0 +1,14 @@
+fixture_id: admit-tooling-01
+category: admit-tooling
+expect_empty: false
+expected_points:
+  - id: atlas-policy-test-command
+    type: practice
+    must_match_all:
+      - 'ddev phpunit'
+      - 'modules/custom/atlas_policy'
+      - 'atlas-policy-events'
+      - 'event collector'
+max_unexpected_proposals: 0
+notes: >-
+  Tests a non-obvious grouped test command whose default alternative gives false confidence.

@@ -1,0 +1,14 @@
+fixture_id: admit-gotcha-01
+category: admit-gotcha
+expect_empty: false
+expected_points:
+  - id: harbor-resource-weight-sort
+    type: practice
+    must_match_all:
+      - 'harbor resource ordering'
+      - 'weight'
+      - 'yaml key'
+      - 'config normalization'
+max_unexpected_proposals: 0
+notes: >-
+  Tests a configuration round-trip gotcha that direct array tests conceal.

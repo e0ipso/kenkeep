@@ -1,0 +1,17 @@
+fixture_id: mixed-salvage-01
+category: mixed-salvage
+expect_empty: false
+expected_points:
+  - id: stable-atlas-delivery-key
+    type: practice
+    must_match_all:
+      - 'atlas webhook'
+      - 'delivery_key'
+      - 'retry chain'
+      - 'deduplicate'
+    must_not_match:
+      - 'drp-482'
+      - 'partner outage'
+max_unexpected_proposals: 0
+notes: >-
+  Tests salvaging the stable webhook identity rule while excluding ticket and outage history.

@@ -35,6 +35,13 @@ exact category counts.
       conforms to the issue #113 schema; category counts match the issue's
       table exactly (11 admit by subcategory, 9 reject by subcategory,
       2 mixed-salvage, 2 trap-phantom).
+- [ ] Every session contains 8–20 role segments and at least one consecutive
+      pair of `[AGENT]:` segments, guarding the captured-session shape instead
+      of uniform alternating dialogue.
+- [ ] The suite fails loudly if the corpus no longer contains `/kk-add`,
+      `/kk-bootstrap`, `/kk-curate`, and `/kk-session-extract` command traffic,
+      if any invocation loses its `<command-name>` envelope, or if a bare
+      `[USER]: /kk-*` invocation is introduced.
 - [ ] Validation failures throw with file-and-case labels, and the suite
       reports per-category pass counts, mirroring
       `tests/lib/prompt-retrieval-golden.test.ts`.

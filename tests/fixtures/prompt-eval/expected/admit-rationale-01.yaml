@@ -1,0 +1,14 @@
+fixture_id: admit-rationale-01
+category: admit-rationale
+expect_empty: false
+expected_points:
+  - id: workflow-marker-approval
+    type: practice
+    must_match_all:
+      - 'workflow_marker'
+      - 'approval state'
+      - 'translation-neutral'
+      - 'revision set'
+max_unexpected_proposals: 0
+notes: >-
+  Tests preservation of the multilingual rationale for a shared approval entity.

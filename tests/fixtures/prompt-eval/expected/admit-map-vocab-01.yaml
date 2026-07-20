@@ -1,0 +1,14 @@
+fixture_id: admit-map-vocab-01
+category: admit-map-vocab
+expect_empty: false
+expected_points:
+  - id: quiet-revision-vocabulary
+    type: map
+    must_match_all:
+      - 'quiet revision'
+      - 'search and syndication metadata'
+      - 'beacon review lane'
+      - 'rendered body fields'
+max_unexpected_proposals: 0
+notes: >-
+  Tests extraction of a project-specific workflow term with storage and behavior boundaries.

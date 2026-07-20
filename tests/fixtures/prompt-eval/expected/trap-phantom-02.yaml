@@ -1,0 +1,7 @@
+fixture_id: trap-phantom-02
+category: trap-phantom
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests that /kk-session-extract narration does not promote a one-off demo circumstance.

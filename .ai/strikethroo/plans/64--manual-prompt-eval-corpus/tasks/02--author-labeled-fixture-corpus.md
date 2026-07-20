@@ -2,7 +2,7 @@
 id: 2
 group: "prompt-eval"
 dependencies: []
-status: "pending"
+status: "completed"
 created: 2026-07-19
 skills:
   - technical-writing
@@ -44,6 +44,10 @@ generated file via git diff before committing; the agent does not commit.
       `harness: claude`, a fixed ISO `captured_at`; the body is role-tagged
       `[USER]:`/`[AGENT]:` matching the transcript-rendered logs capture
       writes to `_sessions/`.
+- [ ] Session bodies mirror captured transcript texture within the required
+      8–20 segments: consecutive agent updates around reads and commands,
+      partial findings, failures or retries where natural, and varied
+      user-to-agent ratios rather than uniform alternating dialogue.
 - [ ] Every sidecar conforms to the issue #113 schema (`fixture_id`,
       `category`, `expect_empty`, `expected_points` with `id`, `type`
       practice|map, `must_match_all` lowercase substrings, optional
@@ -60,6 +64,12 @@ generated file via git diff before committing; the agent does not commit.
       (duplicate-teaching sessions belong to the future curator corpus).
 - [ ] No real or fake-looking secrets, tokens, hostnames, or personal data
       anywhere (public repo).
+- [ ] Captured kenkeep command traffic is represented without changing the
+      category contract: `/kk-add`, `/kk-bootstrap`, `/kk-curate`, and
+      `/kk-session-extract` appear across reject/trap fixtures, while one admit
+      fixture proves command narration does not hide a real teaching point.
+      Each invocation uses the captured command envelope and injected skill
+      context rather than a bare `[USER]: /kk-*` turn.
 - [ ] `tests/fixtures/prompt-eval/README.md` exists in the provenance style
       of `tests/fixtures/retrieval-eval/drupal/README.md`: corpus version,
       the full authoring prompt verbatim, the category table, and a numbered

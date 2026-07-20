@@ -1,0 +1,7 @@
+fixture_id: reject-exploratory-01
+category: reject-exploratory
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests an API option survey that ends without selecting a transport or architecture.

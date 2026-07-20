@@ -247,3 +247,41 @@ graph TD
 ### Execution Summary
 - Total Phases: 2
 - Total Tasks: 4
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-07-20
+
+### Results
+
+Added a deterministic advisory scorer, a human-reviewed corpus of 24 realistic
+session and sidecar pairs, CI structural guards, and the maintainer procedure
+for manual proposal extraction evaluation. Full validation passed with 72 test
+files and 593 tests.
+
+### Noteworthy Events
+
+- The initial branch gate found uncommitted plan artifacts. The user authorized
+  committing plan 64 before the feature branch was created.
+- The installed dispatcher documentation still names `taskManagerRoot`, while
+  the current resolver uses the Strikethroo root. Execution used the current
+  root returned by the installed scripts.
+- Human review requested explicit `/kk-*` traffic and more realistic synthetic
+  sessions. The corpus was revised after examining 131 captured kenkeep session
+  logs, including captured slash-command envelopes, consecutive agent updates,
+  retries, partial findings, and an interruption.
+- The corpus authoring prompt preserves the issue's content while normalizing
+  punctuation to comply with repository prose conventions.
+- The requested self-review XML was schema-valid but named a stale repository
+  path. Its applicable README feedback was applied in the current workspace by
+  removing transient commit and issue provenance.
+- Final kenkeep lint completed with the repository's existing orphan and
+  near-duplicate tag warnings only. No new lint errors were introduced.
+- Routing refreshed a timestamp in `harness-availability.json`; that generated
+  cache churn was restored and excluded from both phase commits.
+
+### Necessary follow-ups
+
+- Run the documented baseline evaluation against prompt Version 5 after merge
+  and record the advisory score in the landing PR or optional `RESULTS.md`.

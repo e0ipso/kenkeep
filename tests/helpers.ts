@@ -57,7 +57,7 @@ export async function runCli(
  * harness binary — the parity rule: no adapter is a more equal citizen in
  * CI than the others.
  */
-const HARNESS_BINARIES = ['claude', 'codex', 'agent', 'opencode', 'copilot'] as const;
+const HARNESS_BINARIES = ['claude', 'codex', 'agent', 'opencode', 'copilot', 'kiro-cli-chat'] as const;
 
 /**
  * Writes a stub executable per harness binary into `<dir>/bin`, each

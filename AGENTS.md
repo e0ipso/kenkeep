@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`kenkeep` — npm package that builds and maintains a per-repo knowledge base from AI coding sessions for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, and GitHub Copilot CLI. It installs harness hooks, captures session slices, runs human-supervised curation, and injects the resulting `ENTRY.md` into every new session. TypeScript, Node 22+, ESM, bundled via `tsup`.
+`kenkeep` — npm package that builds and maintains a per-repo knowledge base from AI coding sessions for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, GitHub Copilot CLI, and Kiro CLI. It installs harness hooks, captures session slices, runs human-supervised curation, and injects the resulting `ENTRY.md` into every new session. TypeScript, Node 22+, ESM, bundled via `tsup`.
 
 Authoritative product spec: [PRD.md](PRD.md).
 
@@ -38,7 +38,7 @@ src/
     types.ts              # HarnessAdapter contract
     registry.ts           # central adapter registry
     detect.ts             # env-based active-harness resolver
-    claude/ codex/ cursor/ opencode/ copilot/
+    claude/ codex/ cursor/ opencode/ copilot/ kiro/
   lib/                    # shared utilities, schemas, paths, logging
   templates-source/       # source for the shipped templates/ tree
     skills/               # SKILL.md files shared across all harnesses (kk-bootstrap, kk-curate, kk-add)
@@ -79,6 +79,7 @@ A generated index node renders:
 - **[No event-name translation across adapters.](.ai/kenkeep/nodes/harnesses/practice-no-event-translation-across-adapters.md)** `HookEvent` is opaque `string`; each adapter declares the event names its runtime emits natively (Claude: `Stop`/`SessionEnd`/`PreCompact`; Codex: `Stop`/`PreCompact`; Cursor: `stop`/`sessionEnd`/`preCompact`; OpenCode: `session.idle`/`session.created`; Copilot: `sessionStart`/`sessionEnd`/`agentStop`). Do not introduce a global enum.
 - Adapters with per-event shell hooks use `paths(root).hooksDir`. Adapters with a long-lived plugin module (OpenCode) use `pluginsDir`; the build pipeline auto-detects a sibling `plugins/` source dir and renames hook output to `kk-hooks/` to avoid the runtime-reserved `.opencode/hooks/`. An adapter with no plugin shim that still needs its scripts kept apart from a config-bearing `<dir>/hooks/` (Copilot's `kk.json` lives there) opts into the same `kk-hooks/` output via a `src/harnesses/<id>/.kk-hooks-output` marker file. Per-entry hook metadata the host's config schema needs (Copilot's `{ type, timeoutSec, env }`) rides on the optional `HookSpec.payload` blob, consumed only by that adapter's `hooks-config` writer. See [map-opencode-harness](.ai/kenkeep/nodes/harnesses/map-opencode-harness.md) and [map-copilot-harness-adapter](.ai/kenkeep/nodes/harnesses/map-copilot-harness-adapter.md).
 - New harness env detectors must be added to **both** the adapter's `detectFromEnv` **and** the shared `ENV_DETECTORS` array in `src/templates-source/kenkeep/scripts/kk-detect-harness.mjs` (the helper the kk skills invoke, shipped to `.ai/kenkeep/scripts/`). `npm run lint:detect-harness` fails CI on drift.
+- The Kiro adapter (`kiro`) uses `agentSpawn`, `stop`, and `userPromptSubmit` events via `.kiro/agents/kk-hooks.json`. Capture reads sessions from `~/.kiro/sessions/cli/<session_id>.json`.
 
 ### Schema versions
 
@@ -119,6 +120,7 @@ Each `src/templates-source/prompts/*.md` and `src/templates-source/claude/comman
  | Cursor | `agent-transcripts/*.jsonl` | `tool_use` `Read` or `ReadFile` → `input.path` | command-bearing blocks → `input.command`; `.md`-naming search blocks → `input.path` |
  | OpenCode | `opencode export` parts | `tool` `read` → `state.input.filePath` | `tool` `bash`/`shell` → `state.input.command` |
  | GitHub Copilot CLI | `events.jsonl` | `tool.execution_start` `view` → `data.arguments.path` | `tool.execution_start` shell → `data.arguments.command` |
+ | Kiro CLI | `~/.kiro/sessions/cli/<id>.json` | — (tool calls not surfaced in session JSON) | assistant response text → command-pattern `.md` candidates |
 - **[The curator never auto-resolves contradictions.](.ai/kenkeep/nodes/curation/practice-curator-never-auto-resolves-contradictions.md)** It writes one markdown file per conflict under [`.ai/kenkeep/conflicts/<run-id>-<n>.md`](.ai/kenkeep/nodes/curation/map-conflict-files.md) and lets the `kk-curate` skill walk them with the human.
 - **Rebalance is curate's final phase, not a separate command.** A deterministic, LLM-free trigger reads per-folder metrics with a hysteresis margin; nothing trips → the LLM phase is skipped at zero cost. When it fires, the LLM proposes folder/leaf splits and merges, and the deterministic `rebalance move` primitive applies them as id-stable git renames folded into the same curate diff — accept with `git commit`, reject the moves with a path-scoped `git restore`. See `src/lib/rebalance-move.ts`.
 - **[Bootstrap never overwrites existing nodes.](.ai/kenkeep/nodes/bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)** Collisions are skipped and reported. Incremental bootstrap behaves the same. Bootstrap is also [supervised and judgmental, not exhaustive](.ai/kenkeep/nodes/bootstrap/practice-bootstrap-is-supervised-and-judgmental.md).

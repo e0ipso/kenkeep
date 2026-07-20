@@ -320,6 +320,22 @@ describe('init', () => {
     expect(body).toContain('.ai/kenkeep/hooks/');
   });
 
+  it('writes a default .kkignore for kiro init that contains .kiro/skills/ but not .kiro/specs', async () => {
+    const kkignore = join(sandbox, '.kkignore');
+    const result = await runCli(sandbox, ['init', '--harnesses', 'kiro']);
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(kkignore)).toBe(true);
+
+    const body = readFileSync(kkignore, 'utf8');
+    // Kiro's skills directory must be denied so agent instructions are not
+    // scanned as project knowledge.
+    expect(body).toContain('.kiro/skills/');
+    // Kiro has a `specs` directory (.kiro/specs/) that contains SDD artifacts
+    // which should be scanned by kk-bootstrap. It must NOT be denied in the
+    // generated .kkignore stub.
+    expect(body).not.toContain('.kiro/specs');
+  });
+
   it('injects the kk index pointer block into an existing AGENTS.md and never duplicates it on upgrade', async () => {
     writeFileSync(join(sandbox, 'AGENTS.md'), '# My Project\n\nSome description.\n');
 

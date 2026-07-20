@@ -6,9 +6,9 @@ import type { HookSpec } from '../../src/harnesses/types.js';
  * Prompt-time injection is represented by an adapter declaring a native
  * prompt-submit `HookSpec` that runs the shared `kk-prompt-context` hook — there
  * is no global "prompt event" enum or translation. These assertions pin the
- * MVP support matrix: Claude and Codex are wired through their native
- * `UserPromptSubmit`; Cursor, OpenCode, and Copilot stay unregistered until a
- * verified native prompt-context channel exists.
+ * support matrix: Claude, Codex, and Kiro are wired through their native
+ * `UserPromptSubmit`/`userPromptSubmit` events; Cursor, OpenCode, and Copilot
+ * stay unregistered until a verified native prompt-context channel exists.
  */
 const PROMPT_CONTEXT_SCRIPT = 'kk-prompt-context.cjs';
 
@@ -30,6 +30,14 @@ describe('prompt-time injection support matrix', () => {
     const hooks = promptTimeHooks('codex');
     expect(hooks).toHaveLength(1);
     expect(hooks[0]?.event).toBe('UserPromptSubmit');
+    expect(hooks[0]?.async).toBeUndefined();
+  });
+
+  it('Kiro wires a synchronous userPromptSubmit prompt-context hook', () => {
+    const hooks = promptTimeHooks('kiro');
+    expect(hooks).toHaveLength(1);
+    expect(hooks[0]?.event).toBe('userPromptSubmit');
+    // Must be synchronous — async hooks have stdout discarded and cannot inject context.
     expect(hooks[0]?.async).toBeUndefined();
   });
 

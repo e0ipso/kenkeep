@@ -28,7 +28,7 @@ describe('doctor', () => {
   // must not require any real harness CLI (parity — no adapter is a more
   // equal citizen in CI), and every adapter's doctorChecks() implementation
   // gets exercised, not just the first registered one.
-  it.each(['claude', 'codex', 'copilot', 'cursor', 'opencode'])(
+  it.each(['claude', 'codex', 'copilot', 'cursor', 'kiro', 'opencode'])(
     'passes core checks after init [%s]',
     async id => {
       const stubBin = writeHarnessBinaryStubs(sandbox);
@@ -162,7 +162,7 @@ describe('doctor', () => {
     expect(result.stdout + result.stderr).toContain('schema validation failed');
   });
 
-  it.each(['claude', 'codex', 'copilot', 'cursor', 'opencode'])(
+  it.each(['claude', 'codex', 'copilot', 'cursor', 'kiro', 'opencode'])(
     'prints per-harness install status block [%s]',
     async id => {
       const stubBin = writeHarnessBinaryStubs(sandbox);

@@ -231,10 +231,10 @@ graph TD
 - ✔️ Task 001: Implement deterministic scorer with unit tests
 - ✔️ Task 002: Author the labeled fixture corpus (supervised)
 
-### Phase 2: Corpus Guard and Procedure Documentation
+### ✅ Phase 2: Corpus Guard and Procedure Documentation
 **Parallel Tasks:**
-- Task 003: Add corpus structural-invariant test (depends on: 002)
-- Task 004: Document the manual eval procedure (depends on: 001, 002)
+- ✔️ Task 003: Add corpus structural-invariant test (depends on: 002)
+- ✔️ Task 004: Document the manual eval procedure (depends on: 001, 002)
 
 ### Post-phase Actions
 

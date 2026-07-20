@@ -2,7 +2,7 @@
 id: 3
 group: "prompt-eval"
 dependencies: [2]
-status: "pending"
+status: "completed"
 created: 2026-07-19
 skills:
   - vitest

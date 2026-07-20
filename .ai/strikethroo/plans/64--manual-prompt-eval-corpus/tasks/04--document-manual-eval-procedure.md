@@ -2,7 +2,7 @@
 id: 4
 group: "prompt-eval"
 dependencies: [1, 2]
-status: "pending"
+status: "completed"
 created: 2026-07-19
 skills:
   - technical-writing

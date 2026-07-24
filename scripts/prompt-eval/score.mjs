@@ -151,6 +151,84 @@ function normalizeForMatch(value) {
     .replace(/\s+/g, ' ');
 }
 
+function addFlowEdge(graph, from, to, capacity, cost) {
+  const forward = { to, reverse: graph[to].length, capacity, cost };
+  const reverse = { to: from, reverse: graph[from].length, capacity: 0, cost: -cost };
+  graph[from].push(forward);
+  graph[to].push(reverse);
+  return forward;
+}
+
+function assignExpectedPoints(points, proposals, proposalText) {
+  const source = 0;
+  const pointOffset = 1;
+  const proposalOffset = pointOffset + points.length;
+  const sink = proposalOffset + proposals.length;
+  const graph = Array.from({ length: sink + 1 }, () => []);
+  const matchEdges = [];
+
+  for (const [pointIndex, point] of points.entries()) {
+    addFlowEdge(graph, source, pointOffset + pointIndex, 1, 0);
+    const forbidden = (point.must_not_match ?? []).map(normalizeForMatch);
+    const alternatives = (point.must_match_any ?? [point.must_match_all]).map(terms =>
+      terms.map(normalizeForMatch)
+    );
+    const hasForbiddenText = forbidden.some(term => proposalText.some(text => text.includes(term)));
+    if (hasForbiddenText) continue;
+
+    for (const [proposalIndex, proposal] of proposals.entries()) {
+      if (
+        !alternatives.some(terms => terms.every(term => proposalText[proposalIndex].includes(term)))
+      )
+        continue;
+      const edge = addFlowEdge(
+        graph,
+        pointOffset + pointIndex,
+        proposalOffset + proposalIndex,
+        1,
+        proposal.type === point.type ? 0 : 1
+      );
+      matchEdges.push({ pointIndex, proposalIndex, edge });
+    }
+  }
+  for (const proposalIndex of proposals.keys()) {
+    addFlowEdge(graph, proposalOffset + proposalIndex, sink, 1, 0);
+  }
+
+  while (true) {
+    const distance = Array(graph.length).fill(Number.POSITIVE_INFINITY);
+    const previousNode = Array(graph.length).fill(-1);
+    const previousEdge = Array(graph.length).fill(-1);
+    distance[source] = 0;
+
+    for (let pass = 0; pass < graph.length - 1; pass += 1) {
+      let changed = false;
+      for (const [node, edges] of graph.entries()) {
+        if (!Number.isFinite(distance[node])) continue;
+        for (const [edgeIndex, edge] of edges.entries()) {
+          if (edge.capacity === 0 || distance[node] + edge.cost >= distance[edge.to]) continue;
+          distance[edge.to] = distance[node] + edge.cost;
+          previousNode[edge.to] = node;
+          previousEdge[edge.to] = edgeIndex;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+
+    if (previousNode[sink] === -1) break;
+    for (let node = sink; node !== source; node = previousNode[node]) {
+      const edge = graph[previousNode[node]][previousEdge[node]];
+      edge.capacity -= 1;
+      graph[node][edge.reverse].capacity += 1;
+    }
+  }
+
+  return matchEdges
+    .filter(match => match.edge.capacity === 0)
+    .sort((left, right) => left.pointIndex - right.pointIndex);
+}
+
 function scoreFixture(entry, resultsDir) {
   if (!entry.sidecar) {
     return {
@@ -162,6 +240,7 @@ function scoreFixture(entry, resultsDir) {
       phantomCount: 0,
       gateCorrect: false,
       gateTotal: 0,
+      kindMismatches: [],
     };
   }
 
@@ -178,42 +257,34 @@ function scoreFixture(entry, resultsDir) {
       phantomCount: 0,
       gateCorrect: false,
       gateTotal,
+      kindMismatches: [],
     };
   }
 
   const proposals = [...result.value.practice, ...result.value.map];
   const proposalText = proposals.map(proposal =>
-    normalizeForMatch(`${proposal.title}\n${proposal.body}`)
+    normalizeForMatch(`${proposal.title}\n${proposal.description}\n${proposal.body}`)
   );
-  const expectedProposalIndexes = new Set();
-  const missedPoints = [];
-
-  for (const point of entry.sidecar.expected_points) {
-    const forbidden = (point.must_not_match ?? []).map(normalizeForMatch);
-    const alternatives = (point.must_match_any ?? [point.must_match_all]).map(terms =>
-      terms.map(normalizeForMatch)
-    );
-    const hasForbiddenText = forbidden.some(term => proposalText.some(text => text.includes(term)));
-    const matchingIndexes = [];
-    if (!hasForbiddenText) {
-      proposals.forEach((proposal, index) => {
-        if (
-          proposal.type === point.type &&
-          alternatives.some(terms => terms.every(term => proposalText[index].includes(term)))
-        ) {
-          matchingIndexes.push(index);
-        }
-      });
-    }
-    if (matchingIndexes.length === 0) {
-      missedPoints.push(point.id);
-    } else {
-      for (const index of matchingIndexes) expectedProposalIndexes.add(index);
-    }
-  }
+  const assignments = assignExpectedPoints(entry.sidecar.expected_points, proposals, proposalText);
+  const assignedPointIndexes = new Set(assignments.map(assignment => assignment.pointIndex));
+  const expectedProposalIndexes = new Set(assignments.map(assignment => assignment.proposalIndex));
+  const missedPoints = entry.sidecar.expected_points.filter(
+    (_point, index) => !assignedPointIndexes.has(index)
+  );
+  const kindMismatches = assignments
+    .filter(
+      assignment =>
+        entry.sidecar.expected_points[assignment.pointIndex].type !==
+        proposals[assignment.proposalIndex].type
+    )
+    .map(assignment => ({
+      id: entry.sidecar.expected_points[assignment.pointIndex].id,
+      expected: entry.sidecar.expected_points[assignment.pointIndex].type,
+      actual: proposals[assignment.proposalIndex].type,
+    }));
 
   const phantomCount = proposals.length - expectedProposalIndexes.size;
-  const reasons = missedPoints.map(id => `missed expected point "${id}"`);
+  const reasons = missedPoints.map(point => `missed expected point "${point.id}"`);
   if (entry.sidecar.expect_empty && proposals.length > 0) {
     reasons.push('non-empty where empty expected');
   }
@@ -232,6 +303,7 @@ function scoreFixture(entry, resultsDir) {
     phantomCount,
     gateCorrect: entry.sidecar.expect_empty && proposals.length === 0,
     gateTotal,
+    kindMismatches,
   };
 }
 
@@ -242,6 +314,7 @@ function renderReport(scores) {
   let phantomCount = 0;
   let gatesCorrect = 0;
   let gatesTotal = 0;
+  let kindMismatchCount = 0;
 
   for (const score of scores) {
     const current = categoryTotals.get(score.category) ?? { passed: 0, total: 0 };
@@ -253,6 +326,7 @@ function renderReport(scores) {
     phantomCount += score.phantomCount;
     gatesCorrect += score.gateCorrect ? 1 : 0;
     gatesTotal += score.gateTotal;
+    kindMismatchCount += score.kindMismatches.length;
   }
 
   const lines = ['Prompt eval score', '', 'Fixtures:'];
@@ -273,8 +347,18 @@ function renderReport(scores) {
     'Aggregate:',
     `Expected-point recall: ${expectedMatched}/${expectedTotal}`,
     `Phantom count: ${phantomCount}`,
-    `Gate accuracy: ${gatesCorrect}/${gatesTotal}`
+    `Gate accuracy: ${gatesCorrect}/${gatesTotal}`,
+    `Kind mismatches (advisory): ${kindMismatchCount}`
   );
+  const kindMismatches = scores.flatMap(score =>
+    score.kindMismatches.map(
+      mismatch =>
+        `${score.fixtureId} "${mismatch.id}": expected ${mismatch.expected}, got ${mismatch.actual}`
+    )
+  );
+  if (kindMismatches.length > 0) {
+    lines.push('', 'Kind diagnostics:', ...kindMismatches);
+  }
   return `${lines.join('\n')}\n`;
 }
 

@@ -4,11 +4,15 @@ expect_empty: false
 expected_points:
   - id: beacon-reference-loader
     type: practice
-    must_match_all:
-      - 'beacon normalizers'
-      - 'beacon_reference.loader'
-      - 'translation fallback'
-      - 'entity_type.manager'
+    must_match_any:
+      - - 'beacon normalizers'
+        - 'beacon_reference.loader'
+        - 'translation fallback'
+        - 'entity_type.manager'
+      - - 'beacon api normalizer'
+        - 'beacon_reference.loader'
+        - 'channel fallback'
+        - 'raw storage'
 max_unexpected_proposals: 0
 notes: >-
-  Tests a project-wide corrective rule for translated reference loading.
+  Expects the complete project-wide loader rule with its prohibited path and translation rationale.

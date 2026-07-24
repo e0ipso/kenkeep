@@ -13,6 +13,23 @@ expected_points:
         - 'weight'
         - 'yaml map key'
         - 'configuration normalizes'
+      - - 'harbor api resource ordering'
+        - 'weight'
+        - 'yaml key'
+        - 'strings'
+  - id: harbor-resource-round-trip-test
+    type: practice
+    must_match_any:
+      - - 'round-trip fixture'
+        - 'export'
+        - 'import'
+        - 'config normalization'
+      - - 'round trip'
+        - 'import'
+        - 'direct array'
+      - - 'config-normalized'
+        - 'export and import'
+        - 'direct in-memory array'
 max_unexpected_proposals: 0
 notes: >-
-  Tests a configuration round-trip gotcha that direct array tests conceal.
+  Expects the ordering rule and the independently reusable round-trip testing requirement.

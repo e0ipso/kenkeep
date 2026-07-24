@@ -17,6 +17,28 @@ expected_points:
         - 'src/bridge'
         - 'partner-specific adapters'
         - 'owns the partner feed system boundary'
+  - id: harbor-partner-adapter-placement
+    type: practice
+    must_match_any:
+      - - 'partner adapters'
+        - 'harbor_exchange'
+        - 'api module'
+        - 'ownership boundary'
+      - - 'partner-specific adapters'
+        - 'modules/custom/harbor_exchange'
+        - 'src/bridge'
+        - 'api module'
+  - id: harbor-bridge-contract-tests
+    type: practice
+    must_match_any:
+      - - 'bridge contract tests'
+        - 'partner adapter'
+        - 'selection'
+        - 'persistence'
+      - - 'bridge contract'
+        - 'adding'
+        - 'partner bridge adapter'
+        - 'canonical'
 max_unexpected_proposals: 0
 notes: >-
-  Tests mapping a major subsystem location and the seam where adapters belong.
+  Expects separate subsystem, adapter-placement, and bridge-contract testing concepts.

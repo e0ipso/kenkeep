@@ -85,6 +85,7 @@ For every run, the report includes:
 - PASS or FAIL with reasons for every fixture.
 - Passed and total counts by category.
 - Expected-point recall, phantom count, and gate accuracy.
+- Advisory proposal-kind mismatches.
 - Harness, model options, prompt version, run count, concurrency, timeout, and
   artifact location.
 
@@ -98,7 +99,15 @@ uses either `must_match_all` for one required substring set or
 `must_match_any` for a list of complete alternative sets. Alternatives make
 equivalent grammatical wording explicit without adding fuzzy or model-backed
 matching to the deterministic scorer. All required substrings must still occur
-in one proposal of the expected type.
+in one proposal. The sidecar's `type` is the preferred classification, but a
+kind mismatch is diagnostic and does not fail an otherwise faithful proposal.
+
+The corpus labels every independently useful, indivisible concept in each
+transcript, not only the fixture's headline teaching point. Matching is
+one-to-one: a proposal can satisfy only one expected point, and an expected
+point can consume only one proposal. A duplicate proposal therefore counts as a
+phantom, while one over-broad proposal cannot satisfy several atomic concepts.
+This keeps the score aligned with the knowledge base's granularity principle.
 
 ## Record and compare results
 
@@ -106,9 +115,10 @@ Paste the complete report into the PR that bumps the prompt `Version:`. Compare
 it with the previous report using the same harness and model settings whenever
 possible. Look for category regressions, not only aggregate movement:
 
-- Expected-point recall measures retained durable teaching points.
+- Expected-point recall measures retained durable, atomic teaching points.
 - Gate accuracy measures rejection of noise and rule-shaped traps.
-- Phantom count measures unexpected extra proposals.
+- Phantom count measures unexpected or redundant extra proposals.
+- Kind mismatches show classification drift without changing semantic recall.
 - Per-category results reveal whether a change helps one session shape while
   damaging another.
 
@@ -116,5 +126,5 @@ Optionally append reports to `tests/fixtures/prompt-eval/RESULTS.md` to build a
 version-over-version history. The generated JSON and raw event logs under
 `.ai/kenkeep/.state/` are local diagnostic artifacts and must not be committed.
 
-Run the automated evaluator for Version 7 before shipping the prompt change,
+Run the automated evaluator for Version 8 before shipping the prompt change,
 then record its report as the comparison point for later prompt changes.

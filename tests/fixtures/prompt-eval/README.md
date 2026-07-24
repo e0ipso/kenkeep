@@ -1,14 +1,16 @@
 # Proposal extraction evaluation corpus
 
-Corpus version: 2
+Corpus version: 3
 
-Version 2 keeps the session corpus unchanged. It makes expected-point matching
-punctuation-insensitive and adds explicit alternative substring sets for
-faithful grammatical variants.
+Version 3 keeps the session corpus unchanged. It treats each transcript as a
+complete gold set: every independently useful, indivisible concept is labeled,
+including durable secondary teaching points. Expected proposal type is
+diagnostic only. The scorer assigns proposals to expected points one-to-one, so
+duplicate proposals and over-broad merged proposals cannot inflate recall.
 
 This corpus contains 24 frozen synthetic Drupal coding sessions and one
 expected-label sidecar for each session. It evaluates
-`src/templates-source/prompts/proposal-extract.md` Version 7 together with the
+`src/templates-source/prompts/proposal-extract.md` Version 8 together with the
 Version 2 knowledge admission criteria it references.
 
 The fictional sessions use vocabulary from the 26-node Drupal fixture knowledge
@@ -132,6 +134,14 @@ YAML frontmatter, then role-tagged body:
   Do not reuse sentence templates between fixtures.
 
 ## Labeling requirements
+- Label every candidate from the transcript that would be useful for priming a
+  future context window, whether or not it was the fixture's originally planted
+  headline. An unlabeled durable secondary concept is a corpus defect, not a
+  phantom proposal.
+- Give each expected point one indivisible concept. Keep application-critical
+  rationale, qualifiers, and boundaries with their rule. Split concepts when
+  each remains independently reusable; do not merge them merely because they
+  share a session or component.
 - For each expected point choose 2 to 4 distinctive lowercase substrings
   (module names, entity types, specific verbs) that appear naturally in any
   faithful extraction of the rule, never generic words like "use", "always",
@@ -139,6 +149,12 @@ YAML frontmatter, then role-tagged body:
   grammatical variants cannot share one natural substring set, use
   `must_match_any` with two or more complete alternative sets instead. Do not
   specify both fields on one expected point.
+- Set `type` to the preferred `practice` or `map` classification. Classification
+  mismatches are reported as advisory diagnostics and do not affect pass/fail.
+- Matching is one-to-one. One proposal can satisfy only one expected point, and
+  one expected point can consume only one proposal. This makes redundant
+  restatements unexpected and prevents a broad merged node from satisfying
+  several atomic labels.
 - `max_unexpected_proposals: 0` everywhere except where the category spec says
   otherwise.
 - Write the `notes:` field for a human reviewer in one sentence.
@@ -148,8 +164,9 @@ YAML frontmatter, then role-tagged body:
    valid UUID v4.
 2. Every session has exactly one sidecar and vice versa; `fixture_id` matches
    the basename.
-3. For every ADMIT/MIXED sidecar: manually verify every `must_match_all` term,
-   or every term in each `must_match_any` alternative, against the session's
+3. For every ADMIT/MIXED sidecar: enumerate all independently useful,
+   indivisible concepts, then manually verify every `must_match_all` term, or
+   every term in each `must_match_any` alternative, against the session's
    teaching content (else the fixture is unwinnable). For every REJECT sidecar:
    `expect_empty: true` and `expected_points: []`.
 4. Category counts match the specification table exactly.

@@ -4,14 +4,22 @@ expect_empty: false
 expected_points:
   - id: harbor-source-row-identity
     type: practice
-    must_match_all:
-      - 'harbor exchange'
-      - 'source_row_id'
-      - 'array offset'
-      - 'stable reference'
+    must_match_any:
+      - - 'harbor exchange'
+        - 'source_row_id'
+        - 'never'
+        - 'array offset'
+      - - 'source_row_id'
+        - 'schema error'
+        - 'filtering'
+        - 'chunking'
+      - - 'source_row_id'
+        - 'no fallback'
+        - 'array offset'
+        - 'stable reference'
     must_not_match:
       - 'drp-731'
       - 'broken partner file'
 max_unexpected_proposals: 0
 notes: >-
-  Tests salvaging stable import-row identity without retaining ticket narration.
+  Expects stable import-row identity with no offset fallback while excluding ticket narration.

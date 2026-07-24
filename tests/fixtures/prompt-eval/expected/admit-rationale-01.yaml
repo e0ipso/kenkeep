@@ -13,6 +13,17 @@ expected_points:
         - 'approval state'
         - 'translations'
         - 'whole revision set'
+  - id: workflow-marker-entity
+    type: map
+    must_match_any:
+      - - 'workflow_marker'
+        - 'content entity'
+        - 'revision set'
+        - 'translations'
+      - - 'workflow_marker'
+        - 'references the revision set'
+        - 'shared approval'
+        - 'translation-neutral'
 max_unexpected_proposals: 0
 notes: >-
-  Tests preservation of the multilingual rationale for a shared approval entity.
+  Expects the approval-storage rule and the marker entity's independently useful relationship to revision sets.

@@ -8,13 +8,30 @@ expected_points:
       - - 'harbor_media.contract.yml'
         - 'external media contract'
         - 'declared there first'
+        - 'php'
       - - 'harbor_media.contract.yml'
         - 'exposed outside drupal'
-        - 'declared'
         - 'first'
+        - 'php'
       - - 'harbor_media.contract.yml'
         - 'must be declared'
         - 'before it is exposed'
+        - 'php'
+  - id: harbor-media-contract-boundary
+    type: map
+    must_match_any:
+      - - 'harbor_media.contract.yml'
+        - 'external media contract'
+        - 'review boundary'
+        - 'normalizer'
+      - - 'harbor_media.contract.yml'
+        - 'api compatibility'
+        - 'normalizer'
+        - 'authoritative'
+      - - 'harbor_media.contract.yml'
+        - 'external media contract'
+        - 'normalizers'
+        - 'api responses'
 max_unexpected_proposals: 0
 notes: >-
-  Tests the human-taught external field declaration boundary for Harbor Media.
+  Expects separate atomic knowledge for the declaration rule and the contract artifact's structural role.

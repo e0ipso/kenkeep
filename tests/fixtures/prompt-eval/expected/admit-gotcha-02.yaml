@@ -4,11 +4,37 @@ expect_empty: false
 expected_points:
   - id: atlas-tenant-metadata
     type: practice
-    must_match_all:
-      - 'atlas batch'
-      - 'atlas_tenant'
-      - 'request metadata'
-      - 'edge proxy'
+    must_match_any:
+      - - 'atlas batch'
+        - 'atlas_tenant'
+        - 'request metadata'
+        - 'strips'
+      - - 'atlas batch'
+        - 'meta.atlas_tenant'
+        - 'method params'
+        - 'proxy'
+  - id: atlas-proxy-http-regression
+    type: practice
+    must_match_any:
+      - - 'atlas'
+        - 'http path'
+        - 'proxy rewrite'
+        - 'direct method test'
+      - - 'atlas'
+        - 'http request'
+        - 'forwarded transport'
+        - 'direct test'
+  - id: edge-proxy-tenant-scrubber
+    type: map
+    must_match_any:
+      - - 'edge proxy'
+        - 'parameter scrubber'
+        - 'tenant'
+        - 'metadata'
+      - - 'edge proxy'
+        - 'tenant-like params'
+        - 'approved metadata'
+        - 'forward'
 max_unexpected_proposals: 0
 notes: >-
-  Tests a proxy integration gotcha that only the functional HTTP path exposes.
+  Expects atomic knowledge for tenant placement, the required regression path, and the proxy scrubber boundary.

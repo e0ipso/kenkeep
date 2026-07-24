@@ -9,6 +9,17 @@ expected_points:
       - 'beacon_review'
       - 'atlas editorial'
       - 'publish clearance'
+  - id: beacon-review-state-boundary
+    type: practice
+    must_match_any:
+      - - 'intermediate'
+        - 'beacon_review'
+        - 'orchard'
+        - 'final publish'
+      - - 'legal and accessibility'
+        - 'beacon_review'
+        - 'orchard search'
+        - 'publish clearance'
 max_unexpected_proposals: 0
 notes: >-
-  Tests mapping a newly introduced feature and its explicit integration seams.
+  Expects the feature map and its independently actionable intermediate-state ownership rule.

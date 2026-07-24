@@ -13,6 +13,10 @@ expected_points:
         - 'modules/custom/atlas_policy'
         - 'atlas-policy-events'
         - 'event fixtures'
+      - - 'ddev phpunit'
+        - 'modules/custom/atlas_policy'
+        - 'atlas-policy-events'
+        - 'default'
 max_unexpected_proposals: 0
 notes: >-
-  Tests a non-obvious grouped test command whose default alternative gives false confidence.
+  Expects the exact grouped command and why the default run is insufficient proof.

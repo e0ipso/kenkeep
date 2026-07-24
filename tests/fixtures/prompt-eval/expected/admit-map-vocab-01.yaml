@@ -4,11 +4,33 @@ expect_empty: false
 expected_points:
   - id: quiet-revision-vocabulary
     type: map
-    must_match_all:
-      - 'quiet revision'
-      - 'search and syndication metadata'
-      - 'beacon review lane'
-      - 'rendered body fields'
+    must_match_any:
+      - - 'quiet revision'
+        - 'search and syndication metadata'
+        - 'beacon review lane'
+        - 'creates a revision'
+      - - 'quiet revision'
+        - 'search and syndication metadata'
+        - 'beacon review lane'
+        - 'creates a stored revision'
+  - id: quiet-revision-rendered-fields
+    type: practice
+    must_match_any:
+      - - 'quiet revision'
+        - 'cannot change'
+        - 'rendered body fields'
+      - - 'quiet revision'
+        - 'reject'
+        - 'rendered-body changes'
+  - id: quiet-revision-public-phrase
+    type: practice
+    must_match_any:
+      - - 'public api'
+        - 'exact phrase'
+        - 'quiet revision'
+      - - 'public'
+        - 'use the exact'
+        - 'quiet revision'
 max_unexpected_proposals: 0
 notes: >-
-  Tests extraction of a project-specific workflow term with storage and behavior boundaries.
+  Expects the term's definition, its validation invariant, and its exact public API naming rule as atomic concepts.

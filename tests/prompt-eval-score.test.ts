@@ -98,6 +98,52 @@ describe('prompt eval scorer', () => {
     expect(output).toContain('admit-convention: 1/1');
     expect(output).toContain('Expected-point recall: 1/1');
     expect(output).toContain('Phantom count: 0');
+    expect(output).toContain('Kind mismatches (advisory): 0');
+  });
+
+  it('treats proposal kind as an advisory diagnostic', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'map',
+            must_match_all: ['cache tag', 'custom invalidation'],
+          },
+        ],
+      },
+      { practice: [proposal()], map: [] }
+    );
+
+    expect(output).toContain('PASS fixture-01');
+    expect(output).toContain('Kind mismatches (advisory): 1');
+    expect(output).toContain('fixture-01 "cache-tags": expected map, got practice');
+  });
+
+  it('prefers kind agreement when semantic assignments are ambiguous', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-practice',
+            type: 'practice',
+            must_match_all: ['cache tag', 'custom invalidation'],
+          },
+          {
+            id: 'cache-map',
+            type: 'map',
+            must_match_all: ['cache tag', 'custom invalidation'],
+          },
+        ],
+      },
+      {
+        practice: [proposal()],
+        map: [proposal({ type: 'map', title: 'Cache tag invalidation' })],
+      }
+    );
+
+    expect(output).toContain('PASS fixture-01');
+    expect(output).toContain('Kind mismatches (advisory): 0');
   });
 
   it('ignores punctuation differences when matching expected points', () => {
@@ -190,6 +236,72 @@ describe('prompt eval scorer', () => {
 
     expect(output).toContain('FAIL fixture-01: phantom over budget (1 > 0)');
     expect(output).toContain('Phantom count: 1');
+  });
+
+  it('counts a duplicate matching proposal as a phantom', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'practice',
+            must_match_all: ['cache tag', 'custom invalidation'],
+          },
+        ],
+      },
+      { practice: [proposal(), proposal({ title: 'Cache tag invalidation rule' })], map: [] }
+    );
+
+    expect(output).toContain('FAIL fixture-01: phantom over budget (1 > 0)');
+    expect(output).toContain('Expected-point recall: 1/1');
+  });
+
+  it('does not let one broad proposal satisfy multiple atomic points', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'practice',
+            must_match_all: ['cache tag', 'custom invalidation'],
+          },
+          {
+            id: 'cache-policy',
+            type: 'practice',
+            must_match_all: ['every cache tag', 'custom invalidation'],
+          },
+        ],
+      },
+      { practice: [proposal()], map: [] }
+    );
+
+    expect(output).toContain('Expected-point recall: 1/2');
+    expect(output).toContain('Phantom count: 0');
+  });
+
+  it('matches against a proposal description', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'practice',
+            must_match_all: ['encrypted cache', 'custom invalidation'],
+          },
+        ],
+      },
+      {
+        practice: [
+          proposal({
+            description: 'The encrypted cache uses custom invalidation.',
+            body: 'Cache entries follow the project policy.',
+          }),
+        ],
+        map: [],
+      }
+    );
+
+    expect(output).toContain('PASS fixture-01');
   });
 
   it('reports a non-empty result where empty was expected', () => {

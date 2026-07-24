@@ -144,8 +144,9 @@ The biggest quality lever in capture: it controls what the extractor treats as w
 2. **What to extract**: practice/map definitions, trigger phrases.
 3. **What to skip**: typos, file reads, agent paraphrases, generic programming knowledge; the [durability filter](#the-durability-filter); and non-productive sessions (abandoned, exploratory, cursory, unrelated, meta-only), which short-circuit to `{"practice": [], "map": []}` via the session-disposition gate at the top of the prompt. The gate fires when the session as a whole does not converge on durable knowledge.
 4. **Ownership boundary**: how to split combined statements between practice and map, with maps admitted only when they add independently useful structural knowledge rather than restating a practice.
-5. **Inline example**: a worked transcript with expected JSON.
-6. **Output schema**: must match `ProposalOutputSchema`.
+5. **Atomicity gate**: one indivisible concept per candidate. Independently reusable concepts stay separate, while a rule retains the rationale, qualifiers, and boundaries needed to apply it correctly.
+6. **Inline example**: a worked transcript with expected JSON.
+7. **Output schema**: must match `ProposalOutputSchema`.
 
 The drain replaces `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` with the captured slice. If the placeholder is removed, the transcript is appended at the end.
 

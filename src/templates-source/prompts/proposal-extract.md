@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 7
+  Version: 8
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -125,6 +125,23 @@ A map candidate must teach independently useful structure about its subject, bey
 Apply this counterfactual test: **if the related practice were removed, would the map still answer a useful question about what the subject is, where it belongs, or how it relates to the rest of the project?** If not, drop the map. A description that only converts "use service X because it does Y" into "service X does Y" fails this test.
 
 **Optional change-oriented clause (evidence-gated).** When the transcript actually surfaces what an editor must watch for when changing this entity — a check to run, an invariant to preserve, a related rule that constrains edits — you may end the map body with one short "When changing this, verify…" sentence that captures it. Include it only when the session evidenced the guidance; never invent a watch-out to fill a template. If nothing in the transcript speaks to editing the entity, omit the clause entirely.
+
+### Atomicity and granularity gate
+
+Each candidate must capture one indivisible concept. A concept is indivisible
+when separating it would make either resulting node incomplete or
+unintelligible. Keep the rule together with the boundaries, qualifiers, and
+rationale needed to apply it correctly.
+
+Do not merge independently reusable rules, decisions, gotchas, workflows, or
+system concepts merely because they appeared in the same session or concern the
+same component. Emit separate candidates when each would still guide future work
+on its own. Conversely, do not fragment one rule into a headline candidate plus
+separate candidates for its rationale or required boundary.
+
+Use this test: **could a future agent apply or update either part without
+loading the other?** If yes, they are separate concepts. If no, keep them
+together as one candidate.
 
 ---
 
@@ -282,8 +299,9 @@ Either array may be empty. Many sessions produce zero of one kind or both - that
 2. For each `[USER]:` turn, ask: is the user teaching the agent something project-specific, or stating a project convention/prohibition/rationale? If yes, that's a practice candidate.
 3. For each `[USER]:` or `[AGENT]:` turn, ask: does this independently teach what a named entity, feature, module, location, or vocabulary term is, where it belongs, or how it relates to the project? If yes, that's a map candidate. A name mentioned only to state or justify a practice is not enough.
 4. Apply the ownership boundary: split combined statements only when both pieces independently qualify. Never create a companion map by default.
-5. Reject anything that fails the "could be derived from the codebase or general knowledge" test, plus anything that is a maintenance or lifecycle action, project story or history (especially plan/ticket/issue references), or an incidental one-off fact dressed up as a practice.
-6. Emit one final JSON object matching the schema above. No prose before or after the JSON.
+5. Apply the atomicity gate: one indivisible concept per candidate. Split independently reusable concepts, but keep application-critical rationale, qualifiers, and boundaries with their rule.
+6. Reject anything that fails the "could be derived from the codebase or general knowledge" test, plus anything that is a maintenance or lifecycle action, project story or history (especially plan/ticket/issue references), or an incidental one-off fact dressed up as a practice.
+7. Emit one final JSON object matching the schema above. No prose before or after the JSON.
 
 The transcript begins below.
 

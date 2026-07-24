@@ -21,39 +21,29 @@ function isNonEmptyString(value) {
   return typeof value === 'string' && value.length > 0;
 }
 
-function isLowercaseSubstringList(value, allowEmpty = false) {
+function isFacet(value) {
   return (
-    Array.isArray(value) &&
-    (allowEmpty || value.length > 0) &&
-    value.every(
-      item =>
-        isNonEmptyString(item) && item === item.toLowerCase() && normalizeForMatch(item).length > 0
-    )
-  );
-}
-
-function isLowercaseSubstringAlternatives(value) {
-  return (
-    Array.isArray(value) &&
-    value.length >= 2 &&
-    value.every(alternative => isLowercaseSubstringList(alternative))
+    hasExactKeys(value, ['criterion', 'id']) &&
+    isNonEmptyString(value.id) &&
+    isNonEmptyString(value.criterion)
   );
 }
 
 function isExpectedPoint(value) {
   if (!isRecord(value)) return false;
-  const allowedKeys = ['id', 'must_match_all', 'must_match_any', 'must_not_match', 'type'];
-  if (Object.keys(value).some(key => !allowedKeys.includes(key))) return false;
-  const hasMatchAll = value.must_match_all !== undefined;
-  const hasMatchAny = value.must_match_any !== undefined;
+  const allowedKeys = ['claim', 'forbidden_substrings', 'id', 'preferred_type', 'required_facets'];
   return (
+    Object.keys(value).every(key => allowedKeys.includes(key)) &&
     isNonEmptyString(value.id) &&
-    (value.type === 'practice' || value.type === 'map') &&
-    hasMatchAll !== hasMatchAny &&
-    (hasMatchAll
-      ? isLowercaseSubstringList(value.must_match_all)
-      : isLowercaseSubstringAlternatives(value.must_match_any)) &&
-    (value.must_not_match === undefined || isLowercaseSubstringList(value.must_not_match, true))
+    (value.preferred_type === 'practice' || value.preferred_type === 'map') &&
+    isNonEmptyString(value.claim) &&
+    Array.isArray(value.required_facets) &&
+    value.required_facets.length > 0 &&
+    value.required_facets.every(isFacet) &&
+    new Set(value.required_facets.map(facet => facet.id)).size === value.required_facets.length &&
+    (value.forbidden_substrings === undefined ||
+      (Array.isArray(value.forbidden_substrings) &&
+        value.forbidden_substrings.every(isNonEmptyString)))
   );
 }
 
@@ -67,13 +57,14 @@ function isSidecar(value) {
     'max_unexpected_proposals',
     'notes',
   ];
-  if (Object.keys(value).some(key => !allowedKeys.includes(key))) return false;
   return (
+    Object.keys(value).every(key => allowedKeys.includes(key)) &&
     isNonEmptyString(value.fixture_id) &&
     isNonEmptyString(value.category) &&
     typeof value.expect_empty === 'boolean' &&
     Array.isArray(value.expected_points) &&
     value.expected_points.every(isExpectedPoint) &&
+    value.expect_empty === (value.expected_points.length === 0) &&
     Number.isInteger(value.max_unexpected_proposals) &&
     value.max_unexpected_proposals >= 0 &&
     typeof value.notes === 'string'
@@ -141,7 +132,7 @@ function readResult(resultsDir, fixtureId) {
   }
 }
 
-function normalizeForMatch(value) {
+function normalizeForEvidence(value) {
   return value
     .normalize('NFKD')
     .replace(/\p{Mark}+/gu, '')
@@ -149,6 +140,102 @@ function normalizeForMatch(value) {
     .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function flattenProposals(value) {
+  return [
+    ...value.practice.map((proposal, index) => ({ id: `practice:${index}`, ...proposal })),
+    ...value.map.map((proposal, index) => ({ id: `map:${index}`, ...proposal })),
+  ];
+}
+
+function readJudgments(judgmentsDir, fixtureId, points, proposals) {
+  const judgmentFile = join(judgmentsDir, `${fixtureId}.json`);
+  if (!existsSync(judgmentFile)) return { error: 'judgment file missing' };
+
+  let value;
+  try {
+    value = JSON.parse(readFileSync(judgmentFile, 'utf8'));
+  } catch {
+    return { error: 'judgment schema-invalid' };
+  }
+  if (!hasExactKeys(value, ['comparisons']) || !Array.isArray(value.comparisons)) {
+    return { error: 'judgment schema-invalid' };
+  }
+
+  const expectedPairs = new Set();
+  for (const point of points) {
+    for (const proposal of proposals) expectedPairs.add(`${point.id}\n${proposal.id}`);
+  }
+  const observedPairs = new Set();
+  const fullMatches = [];
+
+  for (const comparison of value.comparisons) {
+    if (
+      !hasExactKeys(comparison, ['expected_point_id', 'facets', 'proposal_id']) ||
+      !isNonEmptyString(comparison.expected_point_id) ||
+      !isNonEmptyString(comparison.proposal_id) ||
+      !Array.isArray(comparison.facets)
+    ) {
+      return { error: 'judgment schema-invalid' };
+    }
+    const pairKey = `${comparison.expected_point_id}\n${comparison.proposal_id}`;
+    if (!expectedPairs.has(pairKey) || observedPairs.has(pairKey)) {
+      return { error: 'judgment coverage-invalid' };
+    }
+    observedPairs.add(pairKey);
+
+    const pointIndex = points.findIndex(point => point.id === comparison.expected_point_id);
+    const proposalIndex = proposals.findIndex(proposal => proposal.id === comparison.proposal_id);
+    const point = points[pointIndex];
+    const proposal = proposals[proposalIndex];
+    const expectedFacetIds = new Set(point.required_facets.map(facet => facet.id));
+    const observedFacetIds = new Set();
+    let full = true;
+    const proposalText = normalizeForEvidence(
+      `${proposal.title}\n${proposal.description}\n${proposal.body}`
+    );
+
+    for (const facet of comparison.facets) {
+      if (
+        !hasExactKeys(facet, ['evidence', 'facet_id', 'verdict']) ||
+        !expectedFacetIds.has(facet.facet_id) ||
+        observedFacetIds.has(facet.facet_id) ||
+        !['entailed', 'not_entailed', 'contradicted'].includes(facet.verdict) ||
+        !(facet.evidence === null || isNonEmptyString(facet.evidence))
+      ) {
+        return { error: 'judgment schema-invalid' };
+      }
+      observedFacetIds.add(facet.facet_id);
+      if (facet.verdict !== 'entailed') full = false;
+      if (facet.verdict === 'not_entailed' && facet.evidence !== null) {
+        return { error: 'judgment evidence-invalid' };
+      }
+      if (facet.verdict !== 'not_entailed') {
+        if (
+          facet.evidence === null ||
+          !proposalText.includes(normalizeForEvidence(facet.evidence))
+        ) {
+          return { error: 'judgment evidence-invalid' };
+        }
+      }
+    }
+    if (
+      observedFacetIds.size !== expectedFacetIds.size ||
+      [...expectedFacetIds].some(id => !observedFacetIds.has(id))
+    ) {
+      return { error: 'judgment coverage-invalid' };
+    }
+    if (full) fullMatches.push({ pointIndex, proposalIndex });
+  }
+
+  if (
+    observedPairs.size !== expectedPairs.size ||
+    [...expectedPairs].some(pair => !observedPairs.has(pair))
+  ) {
+    return { error: 'judgment coverage-invalid' };
+  }
+  return { fullMatches };
 }
 
 function addFlowEdge(graph, from, to, capacity, cost) {
@@ -159,7 +246,7 @@ function addFlowEdge(graph, from, to, capacity, cost) {
   return forward;
 }
 
-function assignExpectedPoints(points, proposals, proposalText) {
+function assignExpectedPoints(points, proposals, eligibleMatches) {
   const source = 0;
   const pointOffset = 1;
   const proposalOffset = pointOffset + points.length;
@@ -167,29 +254,18 @@ function assignExpectedPoints(points, proposals, proposalText) {
   const graph = Array.from({ length: sink + 1 }, () => []);
   const matchEdges = [];
 
-  for (const [pointIndex, point] of points.entries()) {
+  for (const pointIndex of points.keys()) {
     addFlowEdge(graph, source, pointOffset + pointIndex, 1, 0);
-    const forbidden = (point.must_not_match ?? []).map(normalizeForMatch);
-    const alternatives = (point.must_match_any ?? [point.must_match_all]).map(terms =>
-      terms.map(normalizeForMatch)
+  }
+  for (const { pointIndex, proposalIndex } of eligibleMatches) {
+    const edge = addFlowEdge(
+      graph,
+      pointOffset + pointIndex,
+      proposalOffset + proposalIndex,
+      1,
+      proposals[proposalIndex].type === points[pointIndex].preferred_type ? 0 : 1
     );
-    const hasForbiddenText = forbidden.some(term => proposalText.some(text => text.includes(term)));
-    if (hasForbiddenText) continue;
-
-    for (const [proposalIndex, proposal] of proposals.entries()) {
-      if (
-        !alternatives.some(terms => terms.every(term => proposalText[proposalIndex].includes(term)))
-      )
-        continue;
-      const edge = addFlowEdge(
-        graph,
-        pointOffset + pointIndex,
-        proposalOffset + proposalIndex,
-        1,
-        proposal.type === point.type ? 0 : 1
-      );
-      matchEdges.push({ pointIndex, proposalIndex, edge });
-    }
+    matchEdges.push({ pointIndex, proposalIndex, edge });
   }
   for (const proposalIndex of proposals.keys()) {
     addFlowEdge(graph, proposalOffset + proposalIndex, sink, 1, 0);
@@ -200,7 +276,6 @@ function assignExpectedPoints(points, proposals, proposalText) {
     const previousNode = Array(graph.length).fill(-1);
     const previousEdge = Array(graph.length).fill(-1);
     distance[source] = 0;
-
     for (let pass = 0; pass < graph.length - 1; pass += 1) {
       let changed = false;
       for (const [node, edges] of graph.entries()) {
@@ -215,7 +290,6 @@ function assignExpectedPoints(points, proposals, proposalText) {
       }
       if (!changed) break;
     }
-
     if (previousNode[sink] === -1) break;
     for (let node = sink; node !== source; node = previousNode[node]) {
       const edge = graph[previousNode[node]][previousEdge[node]];
@@ -229,62 +303,70 @@ function assignExpectedPoints(points, proposals, proposalText) {
     .sort((left, right) => left.pointIndex - right.pointIndex);
 }
 
-function scoreFixture(entry, resultsDir) {
-  if (!entry.sidecar) {
-    return {
-      ...entry,
-      passed: false,
-      reasons: ['sidecar schema-invalid'],
-      expectedMatched: 0,
-      expectedTotal: 0,
-      phantomCount: 0,
-      gateCorrect: false,
-      gateTotal: 0,
-      kindMismatches: [],
-    };
-  }
+function emptyScore(entry, expectedTotal, gateTotal, reason) {
+  return {
+    ...entry,
+    passed: false,
+    reasons: [reason],
+    expectedMatched: 0,
+    expectedTotal,
+    phantomCount: 0,
+    gateCorrect: false,
+    gateTotal,
+    kindMismatches: [],
+  };
+}
 
-  const expectedTotal = entry.sidecar.expected_points.length;
+function scoreFixture(entry, resultsDir, judgmentsDir) {
+  if (!entry.sidecar) return emptyScore(entry, 0, 0, 'sidecar schema-invalid');
+
+  const points = entry.sidecar.expected_points;
+  const expectedTotal = points.length;
   const gateTotal = entry.sidecar.expect_empty ? 1 : 0;
   const result = readResult(resultsDir, entry.fixtureId);
-  if (result.error) {
-    return {
-      ...entry,
-      passed: false,
-      reasons: [result.error],
-      expectedMatched: 0,
-      expectedTotal,
-      phantomCount: 0,
-      gateCorrect: false,
-      gateTotal,
-      kindMismatches: [],
-    };
+  if (result.error) return emptyScore(entry, expectedTotal, gateTotal, result.error);
+
+  const proposals = flattenProposals(result.value);
+  let eligibleMatches = [];
+  if (points.length > 0) {
+    const judgments = readJudgments(judgmentsDir, entry.fixtureId, points, proposals);
+    if (judgments.error) return emptyScore(entry, expectedTotal, gateTotal, judgments.error);
+    eligibleMatches = judgments.fullMatches;
   }
 
-  const proposals = [...result.value.practice, ...result.value.map];
-  const proposalText = proposals.map(proposal =>
-    normalizeForMatch(`${proposal.title}\n${proposal.description}\n${proposal.body}`)
-  );
-  const assignments = assignExpectedPoints(entry.sidecar.expected_points, proposals, proposalText);
+  const leakedPointIds = new Set();
+  for (const [pointIndex, point] of points.entries()) {
+    const proposalText = proposals.map(proposal =>
+      normalizeForEvidence(`${proposal.title}\n${proposal.description}\n${proposal.body}`)
+    );
+    if (
+      (point.forbidden_substrings ?? []).some(term =>
+        proposalText.some(text => text.includes(normalizeForEvidence(term)))
+      )
+    ) {
+      leakedPointIds.add(point.id);
+      eligibleMatches = eligibleMatches.filter(match => match.pointIndex !== pointIndex);
+    }
+  }
+
+  const assignments = assignExpectedPoints(points, proposals, eligibleMatches);
   const assignedPointIndexes = new Set(assignments.map(assignment => assignment.pointIndex));
-  const expectedProposalIndexes = new Set(assignments.map(assignment => assignment.proposalIndex));
-  const missedPoints = entry.sidecar.expected_points.filter(
-    (_point, index) => !assignedPointIndexes.has(index)
-  );
+  const assignedProposalIndexes = new Set(assignments.map(assignment => assignment.proposalIndex));
+  const missedPoints = points.filter((_point, index) => !assignedPointIndexes.has(index));
   const kindMismatches = assignments
     .filter(
       assignment =>
-        entry.sidecar.expected_points[assignment.pointIndex].type !==
-        proposals[assignment.proposalIndex].type
+        points[assignment.pointIndex].preferred_type !== proposals[assignment.proposalIndex].type
     )
     .map(assignment => ({
-      id: entry.sidecar.expected_points[assignment.pointIndex].id,
-      expected: entry.sidecar.expected_points[assignment.pointIndex].type,
+      id: points[assignment.pointIndex].id,
+      expected: points[assignment.pointIndex].preferred_type,
       actual: proposals[assignment.proposalIndex].type,
     }));
 
-  const phantomCount = proposals.length - expectedProposalIndexes.size;
+  const phantomCount = proposals.length - assignedProposalIndexes.size;
   const reasons = missedPoints.map(point => `missed expected point "${point.id}"`);
+  for (const id of leakedPointIds) reasons.push(`forbidden content for "${id}"`);
   if (entry.sidecar.expect_empty && proposals.length > 0) {
     reasons.push('non-empty where empty expected');
   }
@@ -363,18 +445,20 @@ function renderReport(scores) {
 }
 
 function main() {
-  const [fixturesDir, resultsDir] = process.argv.slice(2);
-  if (!fixturesDir || !resultsDir) {
+  const [fixturesDir, resultsDir, judgmentsDir] = process.argv.slice(2);
+  if (!fixturesDir || !resultsDir || !judgmentsDir) {
     process.stdout.write(
-      'Usage: node scripts/prompt-eval/score.mjs <fixtures-dir> <results-dir>\n'
+      'Usage: node scripts/prompt-eval/score.mjs <fixtures-dir> <results-dir> <judgments-dir>\n'
     );
     return;
   }
   try {
-    const scores = readSidecars(fixturesDir).map(entry => scoreFixture(entry, resultsDir));
+    const scores = readSidecars(fixturesDir).map(entry =>
+      scoreFixture(entry, resultsDir, judgmentsDir)
+    );
     process.stdout.write(renderReport(scores));
   } catch {
-    process.stdout.write('Scorer error: unable to read fixture sidecars\n');
+    process.stdout.write('Scorer error: unable to read prompt-eval artifacts\n');
   }
 }
 

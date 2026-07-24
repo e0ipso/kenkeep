@@ -8,10 +8,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 type ExpectedPoint = {
   id: string;
-  type: 'practice' | 'map';
-  must_match_all?: string[];
-  must_match_any?: string[][];
-  must_not_match?: string[];
+  preferred_type: 'practice' | 'map';
+  claim: string;
+  required_facets: Array<{ id: string; criterion: string }>;
+  forbidden_substrings?: string[];
 };
 
 type Sidecar = {
@@ -44,20 +44,53 @@ function proposal(overrides: Record<string, unknown> = {}): Record<string, unkno
   };
 }
 
-function runScenario(sidecarOverrides: Partial<Sidecar>, result: unknown | undefined): string {
+function point(overrides: Partial<ExpectedPoint> = {}): ExpectedPoint {
+  return {
+    id: 'cache-tags',
+    preferred_type: 'practice',
+    claim: 'Cache tags use custom invalidation.',
+    required_facets: [{ id: 'custom', criterion: 'Cache tags use the custom invalidation path.' }],
+    ...overrides,
+  };
+}
+
+function judgment(
+  expectedPointId = 'cache-tags',
+  proposalId = 'practice:0',
+  verdict: 'entailed' | 'not_entailed' | 'contradicted' = 'entailed',
+  evidence: string | null = 'custom invalidation'
+): Record<string, unknown> {
+  return {
+    comparisons: [
+      {
+        expected_point_id: expectedPointId,
+        proposal_id: proposalId,
+        facets: [{ facet_id: 'custom', verdict, evidence }],
+      },
+    ],
+  };
+}
+
+function runScenario(
+  sidecarOverrides: Partial<Sidecar>,
+  result: unknown | undefined,
+  judgeResult?: unknown
+): string {
   const root = mkdtempSync(join(tmpdir(), 'kenkeep-prompt-eval-'));
   temporaryDirectories.push(root);
   const fixturesDir = join(root, 'fixtures');
   const expectedDir = join(fixturesDir, 'expected');
   const resultsDir = join(root, 'results');
+  const judgmentsDir = join(root, 'judgments');
   mkdirSync(expectedDir, { recursive: true });
   mkdirSync(resultsDir, { recursive: true });
+  mkdirSync(judgmentsDir, { recursive: true });
 
   const sidecar: Sidecar = {
     fixture_id: 'fixture-01',
     category: 'admit-convention',
     expect_empty: false,
-    expected_points: [],
+    expected_points: [point()],
     max_unexpected_proposals: 0,
     notes: 'Tiny scorer fixture.',
     ...sidecarOverrides,
@@ -66,8 +99,11 @@ function runScenario(sidecarOverrides: Partial<Sidecar>, result: unknown | undef
   if (result !== undefined) {
     writeFileSync(join(resultsDir, `${sidecar.fixture_id}.json`), JSON.stringify(result));
   }
+  if (judgeResult !== undefined) {
+    writeFileSync(join(judgmentsDir, `${sidecar.fixture_id}.json`), JSON.stringify(judgeResult));
+  }
 
-  return execFileSync(process.execPath, [scoreScript, fixturesDir, resultsDir], {
+  return execFileSync(process.execPath, [scoreScript, fixturesDir, resultsDir, judgmentsDir], {
     encoding: 'utf8',
   });
 }
@@ -78,255 +114,123 @@ afterEach(() => {
   }
 });
 
-describe('prompt eval scorer', () => {
-  it('passes a matched expected point', () => {
-    const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_all: ['cache tag', 'custom invalidation'],
-            must_not_match: ['plan 12'],
-          },
-        ],
-      },
-      { practice: [proposal()], map: [] }
-    );
+describe('prompt eval semantic scorer', () => {
+  it('passes a fully entailed expected point', () => {
+    const output = runScenario({}, { practice: [proposal()], map: [] }, judgment());
 
     expect(output).toContain('PASS fixture-01');
-    expect(output).toContain('admit-convention: 1/1');
     expect(output).toContain('Expected-point recall: 1/1');
     expect(output).toContain('Phantom count: 0');
-    expect(output).toContain('Kind mismatches (advisory): 0');
   });
 
-  it('treats proposal kind as an advisory diagnostic', () => {
+  it('reports a semantically incomplete point', () => {
     const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'map',
-            must_match_all: ['cache tag', 'custom invalidation'],
-          },
-        ],
-      },
-      { practice: [proposal()], map: [] }
+      {},
+      { practice: [proposal()], map: [] },
+      judgment('cache-tags', 'practice:0', 'not_entailed', null)
+    );
+
+    expect(output).toContain('missed expected point "cache-tags"');
+    expect(output).toContain('Expected-point recall: 0/1');
+    expect(output).toContain('Phantom count: 1');
+  });
+
+  it('rejects evidence that is not present in the proposal', () => {
+    const output = runScenario(
+      {},
+      { practice: [proposal()], map: [] },
+      judgment('cache-tags', 'practice:0', 'entailed', 'invented evidence')
+    );
+
+    expect(output).toContain('FAIL fixture-01: judgment evidence-invalid');
+  });
+
+  it('requires complete pair and facet coverage', () => {
+    const output = runScenario({}, { practice: [proposal()], map: [] }, { comparisons: [] });
+
+    expect(output).toContain('FAIL fixture-01: judgment coverage-invalid');
+  });
+
+  it('treats kind as advisory', () => {
+    const output = runScenario(
+      { expected_points: [point({ preferred_type: 'map' })] },
+      { practice: [proposal()], map: [] },
+      judgment()
     );
 
     expect(output).toContain('PASS fixture-01');
     expect(output).toContain('Kind mismatches (advisory): 1');
-    expect(output).toContain('fixture-01 "cache-tags": expected map, got practice');
   });
 
-  it('prefers kind agreement when semantic assignments are ambiguous', () => {
+  it('counts duplicate proposals as phantoms', () => {
     const output = runScenario(
+      {},
+      { practice: [proposal(), proposal()], map: [] },
       {
-        expected_points: [
+        comparisons: [
+          ...((judgment().comparisons as unknown[]) ?? []),
           {
-            id: 'cache-practice',
-            type: 'practice',
-            must_match_all: ['cache tag', 'custom invalidation'],
-          },
-          {
-            id: 'cache-map',
-            type: 'map',
-            must_match_all: ['cache tag', 'custom invalidation'],
+            expected_point_id: 'cache-tags',
+            proposal_id: 'practice:1',
+            facets: [{ facet_id: 'custom', verdict: 'entailed', evidence: 'custom invalidation' }],
           },
         ],
-      },
-      {
-        practice: [proposal()],
-        map: [proposal({ type: 'map', title: 'Cache tag invalidation' })],
       }
     );
 
-    expect(output).toContain('PASS fixture-01');
-    expect(output).toContain('Kind mismatches (advisory): 0');
+    expect(output).toContain('Expected-point recall: 1/1');
+    expect(output).toContain('phantom over budget (1 > 0)');
   });
 
-  it('ignores punctuation differences when matching expected points', () => {
+  it('does not let one proposal satisfy two atomic points', () => {
+    const second = point({ id: 'cache-policy' });
     const output = runScenario(
+      { expected_points: [point(), second] },
+      { practice: [proposal()], map: [] },
       {
-        expected_points: [
+        comparisons: [
+          ...((judgment().comparisons as unknown[]) ?? []),
           {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_all: ['cache-tag', 'custom invalidation'],
+            expected_point_id: 'cache-policy',
+            proposal_id: 'practice:0',
+            facets: [{ facet_id: 'custom', verdict: 'entailed', evidence: 'custom invalidation' }],
           },
         ],
-      },
-      {
-        practice: [
-          proposal({
-            title: 'Invalidate cache tags',
-            body: 'Use custom invalidation for every cache_tag update.',
-          }),
-        ],
-        map: [],
       }
-    );
-
-    expect(output).toContain('PASS fixture-01');
-    expect(output).toContain('Expected-point recall: 1/1');
-  });
-
-  it('accepts any complete alternative substring set', () => {
-    const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_any: [
-              ['cache tags', 'invalidate them'],
-              ['cache tag', 'custom invalidation'],
-            ],
-          },
-        ],
-      },
-      { practice: [proposal()], map: [] }
-    );
-
-    expect(output).toContain('PASS fixture-01');
-    expect(output).toContain('Expected-point recall: 1/1');
-  });
-
-  it('requires every substring in one alternative set', () => {
-    const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_any: [
-              ['cache tags', 'invalidate them'],
-              ['custom invalidation', 'revision token'],
-            ],
-          },
-        ],
-      },
-      { practice: [proposal()], map: [] }
-    );
-
-    expect(output).toContain('FAIL fixture-01: missed expected point "cache-tags"');
-  });
-
-  it('reports a missed expected point', () => {
-    const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_all: ['cache tag'],
-          },
-        ],
-      },
-      { practice: [], map: [] }
-    );
-
-    expect(output).toContain('FAIL fixture-01: missed expected point "cache-tags"');
-    expect(output).toContain('Expected-point recall: 0/1');
-  });
-
-  it('reports a phantom over budget', () => {
-    const output = runScenario({}, { practice: [proposal()], map: [] });
-
-    expect(output).toContain('FAIL fixture-01: phantom over budget (1 > 0)');
-    expect(output).toContain('Phantom count: 1');
-  });
-
-  it('counts a duplicate matching proposal as a phantom', () => {
-    const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_all: ['cache tag', 'custom invalidation'],
-          },
-        ],
-      },
-      { practice: [proposal(), proposal({ title: 'Cache tag invalidation rule' })], map: [] }
-    );
-
-    expect(output).toContain('FAIL fixture-01: phantom over budget (1 > 0)');
-    expect(output).toContain('Expected-point recall: 1/1');
-  });
-
-  it('does not let one broad proposal satisfy multiple atomic points', () => {
-    const output = runScenario(
-      {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_all: ['cache tag', 'custom invalidation'],
-          },
-          {
-            id: 'cache-policy',
-            type: 'practice',
-            must_match_all: ['every cache tag', 'custom invalidation'],
-          },
-        ],
-      },
-      { practice: [proposal()], map: [] }
     );
 
     expect(output).toContain('Expected-point recall: 1/2');
-    expect(output).toContain('Phantom count: 0');
   });
 
-  it('matches against a proposal description', () => {
+  it('fails when forbidden story text leaks into a proposal', () => {
     const output = runScenario(
+      { expected_points: [point({ forbidden_substrings: ['ticket-12'] })] },
       {
-        expected_points: [
-          {
-            id: 'cache-tags',
-            type: 'practice',
-            must_match_all: ['encrypted cache', 'custom invalidation'],
-          },
-        ],
-      },
-      {
-        practice: [
-          proposal({
-            description: 'The encrypted cache uses custom invalidation.',
-            body: 'Cache entries follow the project policy.',
-          }),
-        ],
+        practice: [proposal({ body: 'Ticket-12 uses custom invalidation.' })],
         map: [],
-      }
+      },
+      judgment()
     );
 
-    expect(output).toContain('PASS fixture-01');
+    expect(output).toContain('forbidden content for "cache-tags"');
   });
 
-  it('reports a non-empty result where empty was expected', () => {
+  it('scores empty reject fixtures without a judge artifact', () => {
     const output = runScenario(
       {
         category: 'reject-meta-only',
         expect_empty: true,
-        max_unexpected_proposals: 1,
+        expected_points: [],
       },
-      { practice: [proposal()], map: [] }
+      { practice: [], map: [] }
     );
 
-    expect(output).toContain('FAIL fixture-01: non-empty where empty expected');
-    expect(output).toContain('Gate accuracy: 0/1');
+    expect(output).toContain('PASS fixture-01');
+    expect(output).toContain('Gate accuracy: 1/1');
   });
 
-  it('reports a missing result file', () => {
-    const output = runScenario({}, undefined);
-
-    expect(output).toContain('FAIL fixture-01: result file missing');
-  });
-
-  it('reports a schema-invalid result', () => {
-    const output = runScenario({}, { practice: [], map: 'invalid' });
-
-    expect(output).toContain('FAIL fixture-01: result schema-invalid');
+  it('reports missing generation and judgment artifacts', () => {
+    expect(runScenario({}, undefined)).toContain('result file missing');
+    expect(runScenario({}, { practice: [proposal()], map: [] })).toContain('judgment file missing');
   });
 });

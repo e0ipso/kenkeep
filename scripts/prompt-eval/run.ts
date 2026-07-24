@@ -23,6 +23,11 @@ async function main(): Promise<void> {
       'templates/prompts/proposal-extract.md'
     )
     .option(
+      '--judge-prompt-file <path>',
+      'built semantic judge prompt',
+      'templates/prompts/prompt-eval-judge.md'
+    )
+    .option(
       '--output-dir <path>',
       'artifact directory (defaults to a unique ignored directory under .ai/kenkeep/.state/)'
     )
@@ -31,6 +36,7 @@ async function main(): Promise<void> {
         concurrency?: string;
         fixturesDir?: string;
         harness: string;
+        judgePromptFile?: string;
         outputDir?: string;
         promptFile?: string;
         runs?: string;

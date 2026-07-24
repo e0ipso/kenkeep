@@ -39,14 +39,16 @@ The npm script builds the current source first. The evaluator then:
    capture and proposal hooks do not recurse.
 3. Validates every final response against `ProposalOutputSchema` before writing
    it as JSON.
-4. Runs the deterministic scorer against each complete set of results.
-5. Prints one Markdown report and saves the report, validated JSON, and raw
-   harness event logs under an ignored run directory in
+4. Starts a fresh same-harness semantic-judge process for each positive fixture
+   that emitted at least one proposal, and validates its facet judgments.
+5. Runs the deterministic evidence validator and one-to-one scorer.
+6. Prints one Markdown report and saves the report, validated proposals,
+   judgments, and raw harness event logs under an ignored run directory in
    `.ai/kenkeep/.state/prompt-eval/`.
 
 The default worker pool runs two harness processes at a time. One corpus run
-therefore makes 24 model calls. Check provider cost and rate limits before
-raising concurrency or run count.
+therefore makes 24 generation calls plus at most 13 semantic-judge calls. Check
+provider cost and rate limits before raising concurrency or run count.
 
 ## Options
 
@@ -68,6 +70,7 @@ Useful path overrides are available for controlled experiments:
 npm run prompt-eval -- --harness <id> \
   --fixtures-dir tests/fixtures/prompt-eval \
   --prompt-file templates/prompts/proposal-extract.md \
+  --judge-prompt-file templates/prompts/prompt-eval-judge.md \
   --output-dir .ai/kenkeep/.state/prompt-eval/my-run
 ```
 
@@ -86,6 +89,7 @@ For every run, the report includes:
 - Passed and total counts by category.
 - Expected-point recall, phantom count, and gate accuracy.
 - Advisory proposal-kind mismatches.
+- Valid semantic judgments for every positive fixture.
 - Harness, model options, prompt version, run count, concurrency, timeout, and
   artifact location.
 
@@ -94,13 +98,19 @@ nonzero. A nonzero exit means the evaluation itself was incomplete because at
 least one harness call, schema validation, or scoring operation failed. Fix the
 execution problem before comparing prompt quality.
 
-Expected-point matching is case- and punctuation-insensitive. A sidecar point
-uses either `must_match_all` for one required substring set or
-`must_match_any` for a list of complete alternative sets. Alternatives make
-equivalent grammatical wording explicit without adding fuzzy or model-backed
-matching to the deterministic scorer. All required substrings must still occur
-in one proposal. The sidecar's `type` is the preferred classification, but a
-kind mismatch is diagnostic and does not fail an otherwise faithful proposal.
+Each positive sidecar defines semantic claims with application-critical
+required facets. After proposal generation, a fresh isolated call through the
+same selected harness compares every expected point with every proposal. For
+each facet it returns `entailed`, `not_entailed`, or `contradicted`, plus an
+exact proposal excerpt for entailed or contradicted facets. The judge sees only
+the claims, facets, and proposals. It does not see the transcript, run number,
+harness identity, or current score.
+
+The deterministic scorer validates complete comparison and facet coverage and
+checks that every cited excerpt occurs in the proposal. A proposal is eligible
+to match an expected point only when every required facet is entailed. Literal
+`forbidden_substrings` remain available only for objective story leaks such as
+ticket identifiers; they do not perform semantic matching.
 
 The corpus labels every independently useful, indivisible concept in each
 transcript, not only the fixture's headline teaching point. Matching is
@@ -108,6 +118,13 @@ one-to-one: a proposal can satisfy only one expected point, and an expected
 point can consume only one proposal. A duplicate proposal therefore counts as a
 phantom, while one over-broad proposal cannot satisfy several atomic concepts.
 This keeps the score aligned with the knowledge base's granularity principle.
+The sidecar's `preferred_type` is diagnostic only.
+
+The judge uses the same harness and model options as proposal generation so the
+evaluator remains usable across different subscriptions. Reports record the
+judge prompt version and preserve judgment JSON and raw judge logs. Scores are
+best used for regression testing within a harness; cross-harness comparisons
+remain advisory because the semantic verifier is not a fixed model.
 
 ## Record and compare results
 

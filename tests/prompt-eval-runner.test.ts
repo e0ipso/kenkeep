@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runPromptEvaluation } from '../src/commands/prompt-eval.js';
-import type { ProposalOutput } from '../src/lib/schemas.js';
+import type { PromptEvalJudgeOutput } from '../src/lib/schemas.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -23,10 +23,44 @@ function createFixtureRoot(): string {
     );
   }
   writeFileSync(
+    join(fixturesDir, 'expected', 'fixture-a.yaml'),
+    yamlText({
+      fixture_id: 'fixture-a',
+      category: 'admit-convention',
+      expect_empty: false,
+      expected_points: [
+        {
+          id: 'alpha',
+          preferred_type: 'practice',
+          claim: 'Alpha is retained.',
+          required_facets: [{ id: 'retained', criterion: 'The proposal retains Alpha.' }],
+        },
+      ],
+      max_unexpected_proposals: 0,
+      notes: 'Positive fixture.',
+    })
+  );
+  writeFileSync(
+    join(fixturesDir, 'expected', 'fixture-b.yaml'),
+    yamlText({
+      fixture_id: 'fixture-b',
+      category: 'reject-noise',
+      expect_empty: true,
+      expected_points: [],
+      max_unexpected_proposals: 0,
+      notes: 'Reject fixture.',
+    })
+  );
+  writeFileSync(
     join(root, 'prompt.md'),
     '<!-- Version: 5 -->\nBefore\n[TRANSCRIPT PLACEHOLDER, substituted at runtime]\nAfter\n'
   );
+  writeFileSync(join(root, 'judge.md'), '<!-- Version: 1 -->\n[JUDGE INPUT PLACEHOLDER]\n');
   return root;
+}
+
+function yamlText(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 afterEach(() => {
@@ -39,13 +73,15 @@ describe('prompt eval harness runner', () => {
   it('runs isolated fixtures, writes valid results, and returns a consolidated report', async () => {
     const root = createFixtureRoot();
     const prompts: string[] = [];
-    const empty: ProposalOutput = { practice: [], map: [] };
+    const judgePrompts: string[] = [];
+    const judgment: PromptEvalJudgeOutput = { comparisons: [] };
 
     const result = await runPromptEvaluation(
       {
         concurrency: 2,
         fixturesDir: join(root, 'fixtures'),
         harnessId: 'codex',
+        judgePromptFile: join(root, 'judge.md'),
         modelLabel: '{"harness":"codex","model":"test-model"}',
         outputDir: join(root, 'output'),
         promptFile: join(root, 'prompt.md'),
@@ -57,11 +93,31 @@ describe('prompt eval harness runner', () => {
         onProgress: () => undefined,
         runHeadless: async prompt => {
           prompts.push(prompt);
-          return empty;
+          if (!prompt.includes('Alpha')) return { practice: [], map: [] };
+          return {
+            practice: [
+              {
+                type: 'practice',
+                tags: ['alpha'],
+                title: 'Retain Alpha',
+                description: 'Alpha is retained.',
+                body: 'The proposal retains Alpha.',
+                kk_confidence: 'high',
+              },
+            ],
+            map: [],
+          };
         },
-        scoreResults: (_fixturesDir, resultsDir) => {
+        runJudge: async prompt => {
+          judgePrompts.push(prompt);
+          return judgment;
+        },
+        scoreResults: (_fixturesDir, resultsDir, judgmentsDir) => {
           expect(readFileSync(join(resultsDir, 'fixture-a.json'), 'utf8')).toContain('"practice"');
           expect(readFileSync(join(resultsDir, 'fixture-b.json'), 'utf8')).toContain('"map"');
+          expect(readFileSync(join(judgmentsDir, 'fixture-a.json'), 'utf8')).toContain(
+            '"comparisons"'
+          );
           return 'Prompt eval score\n\nFixtures:\nPASS fixture-a\nPASS fixture-b\n';
         },
       }
@@ -69,12 +125,15 @@ describe('prompt eval harness runner', () => {
 
     expect(result.exitCode).toBe(0);
     expect(prompts).toHaveLength(2);
+    expect(judgePrompts).toHaveLength(1);
+    expect(judgePrompts[0]).toContain('"expected_points"');
     expect(prompts[0]).not.toContain('schema_version');
     expect(prompts.join('\n')).toContain('[USER]: Alpha teaching');
     expect(prompts.join('\n')).toContain('[USER]: Beta teaching');
     expect(result.report).toContain('# Proposal extraction evaluation report');
     expect(result.report).toContain('Prompt version: 5');
     expect(result.report).toContain('Valid results: 2/2');
+    expect(result.report).toContain('Valid judgments: 1/1');
     expect(readFileSync(join(root, 'output', 'REPORT.md'), 'utf8')).toBe(result.report);
   });
 
@@ -86,6 +145,7 @@ describe('prompt eval harness runner', () => {
         concurrency: 1,
         fixturesDir: join(root, 'fixtures'),
         harnessId: 'claude',
+        judgePromptFile: join(root, 'judge.md'),
         modelLabel: 'harness default',
         outputDir: join(root, 'output'),
         promptFile: join(root, 'prompt.md'),
@@ -99,6 +159,7 @@ describe('prompt eval harness runner', () => {
           if (prompt.includes('Alpha')) throw new Error('provider unavailable');
           return { practice: [], map: [] };
         },
+        runJudge: async () => ({ comparisons: [] }),
         scoreResults: () =>
           'Prompt eval score\n\nFixtures:\nFAIL fixture-a: result file missing\nPASS fixture-b\n',
       }
@@ -122,6 +183,7 @@ describe('prompt eval harness runner', () => {
           concurrency: 1,
           fixturesDir: join(root, 'fixtures'),
           harnessId: 'codex',
+          judgePromptFile: join(root, 'judge.md'),
           modelLabel: 'harness default',
           outputDir,
           promptFile: join(root, 'prompt.md'),
@@ -132,6 +194,7 @@ describe('prompt eval harness runner', () => {
           now: () => new Date('2026-07-20T12:00:00.000Z'),
           onProgress: () => undefined,
           runHeadless: async () => ({ practice: [], map: [] }),
+          runJudge: async () => ({ comparisons: [] }),
           scoreResults: () => 'unreachable',
         }
       )

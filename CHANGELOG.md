@@ -85,6 +85,7 @@
 * **prompts:** proposal extraction Version 6 requires maps to add independent structural knowledge instead of restating a practice
 * **prompts:** proposal extraction Version 7 anonymizes Rivermark/Discover fixture vocabulary in examples (replaces former client-branded demo names)
 * **prompts:** proposal extraction Version 8 keeps each candidate to one indivisible concept
+* **prompt-eval:** replace substring labels with same-harness semantic facet judging
 
 ### Documentation
 

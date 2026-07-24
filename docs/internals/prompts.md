@@ -20,6 +20,7 @@ The knowledge base's LLM work runs in **two places**:
 | Prompt | Role |
 |---|---|
 | **`proposal-extract.md`** (in the bundled template) | Converts a captured transcript into structured practice and map candidates. Run by `kk-proposal-drain` via the headless driver. References the shared `knowledge-admission.md` for the durability criteria. |
+| **`prompt-eval-judge.md`** | Source-repository-only semantic verifier for proposal-evaluation facets. The explicit maintainer evaluator runs it through the same selected harness in a fresh isolated call. |
 | **`knowledge-admission.md`** | Single source for the durability admission criteria (maintenance/lifecycle, plan/ticket/issue references, incidental one-off facts, the six-months keep test). Referenced by curate, bootstrap, the batch prompt, and `proposal-extract.md`. |
 | **`sub-agent-delegation.md`** | Single source for the sub-agent probe / ≤5 concurrency cap / inline-fallback contract. Referenced by `kk-curate`, `kk-bootstrap`, and `kk-add`. |
 | **`kk-curate/SKILL.md`** | Reads pending session logs, drafts add/modify/contradict/drop actions in-session (validated with `validate curator-output`), hands the merged set to `curate-dedup`, persists survivors via `curate-persist`, renders `conflict prepare` output to walk contradictions with the user. The parallel path aggregates batch drafts with `drafts collect`. |

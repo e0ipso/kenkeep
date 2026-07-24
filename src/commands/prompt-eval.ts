@@ -3,11 +3,17 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import matter from 'gray-matter';
+import yaml from 'js-yaml';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { atomicWriteFile, atomicWriteJson } from '../lib/fs-atomic.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { buildProposalPrompt } from '../lib/proposal-drain.js';
-import { ProposalOutputSchema, type ProposalOutput } from '../lib/schemas.js';
+import {
+  PromptEvalJudgeOutputSchema,
+  ProposalOutputSchema,
+  type PromptEvalJudgeOutput,
+  type ProposalOutput,
+} from '../lib/schemas.js';
 import { resolveSettings } from '../lib/settings.js';
 import { compactStamp } from '../lib/time.js';
 
@@ -20,6 +26,8 @@ export interface PromptEvaluationOptions {
   concurrency: number;
   fixturesDir: string;
   harnessId: string;
+  judgePromptFile: string;
+  judgePromptLabel?: string;
   modelLabel: string;
   outputDir: string;
   outputLabel?: string;
@@ -36,7 +44,11 @@ export interface PromptEvaluationDeps {
     prompt: string,
     opts: { fixtureId: string; logFile: string; timeoutMs: number }
   ): Promise<ProposalOutput>;
-  scoreResults(fixturesDir: string, resultsDir: string): string;
+  runJudge(
+    prompt: string,
+    opts: { fixtureId: string; logFile: string; timeoutMs: number }
+  ): Promise<PromptEvalJudgeOutput>;
+  scoreResults(fixturesDir: string, resultsDir: string, judgmentsDir: string): string;
 }
 
 export interface PromptEvaluationResult {
@@ -46,8 +58,16 @@ export interface PromptEvaluationResult {
 }
 
 interface Fixture {
+  expectedPoints: ExpectedPoint[];
   id: string;
   transcript: string;
+}
+
+interface ExpectedPoint {
+  claim: string;
+  id: string;
+  preferred_type: 'practice' | 'map';
+  required_facets: Array<{ criterion: string; id: string }>;
 }
 
 interface FixtureFailure {
@@ -59,6 +79,7 @@ interface RunReport {
   failures: FixtureFailure[];
   runNumber: number;
   score: string;
+  validJudgments: number;
   validResults: number;
 }
 
@@ -66,6 +87,7 @@ export interface PromptEvalCommandOptions {
   concurrency?: string;
   fixturesDir?: string;
   harness: string;
+  judgePromptFile?: string;
   outputDir?: string;
   promptFile?: string;
   runs?: string;
@@ -87,6 +109,8 @@ export async function runPromptEvaluation(
 
   const promptTemplate = readFileSync(opts.promptFile, 'utf8');
   const promptVersion = parsePromptVersion(promptTemplate);
+  const judgePromptTemplate = readFileSync(opts.judgePromptFile, 'utf8');
+  const judgePromptVersion = parsePromptVersion(judgePromptTemplate);
   const fixtures = readFixtures(opts.fixturesDir);
   if (fixtures.length === 0) {
     throw new Error(`No session fixtures found in ${join(opts.fixturesDir, 'sessions')}.`);
@@ -98,7 +122,9 @@ export async function runPromptEvaluation(
     const runNumber = runIndex + 1;
     const runDir = join(opts.outputDir, `run-${String(runNumber).padStart(3, '0')}`);
     const resultsDir = join(runDir, 'results');
+    const judgmentsDir = join(runDir, 'judgments');
     const logsDir = join(runDir, 'logs');
+    const judgeLogsDir = join(runDir, 'judge-logs');
     const failures: FixtureFailure[] = [];
 
     await mapWithConcurrency(fixtures, opts.concurrency, async fixture => {
@@ -111,6 +137,28 @@ export async function runPromptEvaluation(
           timeoutMs: opts.timeoutMs,
         });
         atomicWriteJson(join(resultsDir, `${fixture.id}.json`), output);
+        if (fixture.expectedPoints.length > 0) {
+          if (output.practice.length === 0 && output.map.length === 0) {
+            atomicWriteJson(join(judgmentsDir, `${fixture.id}.json`), { comparisons: [] });
+            return;
+          }
+          try {
+            const judgment = await deps.runJudge(
+              buildJudgePrompt(judgePromptTemplate, fixture.expectedPoints, output),
+              {
+                fixtureId: fixture.id,
+                logFile: join(judgeLogsDir, `${fixture.id}.jsonl`),
+                timeoutMs: opts.timeoutMs,
+              }
+            );
+            atomicWriteJson(join(judgmentsDir, `${fixture.id}.json`), judgment);
+          } catch (error) {
+            failures.push({
+              fixtureId: `${fixture.id} (judge)`,
+              message: cleanError(error),
+            });
+          }
+        }
       } catch (error) {
         failures.push({
           fixtureId: fixture.id,
@@ -122,7 +170,7 @@ export async function runPromptEvaluation(
     failures.sort((left, right) => plainSort(left.fixtureId, right.fixtureId));
     let score: string;
     try {
-      score = deps.scoreResults(opts.fixturesDir, resultsDir).trimEnd();
+      score = deps.scoreResults(opts.fixturesDir, resultsDir, judgmentsDir).trimEnd();
     } catch (error) {
       score = `Scorer failed: ${cleanError(error)}`;
       failures.push({ fixtureId: '(scorer)', message: cleanError(error) });
@@ -131,7 +179,19 @@ export async function runPromptEvaluation(
       failures,
       runNumber,
       score,
-      validResults: fixtures.length - failures.filter(f => f.fixtureId !== '(scorer)').length,
+      validJudgments: fixtures.filter(
+        fixture =>
+          fixture.expectedPoints.length > 0 &&
+          !failures.some(
+            failure =>
+              failure.fixtureId === fixture.id || failure.fixtureId === `${fixture.id} (judge)`
+          )
+      ).length,
+      validResults:
+        fixtures.length -
+        failures.filter(
+          failure => failure.fixtureId !== '(scorer)' && !failure.fixtureId.endsWith(' (judge)')
+        ).length,
     });
   }
 
@@ -139,6 +199,9 @@ export async function runPromptEvaluation(
     concurrency: opts.concurrency,
     fixtureCount: fixtures.length,
     harnessId: opts.harnessId,
+    judgeFixtureCount: fixtures.filter(fixture => fixture.expectedPoints.length > 0).length,
+    judgePromptFile: opts.judgePromptLabel ?? opts.judgePromptFile,
+    judgePromptVersion,
     modelLabel: opts.modelLabel,
     outputDir: opts.outputLabel ?? opts.outputDir,
     promptFile: opts.promptLabel ?? opts.promptFile,
@@ -164,6 +227,10 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
   const paths = repoPaths(root);
   const fixturesDir = resolve(root, opts.fixturesDir ?? 'tests/fixtures/prompt-eval');
   const promptFile = resolve(root, opts.promptFile ?? 'templates/prompts/proposal-extract.md');
+  const judgePromptFile = resolve(
+    root,
+    opts.judgePromptFile ?? 'templates/prompts/prompt-eval-judge.md'
+  );
   const runs = parsePositiveIntegerFlag('--runs', opts.runs, DEFAULT_RUNS);
   const concurrency = parsePositiveIntegerFlag(
     '--concurrency',
@@ -174,6 +241,9 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
 
   if (!existsSync(promptFile)) {
     throw new Error(`Prompt template not found: ${promptFile}. Run npm run build first.`);
+  }
+  if (!existsSync(judgePromptFile)) {
+    throw new Error(`Prompt evaluation judge template not found: ${judgePromptFile}.`);
   }
   if (!existsSync(join(fixturesDir, 'sessions'))) {
     throw new Error(`Prompt evaluation fixtures not found: ${fixturesDir}.`);
@@ -205,6 +275,8 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
       concurrency,
       fixturesDir,
       harnessId: adapter.id,
+      judgePromptFile,
+      judgePromptLabel: relative(root, judgePromptFile),
       modelLabel:
         Object.keys(harnessOpts).length > 0 ? JSON.stringify(harnessOpts) : 'harness default',
       outputDir,
@@ -224,8 +296,15 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
           role: `prompt-eval ${runOpts.fixtureId}`,
           timeoutMs: runOpts.timeoutMs,
         }),
-      scoreResults: (fixturePath, resultsPath) =>
-        execFileSync(process.execPath, [scorer, fixturePath, resultsPath], {
+      runJudge: (prompt, runOpts) =>
+        adapter.runHeadless(prompt, '', PromptEvalJudgeOutputSchema, {
+          harnessOpts,
+          logFile: runOpts.logFile,
+          role: `prompt-eval judge ${runOpts.fixtureId}`,
+          timeoutMs: runOpts.timeoutMs,
+        }),
+      scoreResults: (fixturePath, resultsPath, judgmentsPath) =>
+        execFileSync(process.execPath, [scorer, fixturePath, resultsPath, judgmentsPath], {
           encoding: 'utf8',
         }),
     }
@@ -242,9 +321,41 @@ function readFixtures(fixturesDir: string): Fixture[] {
     .filter(name => name.endsWith('.md') && !name.startsWith('.'))
     .sort(plainSort)
     .map(name => ({
+      expectedPoints: readExpectedPoints(
+        join(fixturesDir, 'expected', `${basename(name, '.md')}.yaml`)
+      ),
       id: basename(name, '.md'),
       transcript: matter(readFileSync(join(sessionsDir, name), 'utf8')).content.trim(),
     }));
+}
+
+function readExpectedPoints(file: string): ExpectedPoint[] {
+  const value = yaml.load(readFileSync(file, 'utf8'));
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !Array.isArray((value as Record<string, unknown>).expected_points)
+  ) {
+    throw new Error(`Invalid prompt evaluation sidecar: ${file}`);
+  }
+  return (value as { expected_points: ExpectedPoint[] }).expected_points;
+}
+
+function buildJudgePrompt(
+  template: string,
+  expectedPoints: ExpectedPoint[],
+  output: ProposalOutput
+): string {
+  const proposals = [
+    ...output.practice.map((proposal, index) => ({ id: `practice:${index}`, ...proposal })),
+    ...output.map.map((proposal, index) => ({ id: `map:${index}`, ...proposal })),
+  ];
+  const input = JSON.stringify({ expected_points: expectedPoints, proposals }, null, 2);
+  const placeholder = '[JUDGE INPUT PLACEHOLDER]';
+  return template.includes(placeholder)
+    ? template.replace(placeholder, input)
+    : `${template.trimEnd()}\n\n${input}`;
 }
 
 async function mapWithConcurrency<T>(
@@ -277,6 +388,9 @@ function renderEvaluationReport(input: {
   concurrency: number;
   fixtureCount: number;
   harnessId: string;
+  judgeFixtureCount: number;
+  judgePromptFile: string;
+  judgePromptVersion: string;
   modelLabel: string;
   outputDir: string;
   promptFile: string;
@@ -294,6 +408,8 @@ function renderEvaluationReport(input: {
     `- Model options: ${input.modelLabel}`,
     `- Prompt: ${input.promptFile}`,
     `- Prompt version: ${input.promptVersion}`,
+    `- Judge: ${input.judgePromptFile}`,
+    `- Judge prompt version: ${input.judgePromptVersion}`,
     `- Fixtures: ${input.fixtureCount}`,
     `- Runs: ${input.runCount}`,
     `- Concurrency: ${input.concurrency}`,
@@ -306,7 +422,8 @@ function renderEvaluationReport(input: {
       '',
       `## Run ${run.runNumber}`,
       '',
-      `Valid results: ${run.validResults}/${input.fixtureCount}`
+      `Valid results: ${run.validResults}/${input.fixtureCount}`,
+      `Valid judgments: ${run.validJudgments}/${input.judgeFixtureCount}`
     );
     if (run.failures.length > 0) {
       lines.push('', 'Harness or validation failures:');

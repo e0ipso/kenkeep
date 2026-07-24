@@ -55,23 +55,7 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
-function assertRequiredTerms(value: unknown, label: string): asserts value is string[] {
-  if (
-    !Array.isArray(value) ||
-    value.length < 2 ||
-    value.length > 4 ||
-    value.some(
-      term =>
-        !isNonEmptyString(term) ||
-        term !== term.toLowerCase() ||
-        !/[\p{Letter}\p{Number}]/u.test(term)
-    )
-  ) {
-    throw new Error(`${label}: expected 2 to 4 non-empty lowercase substrings`);
-  }
-}
-
-function assertOptionalTerms(value: unknown, label: string): asserts value is string[] {
+function assertForbiddenSubstrings(value: unknown, label: string): asserts value is string[] {
   if (
     !Array.isArray(value) ||
     value.some(
@@ -81,16 +65,7 @@ function assertOptionalTerms(value: unknown, label: string): asserts value is st
         !/[\p{Letter}\p{Number}]/u.test(term)
     )
   ) {
-    throw new Error(`${label}: expected lowercase substrings`);
-  }
-}
-
-function assertAlternativeTerms(value: unknown, label: string): asserts value is string[][] {
-  if (!Array.isArray(value) || value.length < 2) {
-    throw new Error(`${label}: expected two or more alternative substring sets`);
-  }
-  for (const [index, terms] of value.entries()) {
-    assertRequiredTerms(terms, `${label}[${index}]`);
+    throw new Error(`${label}: expected lowercase forbidden substrings`);
   }
 }
 
@@ -185,8 +160,8 @@ function parseSidecar(file: string, fixtureId: string): Category {
   for (const [index, point] of value.expected_points.entries()) {
     const label = `${file}: expected_points[${index}]`;
     if (!isRecord(point)) throw new Error(`${label}: expected a record`);
-    const requiredKeys = ['id', 'type'];
-    const allowedKeys = [...requiredKeys, 'must_match_all', 'must_match_any', 'must_not_match'];
+    const requiredKeys = ['claim', 'id', 'preferred_type', 'required_facets'];
+    const allowedKeys = [...requiredKeys, 'forbidden_substrings'];
     if (
       requiredKeys.some(key => !(key in point)) ||
       Object.keys(point).some(key => !allowedKeys.includes(key))
@@ -194,21 +169,31 @@ function parseSidecar(file: string, fixtureId: string): Category {
       throw new Error(`${label}: unexpected or missing field`);
     }
     if (!isNonEmptyString(point.id)) throw new Error(`${label}: id must be a non-empty string`);
-    if (point.type !== 'practice' && point.type !== 'map') {
-      throw new Error(`${label}: type must be practice or map`);
+    if (point.preferred_type !== 'practice' && point.preferred_type !== 'map') {
+      throw new Error(`${label}: preferred_type must be practice or map`);
     }
-    const hasMatchAll = point.must_match_all !== undefined;
-    const hasMatchAny = point.must_match_any !== undefined;
-    if (hasMatchAll === hasMatchAny) {
-      throw new Error(`${label}: expected exactly one of must_match_all or must_match_any`);
+    if (!isNonEmptyString(point.claim)) {
+      throw new Error(`${label}: claim must be a non-empty string`);
     }
-    if (hasMatchAll) {
-      assertRequiredTerms(point.must_match_all, `${label}: must_match_all`);
-    } else {
-      assertAlternativeTerms(point.must_match_any, `${label}: must_match_any`);
+    if (!Array.isArray(point.required_facets) || point.required_facets.length === 0) {
+      throw new Error(`${label}: required_facets must be a non-empty array`);
     }
-    if (point.must_not_match !== undefined) {
-      assertOptionalTerms(point.must_not_match, `${label}: must_not_match`);
+    const facetIds = new Set<string>();
+    for (const [facetIndex, facet] of point.required_facets.entries()) {
+      const facetLabel = `${label}: required_facets[${facetIndex}]`;
+      if (
+        !isRecord(facet) ||
+        !hasExactKeys(facet, ['criterion', 'id']) ||
+        !isNonEmptyString(facet.id) ||
+        !isNonEmptyString(facet.criterion)
+      ) {
+        throw new Error(`${facetLabel}: expected id and criterion`);
+      }
+      if (facetIds.has(facet.id)) throw new Error(`${facetLabel}: duplicate facet id`);
+      facetIds.add(facet.id);
+    }
+    if (point.forbidden_substrings !== undefined) {
+      assertForbiddenSubstrings(point.forbidden_substrings, `${label}: forbidden_substrings`);
     }
   }
 

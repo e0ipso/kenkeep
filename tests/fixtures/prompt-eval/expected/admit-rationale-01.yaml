@@ -3,27 +3,25 @@ category: admit-rationale
 expect_empty: false
 expected_points:
   - id: workflow-marker-approval
-    type: practice
-    must_match_any:
-      - - 'workflow_marker'
-        - 'approval state'
-        - 'translation-neutral'
-        - 'revision set'
-      - - 'workflow_marker'
-        - 'approval state'
-        - 'translations'
-        - 'whole revision set'
+    preferred_type: practice
+    claim: Atlas Editorial approval state is stored in workflow_marker rather than translated article fields.
+    required_facets:
+      - id: marker-storage
+        criterion: Approval state is stored in workflow_marker, not as an article field.
+      - id: translation-rationale
+        criterion: Article translations can diverge, but legal approval applies to the whole revision set.
+      - id: neutral-decision
+        criterion: workflow_marker keeps approval translation-neutral while article copy remains translatable.
   - id: workflow-marker-entity
-    type: map
-    must_match_any:
-      - - 'workflow_marker'
-        - 'content entity'
-        - 'revision set'
-        - 'translations'
-      - - 'workflow_marker'
-        - 'references the revision set'
-        - 'shared approval'
-        - 'translation-neutral'
+    preferred_type: map
+    claim: workflow_marker is the content entity holding shared workflow decisions for an article revision set.
+    required_facets:
+      - id: content-entity
+        criterion: workflow_marker is a content entity used for workflow decisions.
+      - id: revision-set
+        criterion: The marker relates to the article revision set rather than one translation.
+      - id: shared-translations
+        criterion: English and French translations resolve through the same marker and expose one approval decision.
 max_unexpected_proposals: 0
 notes: >-
   Expects the approval-storage rule and the marker entity's independently useful relationship to revision sets.

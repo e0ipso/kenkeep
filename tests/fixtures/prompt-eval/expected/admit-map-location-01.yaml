@@ -3,42 +3,35 @@ category: admit-map-location
 expect_empty: false
 expected_points:
   - id: harbor-exchange-location
-    type: map
-    must_match_any:
-      - - 'modules/custom/harbor_exchange'
-        - 'src/bridge'
-        - 'partner-specific adapters'
-        - 'ownership boundary'
-      - - 'modules/custom/harbor_exchange'
-        - 'src/bridge'
-        - 'partner-specific adapters'
-        - 'delegates into harbor exchange'
-      - - 'modules/custom/harbor_exchange'
-        - 'src/bridge'
-        - 'partner-specific adapters'
-        - 'owns the partner feed system boundary'
+    preferred_type: map
+    claim: Harbor Exchange is the partner-feed system rooted at modules/custom/harbor_exchange.
+    required_facets:
+      - id: module-location
+        criterion: The system lives at modules/custom/harbor_exchange.
+      - id: adapter-location
+        criterion: Partner-specific adapters live under src/Bridge.
+      - id: canonical-storage
+        criterion: Canonical import records remain in Harbor Exchange content-entity storage.
+      - id: api-delegation
+        criterion: The API module is only an entry point and delegates partner work to Harbor Exchange.
   - id: harbor-partner-adapter-placement
-    type: practice
-    must_match_any:
-      - - 'partner adapters'
-        - 'harbor_exchange'
-        - 'api module'
-        - 'ownership boundary'
-      - - 'partner-specific adapters'
-        - 'modules/custom/harbor_exchange'
-        - 'src/bridge'
-        - 'api module'
+    preferred_type: practice
+    claim: Partner adapters belong in Harbor Exchange rather than in the API module.
+    required_facets:
+      - id: owning-module
+        criterion: New partner adapters are added under modules/custom/harbor_exchange/src/Bridge.
+      - id: not-api-module
+        criterion: Adapter implementations must not be scattered into the API module even though requests arrive there.
   - id: harbor-bridge-contract-tests
-    type: practice
-    must_match_any:
-      - - 'bridge contract tests'
-        - 'partner adapter'
-        - 'selection'
-        - 'persistence'
-      - - 'bridge contract'
-        - 'adding'
-        - 'partner bridge adapter'
-        - 'canonical'
+    preferred_type: practice
+    claim: Partner bridge changes are verified with the Harbor Exchange bridge contract tests.
+    required_facets:
+      - id: run-contract-tests
+        criterion: Bridge contract tests are run after adding or changing a partner bridge adapter.
+      - id: selection-coverage
+        criterion: The contract tests cover adapter selection.
+      - id: persistence-coverage
+        criterion: The contract tests cover canonical-record persistence.
 max_unexpected_proposals: 0
 notes: >-
   Expects separate subsystem, adapter-placement, and bridge-contract testing concepts.

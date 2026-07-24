@@ -3,27 +3,17 @@ category: admit-prohibition
 expect_empty: false
 expected_points:
   - id: orchard-search-queue-isolation
-    type: practice
-    must_match_any:
-      - - 'orchard search'
-        - 'node_list'
-        - 'orchard_index'
-        - 'content uuid'
-      - - 'orchard search subscribers'
-        - 'never invalidate'
-        - 'orchard_index'
-        - 'one message'
-  - id: orchard-index-queue-boundary
-    type: map
-    must_match_any:
-      - - 'orchard_index'
-        - 'queue'
-        - 'isolation boundary'
-        - 'content uuid'
-      - - 'orchard_index'
-        - 'reindex queue'
-        - 'refresh'
-        - 'uuid'
+    preferred_type: practice
+    claim: Orchard Search subscribers enqueue orchard_index messages instead of invalidating node_list.
+    required_facets:
+      - id: prohibit-node-list
+        criterion: Orchard Search subscribers never invalidate the broad node_list cache tag.
+      - id: queue-by-uuid
+        criterion: Index refreshes enqueue an orchard_index message keyed by the changed content UUID.
+      - id: all-subscribers
+        criterion: The rule applies to every Orchard Search subscriber.
+      - id: isolation-rationale
+        criterion: The queue isolates search refreshes while node_list fans out across unrelated listings.
 max_unexpected_proposals: 0
 notes: >-
-  Expects the corrective subscriber rule and the queue's independently useful isolation role.
+  Expects one indivisible corrective rule with its queue replacement and isolation rationale.

@@ -3,19 +3,18 @@ category: mixed-salvage
 expect_empty: false
 expected_points:
   - id: stable-atlas-delivery-key
-    type: practice
-    must_match_any:
-      - - 'atlas webhook'
-        - 'delivery_key'
-        - 'retry chain'
-        - 'deduplicate'
-      - - 'delivery_key'
-        - 'dead-letter'
-        - 'retry'
-        - 'timestamps'
-    must_not_match:
-      - 'drp-482'
-      - 'partner outage'
+    preferred_type: practice
+    claim: Every retry attempt for one Atlas webhook preserves the same delivery_key.
+    required_facets:
+      - id: stable-retry-chain
+        criterion: delivery_key remains unchanged across the complete retry chain, including dead-letter requeue.
+      - id: dedup-rationale
+        criterion: Partners deduplicate webhook events using delivery_key.
+      - id: attempt-fields-vary
+        criterion: Retry attempts may have different timestamps or row identities while sharing delivery_key.
+    forbidden_substrings:
+      - drp-482
+      - partner outage
 max_unexpected_proposals: 0
 notes: >-
   Expects the complete stable retry identity rule while excluding ticket and outage history.

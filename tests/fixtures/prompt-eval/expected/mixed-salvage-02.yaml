@@ -3,23 +3,18 @@ category: mixed-salvage
 expect_empty: false
 expected_points:
   - id: harbor-source-row-identity
-    type: practice
-    must_match_any:
-      - - 'harbor exchange'
-        - 'source_row_id'
-        - 'never'
-        - 'array offset'
-      - - 'source_row_id'
-        - 'schema error'
-        - 'filtering'
-        - 'chunking'
-      - - 'source_row_id'
-        - 'no fallback'
-        - 'array offset'
-        - 'stable reference'
-    must_not_match:
-      - 'drp-731'
-      - 'broken partner file'
+    preferred_type: practice
+    claim: Harbor Exchange rejection records identify source rows by source_row_id rather than array offset.
+    required_facets:
+      - id: stable-identity
+        criterion: Rejection records use source_row_id as the stable partner row identity.
+      - id: no-array-offset
+        criterion: Array offsets are never used as rejection identity because filtering and chunking can change them.
+      - id: missing-id-error
+        criterion: A row missing source_row_id is rejected with a schema error instead of receiving an index-based fallback.
+    forbidden_substrings:
+      - drp-731
+      - broken partner file
 max_unexpected_proposals: 0
 notes: >-
   Expects stable import-row identity with no offset fallback while excluding ticket narration.

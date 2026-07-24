@@ -1,12 +1,12 @@
 # Proposal extraction evaluation corpus
 
-Corpus version: 3
+Corpus version: 4
 
-Version 3 keeps the session corpus unchanged. It treats each transcript as a
-complete gold set: every independently useful, indivisible concept is labeled,
-including durable secondary teaching points. Expected proposal type is
-diagnostic only. The scorer assigns proposals to expected points one-to-one, so
-duplicate proposals and over-broad merged proposals cannot inflate recall.
+Version 4 keeps the session corpus unchanged and replaces brittle substring
+labels with semantic claims and required facets. A fresh isolated call through
+the selected harness judges whether each proposal entails every facet and cites
+proposal evidence. The deterministic scorer validates that evidence, assigns
+proposals to expected points one-to-one, and treats proposal type as diagnostic.
 
 This corpus contains 24 frozen synthetic Drupal coding sessions and one
 expected-label sidecar for each session. It evaluates
@@ -127,7 +127,7 @@ YAML frontmatter, then role-tagged body:
   rule: ...", or a one-off circumstance phrased like a convention.
 - MIXED-SALVAGE fixtures must interleave one durable rule with plan/ticket
   narration ("this is for ticket DRP-482 ...") so that only the rewritten rule
-  should survive; put the ticket references in `must_not_match`.
+  should survive; put literal story leaks in `forbidden_substrings`.
 - No real secrets, tokens, hostnames, or personal data, not even fake-looking
   ones (no `sk-...`, no `password=`). The corpus is committed to a public repo.
 - Vary the human's voice across sessions (terse, verbose, irritated, precise).
@@ -142,15 +142,15 @@ YAML frontmatter, then role-tagged body:
   rationale, qualifiers, and boundaries with their rule. Split concepts when
   each remains independently reusable; do not merge them merely because they
   share a session or component.
-- For each expected point choose 2 to 4 distinctive lowercase substrings
-  (module names, entity types, specific verbs) that appear naturally in any
-  faithful extraction of the rule, never generic words like "use", "always",
-  or "config". Use `must_match_all` for one required set. When faithful
-  grammatical variants cannot share one natural substring set, use
-  `must_match_any` with two or more complete alternative sets instead. Do not
-  specify both fields on one expected point.
-- Set `type` to the preferred `practice` or `map` classification. Classification
-  mismatches are reported as advisory diagnostics and do not affect pass/fail.
+- Give every point a concise `claim` and a `required_facets` list. Each facet has
+  a stable `id` and one semantic `criterion` describing an
+  application-critical fact a faithful proposal must establish. Do not encode
+  expected wording.
+- Set `preferred_type` to `practice` or `map`. Classification mismatches are
+  reported as advisory diagnostics and do not affect pass/fail.
+- Use `forbidden_substrings` only for literal content whose presence is itself
+  the failure, such as a ticket id or incident name. Never use it for semantic
+  matching.
 - Matching is one-to-one. One proposal can satisfy only one expected point, and
   one expected point can consume only one proposal. This makes redundant
   restatements unexpected and prevents a broad merged node from satisfying
@@ -165,10 +165,9 @@ YAML frontmatter, then role-tagged body:
 2. Every session has exactly one sidecar and vice versa; `fixture_id` matches
    the basename.
 3. For every ADMIT/MIXED sidecar: enumerate all independently useful,
-   indivisible concepts, then manually verify every `must_match_all` term, or
-   every term in each `must_match_any` alternative, against the session's
-   teaching content (else the fixture is unwinnable). For every REJECT sidecar:
-   `expect_empty: true` and `expected_points: []`.
+   indivisible concepts, then verify every claim and required facet against the
+   session's teaching content. For every REJECT sidecar: `expect_empty: true`
+   and `expected_points: []`.
 4. Category counts match the specification table exactly.
 Fix any failure and re-check. Then stop and list every file you created with a
 one-line description, the maintainer reviews and commits; do not commit.
@@ -187,8 +186,8 @@ old labels forward without review.
 3. Re-run the authoring prompt in a supervised interactive session at the
    repository root. Replace all sessions and sidecars as one corpus revision.
 4. Run the deterministic pairing, YAML, UUID, category-count, role-segment,
-   command-envelope, teaching-term, secret-pattern, and punctuation checks. Fix
-   every finding.
+   command-envelope, semantic-label, secret-pattern, and punctuation checks.
+   Fix every finding.
 5. Review every session and sidecar in the diff. Reject a weak fixture by
    deleting and re-authoring it, then record the new corpus version here.
 

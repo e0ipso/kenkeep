@@ -3,34 +3,31 @@ category: admit-map-vocab
 expect_empty: false
 expected_points:
   - id: quiet-revision-vocabulary
-    type: map
-    must_match_any:
-      - - 'quiet revision'
-        - 'search and syndication metadata'
-        - 'beacon review lane'
-        - 'creates a revision'
-      - - 'quiet revision'
-        - 'search and syndication metadata'
-        - 'beacon review lane'
-        - 'creates a stored revision'
+    preferred_type: map
+    claim: A quiet revision updates search and syndication metadata without reopening Beacon Review Lane.
+    required_facets:
+      - id: metadata-scope
+        criterion: A quiet revision updates search and syndication metadata.
+      - id: skips-review
+        criterion: It does not reopen or enter Beacon Review Lane.
+      - id: still-a-revision
+        criterion: Quiet describes workflow impact, not storage, and a revision is still created.
   - id: quiet-revision-rendered-fields
-    type: practice
-    must_match_any:
-      - - 'quiet revision'
-        - 'cannot change'
-        - 'rendered body fields'
-      - - 'quiet revision'
-        - 'reject'
-        - 'rendered-body changes'
+    preferred_type: practice
+    claim: Quiet revisions cannot change rendered body fields.
+    required_facets:
+      - id: prohibit-rendered-fields
+        criterion: Validation rejects rendered-body changes in quiet revisions.
+      - id: nested-components
+        criterion: The prohibition includes nested rendered component fields, not only the top-level body field.
   - id: quiet-revision-public-phrase
-    type: practice
-    must_match_any:
-      - - 'public api'
-        - 'exact phrase'
-        - 'quiet revision'
-      - - 'public'
-        - 'use the exact'
-        - 'quiet revision'
+    preferred_type: practice
+    claim: Public API descriptions use the exact project phrase quiet revision.
+    required_facets:
+      - id: exact-public-term
+        criterion: Public API text uses the exact phrase quiet revision.
+      - id: project-meaning
+        criterion: The phrase carries the project's workflow meaning rather than a generic editorial interpretation.
 max_unexpected_proposals: 0
 notes: >-
   Expects the term's definition, its validation invariant, and its exact public API naming rule as atomic concepts.

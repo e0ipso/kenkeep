@@ -1,6 +1,10 @@
 # Proposal extraction evaluation corpus
 
-Corpus version: 1
+Corpus version: 2
+
+Version 2 keeps the session corpus unchanged. It makes expected-point matching
+punctuation-insensitive and adds explicit alternative substring sets for
+faithful grammatical variants.
 
 This corpus contains 24 frozen synthetic Drupal coding sessions and one
 expected-label sidecar for each session. It evaluates
@@ -128,10 +132,13 @@ YAML frontmatter, then role-tagged body:
   Do not reuse sentence templates between fixtures.
 
 ## Labeling requirements
-- For each expected point choose 2 to 4 `must_match_all` substrings that are
-  DISTINCTIVE (module names, entity types, specific verbs) and appear naturally
-  in any faithful extraction of the rule, never generic words like "use",
-  "always", "config". Lowercase.
+- For each expected point choose 2 to 4 distinctive lowercase substrings
+  (module names, entity types, specific verbs) that appear naturally in any
+  faithful extraction of the rule, never generic words like "use", "always",
+  or "config". Use `must_match_all` for one required set. When faithful
+  grammatical variants cannot share one natural substring set, use
+  `must_match_any` with two or more complete alternative sets instead. Do not
+  specify both fields on one expected point.
 - `max_unexpected_proposals: 0` everywhere except where the category spec says
   otherwise.
 - Write the `notes:` field for a human reviewer in one sentence.
@@ -141,10 +148,10 @@ YAML frontmatter, then role-tagged body:
    valid UUID v4.
 2. Every session has exactly one sidecar and vice versa; `fixture_id` matches
    the basename.
-3. For every ADMIT/MIXED sidecar: manually verify each `must_match_all` term
-   actually appears in the session's teaching content (else the fixture is
-   unwinnable). For every REJECT sidecar: `expect_empty: true` and
-   `expected_points: []`.
+3. For every ADMIT/MIXED sidecar: manually verify every `must_match_all` term,
+   or every term in each `must_match_any` alternative, against the session's
+   teaching content (else the fixture is unwinnable). For every REJECT sidecar:
+   `expect_empty: true` and `expected_points: []`.
 4. Category counts match the specification table exactly.
 Fix any failure and re-check. Then stop and list every file you created with a
 one-line description, the maintainer reviews and commits; do not commit.
@@ -169,4 +176,5 @@ old labels forward without review.
    deleting and re-authoring it, then record the new corpus version here.
 
 The checked-in fixtures are the only corpus used for prompt extraction scoring.
-No test or kenkeep runtime path invokes an LLM.
+Normal tests never invoke an LLM. The explicit `prompt-eval` maintainer script
+is the only automated path that sends these fixtures through a harness.

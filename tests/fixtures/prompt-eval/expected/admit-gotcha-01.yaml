@@ -4,11 +4,15 @@ expect_empty: false
 expected_points:
   - id: harbor-resource-weight-sort
     type: practice
-    must_match_all:
-      - 'harbor resource ordering'
-      - 'weight'
-      - 'yaml key'
-      - 'config normalization'
+    must_match_any:
+      - - 'harbor resource ordering'
+        - 'weight'
+        - 'yaml key'
+        - 'config normalization'
+      - - 'harbor resource ordering'
+        - 'weight'
+        - 'yaml map key'
+        - 'configuration normalizes'
 max_unexpected_proposals: 0
 notes: >-
   Tests a configuration round-trip gotcha that direct array tests conceal.

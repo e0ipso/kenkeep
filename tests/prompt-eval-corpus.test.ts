@@ -60,7 +60,12 @@ function assertRequiredTerms(value: unknown, label: string): asserts value is st
     !Array.isArray(value) ||
     value.length < 2 ||
     value.length > 4 ||
-    value.some(term => !isNonEmptyString(term) || term !== term.toLowerCase())
+    value.some(
+      term =>
+        !isNonEmptyString(term) ||
+        term !== term.toLowerCase() ||
+        !/[\p{Letter}\p{Number}]/u.test(term)
+    )
   ) {
     throw new Error(`${label}: expected 2 to 4 non-empty lowercase substrings`);
   }
@@ -69,9 +74,23 @@ function assertRequiredTerms(value: unknown, label: string): asserts value is st
 function assertOptionalTerms(value: unknown, label: string): asserts value is string[] {
   if (
     !Array.isArray(value) ||
-    value.some(term => !isNonEmptyString(term) || term !== term.toLowerCase())
+    value.some(
+      term =>
+        !isNonEmptyString(term) ||
+        term !== term.toLowerCase() ||
+        !/[\p{Letter}\p{Number}]/u.test(term)
+    )
   ) {
     throw new Error(`${label}: expected lowercase substrings`);
+  }
+}
+
+function assertAlternativeTerms(value: unknown, label: string): asserts value is string[][] {
+  if (!Array.isArray(value) || value.length < 2) {
+    throw new Error(`${label}: expected two or more alternative substring sets`);
+  }
+  for (const [index, terms] of value.entries()) {
+    assertRequiredTerms(terms, `${label}[${index}]`);
   }
 }
 
@@ -166,8 +185,8 @@ function parseSidecar(file: string, fixtureId: string): Category {
   for (const [index, point] of value.expected_points.entries()) {
     const label = `${file}: expected_points[${index}]`;
     if (!isRecord(point)) throw new Error(`${label}: expected a record`);
-    const requiredKeys = ['id', 'must_match_all', 'type'];
-    const allowedKeys = [...requiredKeys, 'must_not_match'];
+    const requiredKeys = ['id', 'type'];
+    const allowedKeys = [...requiredKeys, 'must_match_all', 'must_match_any', 'must_not_match'];
     if (
       requiredKeys.some(key => !(key in point)) ||
       Object.keys(point).some(key => !allowedKeys.includes(key))
@@ -178,7 +197,16 @@ function parseSidecar(file: string, fixtureId: string): Category {
     if (point.type !== 'practice' && point.type !== 'map') {
       throw new Error(`${label}: type must be practice or map`);
     }
-    assertRequiredTerms(point.must_match_all, `${label}: must_match_all`);
+    const hasMatchAll = point.must_match_all !== undefined;
+    const hasMatchAny = point.must_match_any !== undefined;
+    if (hasMatchAll === hasMatchAny) {
+      throw new Error(`${label}: expected exactly one of must_match_all or must_match_any`);
+    }
+    if (hasMatchAll) {
+      assertRequiredTerms(point.must_match_all, `${label}: must_match_all`);
+    } else {
+      assertAlternativeTerms(point.must_match_any, `${label}: must_match_any`);
+    }
     if (point.must_not_match !== undefined) {
       assertOptionalTerms(point.must_not_match, `${label}: must_not_match`);
     }

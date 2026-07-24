@@ -4,11 +4,15 @@ expect_empty: false
 expected_points:
   - id: workflow-marker-approval
     type: practice
-    must_match_all:
-      - 'workflow_marker'
-      - 'approval state'
-      - 'translation-neutral'
-      - 'revision set'
+    must_match_any:
+      - - 'workflow_marker'
+        - 'approval state'
+        - 'translation-neutral'
+        - 'revision set'
+      - - 'workflow_marker'
+        - 'approval state'
+        - 'translations'
+        - 'whole revision set'
 max_unexpected_proposals: 0
 notes: >-
   Tests preservation of the multilingual rationale for a shared approval entity.

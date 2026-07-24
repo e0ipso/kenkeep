@@ -9,7 +9,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 type ExpectedPoint = {
   id: string;
   type: 'practice' | 'map';
-  must_match_all: string[];
+  must_match_all?: string[];
+  must_match_any?: string[][];
   must_not_match?: string[];
 };
 
@@ -97,6 +98,73 @@ describe('prompt eval scorer', () => {
     expect(output).toContain('admit-convention: 1/1');
     expect(output).toContain('Expected-point recall: 1/1');
     expect(output).toContain('Phantom count: 0');
+  });
+
+  it('ignores punctuation differences when matching expected points', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'practice',
+            must_match_all: ['cache-tag', 'custom invalidation'],
+          },
+        ],
+      },
+      {
+        practice: [
+          proposal({
+            title: 'Invalidate cache tags',
+            body: 'Use custom invalidation for every cache_tag update.',
+          }),
+        ],
+        map: [],
+      }
+    );
+
+    expect(output).toContain('PASS fixture-01');
+    expect(output).toContain('Expected-point recall: 1/1');
+  });
+
+  it('accepts any complete alternative substring set', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'practice',
+            must_match_any: [
+              ['cache tags', 'invalidate them'],
+              ['cache tag', 'custom invalidation'],
+            ],
+          },
+        ],
+      },
+      { practice: [proposal()], map: [] }
+    );
+
+    expect(output).toContain('PASS fixture-01');
+    expect(output).toContain('Expected-point recall: 1/1');
+  });
+
+  it('requires every substring in one alternative set', () => {
+    const output = runScenario(
+      {
+        expected_points: [
+          {
+            id: 'cache-tags',
+            type: 'practice',
+            must_match_any: [
+              ['cache tags', 'invalidate them'],
+              ['custom invalidation', 'revision token'],
+            ],
+          },
+        ],
+      },
+      { practice: [proposal()], map: [] }
+    );
+
+    expect(output).toContain('FAIL fixture-01: missed expected point "cache-tags"');
   });
 
   it('reports a missed expected point', () => {

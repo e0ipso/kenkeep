@@ -25,18 +25,34 @@ function isLowercaseSubstringList(value, allowEmpty = false) {
   return (
     Array.isArray(value) &&
     (allowEmpty || value.length > 0) &&
-    value.every(item => isNonEmptyString(item) && item === item.toLowerCase())
+    value.every(
+      item =>
+        isNonEmptyString(item) && item === item.toLowerCase() && normalizeForMatch(item).length > 0
+    )
+  );
+}
+
+function isLowercaseSubstringAlternatives(value) {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    value.every(alternative => isLowercaseSubstringList(alternative))
   );
 }
 
 function isExpectedPoint(value) {
   if (!isRecord(value)) return false;
-  const allowedKeys = ['id', 'must_match_all', 'must_not_match', 'type'];
+  const allowedKeys = ['id', 'must_match_all', 'must_match_any', 'must_not_match', 'type'];
   if (Object.keys(value).some(key => !allowedKeys.includes(key))) return false;
+  const hasMatchAll = value.must_match_all !== undefined;
+  const hasMatchAny = value.must_match_any !== undefined;
   return (
     isNonEmptyString(value.id) &&
     (value.type === 'practice' || value.type === 'map') &&
-    isLowercaseSubstringList(value.must_match_all) &&
+    hasMatchAll !== hasMatchAny &&
+    (hasMatchAll
+      ? isLowercaseSubstringList(value.must_match_all)
+      : isLowercaseSubstringAlternatives(value.must_match_any)) &&
     (value.must_not_match === undefined || isLowercaseSubstringList(value.must_not_match, true))
   );
 }
@@ -125,6 +141,16 @@ function readResult(resultsDir, fixtureId) {
   }
 }
 
+function normalizeForMatch(value) {
+  return value
+    .normalize('NFKD')
+    .replace(/\p{Mark}+/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 function scoreFixture(entry, resultsDir) {
   if (!entry.sidecar) {
     return {
@@ -157,20 +183,23 @@ function scoreFixture(entry, resultsDir) {
 
   const proposals = [...result.value.practice, ...result.value.map];
   const proposalText = proposals.map(proposal =>
-    `${proposal.title}\n${proposal.body}`.toLowerCase()
+    normalizeForMatch(`${proposal.title}\n${proposal.body}`)
   );
   const expectedProposalIndexes = new Set();
   const missedPoints = [];
 
   for (const point of entry.sidecar.expected_points) {
-    const forbidden = point.must_not_match ?? [];
+    const forbidden = (point.must_not_match ?? []).map(normalizeForMatch);
+    const alternatives = (point.must_match_any ?? [point.must_match_all]).map(terms =>
+      terms.map(normalizeForMatch)
+    );
     const hasForbiddenText = forbidden.some(term => proposalText.some(text => text.includes(term)));
     const matchingIndexes = [];
     if (!hasForbiddenText) {
       proposals.forEach((proposal, index) => {
         if (
           proposal.type === point.type &&
-          point.must_match_all.every(term => proposalText[index].includes(term))
+          alternatives.some(terms => terms.every(term => proposalText[index].includes(term)))
         ) {
           matchingIndexes.push(index);
         }

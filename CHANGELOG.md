@@ -82,6 +82,8 @@
 ### Features
 
 * add kenkeep icon to Linux desktop notifications ([#87](https://github.com/e0ipso/kenkeep/issues/87))
+* **prompts:** proposal extraction Version 6 requires maps to add independent structural knowledge instead of restating a practice
+* **prompts:** proposal extraction Version 7 anonymizes Rivermark/Discover fixture vocabulary in examples (replaces former client-branded demo names)
 
 ### Documentation
 

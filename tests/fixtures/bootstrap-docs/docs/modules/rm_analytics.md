@@ -1,4 +1,4 @@
-# bravo_analytics
+# rm_analytics
 
 The central analytics event dispatcher for the project. **All analytics events must flow through this module's dispatcher service.** Do not call `gtag()`, `analytics.track()`, or any other backend-specific tracking API directly from custom modules or theme JavaScript.
 
@@ -10,7 +10,7 @@ We have changed analytics backends three times in this project's history (Google
 
 | Service ID | Class | Purpose |
 |---|---|---|
-| `bravo_analytics.dispatcher` | `Dispatcher` | Server-side event firing. Inject into any class that needs to track events. |
+| `rm_analytics.dispatcher` | `Dispatcher` | Server-side event firing. Inject into any class that needs to track events. |
 
 ## API
 
@@ -22,16 +22,16 @@ $this->dispatcher->track('event_name', ['key' => 'value']);
 
 ### Client-side
 
-A frontend shim is exposed at `Drupal.bravoAnalytics.track(eventName, payload)`. Use this from any module's JS:
+A frontend shim is exposed at `Drupal.rmAnalytics.track(eventName, payload)`. Use this from any module's JS:
 
 ```js
-Drupal.bravoAnalytics.track('card_click', { card_id: 123, position: 4 });
+Drupal.rmAnalytics.track('card_click', { card_id: 123, position: 4 });
 ```
 
 ## Backend configuration
 
-The active backend is configured at `/admin/config/bravo/analytics`. Currently set to Segment.
+The active backend is configured at `/admin/config/rivermark/analytics`. Currently set to Segment.
 
 ## Adding a new backend
 
-Backends implement the `BackendInterface` and are tagged with `bravo_analytics_backend` in their `services.yml`. See `src/Backend/SegmentBackend.php` for an example.
+Backends implement the `BackendInterface` and are tagged with `rm_analytics_backend` in their `services.yml`. See `src/Backend/SegmentBackend.php` for an example.

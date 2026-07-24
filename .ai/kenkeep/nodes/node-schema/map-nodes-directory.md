@@ -33,7 +33,7 @@ The two kinds:
 
 Filenames are `<id>.md`, where the `id` is `<kind>-<slug>` — so the kind appears in the filename and id, but never in the directory path. The filename and `id` must agree; the `lint` command rejects mismatches as errors. The old flat `nodes/<kind>/` bucket layout is rejected by the reader; migrate with `npx kenkeep --harness <id> migrate`.
 
-When a piece of content has both aspects (e.g. "use `bravo_analytics.dispatcher`, our event-tracking service"), the proposal prompt splits combined statements: practice owns the imperative ("use the dispatcher"), map owns the entity ("what the dispatcher is").
+When a piece of content has both aspects (e.g. "use `rm_analytics.dispatcher`, our event-tracking service"), the proposal prompt splits combined statements: practice owns the imperative ("use the dispatcher"), map owns the entity ("what the dispatcher is").
 
 <!-- kk:related:start -->
 # Related

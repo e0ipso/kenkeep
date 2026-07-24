@@ -8,7 +8,7 @@ faithful grammatical variants.
 
 This corpus contains 24 frozen synthetic Drupal coding sessions and one
 expected-label sidecar for each session. It evaluates
-`src/templates-source/prompts/proposal-extract.md` Version 5 together with the
+`src/templates-source/prompts/proposal-extract.md` Version 7 together with the
 Version 2 knowledge admission criteria it references.
 
 The fictional sessions use vocabulary from the 26-node Drupal fixture knowledge

@@ -1,10 +1,10 @@
-# bravo_seo
+# rm_seo
 
 SEO utilities, meta tag management, and schema.org structured-data emission.
 
 ## Schema.org emission
 
-**Use `bravo_seo.schema_emitter` for all schema.org structured data on this project.** Do not use Drupal's metatag module schema output — it doesn't produce the property mappings our SEO team needs.
+**Use `rm_seo.schema_emitter` for all schema.org structured data on this project.** Do not use Drupal's metatag module schema output — it doesn't produce the property mappings our SEO team needs.
 
 ```php
 $this->schemaEmitter->emit('Article', [

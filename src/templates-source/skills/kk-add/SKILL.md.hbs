@@ -45,7 +45,7 @@ If no dispatch primitive is available, skip directly to the inline drafting path
 
 ### Inline drafting + `node write` (default and fallback)
 
-Derive a slug from the title (lowercase, hyphen-separated, ASCII; e.g. `Use the bravo analytics dispatcher` → `use-the-bravo-analytics-dispatcher`). Then invoke `node write` with the body on stdin (when the delegation path produced a valid draft, use its `slug` and refined `body`; otherwise draft inline from the seven user-provided values):
+Derive a slug from the title (lowercase, hyphen-separated, ASCII; e.g. `Use the rm analytics dispatcher` → `use-the-rm-analytics-dispatcher`). Then invoke `node write` with the body on stdin (when the delegation path produced a valid draft, use its `slug` and refined `body`; otherwise draft inline from the seven user-provided values):
 
 ```bash
 npx --yes kenkeep@latest node write <kind> <slug> \

@@ -116,6 +116,5 @@ Optionally append reports to `tests/fixtures/prompt-eval/RESULTS.md` to build a
 version-over-version history. The generated JSON and raw event logs under
 `.ai/kenkeep/.state/` are local diagnostic artifacts and must not be committed.
 
-The baseline Version 5 evaluation remains a post-merge maintainer step. Run the
-automated evaluator once after this corpus and command land, then record its
-report as the comparison point for later prompt changes.
+Run the automated evaluator for Version 7 before shipping the prompt change,
+then record its report as the comparison point for later prompt changes.

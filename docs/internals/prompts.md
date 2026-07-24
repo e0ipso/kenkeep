@@ -143,7 +143,7 @@ The biggest quality lever in capture: it controls what the extractor treats as w
 1. **Version comment**.
 2. **What to extract**: practice/map definitions, trigger phrases.
 3. **What to skip**: typos, file reads, agent paraphrases, generic programming knowledge; the [durability filter](#the-durability-filter); and non-productive sessions (abandoned, exploratory, cursory, unrelated, meta-only), which short-circuit to `{"practice": [], "map": []}` via the session-disposition gate at the top of the prompt. The gate fires when the session as a whole does not converge on durable knowledge.
-4. **Ownership boundary**: how to split combined statements between practice and map.
+4. **Ownership boundary**: how to split combined statements between practice and map, with maps admitted only when they add independently useful structural knowledge rather than restating a practice.
 5. **Inline example**: a worked transcript with expected JSON.
 6. **Output schema**: must match `ProposalOutputSchema`.
 
@@ -154,7 +154,7 @@ The drain replaces `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` with the c
 Fixtures under `tests/fixtures/transcripts/`:
 
 - `routine-zero/`: a session with no teaching moments. Correct output is empty.
-- `bravo-insider/`: 4 practice + 3 map candidates. `expected.md` is the target.
+- `rivermark-discover/`: 4 practice + 3 map candidates. `expected.md` is the target.
 
 {% include callout.html variant="tip" content="Mocked tests only pin the schema. Only a real headless harness run reveals prompt quality, so run the fixtures with the real CLI before shipping changes." %}
 

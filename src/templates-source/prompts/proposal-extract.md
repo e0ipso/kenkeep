@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 5
+  Version: 7
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -104,12 +104,25 @@ When you see a `[USER /self-review-apply ...]:` tag, treat each narrated change 
 
 These describe the entities, features, vocabulary, and locations of the project:
 
-- **Features:** "Bravo Insider is our personalized section for authenticated users."
+- **Features:** "Rivermark Discover is our personalized section for authenticated users."
 - **Vocabulary:** Project-specific names and what they mean. "CardSourceResolver is the service that picks which entities go into a feed."
-- **Module/file locations:** "The card feed module lives at `modules/custom/bravo_cards`."
+- **Module/file locations:** "The card feed module lives at `modules/custom/rm_cards`."
 - **Architectural relationships:** "Module X depends on service Y."
 
 **Map nodes can be extracted from either `[USER]:` or `[AGENT]:` turns.** Sometimes the agent surfaces a module name or file location during exploration that's worth recording. Both roles are valid sources.
+
+#### Independent map-value gate
+
+Do not emit a map merely because a practice mentions a named service, module, file, command, event, entity, or field. Named references inside a rule often exist only to make that rule actionable; repeating the same information as a noun-phrase map creates a redundant companion node.
+
+A map candidate must teach independently useful structure about its subject, beyond the information needed to state or justify a practice. Qualifying structure includes:
+
+- a feature or project-specific term and what it means;
+- a canonical location or ownership boundary;
+- an architectural relationship, integration seam, or dependency;
+- how a substantial component is organized or operates beyond the immediate rule.
+
+Apply this counterfactual test: **if the related practice were removed, would the map still answer a useful question about what the subject is, where it belongs, or how it relates to the rest of the project?** If not, drop the map. A description that only converts "use service X because it does Y" into "service X does Y" fails this test.
 
 **Optional change-oriented clause (evidence-gated).** When the transcript actually surfaces what an editor must watch for when changing this entity — a check to run, an invariant to preserve, a related rule that constrains edits — you may end the map body with one short "When changing this, verify…" sentence that captures it. Include it only when the session evidenced the guidance; never invent a watch-out to fill a template. If nothing in the transcript speaks to editing the entity, omit the clause entirely.
 
@@ -155,15 +168,17 @@ This filter stacks with the end-state framing rule rather than replacing it. A t
 
 ## Ownership boundary between the two passes
 
-A single user statement can contain both kinds of content. Split them:
+A single user statement can contain both kinds of content, but split it only when each candidate independently passes its own admission test:
 
-> "Use the bravo_analytics dispatcher for tracking - it's a service we built so we can swap backends without rewriting every module."
+> "Use the rm_analytics dispatcher for tracking - it's a service we built so we can swap backends without rewriting every module."
 
 This has:
-- A practice node: "Use the bravo_analytics dispatcher for all event tracking (rationale: swappable backends)."
-- A map node: "bravo_analytics.dispatcher - service that fans out tracking events to whatever backend is currently wired in."
+- A practice node: "Use the rm_analytics dispatcher for all event tracking (rationale: swappable backends)."
+- A map node: "rm_analytics.dispatcher - service that fans out tracking events to whatever backend is currently wired in."
 
 Practice owns the imperative knowledge (do/don't/why). Map owns the named entity (what it is). They reference each other later via `kk_relates_to` populated by the curator; you do not need to populate `kk_relates_to` in your output.
+
+In this example, the map survives because it adds the dispatcher's backend-fan-out architecture, not because the practice happens to name `rm_analytics.dispatcher`. If the statement only said "use `rm_analytics.dispatcher` because it supports tracking," emit the practice alone.
 
 ---
 
@@ -176,8 +191,8 @@ Here is a small example transcript and the correct output, so you know exactly w
 ```
 [USER]: Let's add caching to the user profile page. Use Drupal's render cache.
 [AGENT]: I'll add #cache properties with appropriate contexts and tags.
-[USER]: No, don't use the default render cache for profile pages. We have a custom cache backend for anything with PII - the service is bravo_pii.cache. It encrypts at rest. Default Drupal cache stores plaintext in the database and we got dinged on that during the GDPR audit.
-[AGENT]: Got it. I'll use bravo_pii.cache instead.
+[USER]: No, don't use the default render cache for profile pages. We have a custom cache backend for anything with PII - the service is rm_pii.cache. It encrypts at rest. Default Drupal cache stores plaintext in the database and we got dinged on that during the GDPR audit.
+[AGENT]: Got it. I'll use rm_pii.cache instead.
 ```
 
 **Correct output:**
@@ -188,28 +203,20 @@ Here is a small example transcript and the correct output, so you know exactly w
     {
       "type": "practice",
       "tags": ["caching", "pii", "gdpr", "drupal"],
-      "title": "Use bravo_pii.cache for any content with PII",
-      "description": "Don't use Drupal's default render cache for PII-bearing pages; use bravo_pii.cache (encrypts at rest).",
-      "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `bravo_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
+      "title": "Use rm_pii.cache for any content with PII",
+      "description": "Don't use Drupal's default render cache for PII-bearing pages; use rm_pii.cache (encrypts at rest).",
+      "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `rm_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
       "kk_confidence": "high"
     }
   ],
-  "map": [
-    {
-      "type": "map",
-      "tags": ["service", "caching", "pii"],
-      "title": "bravo_pii.cache - encrypted cache backend for PII",
-      "description": "Custom Drupal cache backend service that encrypts at rest; used wherever content includes user PII.",
-      "body": "`bravo_pii.cache` is a custom cache backend service. It encrypts cached entries at rest, unlike Drupal's default render cache which stores plaintext in the database. Adopted in response to a GDPR audit finding.",
-      "kk_confidence": "high"
-    }
-  ]
+  "map": []
 }
 ```
 
 Notice what the example does NOT capture:
 - The agent's initial mention of "#cache properties" - that's just standard Drupal knowledge, not project-specific.
 - The agent's "Got it" acknowledgment - paraphrasing isn't a teaching moment.
+- A companion map for `rm_pii.cache` - its only facts repeat the practice's required service and rationale, so it has no independent structural value.
 
 ### Inline example: a self-review-apply turn
 
@@ -273,8 +280,8 @@ Either array may be empty. Many sessions produce zero of one kind or both - that
 
 1. Read the transcript carefully.
 2. For each `[USER]:` turn, ask: is the user teaching the agent something project-specific, or stating a project convention/prohibition/rationale? If yes, that's a practice candidate.
-3. For each `[USER]:` or `[AGENT]:` turn, ask: does this introduce a named entity, feature, module, file location, or vocabulary term that someone unfamiliar with the project wouldn't know? If yes, that's a map candidate.
-4. Apply the ownership boundary: split combined statements into a practice piece and a map piece.
+3. For each `[USER]:` or `[AGENT]:` turn, ask: does this independently teach what a named entity, feature, module, location, or vocabulary term is, where it belongs, or how it relates to the project? If yes, that's a map candidate. A name mentioned only to state or justify a practice is not enough.
+4. Apply the ownership boundary: split combined statements only when both pieces independently qualify. Never create a companion map by default.
 5. Reject anything that fails the "could be derived from the codebase or general knowledge" test, plus anything that is a maintenance or lifecycle action, project story or history (especially plan/ticket/issue references), or an incidental one-off fact dressed up as a practice.
 6. Emit one final JSON object matching the schema above. No prose before or after the JSON.
 

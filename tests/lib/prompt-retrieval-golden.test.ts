@@ -207,7 +207,7 @@ describe('golden prompt retrieval', () => {
       'practice-flux-north',
       'practice-flux-south',
       'practice-flux-alpha',
-      'practice-flux-bravo',
+      'practice-flux-baker',
       'practice-flux-carol',
       'practice-flux-delta',
     ]);

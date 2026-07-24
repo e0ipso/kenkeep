@@ -62,7 +62,7 @@ This scope is critical to signal-to-noise. The system captures two broad kinds:
 
 **"What exists in the project" (map nodes):**
 - **Features and architecture:** New systems being built, what they do, where their seams are.
-- **Vocabulary:** Project-specific terms ("Bravo Insider = personalized section on the platform"), internal module names, custom entity names.
+- **Vocabulary:** Project-specific terms ("Rivermark Discover = personalized section on the platform"), internal module names, custom entity names.
 - **Locations:** Where major systems live in the file tree.
 
 The system explicitly does **not** capture:

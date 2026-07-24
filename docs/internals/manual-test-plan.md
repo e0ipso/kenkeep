@@ -11,8 +11,8 @@ Checks that resist automation: real Claude Code sessions, non-Linux OS, and huma
 {% include callout.html variant="prereq" content="Run before any significant release (minor bump, schema bump, or pinned `@anthropic-ai/claude-code` bump). Record results in the release PR." %}
 
 For a release that changes an extraction or knowledge-admission prompt, also
-complete the [manual proposal extraction evaluation](prompt-eval.md) and record
-its advisory score in the release PR.
+run the [proposal extraction evaluation](prompt-eval.md) and record its advisory
+report in the release PR.
 
 ## Clean sandbox
 

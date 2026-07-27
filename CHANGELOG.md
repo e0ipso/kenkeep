@@ -1,3 +1,9 @@
+## [1.16.2](https://github.com/e0ipso/kenkeep/compare/v1.16.1...v1.16.2) (2026-07-27)
+
+### Bug Fixes
+
+* **prompt-eval:** make the evaluation framework trustworthy ([#116](https://github.com/e0ipso/kenkeep/issues/116)) ([00d7100](https://github.com/e0ipso/kenkeep/commit/00d71007243f50959a62bae0a23b3555e263a912))
+
 ## [1.16.1](https://github.com/e0ipso/kenkeep/compare/v1.16.0...v1.16.1) (2026-07-09)
 
 ### Bug Fixes

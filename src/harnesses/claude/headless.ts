@@ -59,6 +59,7 @@ export async function runHeadlessClaudeRaw(
     stdin: 'pipe',
     stdout: 'pipe',
     reject: false,
+    ...(opts.cwd ? { cwd: opts.cwd } : {}),
   });
   const stdout = proc.stdout as Readable;
   const resultPromise = proc.then(r => ({

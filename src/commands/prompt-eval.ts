@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, join, relative, resolve } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
@@ -275,49 +276,63 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
     throw new Error(`Prompt evaluation scorer not found: ${scorer}.`);
   }
 
-  const result = await runPromptEvaluation(
-    {
-      concurrency,
-      fixturesDir,
-      harnessId: adapter.id,
-      judgePromptFile,
-      judgePromptLabel: relative(root, judgePromptFile),
-      modelLabel:
-        Object.keys(harnessOpts).length > 0 ? JSON.stringify(harnessOpts) : 'harness default',
-      outputDir,
-      outputLabel: relative(root, outputDir),
-      promptFile,
-      promptLabel: relative(root, promptFile),
-      runs,
-      timeoutMs,
-    },
-    {
-      now: () => now,
-      onProgress: message => process.stderr.write(`[prompt-eval] ${message}\n`),
-      runHeadless: (prompt, runOpts) =>
-        adapter.runHeadless(prompt, '', ProposalOutputSchema, {
-          harnessOpts,
-          logFile: runOpts.logFile,
-          role: `prompt-eval ${runOpts.fixtureId}`,
-          timeoutMs: runOpts.timeoutMs,
-        }),
-      runJudge: (prompt, runOpts) =>
-        adapter.runHeadless(prompt, '', PromptEvalJudgeOutputSchema, {
-          harnessOpts,
-          logFile: runOpts.logFile,
-          role: `prompt-eval judge ${runOpts.fixtureId}`,
-          timeoutMs: runOpts.timeoutMs,
-        }),
-      scoreResults: (fixturePath, resultsPath, judgmentsPath) =>
-        execFileSync(process.execPath, [scorer, fixturePath, resultsPath, judgmentsPath], {
-          encoding: 'utf8',
-        }),
-    }
-  );
+  // Every fixture and judge call runs from an empty directory outside the
+  // checkout. The host CLI resolves project memory files and injects git status
+  // relative to its cwd, so running in-repo let subprocesses read this
+  // project's conventions, see uncommitted files, and recognize the corpus and
+  // its expected answers under tests/fixtures/prompt-eval. That contaminated
+  // the measurement and cost whole fixtures to off-contract responses.
+  const sandboxDir = mkdtempSync(join(tmpdir(), 'kenkeep-prompt-eval-sandbox-'));
 
-  process.stdout.write(result.report);
-  process.stderr.write(`[prompt-eval] artifacts: ${result.outputDir}\n`);
-  return result.exitCode;
+  try {
+    const result = await runPromptEvaluation(
+      {
+        concurrency,
+        fixturesDir,
+        harnessId: adapter.id,
+        judgePromptFile,
+        judgePromptLabel: relative(root, judgePromptFile),
+        modelLabel:
+          Object.keys(harnessOpts).length > 0 ? JSON.stringify(harnessOpts) : 'harness default',
+        outputDir,
+        outputLabel: relative(root, outputDir),
+        promptFile,
+        promptLabel: relative(root, promptFile),
+        runs,
+        timeoutMs,
+      },
+      {
+        now: () => now,
+        onProgress: message => process.stderr.write(`[prompt-eval] ${message}\n`),
+        runHeadless: (prompt, runOpts) =>
+          adapter.runHeadless(prompt, '', ProposalOutputSchema, {
+            cwd: sandboxDir,
+            harnessOpts,
+            logFile: runOpts.logFile,
+            role: `prompt-eval ${runOpts.fixtureId}`,
+            timeoutMs: runOpts.timeoutMs,
+          }),
+        runJudge: (prompt, runOpts) =>
+          adapter.runHeadless(prompt, '', PromptEvalJudgeOutputSchema, {
+            cwd: sandboxDir,
+            harnessOpts,
+            logFile: runOpts.logFile,
+            role: `prompt-eval judge ${runOpts.fixtureId}`,
+            timeoutMs: runOpts.timeoutMs,
+          }),
+        scoreResults: (fixturePath, resultsPath, judgmentsPath) =>
+          execFileSync(process.execPath, [scorer, fixturePath, resultsPath, judgmentsPath], {
+            encoding: 'utf8',
+          }),
+      }
+    );
+
+    process.stdout.write(result.report);
+    process.stderr.write(`[prompt-eval] artifacts: ${result.outputDir}\n`);
+    return result.exitCode;
+  } finally {
+    rmSync(sandboxDir, { recursive: true, force: true });
+  }
 }
 
 function readFixtures(fixturesDir: string): Fixture[] {

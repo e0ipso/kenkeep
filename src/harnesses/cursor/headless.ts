@@ -68,6 +68,7 @@ export async function runHeadlessCursor<T>(
     stdout: 'pipe',
     stderr: 'pipe',
     reject: false,
+    ...(opts.cwd ? { cwd: opts.cwd } : {}),
   });
   const stdout = proc.stdout as Readable;
   const stderr = proc.stderr as Readable | null;

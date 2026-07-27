@@ -48,6 +48,14 @@ export interface HeadlessRunOptions {
   timeoutMs?: number;
   logFile?: string;
   env?: NodeJS.ProcessEnv;
+  /**
+   * Working directory for the spawned CLI. Defaults to the current process
+   * cwd. Callers that must not see repository context (notably the prompt
+   * evaluation harness, whose fixtures and expected answers live in this repo)
+   * pass a scratch directory outside the checkout: the host CLI resolves
+   * project memory files and injects git status relative to its cwd.
+   */
+  cwd?: string;
   onMessage?: (msg: HeadlessStreamMessage) => void;
   harnessOpts?: Record<string, unknown>;
   /**

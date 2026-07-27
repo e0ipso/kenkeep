@@ -1,7 +1,7 @@
 # Prompt Evaluation Semantic Judge
 
 <!--
-  Version: 1
+  Version: 2
   Used by: the source-repository-only prompt-eval maintainer script
   Owner contract: verifies semantic facets in proposal candidates
 -->
@@ -31,7 +31,47 @@ Rules:
 4. When uncertain, use `not_entailed`.
 5. Return one comparison for every expected-point and proposal pair.
 6. Preserve every supplied expected-point id, proposal id, and facet id exactly.
-7. Emit one JSON object matching the required schema, with no surrounding prose.
+7. Emit one JSON object matching the output schema below, with no surrounding
+   prose.
+
+## Output schema
+
+Your entire output must be one JSON object validating against this JSON Schema:
+
+```json
+[JUDGE SCHEMA PLACEHOLDER]
+```
+
+Use these key names exactly. The per-comparison array of verdicts is `facets`,
+never `facet_results` or `facet_verdicts`, and the facet identifier key is
+`facet_id`, never `id`. Do not flatten a single facet's fields onto the
+comparison object; `facets` is always an array, even for one facet. Every object
+is closed: emit no keys beyond those the schema lists.
+
+A well-formed response looks like this:
+
+```json
+{
+  "comparisons": [
+    {
+      "expected_point_id": "example-point-id",
+      "proposal_id": "practice:0",
+      "facets": [
+        {
+          "facet_id": "example-facet-id",
+          "verdict": "entailed",
+          "evidence": "short exact excerpt copied from the proposal"
+        },
+        {
+          "facet_id": "another-facet-id",
+          "verdict": "not_entailed",
+          "evidence": null
+        }
+      ]
+    }
+  ]
+}
+```
 
 The input begins below.
 

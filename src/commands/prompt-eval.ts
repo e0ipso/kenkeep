@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { atomicWriteFile, atomicWriteJson } from '../lib/fs-atomic.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
@@ -21,6 +22,9 @@ const DEFAULT_CONCURRENCY = 2;
 const DEFAULT_RUNS = 1;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_ERROR_LENGTH = 500;
+// One retry: judge failures are dominated by one-off shape drift, and a single
+// malformed key discards the whole fixture's judgment in the scorer.
+const JUDGE_ATTEMPTS = 2;
 
 export interface PromptEvaluationOptions {
   concurrency: number;
@@ -143,11 +147,12 @@ export async function runPromptEvaluation(
             return;
           }
           try {
-            const judgment = await deps.runJudge(
+            const judgment = await runJudgeWithRetry(
+              deps,
               buildJudgePrompt(judgePromptTemplate, fixture.expectedPoints, output),
               {
                 fixtureId: fixture.id,
-                logFile: join(judgeLogsDir, `${fixture.id}.jsonl`),
+                judgeLogsDir,
                 timeoutMs: opts.timeoutMs,
               }
             );
@@ -352,10 +357,43 @@ function buildJudgePrompt(
     ...output.map.map((proposal, index) => ({ id: `map:${index}`, ...proposal })),
   ];
   const input = JSON.stringify({ expected_points: expectedPoints, proposals }, null, 2);
-  const placeholder = '[JUDGE INPUT PLACEHOLDER]';
-  return template.includes(placeholder)
-    ? template.replace(placeholder, input)
-    : `${template.trimEnd()}\n\n${input}`;
+  const inputPlaceholder = '[JUDGE INPUT PLACEHOLDER]';
+  const schemaPlaceholder = '[JUDGE SCHEMA PLACEHOLDER]';
+  // Derived from Zod so the contract the judge is shown can never drift from
+  // the one `runJudge` validates against.
+  const schema = JSON.stringify(
+    zodToJsonSchema(PromptEvalJudgeOutputSchema, 'PromptEvalJudgeOutput'),
+    null,
+    2
+  );
+  const withSchema = template.includes(schemaPlaceholder)
+    ? template.replace(schemaPlaceholder, schema)
+    : template;
+  return withSchema.includes(inputPlaceholder)
+    ? withSchema.replace(inputPlaceholder, input)
+    : `${withSchema.trimEnd()}\n\n${input}`;
+}
+
+async function runJudgeWithRetry(
+  deps: PromptEvaluationDeps,
+  prompt: string,
+  input: { fixtureId: string; judgeLogsDir: string; timeoutMs: number }
+): Promise<PromptEvalJudgeOutput> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= JUDGE_ATTEMPTS; attempt += 1) {
+    // Keep every attempt's transcript; a retried failure is the interesting one.
+    const suffix = attempt === 1 ? '' : `.retry-${attempt}`;
+    try {
+      return await deps.runJudge(prompt, {
+        fixtureId: input.fixtureId,
+        logFile: join(input.judgeLogsDir, `${input.fixtureId}${suffix}.jsonl`),
+        timeoutMs: input.timeoutMs,
+      });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 async function mapWithConcurrency<T>(

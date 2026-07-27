@@ -55,7 +55,10 @@ function createFixtureRoot(): string {
     join(root, 'prompt.md'),
     '<!-- Version: 5 -->\nBefore\n[TRANSCRIPT PLACEHOLDER, substituted at runtime]\nAfter\n'
   );
-  writeFileSync(join(root, 'judge.md'), '<!-- Version: 1 -->\n[JUDGE INPUT PLACEHOLDER]\n');
+  writeFileSync(
+    join(root, 'judge.md'),
+    '<!-- Version: 2 -->\n[JUDGE SCHEMA PLACEHOLDER]\n[JUDGE INPUT PLACEHOLDER]\n'
+  );
   return root;
 }
 
@@ -127,6 +130,13 @@ describe('prompt eval harness runner', () => {
     expect(prompts).toHaveLength(2);
     expect(judgePrompts).toHaveLength(1);
     expect(judgePrompts[0]).toContain('"expected_points"');
+    // The judge must be shown the exact contract runJudge validates against,
+    // derived from Zod rather than hand-authored in the template.
+    expect(judgePrompts[0]).toContain('"comparisons"');
+    expect(judgePrompts[0]).toContain('"expected_point_id"');
+    expect(judgePrompts[0]).toContain('"facet_id"');
+    expect(judgePrompts[0]).toContain('"not_entailed"');
+    expect(judgePrompts[0]).not.toContain('[JUDGE SCHEMA PLACEHOLDER]');
     expect(prompts[0]).not.toContain('schema_version');
     expect(prompts.join('\n')).toContain('[USER]: Alpha teaching');
     expect(prompts.join('\n')).toContain('[USER]: Beta teaching');
@@ -169,6 +179,111 @@ describe('prompt eval harness runner', () => {
     expect(result.report).toContain('Valid results: 1/2');
     expect(result.report).toContain('fixture-a: provider unavailable');
     expect(result.report).toContain('FAIL fixture-a: result file missing');
+  });
+
+  it('retries a judge that returns a malformed shape and keeps the recovered judgment', async () => {
+    const root = createFixtureRoot();
+    let judgeCalls = 0;
+
+    const result = await runPromptEvaluation(
+      {
+        concurrency: 1,
+        fixturesDir: join(root, 'fixtures'),
+        harnessId: 'claude',
+        judgePromptFile: join(root, 'judge.md'),
+        modelLabel: 'harness default',
+        outputDir: join(root, 'output'),
+        promptFile: join(root, 'prompt.md'),
+        runs: 1,
+        timeoutMs: 1_000,
+      },
+      {
+        now: () => new Date('2026-07-20T12:00:00.000Z'),
+        onProgress: () => undefined,
+        runHeadless: async prompt => {
+          if (!prompt.includes('Alpha')) return { practice: [], map: [] };
+          return {
+            practice: [
+              {
+                type: 'practice',
+                tags: ['alpha'],
+                title: 'Retain Alpha',
+                description: 'Alpha is retained.',
+                body: 'The proposal retains Alpha.',
+                kk_confidence: 'high',
+              },
+            ],
+            map: [],
+          };
+        },
+        runJudge: async () => {
+          judgeCalls += 1;
+          if (judgeCalls === 1) throw new Error('output did not match schema: facet_results');
+          return { comparisons: [] };
+        },
+        scoreResults: (_fixturesDir, _resultsDir, judgmentsDir) => {
+          expect(readFileSync(join(judgmentsDir, 'fixture-a.json'), 'utf8')).toContain(
+            '"comparisons"'
+          );
+          return 'Prompt eval score\n\nFixtures:\nPASS fixture-a\nPASS fixture-b\n';
+        },
+      }
+    );
+
+    expect(judgeCalls).toBe(2);
+    expect(result.exitCode).toBe(0);
+    expect(result.report).toContain('Valid judgments: 1/1');
+    expect(result.report).not.toContain('facet_results');
+  });
+
+  it('reports a judge failure only after every attempt is exhausted', async () => {
+    const root = createFixtureRoot();
+    let judgeCalls = 0;
+
+    const result = await runPromptEvaluation(
+      {
+        concurrency: 1,
+        fixturesDir: join(root, 'fixtures'),
+        harnessId: 'claude',
+        judgePromptFile: join(root, 'judge.md'),
+        modelLabel: 'harness default',
+        outputDir: join(root, 'output'),
+        promptFile: join(root, 'prompt.md'),
+        runs: 1,
+        timeoutMs: 1_000,
+      },
+      {
+        now: () => new Date('2026-07-20T12:00:00.000Z'),
+        onProgress: () => undefined,
+        runHeadless: async prompt => {
+          if (!prompt.includes('Alpha')) return { practice: [], map: [] };
+          return {
+            practice: [
+              {
+                type: 'practice',
+                tags: ['alpha'],
+                title: 'Retain Alpha',
+                description: 'Alpha is retained.',
+                body: 'The proposal retains Alpha.',
+                kk_confidence: 'high',
+              },
+            ],
+            map: [],
+          };
+        },
+        runJudge: async () => {
+          judgeCalls += 1;
+          throw new Error('output did not match schema');
+        },
+        scoreResults: () =>
+          'Prompt eval score\n\nFixtures:\nFAIL fixture-a: judgment file missing\nPASS fixture-b\n',
+      }
+    );
+
+    expect(judgeCalls).toBe(2);
+    expect(result.exitCode).toBe(1);
+    expect(result.report).toContain('Valid judgments: 0/1');
+    expect(result.report).toContain('fixture-a (judge): output did not match schema');
   });
 
   it('refuses a non-empty output directory so stale results cannot contaminate a run', async () => {

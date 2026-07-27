@@ -1,7 +1,7 @@
 # Proposal Extraction Prompt
 
 <!--
-  Version: 9
+  Version: 8
   Used by: the kk-proposal-drain hook (via a headless harness session)
   Owner contract: produces the structured `proposals.practice` and `proposals.map` arrays
   for a session log. Must emit one JSON object on stdout as the final message.
@@ -124,9 +124,7 @@ A map candidate must teach independently useful structure about its subject, bey
 
 Apply this counterfactual test: **if the related practice were removed, would the map still answer a useful question about what the subject is, where it belongs, or how it relates to the rest of the project?** If not, drop the map. A description that only converts "use service X because it does Y" into "service X does Y" fails this test.
 
-**Optional change-oriented clause (evidence-gated).** When the transcript actually surfaces what an editor must watch for when changing this entity, such as a check to run or an invariant to preserve, you may end the map body with one short "When changing this, verify…" sentence that captures it. Include it only when the session evidenced the guidance; never invent a watch-out to fill a template. If nothing in the transcript speaks to editing the entity, omit the clause entirely.
-
-**The clause never carries a standalone rule.** Apply the atomicity test to the watch-out before writing it: if a future agent could act on it without loading this map, it is a practice and must be emitted as its own practice candidate instead. The clause may only restate a check that is meaningless apart from the map's subject. If you find yourself joining two watch-outs with "and", that is proof they are separable practices; emit them as practices.
+**Optional change-oriented clause (evidence-gated).** When the transcript actually surfaces what an editor must watch for when changing this entity — a check to run, an invariant to preserve, a related rule that constrains edits — you may end the map body with one short "When changing this, verify…" sentence that captures it. Include it only when the session evidenced the guidance; never invent a watch-out to fill a template. If nothing in the transcript speaks to editing the entity, omit the clause entirely.
 
 ### Atomicity and granularity gate
 

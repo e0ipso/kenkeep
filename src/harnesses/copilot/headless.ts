@@ -75,6 +75,7 @@ export async function runHeadlessCopilot<T>(
     env,
     timeout: timeoutMs,
     reject: false,
+    ...(opts.cwd ? { cwd: opts.cwd } : {}),
   });
 
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';

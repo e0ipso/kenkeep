@@ -1,0 +1,25 @@
+fixture_id: admit-map-feature-01
+category: admit-map-feature
+expect_empty: false
+expected_points:
+  - id: beacon-review-lane
+    preferred_type: map
+    claim: Beacon Review Lane coordinates legal and accessibility review between Atlas Editorial and final publication.
+    required_facets:
+      - id: module-owner
+        criterion: beacon_review owns the review-lane entity and coordinator.
+      - id: atlas-seam
+        criterion: Atlas Editorial emits revision-ready input and receives one publish-clearance event after both reviews pass.
+      - id: orchard-seam
+        criterion: Orchard Search receives only the final publish event.
+  - id: beacon-review-state-boundary
+    preferred_type: practice
+    claim: Intermediate Beacon legal and accessibility states remain inside beacon_review.
+    required_facets:
+      - id: intermediate-owner
+        criterion: Intermediate legal and accessibility review states are owned inside beacon_review.
+      - id: orchard-final-only
+        criterion: Orchard Search must not subscribe to intermediate states and receives only final publication.
+max_unexpected_proposals: 0
+notes: >-
+  Expects the feature map and its independently actionable intermediate-state ownership rule.

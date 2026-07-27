@@ -14,3 +14,4 @@ settings.local.json
 .ai/task-manager/scratch
 .opencode/AGENTS.md
 .devcontainer/devcontainer-lock.json
+review.xml

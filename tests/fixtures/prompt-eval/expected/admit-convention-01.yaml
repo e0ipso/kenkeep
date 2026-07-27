@@ -1,0 +1,15 @@
+fixture_id: admit-convention-01
+category: admit-convention
+expect_empty: false
+expected_points:
+  - id: atlas-preview-revision-token
+    preferred_type: practice
+    claim: Atlas Editorial preview responses always include revision_token metadata.
+    required_facets:
+      - id: mandatory-all-responses
+        criterion: Every Atlas Editorial preview response includes revision_token, including field-filtered responses.
+      - id: stale-preview-purpose
+        criterion: Editors use revision_token to detect a stale preview before publishing.
+max_unexpected_proposals: 0
+notes: >-
+  Expects the complete preview-token rule, including why callers need the mandatory metadata.

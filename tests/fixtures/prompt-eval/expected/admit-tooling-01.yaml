@@ -1,0 +1,17 @@
+fixture_id: admit-tooling-01
+category: admit-tooling
+expect_empty: false
+expected_points:
+  - id: atlas-policy-test-command
+    preferred_type: practice
+    claim: Atlas Policy subscriber tests run with the atlas-policy-events PHPUnit group.
+    required_facets:
+      - id: exact-command
+        criterion: The command is ddev phpunit -c web/core modules/custom/atlas_policy --group atlas-policy-events.
+      - id: collector-purpose
+        criterion: The atlas-policy-events group boots the event collector used by the kernel fixtures.
+      - id: default-insufficient
+        criterion: The default module test invocation skips those event fixtures and is insufficient proof.
+max_unexpected_proposals: 0
+notes: >-
+  Expects the exact grouped command and why the default run is insufficient proof.

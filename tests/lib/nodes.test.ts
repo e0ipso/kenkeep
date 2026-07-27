@@ -170,7 +170,7 @@ describe('nodes helpers', () => {
   });
 
   it('slugify and deriveNodeId match the kind-slug pattern', () => {
-    expect(slugify('Bravo Insider — module!!')).toBe('bravo-insider-module');
+    expect(slugify('Rivermark Discover — module!!')).toBe('rivermark-discover-module');
     expect(deriveNodeId('practice', 'Use DI in controllers')).toBe(
       'practice-use-di-in-controllers'
     );

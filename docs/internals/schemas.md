@@ -52,7 +52,7 @@ Validated by `NodeFrontmatterSchema`. A leaf is an OKF concept document: the fou
 - **Practice**: _how we build._ Imperative guidance.
 - **Map**: _what exists._ Named entities (modules, services, vocabulary).
 
-The proposal prompt splits combined statements: "use `bravo_analytics.dispatcher`, our event-tracking service" becomes one practice (use the dispatcher) and one map (what the dispatcher is).
+The proposal prompt splits combined statements: "use `rm_analytics.dispatcher`, our event-tracking service" becomes one practice (use the dispatcher) and one map (what the dispatcher is).
 
 ### Conflict resolution
 

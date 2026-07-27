@@ -1,0 +1,7 @@
+fixture_id: reject-exploratory-02
+category: reject-exploratory
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests an access-cache investigation that produces hypotheses but no conclusion.

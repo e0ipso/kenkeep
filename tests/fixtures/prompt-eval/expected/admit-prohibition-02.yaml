@@ -1,0 +1,17 @@
+fixture_id: admit-prohibition-02
+category: admit-prohibition
+expect_empty: false
+expected_points:
+  - id: beacon-reference-loader
+    preferred_type: practice
+    claim: Beacon normalizers resolve referenced entities through beacon_reference.loader.
+    required_facets:
+      - id: required-loader
+        criterion: Every Beacon normalizer uses beacon_reference.loader for referenced entities.
+      - id: prohibit-raw-storage
+        criterion: Beacon normalizers do not load references through entity_type.manager or raw storage.
+      - id: translation-rationale
+        criterion: The loader applies the channel translation fallback required by the API contract.
+max_unexpected_proposals: 0
+notes: >-
+  Expects the complete project-wide loader rule with its prohibited path and translation rationale.

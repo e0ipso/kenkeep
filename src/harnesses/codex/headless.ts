@@ -63,6 +63,10 @@ export async function runHeadlessCodex<T>(
   const usePromptStdin =
     stdin.length > 0 || Buffer.byteLength(promptBody, 'utf8') > PROMPT_STDIN_THRESHOLD;
   const args: string[] = ['exec', '--json', '--sandbox', 'read-only'];
+  // codex refuses to start outside a trusted git repository. A caller that set
+  // an explicit cwd did so to escape repository context on purpose (see the
+  // prompt evaluation sandbox), so waive the check for that case only.
+  if (opts.cwd) args.push('--skip-git-repo-check');
   if (harnessOpts.model) args.push('--model', harnessOpts.model);
   if (harnessOpts.reasoningEffort) {
     args.push('-c', `reasoning.effort=${harnessOpts.reasoningEffort}`);
@@ -97,6 +101,7 @@ export async function runHeadlessCodex<T>(
     stdout: 'pipe',
     stderr: 'pipe',
     reject: false,
+    ...(opts.cwd ? { cwd: opts.cwd } : {}),
   });
   const stdout = proc.stdout as Readable;
   const stderr = proc.stderr as Readable | null;

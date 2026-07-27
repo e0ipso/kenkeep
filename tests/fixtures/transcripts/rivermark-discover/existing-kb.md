@@ -24,20 +24,20 @@ summary: "Drupal controllers must inject services via constructor + create(); no
 
 All controllers in this project receive their dependencies via constructor injection and a static `create()` factory. Direct `\Drupal::service()` calls inside controllers are prohibited.
 
-See `modules/custom/bravo_cards/src/Controller/CardFeedController.php` as the canonical example.
+See `modules/custom/rm_cards/src/Controller/CardFeedController.php` as the canonical example.
 ```
 
 ---
 
-## nodes/map/map-bravo-cards.md
+## nodes/map/map-rm-cards.md
 
 ```yaml
 ---
 schema_version: 1
-id: map-bravo-cards
-title: "Bravo Cards — card-feed rendering module"
+id: map-rm-cards
+title: "Rivermark Cards — card-feed rendering module"
 kind: map
-tags: [module, bravo-cards, ui]
+tags: [module, rm-cards, ui]
 derived_from:
   - 2026-01-08-1500-cards-intro.md
   - 2026-03-22-1145-cards-content-type-x.md
@@ -46,9 +46,9 @@ confidence: high
 summary: "Custom Drupal module that renders card feeds; supports article, event, and content-type-x entities."
 ---
 
-# Bravo Cards
+# Rivermark Cards
 
-Custom Drupal module at `modules/custom/bravo_cards`. Renders card feeds with configurable data sources.
+Custom Drupal module at `modules/custom/rm_cards`. Renders card feeds with configurable data sources.
 
 Helper services control which data to pull into the feed (CardSourceResolver) and which fields are mapped onto each card (CardFieldMapper).
 

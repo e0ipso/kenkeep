@@ -97,9 +97,9 @@ function successRunner(): ProposalRunner {
       {
         kind: 'map',
         tags: ['module'],
-        title: 'bravo_insider module',
+        title: 'rm_discover module',
         summary: 'Personalized section module',
-        body: 'Lives at modules/custom/bravo_insider.',
+        body: 'Lives at modules/custom/rm_discover.',
         confidence: 'high',
       },
     ],

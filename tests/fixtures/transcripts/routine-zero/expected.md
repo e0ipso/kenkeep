@@ -34,4 +34,4 @@ A prompt that over-captures would mistakenly produce:
 
 ## Calibration target
 
-This fixture is the **lower bound** test. If the prompt produces anything at all here, it's over-capturing. Combined with the bravo-insider fixture (which is the **upper bound** test — substantial content that should produce 7 candidates), these two fixtures bracket the prompt's calibration.
+This fixture is the **lower bound** test. If the prompt produces anything at all here, it's over-capturing. Combined with the rivermark-discover fixture (which is the **upper bound** test — substantial content that should produce 7 candidates), these two fixtures bracket the prompt's calibration.

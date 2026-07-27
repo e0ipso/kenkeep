@@ -1,0 +1,25 @@
+fixture_id: admit-convention-02
+category: admit-convention
+expect_empty: false
+expected_points:
+  - id: harbor-media-contract-declaration
+    preferred_type: practice
+    claim: Fields exposed outside Drupal are declared in harbor_media.contract.yml before normalizers expose them.
+    required_facets:
+      - id: declare-first
+        criterion: Every externally exposed Harbor Media field must be declared in harbor_media.contract.yml first.
+      - id: no-php-list
+        criterion: Public field lists must not be hard-coded separately in PHP.
+  - id: harbor-media-contract-boundary
+    preferred_type: map
+    claim: harbor_media.contract.yml is the authoritative review boundary for the external media contract.
+    required_facets:
+      - id: authoritative-contract
+        criterion: harbor_media.contract.yml defines the external Harbor Media field contract.
+      - id: normalizer-input
+        criterion: Harbor Media normalizers read their public field declarations from this YAML file.
+      - id: compatibility-boundary
+        criterion: The file is the review boundary for external API compatibility.
+max_unexpected_proposals: 0
+notes: >-
+  Expects separate atomic knowledge for the declaration rule and the contract artifact's structural role.

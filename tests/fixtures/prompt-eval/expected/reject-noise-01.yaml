@@ -1,0 +1,7 @@
+fixture_id: reject-noise-01
+category: reject-noise
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests rejection of routine first-try work followed only by a typo correction.

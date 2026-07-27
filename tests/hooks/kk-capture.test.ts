@@ -118,7 +118,7 @@ interface HarnessCase {
   homePrefix?: string;
 }
 
-const SUBSTANTIAL_USER = 'use bravo_pii.cache for PII. '.repeat(8);
+const SUBSTANTIAL_USER = 'use rm_pii.cache for PII. '.repeat(8);
 const SUBSTANTIAL_AGENT = 'understood, here is the detailed reasoning. '.repeat(16);
 
 function writeClaudeTranscript(path: string, userText: string, agentText: string): void {

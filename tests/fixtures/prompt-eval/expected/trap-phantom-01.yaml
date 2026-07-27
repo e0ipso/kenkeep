@@ -1,0 +1,7 @@
+fixture_id: trap-phantom-01
+category: trap-phantom
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests that an aborted /kk-add probe does not duplicate an unapproved rule-shaped statement.

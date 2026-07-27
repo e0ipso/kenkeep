@@ -169,6 +169,10 @@ function readJudgments(judgmentsDir, fixtureId, points, proposals) {
   }
   const observedPairs = new Set();
   const fullMatches = [];
+  // Comparisons where the proposal entailed some but not all of a point's
+  // facets. An unassigned proposal that partially covered a point the fixture
+  // went on to miss is a near miss, not an unexpected proposal.
+  const partialMatches = [];
 
   for (const comparison of value.comparisons) {
     if (
@@ -192,6 +196,7 @@ function readJudgments(judgmentsDir, fixtureId, points, proposals) {
     const expectedFacetIds = new Set(point.required_facets.map(facet => facet.id));
     const observedFacetIds = new Set();
     let full = true;
+    let entailedCount = 0;
     const proposalText = normalizeForEvidence(
       `${proposal.title}\n${proposal.description}\n${proposal.body}`
     );
@@ -208,6 +213,7 @@ function readJudgments(judgmentsDir, fixtureId, points, proposals) {
       }
       observedFacetIds.add(facet.facet_id);
       if (facet.verdict !== 'entailed') full = false;
+      if (facet.verdict === 'entailed') entailedCount += 1;
       if (facet.verdict === 'not_entailed' && facet.evidence !== null) {
         return { error: 'judgment evidence-invalid' };
       }
@@ -227,6 +233,7 @@ function readJudgments(judgmentsDir, fixtureId, points, proposals) {
       return { error: 'judgment coverage-invalid' };
     }
     if (full) fullMatches.push({ pointIndex, proposalIndex });
+    else if (entailedCount > 0) partialMatches.push({ pointIndex, proposalIndex });
   }
 
   if (
@@ -235,7 +242,7 @@ function readJudgments(judgmentsDir, fixtureId, points, proposals) {
   ) {
     return { error: 'judgment coverage-invalid' };
   }
-  return { fullMatches };
+  return { fullMatches, partialMatches };
 }
 
 function addFlowEdge(graph, from, to, capacity, cost) {
@@ -311,6 +318,7 @@ function emptyScore(entry, expectedTotal, gateTotal, reason) {
     expectedMatched: 0,
     expectedTotal,
     phantomCount: 0,
+    nearMissCount: 0,
     gateCorrect: false,
     gateTotal,
     kindMismatches: [],
@@ -328,10 +336,12 @@ function scoreFixture(entry, resultsDir, judgmentsDir) {
 
   const proposals = flattenProposals(result.value);
   let eligibleMatches = [];
+  let partialMatches = [];
   if (points.length > 0) {
     const judgments = readJudgments(judgmentsDir, entry.fixtureId, points, proposals);
     if (judgments.error) return emptyScore(entry, expectedTotal, gateTotal, judgments.error);
     eligibleMatches = judgments.fullMatches;
+    partialMatches = judgments.partialMatches;
   }
 
   const leakedPointIds = new Set();
@@ -364,7 +374,23 @@ function scoreFixture(entry, resultsDir, judgmentsDir) {
       actual: proposals[assignment.proposalIndex].type,
     }));
 
-  const phantomCount = proposals.length - assignedProposalIndexes.size;
+  // An unassigned proposal that partially covered a point the fixture went on
+  // to miss is a near miss: the shortfall is already charged as that missed
+  // point, so counting it again as an unexpected proposal double-penalizes one
+  // underlying failure. Everything else unassigned is unexpected, including a
+  // duplicate that fully matched an already-satisfied point.
+  const missedPointIndexes = new Set(
+    points.map((_point, index) => index).filter(index => !assignedPointIndexes.has(index))
+  );
+  const nearMissProposalIndexes = new Set(
+    partialMatches
+      .filter(match => missedPointIndexes.has(match.pointIndex))
+      .map(match => match.proposalIndex)
+      .filter(index => !assignedProposalIndexes.has(index))
+  );
+  const unassignedCount = proposals.length - assignedProposalIndexes.size;
+  const nearMissCount = nearMissProposalIndexes.size;
+  const phantomCount = unassignedCount - nearMissCount;
   const reasons = missedPoints.map(point => `missed expected point "${point.id}"`);
   for (const id of leakedPointIds) reasons.push(`forbidden content for "${id}"`);
   if (entry.sidecar.expect_empty && proposals.length > 0) {
@@ -383,6 +409,7 @@ function scoreFixture(entry, resultsDir, judgmentsDir) {
     expectedMatched: expectedTotal - missedPoints.length,
     expectedTotal,
     phantomCount,
+    nearMissCount,
     gateCorrect: entry.sidecar.expect_empty && proposals.length === 0,
     gateTotal,
     kindMismatches,
@@ -394,6 +421,7 @@ function renderReport(scores) {
   let expectedMatched = 0;
   let expectedTotal = 0;
   let phantomCount = 0;
+  let nearMissCount = 0;
   let gatesCorrect = 0;
   let gatesTotal = 0;
   let kindMismatchCount = 0;
@@ -406,6 +434,7 @@ function renderReport(scores) {
     expectedMatched += score.expectedMatched;
     expectedTotal += score.expectedTotal;
     phantomCount += score.phantomCount;
+    nearMissCount += score.nearMissCount;
     gatesCorrect += score.gateCorrect ? 1 : 0;
     gatesTotal += score.gateTotal;
     kindMismatchCount += score.kindMismatches.length;
@@ -429,6 +458,7 @@ function renderReport(scores) {
     'Aggregate:',
     `Expected-point recall: ${expectedMatched}/${expectedTotal}`,
     `Phantom count: ${phantomCount}`,
+    `Near misses (advisory): ${nearMissCount}`,
     `Gate accuracy: ${gatesCorrect}/${gatesTotal}`,
     `Kind mismatches (advisory): ${kindMismatchCount}`
   );

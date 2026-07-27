@@ -180,6 +180,60 @@ describe('prompt eval semantic scorer', () => {
 
     expect(output).toContain('Expected-point recall: 1/1');
     expect(output).toContain('phantom over budget (1 > 0)');
+    expect(output).toContain('Near misses (advisory): 0');
+  });
+
+  it('treats a proposal that partially covers a missed point as a near miss, not a phantom', () => {
+    const twoFacet = point({
+      required_facets: [
+        { id: 'custom', criterion: 'Cache tags use the custom invalidation path.' },
+        { id: 'scope', criterion: 'The rule applies to every cache tag update.' },
+      ],
+    });
+    const output = runScenario(
+      { expected_points: [twoFacet] },
+      { practice: [proposal()], map: [] },
+      {
+        comparisons: [
+          {
+            expected_point_id: 'cache-tags',
+            proposal_id: 'practice:0',
+            facets: [
+              { facet_id: 'custom', verdict: 'entailed', evidence: 'custom invalidation' },
+              { facet_id: 'scope', verdict: 'not_entailed', evidence: null },
+            ],
+          },
+        ],
+      }
+    );
+
+    // The shortfall is already charged as the missed point; charging it again as
+    // an unexpected proposal would double-penalize one underlying failure.
+    expect(output).toContain('missed expected point "cache-tags"');
+    expect(output).toContain('Phantom count: 0');
+    expect(output).toContain('Near misses (advisory): 1');
+    expect(output).not.toContain('phantom over budget');
+  });
+
+  it('counts a proposal that entails nothing anywhere as a phantom', () => {
+    const output = runScenario(
+      {},
+      { practice: [proposal(), proposal({ title: 'Unrelated node' })], map: [] },
+      {
+        comparisons: [
+          ...((judgment().comparisons as unknown[]) ?? []),
+          {
+            expected_point_id: 'cache-tags',
+            proposal_id: 'practice:1',
+            facets: [{ facet_id: 'custom', verdict: 'not_entailed', evidence: null }],
+          },
+        ],
+      }
+    );
+
+    expect(output).toContain('Expected-point recall: 1/1');
+    expect(output).toContain('phantom over budget (1 > 0)');
+    expect(output).toContain('Near misses (advisory): 0');
   });
 
   it('does not let one proposal satisfy two atomic points', () => {

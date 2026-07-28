@@ -24,8 +24,8 @@ async function main(): Promise<void> {
     )
     .option(
       '--judge-prompt-file <path>',
-      'built semantic judge prompt',
-      'templates/prompts/prompt-eval-judge.md'
+      'semantic judge prompt (dev-only, read directly from source)',
+      'scripts/prompt-eval/prompt-eval-judge.md'
     )
     .option(
       '--output-dir <path>',

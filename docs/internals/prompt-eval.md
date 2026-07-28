@@ -70,7 +70,7 @@ Useful path overrides are available for controlled experiments:
 npm run prompt-eval -- --harness <id> \
   --fixtures-dir tests/fixtures/prompt-eval \
   --prompt-file templates/prompts/proposal-extract.md \
-  --judge-prompt-file templates/prompts/prompt-eval-judge.md \
+  --judge-prompt-file scripts/prompt-eval/prompt-eval-judge.md \
   --output-dir .ai/kenkeep/.state/prompt-eval/my-run
 ```
 

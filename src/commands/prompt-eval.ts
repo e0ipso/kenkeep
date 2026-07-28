@@ -235,7 +235,7 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
   const promptFile = resolve(root, opts.promptFile ?? 'templates/prompts/proposal-extract.md');
   const judgePromptFile = resolve(
     root,
-    opts.judgePromptFile ?? 'templates/prompts/prompt-eval-judge.md'
+    opts.judgePromptFile ?? 'scripts/prompt-eval/prompt-eval-judge.md'
   );
   const runs = parsePositiveIntegerFlag('--runs', opts.runs, DEFAULT_RUNS);
   const concurrency = parsePositiveIntegerFlag(

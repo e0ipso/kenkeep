@@ -1,11 +1,6 @@
-import { execa } from 'execa';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import type { Readable } from 'node:stream';
-import split2 from 'split2';
 import type { ZodSchema } from 'zod';
-import type { HeadlessRunOptions, HeadlessStreamMessage } from '../types.js';
-import { extractJsonPayload } from '../../lib/json-extract.js';
+import type { HeadlessRunOptions } from '../types.js';
+import { BufferedAnswerStrategy, runHeadlessStrategy } from '../../lib/headless-run.js';
 import { KiroHarnessOptsSchema } from './opts.js';
 
 export const DEFAULT_TIMEOUT_MS = 60_000;
@@ -27,143 +22,64 @@ export interface KiroHeadlessOptions extends HeadlessRunOptions {
 }
 
 /**
- * Invokes `kiro-cli-chat chat <prompt> --no-interactive --trust-all-tools` in
- * programmatic mode and validates the embedded fenced JSON payload from the
- * agent's final stdout text against `schema`.
+ * `kiro-cli-chat chat <prompt> --no-interactive --trust-all-tools`.
  *
- * Kiro CLI has no `--json` programmatic-output flag, so the runner relies on
- * the same embedded-JSON contract the other adapters fall back to: the prompt
- * instructs the model to emit a JSON object (typically fenced) at the end of
- * its answer, and `extractJsonPayload` recovers it from the buffered stdout.
+ * Kiro CLI has no `--json` programmatic-output flag, so it uses the shared
+ * buffered-answer contract — the same one Copilot uses: the prompt instructs
+ * the model to emit a JSON object (typically fenced) at the end of its answer,
+ * and the shared runner recovers it from the collected stdout.
  * `--no-interactive` and `--trust-all-tools` are both required for fully
  * autonomous non-interactive operation.
  *
  * The recursion guard env var `KENKEEP_BUILDER_INTERNAL=1` is always set on
  * the child so capture and drain hooks fired from the spawned process exit
  * silently.
- *
- * stdout is consumed as a streaming line buffer (consistent with the other
- * adapters) so the mock execa helper works correctly in tests.
  */
+class KiroHeadless extends BufferedAnswerStrategy {
+  readonly cli: string;
+  readonly args: readonly string[];
+  readonly env: NodeJS.ProcessEnv;
+  readonly timeoutMs: number;
+  readonly role: string;
+
+  private readonly repoRoot: string;
+
+  constructor(promptBody: string, stdin: string, opts: KiroHeadlessOptions) {
+    super(opts);
+    this.cli = opts.kiroCli ?? 'kiro-cli-chat';
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.role = opts.role ?? 'headless';
+    this.repoRoot = opts.repoRoot ?? process.cwd();
+
+    const harnessOpts = KiroHarnessOptsSchema.parse(opts.harnessOpts ?? {});
+    const fullPrompt = stdin.length > 0 ? `${promptBody}\n\n--- input ---\n${stdin}` : promptBody;
+    const args: string[] = ['chat', fullPrompt, '--no-interactive', '--trust-all-tools'];
+    if (harnessOpts.model) args.push('--model', harnessOpts.model);
+    this.args = args;
+
+    this.env = { ...(opts.env ?? process.env), KENKEEP_BUILDER_INTERNAL: '1' };
+  }
+
+  noOutputError(): string {
+    return `${this.role} output was empty; kiro-cli-chat produced no final text.`;
+  }
+
+  /** `cli` may be a caller-supplied path; errors should name the harness. */
+  override harnessName(): string {
+    return 'kiro-cli-chat';
+  }
+
+  /** Kiro's file tools resolve against cwd, so pin it to the project root. */
+  override cwd(): string {
+    return this.repoRoot;
+  }
+}
+
 export async function runHeadlessKiro<T>(
   promptBody: string,
   stdin: string,
   schema: ZodSchema<T>,
   opts: KiroHeadlessOptions = {}
 ): Promise<T> {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const harnessOpts = KiroHarnessOptsSchema.parse(opts.harnessOpts ?? {});
-  const cli = opts.kiroCli ?? 'kiro-cli-chat';
-  const repoRoot = opts.repoRoot ?? process.cwd();
-
-  const fullPrompt = stdin.length > 0 ? `${promptBody}\n\n--- input ---\n${stdin}` : promptBody;
-
-  const args: string[] = ['chat', fullPrompt, '--no-interactive', '--trust-all-tools'];
-  if (harnessOpts.model) args.push('--model', harnessOpts.model);
-
-  const env: NodeJS.ProcessEnv = {
-    ...(opts.env ?? process.env),
-    KENKEEP_BUILDER_INTERNAL: '1',
-  };
-
-  let logStream: ReturnType<typeof createWriteStream> | null = null;
-  if (opts.logFile) {
-    mkdirSync(dirname(opts.logFile), { recursive: true });
-    logStream = createWriteStream(opts.logFile, { encoding: 'utf8', flags: 'a' });
-  }
-
-  const proc = execa(cli, args, {
-    env,
-    cwd: repoRoot,
-    timeout: timeoutMs,
-    stdout: 'pipe',
-    reject: false,
-  });
-  const stdout = proc.stdout as Readable;
-  const stderrChunks: string[] = [];
-  const stderrStream = proc.stderr as Readable | null;
-  if (stderrStream) {
-    stderrStream.setEncoding('utf8');
-    stderrStream.on('data', (chunk: string) => {
-      stderrChunks.push(chunk);
-    });
-  }
-
-  const resultPromise = proc.then(r => ({
-    exitCode: typeof r.exitCode === 'number' ? r.exitCode : undefined,
-    failed: r.failed === true,
-    timedOut: r.timedOut === true,
-  }));
-
-  const outputLines: string[] = [];
-  const splitter = stdout.pipe(split2());
-  splitter.on('data', (line: string) => {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) return;
-    if (logStream) logStream.write(`${trimmed}\n`);
-    outputLines.push(trimmed);
-  });
-
-  const streamDone = new Promise<void>((resolve, reject) => {
-    splitter.once('end', () => resolve());
-    splitter.once('error', (err: Error) => reject(err));
-  });
-
-  let runResult;
-  try {
-    const [r] = await Promise.all([resultPromise, streamDone]);
-    runResult = r;
-  } finally {
-    if (logStream) {
-      await new Promise<void>(resolve => logStream!.end(resolve));
-    }
-  }
-
-  if (runResult.timedOut) {
-    throw new Error(`kiro-cli-chat subprocess timed out after ${timeoutMs}ms`);
-  }
-  if (runResult.failed || (runResult.exitCode !== undefined && runResult.exitCode !== 0)) {
-    const stderrTail = tailString(stderrChunks.join(''), 2000);
-    const suffix = stderrTail ? `: ${stderrTail}` : '';
-    throw new Error(
-      `kiro-cli-chat subprocess failed (exit code ${String(runResult.exitCode ?? 'unknown')})${suffix}`
-    );
-  }
-
-  const combinedOutput = outputLines.join('\n');
-  const role = opts.role ?? 'headless';
-
-  if (combinedOutput.trim().length === 0) {
-    throw new Error(`${role} output was empty; kiro-cli-chat produced no final text.`);
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(extractJsonPayload(combinedOutput));
-  } catch (parseError) {
-    throw new Error(
-      `${role} output did not contain a parseable JSON payload: ${parseError instanceof Error ? parseError.message : String(parseError)}. First 1KB of stdout: ${combinedOutput.slice(0, 1024)}`
-    );
-  }
-
-  const validated = schema.safeParse(parsedJson);
-  if (!validated.success) {
-    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
-  }
-
-  if (opts.onMessage) {
-    const message: HeadlessStreamMessage = {
-      type: 'result',
-      result: combinedOutput,
-      is_error: false,
-    };
-    opts.onMessage(message);
-  }
-
-  return validated.data;
-}
-
-function tailString(s: string, maxChars: number): string {
-  if (s.length <= maxChars) return s.trim();
-  return s.slice(s.length - maxChars).trim();
+  return runHeadlessStrategy(new KiroHeadless(promptBody, stdin, opts), schema);
 }

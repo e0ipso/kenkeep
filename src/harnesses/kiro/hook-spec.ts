@@ -10,11 +10,11 @@ import type { HookSpec } from '../types.js';
  *
  * Events and their kenkeep mappings:
  *
- *   agentSpawn         → kk-session-start  (sync; stdout injected into context)
- *   agentSpawn (async) → kk-proposal-drain (async via asyncLauncher)
- *   stop               → kk-capture        (sync; fires at end of each agent turn)
- *   stop               → kk-lint-tick      (sync; periodic lint check)
- *   userPromptSubmit   → kk-prompt-context (sync; stdout injected into context)
+ *   agentSpawn       → kk-session-start  (sync; stdout injected into context)
+ *   agentSpawn       → kk-proposal-drain (async via asyncLauncher)
+ *   stop             → kk-capture        (sync; fires at end of each agent turn)
+ *   stop             → kk-lint-tick      (async via asyncLauncher)
+ *   userPromptSubmit → kk-prompt-context (sync; stdout injected into context)
  *
  * Exit code semantics (from Kiro CLI docs):
  *   0          → success; stdout added to agent context for agentSpawn and
@@ -22,11 +22,13 @@ import type { HookSpec } from '../types.js';
  *   2          → block execution (userPromptSubmit only; not used by kenkeep)
  *   other      → warning shown to user; execution continues
  *
- * The `async` flag on kk-proposal-drain is consumed by the async-launcher
- * path in the hook script itself (`asyncLauncher: true` in runHookEntry).
- * Kiro does not have a native async hook mechanism, so the hook returns
- * immediately after spawning a detached child — same pattern as
- * Codex/Cursor/Copilot.
+ * Kiro has no native async hook mechanism, so non-blocking behaviour comes
+ * from `asyncLauncher: true` in the hook script's own `runHookEntry` call —
+ * the hook spawns a detached child and returns immediately, the same pattern
+ * as Codex/Cursor/Copilot. The declarative `async` flag below is advisory
+ * metadata for the support-matrix tests (it marks which hooks may not return
+ * context to the host); `writeKiroHookConfig` does not read it, because Kiro's
+ * config format has no async field to render it into.
  */
 export const KIRO_HOOK_SPECS: readonly HookSpec[] = [
   { event: 'agentSpawn', scriptPath: 'kk-session-start.cjs' },

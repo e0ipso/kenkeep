@@ -8,7 +8,7 @@
  * routes through the async launcher and returns immediately; the drain runs in
  * the detached worker.
  */
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd } from '../../../lib/hook-entry.js';
 import { runProposalDrain } from '../../../lib/proposal-drain.js';
 import { runHeadlessCursor } from '../headless.js';
 import { buildCursorHarnessOpts } from '../opts.js';
@@ -17,11 +17,7 @@ runHookEntry({
   tag: 'cursor:kk-proposal-drain',
   asyncLauncher: true,
   main: async payload => {
-    const roots = payload['workspace_roots'];
-    const startCwd =
-      Array.isArray(roots) && typeof roots[0] === 'string' && roots[0].length > 0
-        ? (roots[0] as string)
-        : process.cwd();
+    const startCwd = hookStartCwd(payload, 'workspace_roots');
     await runProposalDrain({
       binaryName: 'agent',
       startCwd,

@@ -10,7 +10,7 @@
  * Payload received on stdin:
  *   { hook_event_name: "agentSpawn", cwd: "...", session_id: "..." }
  */
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd } from '../../../lib/hook-entry.js';
 import { runProposalDrain } from '../../../lib/proposal-drain.js';
 import { runHeadlessKiro } from '../headless.js';
 import { buildKiroHarnessOpts } from '../opts.js';
@@ -19,10 +19,7 @@ runHookEntry({
   tag: 'kiro:kk-proposal-drain',
   asyncLauncher: true,
   main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
+    const startCwd = hookStartCwd(payload);
     await runProposalDrain({
       binaryName: 'kiro-cli-chat',
       startCwd,

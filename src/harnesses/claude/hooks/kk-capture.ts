@@ -5,7 +5,7 @@
  * write session log, append to queue.
  */
 import { captureSession, type HookInput } from '../../../lib/capture.js';
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
@@ -26,10 +26,7 @@ runHookEntry({
   deadlineMs: 1000,
   requirePayload: true,
   main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
+    const startCwd = hookStartCwd(payload);
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
 

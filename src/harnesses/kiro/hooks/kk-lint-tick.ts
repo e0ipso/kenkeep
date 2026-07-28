@@ -9,17 +9,14 @@
  * Payload received on stdin:
  *   { hook_event_name: "stop", cwd: "...", session_id: "..." }
  */
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd } from '../../../lib/hook-entry.js';
 import { runLintTick } from '../../../lib/lint-state.js';
 
 runHookEntry({
   tag: 'kiro:kk-lint-tick',
   asyncLauncher: true,
   main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
+    const startCwd = hookStartCwd(payload);
     await runLintTick(startCwd, 'kiro:kk-lint-tick');
   },
 });

@@ -17,32 +17,15 @@
  * Output: plain text on stdout (raw; Kiro injects stdout into context at
  * exit 0 for userPromptSubmit hooks).
  */
-import { existsSync } from 'node:fs';
-import { runHookEntry } from '../../../lib/hook-entry.js';
-import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { buildPromptKnowledgeContext } from '../../../lib/prompt-retrieval.js';
+import { PromptContextStrategy, runPromptContextHook } from '../../../lib/prompt-context-hook.js';
 
-runHookEntry({
-  tag: 'kiro:kk-prompt-context',
-  deadlineMs: 1000,
-  main: async payload => {
-    const prompt = typeof payload['prompt'] === 'string' ? (payload['prompt'] as string) : '';
-    if (prompt.trim().length === 0) return;
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
-    const paths = repoPaths(findRepoRoot(startCwd));
-    if (!existsSync(paths.installedVersionFile)) return;
+class KiroPromptContext extends PromptContextStrategy {
+  readonly tag = 'kiro:kk-prompt-context';
 
-    let context: string;
-    try {
-      context = buildPromptKnowledgeContext(paths.nodesDir, prompt);
-    } catch {
-      return;
-    }
-    if (context.trim().length === 0) return;
-    // Kiro injects raw stdout into the agent context for userPromptSubmit.
+  /** Kiro injects raw stdout into the agent context for userPromptSubmit. */
+  emit(context: string): void {
     process.stdout.write(`${context}\n`);
-  },
-});
+  }
+}
+
+runPromptContextHook(new KiroPromptContext());

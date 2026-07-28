@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { CaptureTrigger } from '../../src/lib/schemas.js';
+import { CaptureTriggerSchema, type CaptureTrigger } from '../../src/lib/schemas.js';
 import { CLAUDE_EVENT_TO_TRIGGER } from '../../src/harnesses/claude/hooks/kk-capture.js';
 import { CURSOR_EVENT_TO_TRIGGER } from '../../src/harnesses/cursor/hooks/kk-capture.js';
 import { CODEX_EVENT_TO_TRIGGER } from '../../src/harnesses/codex/hooks/kk-capture.js';
 import { OPENCODE_EVENT_TO_TRIGGER } from '../../src/harnesses/opencode/hooks/kk-capture.js';
 import { COPILOT_EVENT_TO_TRIGGER } from '../../src/harnesses/copilot/hooks/kk-capture.js';
 import { KIRO_HOOK_SPECS } from '../../src/harnesses/kiro/hook-spec.js';
+import { KIRO_CAPTURE_TRIGGER } from '../../src/harnesses/kiro/hooks/kk-capture.js';
 
 /**
  * Each adapter owns the native→canonical `captured_by` mapping for its own
@@ -85,15 +86,15 @@ describe('adapter-owned captured_by trigger mapping', () => {
     expect(resolve(map, undefined)).toBe('stop');
   });
 
-  it('kiro always records trigger "stop" — no event map needed (only one capture event)', () => {
-    // Kiro fires kk-capture on its `stop` event only. The hook hardcodes
-    // trigger: 'stop' directly rather than using an event→trigger map, because
-    // there is no multi-event capture surface to disambiguate. This test
-    // documents that design decision so a future maintainer knows why there is
-    // no KIRO_EVENT_TO_TRIGGER export.
-    const kiroHook = KIRO_HOOK_SPECS.find(h => h.scriptPath === 'kk-capture.cjs');
-    expect(kiroHook?.event).toBe('stop');
-    // Only one capture hook registered.
-    expect(KIRO_HOOK_SPECS.filter(h => h.scriptPath === 'kk-capture.cjs')).toHaveLength(1);
+  it('kiro needs no event map: its one capture event already equals the trigger it records', () => {
+    // Kiro is the only adapter without a KIRO_EVENT_TO_TRIGGER map, and that is
+    // only sound while two things hold: kk-capture is registered on exactly one
+    // native event, and that event's name is itself a canonical CaptureTrigger.
+    // Registering a second capture event (sessionEnd, preCompact, ...) would
+    // silently mislabel every capture as `stop`, so pin both facts here.
+    const captureHooks = KIRO_HOOK_SPECS.filter(h => h.scriptPath === 'kk-capture.cjs');
+    expect(captureHooks).toHaveLength(1);
+    expect(captureHooks[0]?.event).toBe(KIRO_CAPTURE_TRIGGER);
+    expect(CaptureTriggerSchema.safeParse(KIRO_CAPTURE_TRIGGER).success).toBe(true);
   });
 });

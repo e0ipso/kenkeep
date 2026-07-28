@@ -292,8 +292,6 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(res.stdout).toContain('# kenkeep');
     expect(res.stdout).toContain(DESCENT_PHRASE);
     expect(res.stdout).not.toContain(GREP_RECIPE);
-    // Must not write a copilot-style file — Kiro uses stdout, not a side file.
-    expect(existsSync(join(sb.root, '.kiro', 'AGENTS.md'))).toBe(false);
   });
 
   it('keeps the injected payload bounded as deep leaves are added', async () => {

@@ -22,15 +22,25 @@ import { parseKiroTranscript, renderKiroTranscript } from './transcript.js';
 function kiroListMemoryFilesImpl(root: string, home: string): string[] {
   const dirs = [join(root, '.kiro', 'steering'), join(home, '.kiro', 'steering')];
   const out: string[] = [];
+  // De-duplicated because the two directories collapse into one when the repo
+  // *is* the home directory, and because a stable, sorted result keeps the
+  // memory ledger from churning on `readdirSync`'s filesystem-dependent order.
+  const seen = new Set<string>();
   for (const dir of dirs) {
+    let names: string[];
     try {
       if (!existsSync(dir)) continue;
-      for (const name of readdirSync(dir)) {
-        if (!name.endsWith('.md')) continue;
-        out.push(pathToFileURL(join(dir, name)).href);
-      }
+      names = readdirSync(dir);
     } catch {
-      // Non-fatal: directory may have changed between existsSync and readdirSync
+      // Non-fatal: directory may have changed between existsSync and readdirSync.
+      continue;
+    }
+    for (const name of names.sort()) {
+      if (!name.endsWith('.md')) continue;
+      const iri = pathToFileURL(join(dir, name)).href;
+      if (seen.has(iri)) continue;
+      seen.add(iri);
+      out.push(iri);
     }
   }
   return out;

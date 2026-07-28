@@ -1,5 +1,6 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
@@ -320,20 +321,47 @@ describe('init', () => {
     expect(body).toContain('.ai/kenkeep/hooks/');
   });
 
-  it('writes a default .kkignore for kiro init that contains .kiro/skills/ but not .kiro/specs', async () => {
-    const kkignore = join(sandbox, '.kkignore');
+  it('kiro init installs skills, hook scripts, and an agent config whose commands resolve from a subdirectory', async () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'kiro']);
     expect(result.exitCode).toBe(0);
-    expect(existsSync(kkignore)).toBe(true);
 
-    const body = readFileSync(kkignore, 'utf8');
-    // Kiro's skills directory must be denied so agent instructions are not
-    // scanned as project knowledge.
-    expect(body).toContain('.kiro/skills/');
-    // Kiro has a `specs` directory (.kiro/specs/) that contains SDD artifacts
-    // which should be scanned by kk-bootstrap. It must NOT be denied in the
-    // generated .kkignore stub.
-    expect(body).not.toContain('.kiro/specs');
+    // Skills and compiled hook scripts land where the adapter documents.
+    expect(existsSync(join(sandbox, '.kiro/skills/kk-curate/SKILL.md'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/kiro/kk-capture.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/kiro/kk-session-start.cjs'))).toBe(true);
+
+    const config = JSON.parse(
+      readFileSync(join(sandbox, '.kiro/agents/kk-hooks.json'), 'utf8')
+    ) as { hooks: Record<string, Array<{ command: string }>> };
+    expect(Object.keys(config.hooks).sort()).toEqual(['agentSpawn', 'stop', 'userPromptSubmit']);
+
+    // The whole point of the walk-up command is that a session started in a
+    // repo subdirectory still finds the scripts. Run the generated command for
+    // real from a nested cwd and assert it locates and executes the script
+    // (kk-session-start prints its progress banner on stderr).
+    const nested = join(sandbox, 'packages', 'inner');
+    mkdirSync(nested, { recursive: true });
+    const sessionStart = config.hooks['agentSpawn']!.find(h =>
+      h.command.includes('kk-session-start.cjs')
+    );
+    expect(sessionStart).toBeDefined();
+    const run = spawnSync('sh', ['-c', sessionStart!.command], {
+      cwd: nested,
+      input: JSON.stringify({ hook_event_name: 'agentSpawn', cwd: sandbox }),
+      encoding: 'utf8',
+    });
+    expect(run.status).toBe(0);
+    expect(run.stderr).toContain('kenkeep Index');
+
+    // Outside any kenkeep repo the same command must no-op silently rather
+    // than error, so a Kiro session in an unrelated directory is unaffected.
+    const outside = spawnSync('sh', ['-c', sessionStart!.command], {
+      cwd: tmpdir(),
+      input: '{}',
+      encoding: 'utf8',
+    });
+    expect(outside.status).toBe(0);
+    expect(outside.stdout).toBe('');
   });
 
   it('injects the kk index pointer block into an existing AGENTS.md and never duplicates it on upgrade', async () => {

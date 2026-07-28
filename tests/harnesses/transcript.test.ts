@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { getHarness } from '../../src/harnesses/registry.js';
 import { normalizeCursorConversationId } from '../../src/harnesses/cursor/session-id.js';
 import { renderRoleTagged } from '../../src/lib/transcript-render.js';
+import { parseKiroTranscript } from '../../src/harnesses/kiro/transcript.js';
 
 /**
  * One representative two-turn transcript per adapter, expressed in that
@@ -271,5 +272,62 @@ describe('renderRoleTagged self-review-apply tagging', () => {
       '[USER /self-review-apply feedback/round-2.xml]: /self-review-apply feedback/round-2.xml\n\n' +
         '[AGENT NARRATION OF SELF-REVIEW feedback/round-2.xml]: I worked through the comments...'
     );
+  });
+});
+
+describe('parseKiroTranscript is total over malformed session documents', () => {
+  // Capture feeds this parser whatever is on disk at ~/.kiro/sessions/cli/.
+  // kenkeep does not own that format, so an unexpected shape must degrade to an
+  // empty transcript rather than throw and abort the stop hook. The original
+  // implementation cast `user_turn_metadatas` to an array unconditionally and
+  // died with "turns is not iterable" on an object.
+  const malformed: Array<[string, string]> = [
+    ['not JSON at all', 'not-json'],
+    ['empty document', '{}'],
+    ['null document', 'null'],
+    ['session_state is a string', '{"session_state":"nope"}'],
+    [
+      'user_turn_metadatas is an object',
+      '{"session_state":{"conversation_metadata":{"user_turn_metadatas":{}}}}',
+    ],
+    [
+      'user_turn_metadatas is a string',
+      '{"session_state":{"conversation_metadata":{"user_turn_metadatas":"abc"}}}',
+    ],
+    [
+      'turn entries are strings',
+      '{"session_state":{"conversation_metadata":{"user_turn_metadatas":["x"]}}}',
+    ],
+  ];
+
+  it.each(malformed)('returns an empty transcript for %s', (_name, text) => {
+    expect(() => parseKiroTranscript(text)).not.toThrow();
+    expect(parseKiroTranscript(text)).toEqual({ interleaved: [] });
+  });
+
+  it('skips non-text content blocks and non-string data instead of stringifying them', () => {
+    const text = JSON.stringify({
+      session_state: {
+        conversation_metadata: {
+          user_turn_metadatas: [
+            {
+              result: {
+                Ok: {
+                  content: [
+                    { kind: 'tool_use', data: { path: 'x' } },
+                    { kind: 'text', data: { nested: true } },
+                    { kind: 'text', data: 'real answer' },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+    expect(parseKiroTranscript(text).interleaved).toEqual([
+      { role: 'user', text: '' },
+      { role: 'agent', text: 'real answer' },
+    ]);
   });
 });

@@ -1,16 +1,14 @@
-import { execa } from 'execa';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import type { Readable } from 'node:stream';
-import split2 from 'split2';
 import type { ZodSchema } from 'zod';
 import type { HeadlessRunOptions, HeadlessStreamMessage } from '../types.js';
-import { extractJsonPayload } from '../../lib/json-extract.js';
+import {
+  HeadlessStrategy,
+  routePrompt,
+  runHeadlessStrategy,
+  type ChildStdin,
+} from '../../lib/headless-run.js';
 import { CursorHarnessOptsSchema } from './opts.js';
 
 export const DEFAULT_TIMEOUT_MS = 60_000;
-
-const PROMPT_STDIN_THRESHOLD = 64 * 1024;
 
 interface CursorResultEvent extends HeadlessStreamMessage {
   type?: string;
@@ -19,135 +17,81 @@ interface CursorResultEvent extends HeadlessStreamMessage {
 }
 
 /**
- * Invokes `agent -p --output-format json` and validates the final result
- * text as structured JSON against `schema`. With `json` format the CLI emits
- * a single terminal `type: result` object; `stream-json` is also accepted
- * when callers switch format later.
+ * `agent -p --output-format json`. With `json` format the CLI emits a single
+ * terminal `type: result` object; `stream-json` is also accepted when callers
+ * switch format later.
  */
+class CursorHeadless extends HeadlessStrategy {
+  readonly cli: string;
+  readonly args: readonly string[];
+  readonly env: NodeJS.ProcessEnv;
+  readonly timeoutMs: number;
+  readonly role: string;
+
+  private readonly childStdin: string;
+  private lastResultText: string | undefined;
+
+  constructor(
+    promptBody: string,
+    stdin: string,
+    private readonly opts: HeadlessRunOptions
+  ) {
+    super();
+    const harnessOpts = CursorHarnessOptsSchema.parse(opts.harnessOpts ?? {});
+    this.cli = harnessOpts.agentCli ?? 'agent';
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.role = opts.role ?? 'headless';
+
+    const args: string[] = ['-p', '--output-format', 'json'];
+    if (harnessOpts.model) args.push('--model', harnessOpts.model);
+    const routed = routePrompt(promptBody, stdin);
+    args.push(routed.promptArg);
+    this.childStdin = routed.childStdin;
+    this.args = args;
+
+    this.env = { ...(opts.env ?? process.env), KENKEEP_BUILDER_INTERNAL: '1' };
+  }
+
+  consumeLine(line: string): void {
+    let parsed: CursorResultEvent;
+    try {
+      parsed = JSON.parse(line) as CursorResultEvent;
+    } catch {
+      return;
+    }
+    if (parsed.type === 'result' && typeof parsed.result === 'string') {
+      this.lastResultText = parsed.result;
+    }
+    if (this.opts.onMessage) this.opts.onMessage(parsed);
+  }
+
+  finalText(): string | undefined {
+    return this.lastResultText;
+  }
+
+  noOutputError(): string {
+    return `${this.harnessName()} subprocess produced no result event`;
+  }
+
+  /** `cli` may be a caller-supplied path; errors should name the harness. */
+  override harnessName(): string {
+    return 'agent';
+  }
+
+  override stdin(): ChildStdin {
+    return { mode: 'write', input: this.childStdin };
+  }
+
+  override logFile(): string | undefined {
+    return this.opts.logFile;
+  }
+}
+
 export async function runHeadlessCursor<T>(
   promptBody: string,
   stdin: string,
   schema: ZodSchema<T>,
   opts: HeadlessRunOptions = {}
 ): Promise<T> {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const harnessOpts = CursorHarnessOptsSchema.parse(opts.harnessOpts ?? {});
-  const agentCli = harnessOpts.agentCli ?? 'agent';
-
-  const usePromptStdin =
-    stdin.length > 0 || Buffer.byteLength(promptBody, 'utf8') > PROMPT_STDIN_THRESHOLD;
-  const args: string[] = ['-p', '--output-format', 'json'];
-  if (harnessOpts.model) args.push('--model', harnessOpts.model);
-  let childStdin: string;
-  if (usePromptStdin) {
-    args.push('-');
-    childStdin = stdin.length > 0 ? stdin : promptBody;
-  } else {
-    args.push(promptBody);
-    childStdin = '';
-  }
-
-  const env: NodeJS.ProcessEnv = {
-    ...(opts.env ?? process.env),
-    KENKEEP_BUILDER_INTERNAL: '1',
-  };
-
-  let logStream: ReturnType<typeof createWriteStream> | null = null;
-  if (opts.logFile) {
-    mkdirSync(dirname(opts.logFile), { recursive: true });
-    logStream = createWriteStream(opts.logFile, { encoding: 'utf8', flags: 'a' });
-  }
-
-  let lastResultText: string | undefined;
-  const stderrChunks: string[] = [];
-  const proc = execa(agentCli, args, {
-    input: childStdin,
-    env,
-    timeout: timeoutMs,
-    stdin: 'pipe',
-    stdout: 'pipe',
-    stderr: 'pipe',
-    reject: false,
-  });
-  const stdout = proc.stdout as Readable;
-  const stderr = proc.stderr as Readable | null;
-  if (stderr) {
-    stderr.setEncoding('utf8');
-    stderr.on('data', (chunk: string) => {
-      stderrChunks.push(chunk);
-    });
-  }
-
-  const resultPromise = proc.then(r => ({
-    exitCode: typeof r.exitCode === 'number' ? r.exitCode : undefined,
-    failed: r.failed === true,
-    timedOut: r.timedOut === true,
-  }));
-
-  const splitter = stdout.pipe(split2());
-  splitter.on('data', (line: string) => {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) return;
-    if (logStream) logStream.write(`${trimmed}\n`);
-    let parsed: CursorResultEvent;
-    try {
-      parsed = JSON.parse(trimmed) as CursorResultEvent;
-    } catch {
-      return;
-    }
-    if (parsed.type === 'result' && typeof parsed.result === 'string') {
-      lastResultText = parsed.result;
-    }
-    if (opts.onMessage) opts.onMessage(parsed);
-  });
-  const streamDone = new Promise<void>((resolve, reject) => {
-    splitter.once('end', () => resolve());
-    splitter.once('error', err => reject(err));
-  });
-
-  let runResult;
-  try {
-    const [r] = await Promise.all([resultPromise, streamDone]);
-    runResult = r;
-  } finally {
-    if (logStream) {
-      await new Promise<void>(resolve => logStream!.end(resolve));
-    }
-  }
-
-  if (runResult.timedOut) {
-    throw new Error(`${agentCli} subprocess timed out after ${timeoutMs}ms`);
-  }
-  if (runResult.failed || (runResult.exitCode !== undefined && runResult.exitCode !== 0)) {
-    const stderrTail = tailString(stderrChunks.join(''), 2000);
-    const suffix = stderrTail ? `: ${stderrTail}` : '';
-    throw new Error(
-      `${agentCli} subprocess failed (exit code ${String(runResult.exitCode ?? 'unknown')})${suffix}`
-    );
-  }
-
-  if (typeof lastResultText !== 'string') {
-    throw new Error(`${agentCli} subprocess produced no result event`);
-  }
-
-  const role = opts.role ?? 'headless';
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(extractJsonPayload(lastResultText));
-  } catch (parseError) {
-    throw new Error(
-      `${role} output was not valid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. See ${opts.logFile ?? 'log'} for the full transcript.`
-    );
-  }
-
-  const validated = schema.safeParse(parsedJson);
-  if (!validated.success) {
-    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
-  }
-  return validated.data;
-}
-
-function tailString(s: string, maxChars: number): string {
-  if (s.length <= maxChars) return s.trim();
-  return s.slice(s.length - maxChars).trim();
+  return runHeadlessStrategy(new CursorHeadless(promptBody, stdin, opts), schema);
 }

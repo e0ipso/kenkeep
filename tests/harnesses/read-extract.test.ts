@@ -272,7 +272,9 @@ describe('extractKiroReads', () => {
   });
 
   it('extracts markdown path candidates from assistant response text', () => {
-    const result = extractKiroReads(makeSession(['cat .ai/kenkeep/nodes/foo.md', 'rg term .ai/kenkeep/nodes/']));
+    const result = extractKiroReads(
+      makeSession(['cat .ai/kenkeep/nodes/foo.md', 'rg term .ai/kenkeep/nodes/'])
+    );
     expect(result).toContain('.ai/kenkeep/nodes/foo.md');
   });
 
@@ -281,10 +283,12 @@ describe('extractKiroReads', () => {
   });
 
   it('collects from multiple turns in document order', () => {
-    const result = extractKiroReads(makeSession([
-      'Reading .ai/kenkeep/nodes/a.md for context.',
-      'Also checked .ai/kenkeep/nodes/b.md',
-    ]));
+    const result = extractKiroReads(
+      makeSession([
+        'Reading .ai/kenkeep/nodes/a.md for context.',
+        'Also checked .ai/kenkeep/nodes/b.md',
+      ])
+    );
     expect(result).toContain('.ai/kenkeep/nodes/a.md');
     expect(result).toContain('.ai/kenkeep/nodes/b.md');
     expect(result.indexOf('.ai/kenkeep/nodes/a.md')).toBeLessThan(

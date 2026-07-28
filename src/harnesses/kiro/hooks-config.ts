@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { atomicWriteFile } from '../../lib/fs-atomic.js';
 import { KIRO_HOOK_SPECS } from './hook-spec.js';
 
 /**
@@ -24,7 +25,11 @@ export const KIRO_HOOKS_AGENT_FILE = 'kk-hooks.json';
  */
 function walkUpCommand(scriptPath: string): string {
   const rel = `.ai/kenkeep/hooks/kiro/${scriptPath}`;
-  return `d="$PWD"; while [ "$d" != "/" ]; do s="$d/${rel}"; [ -f "$s" ] && exec node "$s"; d="$(dirname "$d")"; done; :`;
+  // The loop tests the current directory *before* deciding whether to stop, so
+  // `/` itself is checked like any other ancestor; a `while [ "$d" != "/" ]`
+  // guard would skip a repo rooted at the filesystem root. `$(pwd)` rather than
+  // `$PWD` so the command does not depend on the host exporting PWD.
+  return `d=$(pwd); while :; do s="$d/${rel}"; [ -f "$s" ] && exec node "$s"; [ "$d" = "/" ] && break; d=$(dirname "$d"); done; :`;
 }
 
 /**
@@ -62,14 +67,6 @@ function renderHooksConfig(): KiroHooksConfig {
   };
 }
 
-/** Atomic write: tmp file then rename. Creates the parent directory. */
-function atomicWriteText(file: string, body: string): void {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, body);
-  renameSync(tmp, file);
-}
-
 /**
  * Renders the aggregated Kiro hooks agent config and atomically writes it to
  * `.kiro/agents/kk-hooks.json`. Idempotent: re-running produces identical
@@ -90,7 +87,7 @@ export function writeKiroHookConfig(root: string): void {
       // Fall through to overwrite.
     }
   }
-  atomicWriteText(file, body);
+  atomicWriteFile(file, body);
 }
 
 /**

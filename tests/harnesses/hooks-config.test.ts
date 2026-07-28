@@ -402,8 +402,12 @@ describe('kiroAdapter hook registration', () => {
 
 describe('writeKiroHookConfig', () => {
   let tmp: string;
-  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'kk-kiro-hooks-')); });
-  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'kk-kiro-hooks-'));
+  });
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
 
   it('writes .kiro/agents/kk-hooks.json with all required events and walk-up commands', () => {
     writeKiroHookConfig(tmp);

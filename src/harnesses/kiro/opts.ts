@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { KiroModelChoiceSchema } from '../../lib/schemas.js';
 import {
   pickModelChoice,
   type EffectiveSettings,
@@ -24,17 +23,20 @@ export const KiroHarnessOptsSchema = z
 export type KiroHarnessOpts = z.infer<typeof KiroHarnessOptsSchema>;
 
 /**
- * Builds a Kiro-shaped `harnessOpts` blob from the resolved settings and
- * the per-call role. When the configured model choice for the role does not
- * match the Kiro variant, the result is `{}` and the `kiro-cli-chat` binary's
- * own default model applies.
+ * Builds a Kiro-shaped `harnessOpts` blob from the resolved settings and the
+ * per-call role. When the configured model choice for the role is not the Kiro
+ * variant, the result is `{}` and the `kiro-cli-chat` binary's own default
+ * model applies.
+ *
+ * Discriminates on `choice.harness` like every sibling adapter rather than
+ * re-running the Zod schema: `pickModelChoice` already returns a validated
+ * `ModelChoice`, so a second parse only restates the discriminant.
  */
 export function buildKiroHarnessOpts(
   settings: EffectiveSettings,
   role: ModelChoiceRole
 ): Record<string, unknown> {
-  const raw = pickModelChoice(settings, role);
-  const result = KiroModelChoiceSchema.safeParse(raw);
-  if (!result.success) return {};
-  return { model: result.data.model };
+  const choice = pickModelChoice(settings, role);
+  if (!choice || choice.harness !== 'kiro') return {};
+  return { model: choice.model };
 }

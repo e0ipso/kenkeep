@@ -15,7 +15,7 @@ import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput, type TranscriptParser } from '../../../lib/capture.js';
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
@@ -39,10 +39,7 @@ runHookEntry({
   deadlineMs: 8000,
   requirePayload: true,
   main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
+    const startCwd = hookStartCwd(payload);
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
 

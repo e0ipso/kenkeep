@@ -24,29 +24,43 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import type { CaptureTrigger } from '../../../lib/schemas.js';
+import { runHookEntry, hookStartCwd, payloadString } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { parseKiroTranscript } from '../transcript.js';
 import { extractKiroReads } from '../../read-extract.js';
 
 const PACKAGE_TAG = '[kenkeep]';
 
-function pickString(payload: Record<string, unknown>, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === 'string' && value.length > 0) return value;
-  }
-  return undefined;
-}
+/**
+ * The canonical `captured_by` value every Kiro capture records.
+ *
+ * The other adapters export an event→trigger map because they register
+ * kk-capture on several native events. Kiro registers it on exactly one
+ * (`stop`), whose native name already equals the canonical trigger, so a map
+ * would have a single identity entry. This constant is the single source of
+ * truth instead; `tests/harnesses/captured-by-trigger.test.ts` pins it against
+ * the registered hook spec so the two cannot drift.
+ */
+export const KIRO_CAPTURE_TRIGGER: CaptureTrigger = 'stop';
 
 /**
- * Validates that `value` is a non-empty UUID v4 string safe to use as a
- * filename component. Rejects anything containing path separators or other
- * characters that could cause path traversal.
+ * Validates that `value` is safe to interpolate into the session-file path as
+ * a single filename component.
+ *
+ * The check is deliberately shape-agnostic rather than pinned to UUID v4:
+ * kenkeep does not control Kiro's session-id format, and a version-specific
+ * pattern turns a harmless format change (a v7 UUID, an opaque `ses_…` token)
+ * into capture silently doing nothing forever. The security requirement is
+ * only that the value cannot escape `~/.kiro/sessions/cli/` — so the allowed
+ * alphabet excludes `/`, `\`, NUL, and every other separator, the first
+ * character must be alphanumeric (which rules out `.` and `..`), and the
+ * length is bounded well under any filesystem's component limit.
  */
-function isValidSessionId(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+export function isValidSessionId(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
 }
+
 function kiroSessionPath(sessionId: string): string {
   return join(homedir(), '.kiro', 'sessions', 'cli', `${sessionId}.json`);
 }
@@ -56,13 +70,13 @@ runHookEntry({
   deadlineMs: 1000,
   requirePayload: true,
   main: async payload => {
-    const startCwd = pickString(payload, 'cwd') ?? process.cwd();
+    const startCwd = hookStartCwd(payload);
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
     if (!existsSync(paths.installedVersionFile)) return;
 
     try {
-      const sessionId = pickString(payload, 'session_id');
+      const sessionId = payloadString(payload, 'session_id');
       if (!sessionId) {
         process.stderr.write(`${PACKAGE_TAG} capture: no session_id in payload; skipping.\n`);
         return;
@@ -79,7 +93,7 @@ runHookEntry({
       const input: HookInput = {
         session_id: sessionId,
         transcript_path: sessionFile,
-        trigger: 'stop',
+        trigger: KIRO_CAPTURE_TRIGGER,
         cwd: startCwd,
       };
       process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');

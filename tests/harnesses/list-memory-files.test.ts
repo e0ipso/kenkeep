@@ -220,4 +220,24 @@ describe('kiroAdapter.listMemoryFiles', () => {
     expect(result).toContain(pathToFileURL(join(homeSteering, 'user.md')).href);
     expect(result).toHaveLength(2);
   });
+
+  it('de-duplicates and orders stably when the repo root is the home directory', () => {
+    // A repo checked out at ~ collapses the two scanned directories into one.
+    // Without de-duplication every steering file is reported twice and the
+    // memory ledger records phantom duplicates.
+    const steering = join(tmpRoot, '.kiro', 'steering');
+    mkdirSync(steering, { recursive: true });
+    for (const name of ['zeta.md', 'alpha.md', 'mid.md']) {
+      writeFileSync(join(steering, name), `# ${name}\n`);
+    }
+
+    const result = kiroListMemoryFiles(tmpRoot, tmpRoot);
+    expect(result).toHaveLength(3);
+    expect(new Set(result).size).toBe(3);
+    // Sorted rather than in readdir order, so the result does not churn
+    // between machines or filesystems.
+    expect(result).toEqual(
+      ['alpha.md', 'mid.md', 'zeta.md'].map(n => pathToFileURL(join(steering, n)).href)
+    );
+  });
 });

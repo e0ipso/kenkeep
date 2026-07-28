@@ -1,7 +1,7 @@
 {
   "name": "kenkeep",
   "version": "1.16.0",
-  "description": "Builds and maintains a per-repo knowledge base from AI coding sessions, for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, and GitHub Copilot CLI.",
+  "description": "Builds and maintains a per-repo knowledge base from AI coding sessions, for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, GitHub Copilot CLI, and Kiro CLI.",
   "license": "MIT",
   "author": "e0ipso",
   "repository": {
@@ -22,6 +22,7 @@
     "cursor",
     "opencode",
     "github-copilot",
+    "kiro",
     "agents-md",
     "knowledge-base",
     "memory"

@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
 import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
-import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import {
   errCheck,
   ok,

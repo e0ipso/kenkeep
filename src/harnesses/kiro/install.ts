@@ -1,8 +1,7 @@
 import { join } from 'node:path';
 import { installSharedSkills } from '../../lib/install-skills.js';
-import { copySharedHookScripts } from '../../lib/shared-hooks.js';
+import { copySharedHookScripts, sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { HarnessInstallOptions, HarnessPaths } from '../types.js';
-import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import { writeKiroHookConfig } from './hooks-config.js';
 
 /** Template subdirectory name for the Kiro adapter. */

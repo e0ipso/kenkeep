@@ -1,3 +1,9 @@
+## [1.16.3](https://github.com/e0ipso/kenkeep/compare/v1.16.2...v1.16.3) (2026-07-28)
+
+### Bug Fixes
+
+* stop shipping test asset ([d015b73](https://github.com/e0ipso/kenkeep/commit/d015b73a0f03c571895097a581043c023091fba8))
+
 ## [1.16.2](https://github.com/e0ipso/kenkeep/compare/v1.16.1...v1.16.2) (2026-07-27)
 
 ### Bug Fixes

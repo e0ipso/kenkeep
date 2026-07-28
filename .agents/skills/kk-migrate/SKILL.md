@@ -3,7 +3,7 @@ name: kk-migrate
 description: Run any pending knowledge-base migration by querying the deterministic migration chain (`migrate status`) and executing each pending step's documented procedure in-host, with every write delegated to the step's deterministic CLI primitives. Use when the node reader, `doctor`, or `init` reports an out-of-date `schema_version` / legacy flat layout and asks you to migrate, or when the user asks to migrate the knowledge base.
 ---
 
-<!-- Version: 6 -->
+<!-- Version: 7 -->
 
 # kk-migrate
 
@@ -27,11 +27,11 @@ Before anything else, ask the CLI which migrations are pending:
 npx --yes kenkeep@latest migrate status
 ```
 
-- If it prints a line like `Knowledge base is already at schema_version 2; nothing to do.` (or `No knowledge base found under nodes/; nothing to do.`), there is nothing to migrate. **Stop** and report that one line to the user. Do nothing else.
+- If it prints a line like `Knowledge base is already at schema_version 3; nothing to do.` (or `No knowledge base found under nodes/; nothing to do.`), there is nothing to migrate. **Stop** and report that one line to the user. Do nothing else.
 - Otherwise stdout is exactly one JSON line — the ordered chain of pending steps:
 
   ```
-  {"current":1,"target":2,"steps":[{"id":"flat-to-tree","from":1,"to":2,"primitives":["place inventory","place apply"]}]}
+  {"current":2,"target":3,"steps":[{"id":"okf-v3","from":2,"to":3,"primitives":["migrate okf-v3"]}]}
   ```
 
   `current` is the detected on-disk schema version, `target` is the version this CLI ships, and `steps` is every step needed to bridge the gap, in execution order. Each entry carries the step's stable `id`, the `from`/`to` versions it bridges, and the deterministic CLI `primitives` it drives.
@@ -90,7 +90,7 @@ PLACE_PLAN=$(mktemp -t kk-place-plan.XXXXXX.json)
 npx --yes kenkeep@latest place apply --input "$PLACE_PLAN"
 ```
 
-The primitive validates every id against the leaves actually on disk and every authored folder summary against the folders the placements create — **before any write** — then relocates each leaf with its id and bytes preserved (only `schema_version` bumps) and stamps each folder summary into that folder's `index.md`. A bad plan (an unknown/omitted id, or a summary keyed to a folder no leaf is placed into) aborts with a clear message and makes **zero** filesystem changes; fix the document and re-run. Do not relocate files or stamp summaries yourself.
+The primitive validates every id against the leaves actually on disk and every authored folder summary against the folders the placements create — **before any write** — then relocates each leaf with its id and bytes preserved (only `schema_version` bumps) and stamps each folder summary into the folder-summary sidecar. A bad plan (an unknown/omitted id, or a summary keyed to a folder no leaf is placed into) aborts with a clear message and makes **zero** filesystem changes; fix the document and re-run. Do not relocate files or stamp summaries yourself.
 
 On success it prints one JSON line, the placement summary:
 
@@ -116,7 +116,52 @@ Tell the user the migration is staged in the working tree and **no git command w
 git diff
 ```
 
-Leaves moved into their topical folders show as renames (ids and bytes preserved); each created folder's `index.md` carries its authored summary; `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts the migration with `git commit` and rejects it with `git restore` (path-scoped or whole-tree). Do not stage, commit, or restore anything yourself.
+Leaves moved into their topical folders show as renames (ids and bytes preserved); each created folder's authored summary is recorded in `.ai/kenkeep/FOLDER_SUMMARIES.md`; `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts the migration with `git commit` and rejects it with `git restore` (path-scoped or whole-tree). Do not stage, commit, or restore anything yourself.
+
+## okf-v3 (2 -> 3)
+
+Migrates a v2 topical tree to the v3 OKF-native node format. This step is fully deterministic: there is no clustering and no LLM judgment. Your role is to invoke the primitive, inspect its summary, and hand the resulting diff to the user for review.
+
+### 1. Run the deterministic rewrite
+
+Run the primitive reported by dispatch:
+
+```bash
+npx --yes kenkeep@latest migrate okf-v3
+```
+
+It refuses unless the detected on-disk version is exactly `2`. On success it mechanically:
+
+- renames leaf frontmatter `kind` -> `type` and `summary` -> `description`;
+- moves kenkeep-owned fields to `kk_` extension keys (`kk_schema_version`, `kk_id`, `kk_relates_to`, `kk_depends_on`, `kk_derived_from`, `kk_confidence`);
+- renders the generated `Related` and `# Citations` body sections from the v3 frontmatter truth;
+- migrates folder summaries out of old `nodes/**/index.md` frontmatter into `.ai/kenkeep/FOLDER_SUMMARIES.md`;
+- rebuilds `nodes/**/index.md`, `ENTRY.md`, and `GRAPH.md`.
+
+It prints one JSON line:
+
+```json
+{"converted":2,"folder_summaries":1,"collisions":[]}
+```
+
+If `collisions` is non-empty, surface it clearly: those leaves already had an unmarked `# Related` or `# Citations` heading before the generated sections were appended. Do not try to merge the headings yourself; the user reviews the body diff.
+
+### 2. Verify and hand off
+
+Run the normal deterministic checks:
+
+```bash
+npx --yes kenkeep@latest lint --verbose
+npx --yes kenkeep@latest doctor --verbose
+```
+
+Then report that the v3 OKF migration is staged in the working tree and **no git command was run**. Tell the user to review:
+
+```bash
+git diff
+```
+
+Leaves are rewritten in place, folder summaries now live in `.ai/kenkeep/FOLDER_SUMMARIES.md`, ordinary `nodes/**/index.md` files are OKF reserved files, and `ENTRY.md` / `GRAPH.md` are refreshed. The user accepts with `git commit` and rejects with `git restore`. Do not stage, commit, or restore anything yourself.
 
 ## Constraints
 

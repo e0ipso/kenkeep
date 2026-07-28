@@ -27,29 +27,12 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/skill-scripts/create-feature-branch.ts
-var create_feature_branch_exports = {};
-__export(create_feature_branch_exports, {
-  _extractPlanName: () => _extractPlanName,
-  _sanitizeBranchName: () => _sanitizeBranchName,
+// src/skill-scripts/validate-plan-blueprint.ts
+var validate_plan_blueprint_exports = {};
+__export(validate_plan_blueprint_exports, {
   main: () => main
 });
-module.exports = __toCommonJS(create_feature_branch_exports);
-var path4 = __toESM(require("path"));
-
-// src/skill-scripts/shared/git-utils.ts
-var import_child_process = require("child_process");
-var execGit = (command) => {
-  try {
-    return (0, import_child_process.execSync)(command, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
-  } catch (_error) {
-    return null;
-  }
-};
-
-// src/skill-scripts/shared/plan-resolve.ts
-var fs3 = __toESM(require("fs"));
-var path3 = __toESM(require("path"));
+module.exports = __toCommonJS(validate_plan_blueprint_exports);
 
 // src/skill-scripts/shared/root.ts
 var fs = __toESM(require("fs"));
@@ -183,6 +166,8 @@ var getAllPlans = (taskManagerRoot) => {
 };
 
 // src/skill-scripts/shared/plan-resolve.ts
+var fs3 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
 var isValidRootDir = (strikethrooPath) => {
   try {
     if (!fs3.existsSync(strikethrooPath)) return false;
@@ -255,107 +240,184 @@ var resolvePlan = (input, startPath = process.cwd()) => {
   return resolveByIdInAncestry(planId, startPath);
 };
 
-// src/skill-scripts/create-feature-branch.ts
-var _printError = (message) => {
-  console.error(`ERROR: ${message}`);
-};
-var _printSuccess = (message) => {
-  console.log(`\u2713 ${message}`);
-};
-var _printWarning = (message) => {
-  console.log(`\u26A0 ${message}`);
-};
-var _printInfo = (message) => {
-  console.log(message);
-};
-var _isGitRepo = () => {
-  const result = execGit("git rev-parse --is-inside-work-tree");
-  return result === "true";
-};
-var _getCurrentBranch = () => {
-  return execGit("git rev-parse --abbrev-ref HEAD");
-};
-var _getUncommittedChangesOutsideWorkspace = () => execGit("git status --porcelain -- ':(top)' ':(top,exclude).ai/strikethroo'");
-var _branchExists = (branchName) => {
-  const localMatch = execGit(`git branch --list "${branchName}"`);
-  if (localMatch) {
-    const names = localMatch.split("\n").map((b) => b.trim().replace(/^\*\s*/, "")).filter(Boolean);
-    if (names.includes(branchName)) return true;
+// src/skill-scripts/shared/blueprint-detection.ts
+var fs4 = __toESM(require("fs"));
+var hasExecutionBlueprint = (planFile) => {
+  try {
+    const content = fs4.readFileSync(planFile, "utf8");
+    return /^## Execution Blueprint/m.test(content);
+  } catch (_err) {
+    return false;
   }
-  const remoteMatch = execGit(`git branch -r --list "origin/${branchName}"`);
-  if (remoteMatch && remoteMatch.trim().length > 0) return true;
-  return false;
 };
-var _sanitizeBranchName = (planName) => {
-  return planName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 60);
+
+// src/skill-scripts/shared/task-count.ts
+var fs5 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
+var countTaskFiles = (planDir) => {
+  const tasksDir = path4.join(planDir, "tasks");
+  if (!fs5.existsSync(tasksDir)) return 0;
+  try {
+    const stat = fs5.lstatSync(tasksDir);
+    if (!stat.isDirectory()) return 0;
+    return fs5.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).length;
+  } catch (_err) {
+    return 0;
+  }
 };
-var _extractPlanName = (planDir) => {
-  const dirName = path4.basename(planDir);
-  const match = dirName.match(/^\d+--(.+)$/);
-  return match && match[1] ? match[1] : dirName;
+
+// src/skill-scripts/shared/task-complexity.ts
+var fs6 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
+
+// src/skill-scripts/shared/complexity-score.ts
+var validateComplexityScore = (value) => {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return { valid: false, reason: "non-integer" };
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (parsed < 1 || parsed > 10) {
+    return { valid: false, reason: "out-of-range", value: parsed };
+  }
+  return { valid: true, value: parsed };
 };
-var main = (startPath = process.cwd()) => {
-  if (process.argv.length < 3) {
-    _printError("Missing plan ID argument");
-    console.log("Usage: node create-feature-branch.cjs <plan-id-or-path>");
-    console.log("Example: node create-feature-branch.cjs 58");
-    process.exit(1);
+
+// src/skill-scripts/shared/task-file.ts
+var extractFrontmatter = (content) => {
+  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+  return match && match[1] ? match[1] : null;
+};
+
+// src/skill-scripts/shared/task-complexity.ts
+var validateTaskComplexityScores = (planDir) => {
+  const tasksDir = path5.join(planDir, "tasks");
+  if (!fs6.existsSync(tasksDir)) return [];
+  let files;
+  try {
+    if (!fs6.lstatSync(tasksDir).isDirectory()) return [];
+    files = fs6.readdirSync(tasksDir).filter((f) => f.endsWith(".md")).sort();
+  } catch (_err) {
+    return [];
   }
-  const inputId = process.argv[2];
-  if (!_isGitRepo()) {
-    _printError("Not a git repository");
-    process.exit(1);
-  }
-  const resolved = resolvePlan(inputId, startPath);
-  if (!resolved) {
-    _printError(`Plan "${inputId}" not found or invalid`);
-    process.exit(1);
-  }
-  const { planDir, planId } = resolved;
-  _printInfo(`Found plan: ${path4.basename(planDir)}`);
-  const currentBranch = _getCurrentBranch();
-  if (!currentBranch) {
-    _printError("Could not determine current git branch");
-    process.exit(1);
-  }
-  if (currentBranch !== "main" && currentBranch !== "master") {
-    _printWarning(`Not on main/master branch (current: ${currentBranch})`);
-    _printInfo("Proceeding without creating a new branch");
-    process.exit(0);
-  }
-  const outsideWorkspaceStatus = _getUncommittedChangesOutsideWorkspace();
-  if (outsideWorkspaceStatus === null) {
-    _printError("Could not inspect git status; branch creation has been blocked");
-    process.exit(1);
-  }
-  if (outsideWorkspaceStatus.length > 0) {
-    _printError("Uncommitted changes detected outside .ai/strikethroo");
-    _printInfo("Commit or stash changes outside .ai/strikethroo before creating a feature branch");
-    process.exit(1);
-  }
-  const planName = _extractPlanName(planDir);
-  const sanitizedName = _sanitizeBranchName(planName);
-  const branchName = `feature/${planId}--${sanitizedName}`;
-  if (_branchExists(branchName)) {
-    if (currentBranch === branchName) {
-      _printSuccess(`Already on branch: ${branchName}`);
-      process.exit(0);
+  const invalid = [];
+  for (const file of files) {
+    let content;
+    try {
+      content = fs6.readFileSync(path5.join(tasksDir, file), "utf8");
+    } catch (_err) {
+      invalid.push(`${file}: unreadable`);
+      continue;
     }
-    _printWarning(`Branch "${branchName}" already exists`);
-    const checkoutResult = execGit(`git checkout "${branchName}"`);
-    if (checkoutResult === null) {
-      _printError(`Failed to checkout branch "${branchName}"`);
+    const frontmatter = extractFrontmatter(content);
+    const match = frontmatter ? frontmatter.match(/^\s*complexity_score\s*:\s*(.*?)\s*(?:#.*)?$/im) : null;
+    if (!match || match[1] === void 0) {
+      invalid.push(`${file}: missing complexity_score`);
+      continue;
+    }
+    const raw = match[1].trim();
+    const result = validateComplexityScore(raw);
+    if (result.valid) continue;
+    if (result.reason === "non-integer") {
+      invalid.push(`${file}: non-integer complexity_score "${raw}"`);
+      continue;
+    }
+    invalid.push(`${file}: complexity_score ${result.value} out of range 1-10`);
+  }
+  return invalid;
+};
+
+// src/skill-scripts/validate-plan-blueprint.ts
+var VALID_FIELDS = [
+  "planFile",
+  "planDir",
+  "taskCount",
+  "blueprintExists",
+  "strikethrooRoot",
+  "planId",
+  "complexityScoresValid",
+  "invalidComplexityTasks"
+];
+var usage = () => {
+  const lines = [
+    "Plan ID or absolute path is required",
+    "",
+    "Usage: node validate-plan-blueprint.cjs <plan-id-or-path> [field-name]",
+    "",
+    "Examples:",
+    "  node validate-plan-blueprint.cjs 47",
+    "  node validate-plan-blueprint.cjs /path/to/plan.md",
+    "  node validate-plan-blueprint.cjs 47 planFile",
+    "  node validate-plan-blueprint.cjs 47 blueprintExists"
+  ];
+  lines.forEach((l) => process.stderr.write(`[ERROR] ${l}
+`));
+};
+var listAvailablePlans = (startPath) => {
+  const tmRoot = findStrikethrooRoot(startPath);
+  if (!tmRoot) return [];
+  const plans = getAllPlans(tmRoot);
+  return plans.map((p) => p.name).sort((a, b) => {
+    const aMatch = a.match(/^(\d+)--/);
+    const bMatch = b.match(/^(\d+)--/);
+    if (!aMatch || !bMatch || !aMatch[1] || !bMatch[1]) return 0;
+    return parseInt(aMatch[1], 10) - parseInt(bMatch[1], 10);
+  });
+};
+var main = () => {
+  const inputId = process.argv[2];
+  const fieldName = process.argv[3];
+  if (!inputId) {
+    usage();
+    process.exit(1);
+  }
+  const numericInput = parseInt(inputId, 10);
+  const isNumeric = !Number.isNaN(numericInput);
+  const isAbsolutePath = inputId.startsWith("/");
+  if (!isNumeric && !isAbsolutePath) {
+    process.stderr.write(`[ERROR] Invalid plan ID: "${inputId}" is not a valid number
+`);
+    process.exit(1);
+  }
+  const resolved = resolvePlan(inputId);
+  if (!resolved) {
+    process.stderr.write(`[ERROR] Plan ID ${inputId} not found or invalid
+`);
+    process.stderr.write("[ERROR] \n");
+    const available = listAvailablePlans(process.cwd());
+    if (available.length > 0) {
+      process.stderr.write("[ERROR] Available plans:\n");
+      available.forEach((name) => process.stderr.write(`[ERROR]   ${name}
+`));
+    }
+    process.exit(1);
+  }
+  const invalidComplexity = validateTaskComplexityScores(resolved.planDir);
+  const result = {
+    planFile: resolved.planFile,
+    planDir: resolved.planDir,
+    strikethrooRoot: resolved.strikethrooRoot,
+    planId: resolved.planId,
+    taskCount: countTaskFiles(resolved.planDir),
+    blueprintExists: hasExecutionBlueprint(resolved.planFile) ? "yes" : "no",
+    complexityScoresValid: invalidComplexity.length === 0 ? "yes" : "no",
+    invalidComplexityTasks: invalidComplexity.join("; ")
+  };
+  if (fieldName) {
+    if (!VALID_FIELDS.includes(fieldName)) {
+      process.stderr.write(`[ERROR] Invalid field name: ${fieldName}
+`);
+      process.stderr.write(`[ERROR] Valid fields: ${VALID_FIELDS.join(", ")}
+`);
       process.exit(1);
     }
-    _printSuccess(`Switched to existing branch: ${branchName}`);
-    process.exit(0);
+    const value = result[fieldName];
+    process.stdout.write(`${String(value)}
+`);
+  } else {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}
+`);
   }
-  const createResult = execGit(`git checkout -b "${branchName}"`);
-  if (createResult === null) {
-    _printError(`Failed to create branch "${branchName}"`);
-    process.exit(1);
-  }
-  _printSuccess(`Created and switched to branch: ${branchName}`);
   process.exit(0);
 };
 if (require.main === module) {
@@ -363,7 +425,5 @@ if (require.main === module) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  _extractPlanName,
-  _sanitizeBranchName,
   main
 });

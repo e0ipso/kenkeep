@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:0805e3cb909d48bbb2d484defc57f27b4f4d31adb33e7a7ddbb633a3ff064b11'
-node_count: 83
+nodes_hash: 'sha256:ed666f26fb7cea55de940f561c4780b1f64da1a86b36a21735d0ef81c628153b'
+node_count: 84
 ---
 # kenkeep Graph
 
-Total nodes: 83
+Total nodes: 84
 
 ## map-bootstrap-incremental-command
 
@@ -505,6 +505,14 @@ Total nodes: 83
 - **tags:** harness, cli, codex, cursor, opencode
 - **relates_to:** map-harness-adapter, map-cursor-harness-adapter, map-config-yaml
 - **derived_from:** docs/installation.md
+
+## practice-harness-dirs-are-vendored-or-dogfooded-not-source
+
+- **kind:** practice
+- **title:** Harness directories are vendored or dogfooded, never source
+- **path:** conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md
+- **tags:** harnesses, dogfooding, vendored, build, source-of-truth, code-review
+- **relates_to:** practice-ignore-harness-javascript-artifacts-in-prettier, map-hook-build-pipeline-ts-to-cjs, map-harness-adapter
 
 ## practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters
 

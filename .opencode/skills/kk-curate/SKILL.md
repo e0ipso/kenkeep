@@ -3,11 +3,13 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 9 -->
+<!-- Version: 11 -->
 
 # kk-curate
 
 You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `curate-persist`, regenerate indices, and resolve any surfaced contradictions interactively with the user. There is no sub-agent and no runner — **you** are the LLM doing the curation.
+
+**A no-op run is a correct outcome.** When every candidate is a rephrasing, low-signal, or already covered, the right result is zero writes and the existing nodes left untouched. Never manufacture edits to justify the run; report "no changes; the knowledge base is current" plainly.
 
 ## Resolve the project root
 
@@ -144,6 +146,8 @@ A modification overwrites the existing leaf in place at its current path by id (
 
 **Important:** if the candidate is essentially the same content as the existing node, just rephrased, **drop it** instead. Modifications must add real new information.
 
+**Modification restraint.** Apply the shared modification-restraint criteria in `.ai/kenkeep/.config/prompts/knowledge-admission.md` (the single source for these rules): prefer a minimal in-place edit over a rewrite and never churn an accurate node; every edit must trace to the specific proposal or conflict that caused it (impact-plan style: source change → node affected → edit needed → why); and never make formatting-only edits to an existing node. A `modify` that would only tidy prose is a `drop`.
+
 #### `contradict` — negates an existing node
 
 Use when the candidate directly negates an existing valid node (they cannot both be true at the same time, in the same scope). The user later resolves the conflict in-session.
@@ -188,7 +192,7 @@ Use when the candidate should not result in any change. Reasons to drop:
 The knowledge base is a nested topical folder tree under `nodes/`: a root index node, branch index nodes, and leaves at any depth. For every `add`, run a single reasoning pass that produces two outputs at once: the cross edges and the home branch. Do not make a second pass.
 
 1. **Descend the tree.** Start from the root index node (`nodes/index.md`) and follow it into the branch index nodes whose summaries are relevant to the candidate. The index nodes list their child folders and leaves, so you can walk toward the nearest existing notes the same way discovery does.
-2. **Set the cross edges.** From the nearest existing leaves, set `kk_relates_to` (and `kk_depends_on` where one node genuinely depends on another) by id. Edges resolve by id and are independent of where the leaf lives.
+2. **Set the cross edges.** From the nearest existing leaves, set `kk_relates_to` (and `kk_depends_on` where one node genuinely depends on another) by id. Edges resolve by id and are independent of where the leaf lives. For a **map** node in particular, prefer `kk_relates_to` edges to the practice nodes that govern changing that entity — the "watch out when editing this" knowledge lives in those practices, and the edge is what lets an agent reach it from the map node. When the candidate or its session evidenced a concrete edit-time check, also keep a short optional "When changing this, verify…" clause in the map body; never invent one to fill a template.
 3. **Rank the home branch.** From the same descent, rank the existing index nodes (folders) by how well their subtree fits the candidate's topic, and pick the single best-fitting existing folder. Record it on the action as `home_folder` (a topical path relative to `nodes/`, e.g. `cli` or `knowledge-base/index`). Identity is the id and never depends on the chosen folder.
 4. **Root fallback.** If no existing folder clears your relevance bar, leave `home_folder` unset/null/empty. The writer then places the leaf at the `nodes/` root. This is a deliberate, visible outcome, not an error; a later rebalance pass relocates it. Never force a weak fit just to avoid the root.
 
@@ -328,6 +332,8 @@ Capture it. Do not commit, add, or restore anything: the structural moves and th
 ## 7. Report the summary, then handle conflicts
 
 Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, and the count of drops. Also list the **placement decision per written leaf**: for each `add` you persisted, report its id and the folder it landed in (the chosen `home_folder`, or `root fallback` when none was chosen); for each `modify`, note it was updated in place at its current path. This lets the human review placement alongside content.
+
+**No-op is a correct outcome.** When `nodes_written == 0` (every candidate was dropped), the knowledge base was already current — say so plainly ("no changes; the knowledge base is current") rather than apologising for an empty write set. An empty write set is the preferred result when nothing proposed real new information.
 
 **Structural summary (rebalance).** Then print the structural summary from the rebalance phase (Step 6b), distinct from and additional to the content summary above so the human gets a legend for the structural diff:
 

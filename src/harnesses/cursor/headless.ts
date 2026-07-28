@@ -85,6 +85,10 @@ class CursorHeadless extends HeadlessStrategy {
   override logFile(): string | undefined {
     return this.opts.logFile;
   }
+
+  override cwd(): string | undefined {
+    return this.opts.cwd;
+  }
 }
 
 export async function runHeadlessCursor<T>(

@@ -125,6 +125,10 @@ class OpenCodeHeadless extends HeadlessStrategy {
     return this.opts.logFile;
   }
 
+  override cwd(): string | undefined {
+    return this.opts.cwd;
+  }
+
   /** A timeout mid-stream is far easier to diagnose with the partial answer. */
   override timeoutDetail(): string {
     return `; accumulated text: ${truncate(this.accumulatedText, 200)}`;

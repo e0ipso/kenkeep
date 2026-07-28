@@ -8,11 +8,11 @@ This annotates what the agent-driven `/kk-bootstrap` and the deterministic `boot
 
 **Practice:**
 - "Use constructor-based DI in controllers; do not call `\\Drupal::service()` from controllers." `confidence: medium` (stated as a convention but no rationale in this doc; rationale appears in `dependency-injection.md` which the agent should follow and merge).
-- "All analytics events flow through `bravo_analytics.dispatcher`; do not call `gtag()` or backend-specific tracking directly." `confidence: medium` (same; rationale is elsewhere).
+- "All analytics events flow through `rm_analytics.dispatcher`; do not call `gtag()` or backend-specific tracking directly." `confidence: medium` (same; rationale is elsewhere).
 - "Tests run with `vendor/bin/phpunit -c web/core`." `confidence: high` (explicit, complete in this doc).
 
 **Map:**
-- "BravoPlatform: Drupal-10-based content platform." `confidence: high`.
+- "Rivermark CMS: Drupal-10-based content platform." `confidence: high`.
 - "Repo layout: custom modules under `modules/custom/`, themes under `themes/custom/`, docs under `docs/`." `confidence: high`. (Optional, borderline whether this is worth a node. Lean yes for bootstrap, since map nodes during bootstrap are about establishing project vocabulary and structure.)
 
 ### `docs/architecture/README.md`
@@ -49,29 +49,29 @@ The two are a related pair: one is the default rule, the other is the personaliz
 **Map:**
 - "Standard custom module layout: `*.info.yml`, `*.module`, `*.routing.yml`, `*.services.yml`, `src/{Service,Controller,Plugin}/`, `tests/src/{Unit,Kernel,Functional}/`." `confidence: high`.
 
-### `docs/modules/bravo_cards.md`
+### `docs/modules/rm_cards.md`
 
 **Map:**
-- "bravo_cards, card-feed rendering module at `modules/custom/bravo_cards/`. Services: `CardSourceResolver` picks entities for a feed; `CardFieldMapper` maps entity fields to card fields. Supports article, event, content_type_x (added Q1 2026)." `confidence: high`.
+- "rm_cards, card-feed rendering module at `modules/custom/rm_cards/`. Services: `CardSourceResolver` picks entities for a feed; `CardFieldMapper` maps entity fields to card fields. Supports article, event, content_type_x (added Q1 2026)." `confidence: high`.
 
 **Practice:**
 - "When adding support for a new content type to card feeds, update `CardFieldMapper::getMappingForBundle()` and add a kernel test." `confidence: high`.
 
-### `docs/modules/bravo_analytics.md`
+### `docs/modules/rm_analytics.md`
 
 **Map:**
-- "bravo_analytics.dispatcher, central analytics event service. Server API: `->track($event, $payload)`. Frontend shim: `Drupal.bravoAnalytics.track(name, payload)`. Backends are pluggable via `BackendInterface` and the `bravo_analytics_backend` service tag. Currently configured to Segment." `confidence: high`.
+- "rm_analytics.dispatcher, central analytics event service. Server API: `->track($event, $payload)`. Frontend shim: `Drupal.rmAnalytics.track(name, payload)`. Backends are pluggable via `BackendInterface` and the `rm_analytics_backend` service tag. Currently configured to Segment." `confidence: high`.
 
 **Practice:**
-- This module's README repeats the "use the dispatcher, not direct backend calls" rule with full rationale (three backend changes: GA, Segment, Heap, Segment). The agent-driven bootstrap should recognize the overlap with the README's mention and merge into a single proposal with richer rationale and full backend history. `derived_from: [README.md, docs/modules/bravo_analytics.md]`. `confidence: high`.
+- This module's README repeats the "use the dispatcher, not direct backend calls" rule with full rationale (three backend changes: GA, Segment, Heap, Segment). The agent-driven bootstrap should recognize the overlap with the README's mention and merge into a single proposal with richer rationale and full backend history. `derived_from: [README.md, docs/modules/rm_analytics.md]`. `confidence: high`.
 
-### `docs/modules/bravo_seo.md`
+### `docs/modules/rm_seo.md`
 
 **Practice:**
-- "Use `bravo_seo.schema_emitter` for schema.org structured data; do not use Drupal's metatag module schema output. Custom mappings live in `config/schemata/`." `confidence: high`.
+- "Use `rm_seo.schema_emitter` for schema.org structured data; do not use Drupal's metatag module schema output. Custom mappings live in `config/schemata/`." `confidence: high`.
 
 **Map:**
-- "bravo_seo.schema_emitter, service for emitting schema.org JSON-LD with project-specific property mappings. Mappings live in `config/schemata/`." `confidence: high`.
+- "rm_seo.schema_emitter, service for emitting schema.org JSON-LD with project-specific property mappings. Mappings live in `config/schemata/`." `confidence: high`.
 
 ### `CONTRIBUTING.md`
 
@@ -89,7 +89,7 @@ The two are a related pair: one is the default rule, the other is the personaliz
 If the agent-driven bootstrap merges overlapping captures correctly:
 
 - **Practice candidates: ~9-10** (DI, analytics dispatcher rule, testing requirement, conventional commits, code style, default cache tags, personalized cache tags, schema_emitter, architectural-doc cross-linking convention, content-type-mapping update procedure).
-- **Map candidates: ~6** (BravoPlatform overview, repo layout, module-layout convention, bravo_cards, bravo_analytics.dispatcher, bravo_seo.schema_emitter).
+- **Map candidates: ~6** (Rivermark CMS overview, repo layout, module-layout convention, rm_cards, rm_analytics.dispatcher, rm_seo.schema_emitter).
 
 If the deterministic `bootstrap-incremental` runs on the same files (no merging across files):
 

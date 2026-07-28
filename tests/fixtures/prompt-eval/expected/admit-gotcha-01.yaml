@@ -1,0 +1,25 @@
+fixture_id: admit-gotcha-01
+category: admit-gotcha
+expect_empty: false
+expected_points:
+  - id: harbor-resource-weight-sort
+    preferred_type: practice
+    claim: Harbor API resources are ordered by each entry's weight rather than by the YAML map key.
+    required_facets:
+      - id: sort-weight
+        criterion: Resource ordering uses the weight value inside each entry.
+      - id: not-map-key
+        criterion: The YAML or configuration map key must not determine resource ordering.
+      - id: normalization-rationale
+        criterion: Drupal configuration normalization turns map keys into strings, so key sorting fails after export and import.
+  - id: harbor-resource-round-trip-test
+    preferred_type: practice
+    claim: Configuration-sensitive Harbor ordering tests use an export/import round-trip fixture.
+    required_facets:
+      - id: export-import
+        criterion: The fixture exports and imports configuration before building the discovery output.
+      - id: direct-array-insufficient
+        criterion: A directly constructed in-memory array bypasses normalization and can hide the ordering bug.
+max_unexpected_proposals: 0
+notes: >-
+  Expects the ordering rule and the independently reusable round-trip testing requirement.

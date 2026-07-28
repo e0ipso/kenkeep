@@ -1,0 +1,7 @@
+fixture_id: reject-abandoned-02
+category: reject-abandoned
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests rejection of a plausible private-file prototype that the user fully abandons.

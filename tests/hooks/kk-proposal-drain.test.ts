@@ -50,7 +50,7 @@ function seedSession(sandbox: string, sessionId: string): string {
       capturedAt: '2026-05-11T10:00:00Z',
       transcriptHash: 'sha256:abc',
       secretScanStatus: 'clean',
-      body: '[USER]: use bravo_pii.cache for PII\n[AGENT]: ok',
+      body: '[USER]: use rm_pii.cache for PII\n[AGENT]: ok',
     })
   );
   return filename;

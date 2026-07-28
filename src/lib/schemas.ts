@@ -133,6 +133,30 @@ export const ProposalOutputSchema = z.object({
 
 export type ProposalOutput = z.infer<typeof ProposalOutputSchema>;
 
+export const PromptEvalFacetJudgmentSchema = z
+  .object({
+    facet_id: z.string().min(1),
+    verdict: z.enum(['entailed', 'not_entailed', 'contradicted']),
+    evidence: z.string().min(1).nullable(),
+  })
+  .strict();
+
+export const PromptEvalComparisonSchema = z
+  .object({
+    expected_point_id: z.string().min(1),
+    proposal_id: z.string().min(1),
+    facets: z.array(PromptEvalFacetJudgmentSchema),
+  })
+  .strict();
+
+export const PromptEvalJudgeOutputSchema = z
+  .object({
+    comparisons: z.array(PromptEvalComparisonSchema),
+  })
+  .strict();
+
+export type PromptEvalJudgeOutput = z.infer<typeof PromptEvalJudgeOutputSchema>;
+
 export const StateFileSchema = z.object({
   schema_version: z.literal(1),
   last_nudged_at: z.string().nullable().optional(),

@@ -1,0 +1,33 @@
+fixture_id: admit-gotcha-02
+category: admit-gotcha
+expect_empty: false
+expected_points:
+  - id: atlas-tenant-metadata
+    preferred_type: practice
+    claim: Atlas batch tenant identity belongs in request metadata at meta.atlas_tenant, not in method parameters.
+    required_facets:
+      - id: metadata-location
+        criterion: Atlas batch tenant identity is carried in request metadata under meta.atlas_tenant.
+      - id: not-method-param
+        criterion: Tenant identity must not be sent as a JSON-RPC method parameter.
+      - id: proxy-rationale
+        criterion: The edge proxy strips tenant-like parameters but preserves approved metadata.
+  - id: atlas-proxy-http-regression
+    preferred_type: practice
+    claim: Atlas tenant propagation regression coverage must exercise the functional HTTP proxy path.
+    required_facets:
+      - id: http-path
+        criterion: Regression coverage sends the request through the functional HTTP edge-proxy path.
+      - id: direct-test-insufficient
+        criterion: A direct method test bypasses the proxy rewrite and cannot prove tenant propagation.
+  - id: edge-proxy-tenant-scrubber
+    preferred_type: map
+    claim: The edge proxy removes tenant-like method parameters while preserving approved request metadata.
+    required_facets:
+      - id: strips-method-params
+        criterion: The edge proxy removes tenant-like values from method parameters before forwarding or dispatch.
+      - id: preserves-metadata
+        criterion: Approved request metadata is preserved through the edge proxy.
+max_unexpected_proposals: 0
+notes: >-
+  Expects atomic knowledge for tenant placement, the required regression path, and the proxy scrubber boundary.

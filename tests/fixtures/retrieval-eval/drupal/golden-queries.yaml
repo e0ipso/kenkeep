@@ -1,0 +1,91 @@
+cases:
+  - id: jsonrpc-attribute-plugin-title
+    category: retrieval
+    prompt: JSON-RPC attribute plugin methods
+    expect_ids_in_top_k: [map-jsonrpc-method-plugins]
+  - id: rest-resourcebase-description
+    category: retrieval
+    prompt: ResourceBase REST resource plugin
+    expect_ids_in_top_k: [map-rest-resource-plugins]
+  - id: normalizer-tagging-title
+    category: retrieval
+    prompt: tag custom normalizers explicitly
+    expect_ids_in_top_k: [practice-tag-custom-normalizers-explicitly]
+  - id: jsonapi-entity-crud-title
+    category: retrieval
+    prompt: JSON API entity CRUD
+    expect_ids_in_top_k: [practice-use-jsonapi-for-entity-crud]
+  - id: jsonrpc-business-logic-title
+    category: retrieval
+    prompt: JSON RPC business logic
+    expect_ids_in_top_k: [practice-use-jsonrpc-for-business-logic]
+  - id: jsonrpc-parameter-validation
+    category: retrieval
+    prompt: validate JSON RPC business method parameters
+    expect_ids_in_top_k: [practice-validate-jsonrpc-business-methods]
+  - id: jsonrpc-handler-http-test
+    category: retrieval
+    prompt: test JSON RPC handler HTTP paths
+    expect_ids_in_top_k: [practice-test-jsonrpc-through-handler-and-http]
+  - id: entity-query-accesscheck-description
+    category: retrieval
+    prompt: entity query accessCheck Drupal 10
+    expect_ids_in_top_k: [practice-call-access-check-on-entity-queries]
+  - id: explicit-permissions-title
+    category: retrieval
+    prompt: compose Drupal permissions explicitly
+    expect_ids_in_top_k: [practice-declare-and-compose-drupal-permissions-explicitly]
+  - id: cacheable-access-handler
+    category: retrieval
+    prompt: entity access handler cache metadata
+    expect_ids_in_top_k: [practice-include-cache-metadata-in-entity-access-handlers]
+  - id: route-access-cacheability
+    category: retrieval
+    prompt: route access requirements cacheability
+    expect_ids_in_top_k: [practice-route-access-requirements-and-cacheability]
+  - id: secrets-config
+    category: retrieval
+    prompt: keep secrets out of exported config
+    expect_ids_in_top_k: [practice-keep-secrets-out-of-code-and-config]
+  - id: sql-injection
+    category: retrieval
+    prompt: prevent SQL injection safe query APIs
+    expect_ids_in_top_k: [practice-prevent-sql-injection-with-safe-query-apis]
+  - id: xss-output
+    category: retrieval
+    prompt: prevent XSS context aware output
+    expect_ids_in_top_k: [practice-prevent-xss-with-context-aware-output]
+  - id: stream-wrapper-files
+    category: retrieval
+    prompt: use stream wrappers for files
+    expect_ids_in_top_k: [practice-use-stream-wrappers-for-files]
+  - id: server-validation
+    category: retrieval
+    prompt: validate input server side before use
+    expect_ids_in_top_k: [practice-validate-input-server-side]
+  - id: unrelated-kubernetes
+    category: refusal
+    prompt: deploy kubernetes ingress with helm charts
+    expect_empty: true
+  - id: unrelated-rust
+    category: refusal
+    prompt: quantum chromodynamics neutrino oscillation
+    expect_empty: true
+  - id: secure-api-to-security-map
+    category: retrieval
+    prompt: Drupal security patterns context for API endpoints
+    expect_ids_in_top_k: [practice-secure-api-endpoints, map-drupal-security-patterns-by-context]
+  - id: jsonrpc-crud-access-cluster
+    category: retrieval
+    prompt: guard JSON RPC entity CRUD access
+    expect_ids_in_top_k:
+      [practice-guard-jsonrpc-entity-crud-access, practice-use-jsonapi-for-entity-crud]
+  - id: custom-table-security-cluster
+    category: retrieval
+    prompt: secure custom table SQL queries
+    expect_ids_in_top_k:
+      [practice-secure-custom-table-queries, practice-prevent-sql-injection-with-safe-query-apis]
+  - id: jsonrpcmethod-testing-boost-only
+    category: multi-hop
+    prompt: JsonRpcMethod
+    expect_id_present_only_via_boost: practice-test-jsonrpc-through-handler-and-http

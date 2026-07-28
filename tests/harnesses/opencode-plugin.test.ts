@@ -11,7 +11,7 @@ const exec = promisify(execFile);
 
 const RAW_SESS = 'ses_0a1b2c3d4e5f60718293a4b5c6d7e8f9';
 const NORMALIZED_SESS = normalizeOpenCodeSessionId(RAW_SESS);
-const SUBSTANTIAL_USER = 'use bravo_pii.cache for PII. '.repeat(8);
+const SUBSTANTIAL_USER = 'use rm_pii.cache for PII. '.repeat(8);
 const SUBSTANTIAL_AGENT = 'understood, here is the detailed reasoning. '.repeat(16);
 
 interface PluginHooks {

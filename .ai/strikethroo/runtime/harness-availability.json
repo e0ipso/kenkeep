@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "harnesses": {
+    "claude": {
+      "available": false,
+      "observedAt": 1784276597382,
+      "expiresAt": 1784276897382,
+      "reason": "⚠ Claude 3.5 Haiku was retired on February 19, 2026. Consider switching to a newer model."
+    }
+  }
+}

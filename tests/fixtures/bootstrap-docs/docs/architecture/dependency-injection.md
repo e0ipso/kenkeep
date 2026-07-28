@@ -13,8 +13,8 @@ class CardFeedController extends ControllerBase {
 
   public static function create(ContainerInterface $container): self {
     return new self(
-      $container->get('bravo_cards.source_resolver'),
-      $container->get('bravo_cards.field_mapper'),
+      $container->get('rm_cards.source_resolver'),
+      $container->get('rm_cards.field_mapper'),
     );
   }
 }
@@ -27,7 +27,7 @@ We adopted this pattern after struggling with `\Drupal::service()` calls scatter
 1. **Testing.** Service-locator-style calls cannot be easily mocked; tests had to spin up the full container or use brittle service mocks. Constructor injection lets tests pass plain doubles.
 2. **Refactoring.** Locating all callers of a service via grep is unreliable when the call is buried inside a method. Explicit constructor parameters make the dependency graph readable.
 
-The canonical example is `modules/custom/bravo_cards/src/Controller/CardFeedController.php`.
+The canonical example is `modules/custom/rm_cards/src/Controller/CardFeedController.php`.
 
 ## Exceptions
 

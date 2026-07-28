@@ -20,6 +20,7 @@ The knowledge base's LLM work runs in **two places**:
 | Prompt | Role |
 |---|---|
 | **`proposal-extract.md`** (in the bundled template) | Converts a captured transcript into structured practice and map candidates. Run by `kk-proposal-drain` via the headless driver. References the shared `knowledge-admission.md` for the durability criteria. |
+| **`prompt-eval-judge.md`** | Source-repository-only semantic verifier for proposal-evaluation facets. The explicit maintainer evaluator runs it through the same selected harness in a fresh isolated call. |
 | **`knowledge-admission.md`** | Single source for the durability admission criteria (maintenance/lifecycle, plan/ticket/issue references, incidental one-off facts, the six-months keep test). Referenced by curate, bootstrap, the batch prompt, and `proposal-extract.md`. |
 | **`sub-agent-delegation.md`** | Single source for the sub-agent probe / ≤5 concurrency cap / inline-fallback contract. Referenced by `kk-curate`, `kk-bootstrap`, and `kk-add`. |
 | **`kk-curate/SKILL.md`** | Reads pending session logs, drafts add/modify/contradict/drop actions in-session (validated with `validate curator-output`), hands the merged set to `curate-dedup`, persists survivors via `curate-persist`, renders `conflict prepare` output to walk contradictions with the user. The parallel path aggregates batch drafts with `drafts collect`. |
@@ -143,9 +144,10 @@ The biggest quality lever in capture: it controls what the extractor treats as w
 1. **Version comment**.
 2. **What to extract**: practice/map definitions, trigger phrases.
 3. **What to skip**: typos, file reads, agent paraphrases, generic programming knowledge; the [durability filter](#the-durability-filter); and non-productive sessions (abandoned, exploratory, cursory, unrelated, meta-only), which short-circuit to `{"practice": [], "map": []}` via the session-disposition gate at the top of the prompt. The gate fires when the session as a whole does not converge on durable knowledge.
-4. **Ownership boundary**: how to split combined statements between practice and map.
-5. **Inline example**: a worked transcript with expected JSON.
-6. **Output schema**: must match `ProposalOutputSchema`.
+4. **Ownership boundary**: how to split combined statements between practice and map, with maps admitted only when they add independently useful structural knowledge rather than restating a practice.
+5. **Atomicity gate**: one indivisible concept per candidate. Independently reusable concepts stay separate, while a rule retains the rationale, qualifiers, and boundaries needed to apply it correctly.
+6. **Inline example**: a worked transcript with expected JSON.
+7. **Output schema**: must match `ProposalOutputSchema`.
 
 The drain replaces `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` with the captured slice. If the placeholder is removed, the transcript is appended at the end.
 
@@ -154,7 +156,7 @@ The drain replaces `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` with the c
 Fixtures under `tests/fixtures/transcripts/`:
 
 - `routine-zero/`: a session with no teaching moments. Correct output is empty.
-- `bravo-insider/`: 4 practice + 3 map candidates. `expected.md` is the target.
+- `rivermark-discover/`: 4 practice + 3 map candidates. `expected.md` is the target.
 
 {% include callout.html variant="tip" content="Mocked tests only pin the schema. Only a real headless harness run reveals prompt quality, so run the fixtures with the real CLI before shipping changes." %}
 

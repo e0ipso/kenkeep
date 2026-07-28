@@ -1,0 +1,7 @@
+fixture_id: reject-abandoned-01
+category: reject-abandoned
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests rejection of a removed JSON-RPC prototype with no selected replacement.

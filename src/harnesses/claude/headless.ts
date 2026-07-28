@@ -89,6 +89,10 @@ class ClaudeHeadless extends HeadlessStrategy {
     return this.opts.logFile;
   }
 
+  override cwd(): string | undefined {
+    return this.opts.cwd;
+  }
+
   /** Claude's stderr carries no useful diagnostics; quoting it adds only noise. */
   override failureIncludesStderr(): boolean {
     return false;

@@ -1,0 +1,7 @@
+fixture_id: reject-noise-02
+category: reject-noise
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests rejection of exploration reads and a local defensive fix derivable from code.

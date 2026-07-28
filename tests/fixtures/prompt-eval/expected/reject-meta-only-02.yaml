@@ -1,0 +1,7 @@
+fixture_id: reject-meta-only-02
+category: reject-meta-only
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests that an aborted /kk-bootstrap run over draft scoping remains empty.

@@ -1,0 +1,7 @@
+fixture_id: reject-unrelated-01
+category: reject-unrelated
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests rejection of general programming help explicitly unrelated to the project.

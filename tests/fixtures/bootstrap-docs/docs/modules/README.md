@@ -4,10 +4,10 @@ Custom modules in `modules/custom/`. Each module has its own README in this dire
 
 | Module | Purpose | README |
 |---|---|---|
-| `bravo_cards` | Card-feed rendering | [bravo_cards.md](bravo_cards.md) |
-| `bravo_analytics` | Analytics event dispatcher | [bravo_analytics.md](bravo_analytics.md) |
-| `bravo_seo` | SEO and schema.org emitter | [bravo_seo.md](bravo_seo.md) |
-| `bravo_insider` | Personalized user content | (not yet documented) |
+| `rm_cards` | Card-feed rendering | [rm_cards.md](rm_cards.md) |
+| `rm_analytics` | Analytics event dispatcher | [rm_analytics.md](rm_analytics.md) |
+| `rm_seo` | SEO and schema.org emitter | [rm_seo.md](rm_seo.md) |
+| `rm_discover` | Personalized user content | (not yet documented) |
 
 ## Module conventions
 

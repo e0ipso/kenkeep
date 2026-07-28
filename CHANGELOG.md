@@ -1,3 +1,15 @@
+## [1.16.2](https://github.com/e0ipso/kenkeep/compare/v1.16.1...v1.16.2) (2026-07-27)
+
+### Bug Fixes
+
+* **prompt-eval:** make the evaluation framework trustworthy ([#116](https://github.com/e0ipso/kenkeep/issues/116)) ([00d7100](https://github.com/e0ipso/kenkeep/commit/00d71007243f50959a62bae0a23b3555e263a912))
+
+## [1.16.1](https://github.com/e0ipso/kenkeep/compare/v1.16.0...v1.16.1) (2026-07-09)
+
+### Bug Fixes
+
+* **docs:** remove Callout component tag ([#108](https://github.com/e0ipso/kenkeep/issues/108)) ([8b26cee](https://github.com/e0ipso/kenkeep/commit/8b26ceefcd9646546430ab145f0c4c232a0cf271))
+
 ## [1.16.0](https://github.com/e0ipso/kenkeep/compare/v1.15.0...v1.16.0) (2026-07-07)
 
 ### Features
@@ -76,6 +88,10 @@
 ### Features
 
 * add kenkeep icon to Linux desktop notifications ([#87](https://github.com/e0ipso/kenkeep/issues/87))
+* **prompts:** proposal extraction Version 6 requires maps to add independent structural knowledge instead of restating a practice
+* **prompts:** proposal extraction Version 7 anonymizes Rivermark/Discover fixture vocabulary in examples (replaces former client-branded demo names)
+* **prompts:** proposal extraction Version 8 keeps each candidate to one indivisible concept
+* **prompt-eval:** replace substring labels with same-harness semantic facet judging
 
 ### Documentation
 

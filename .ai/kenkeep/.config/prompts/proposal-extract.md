@@ -104,9 +104,9 @@ When you see a `[USER /self-review-apply ...]:` tag, treat each narrated change 
 
 These describe the entities, features, vocabulary, and locations of the project:
 
-- **Features:** "Bravo Insider is our personalized section for authenticated users."
+- **Features:** "Rivermark Discover is our personalized section for authenticated users."
 - **Vocabulary:** Project-specific names and what they mean. "CardSourceResolver is the service that picks which entities go into a feed."
-- **Module/file locations:** "The card feed module lives at `modules/custom/bravo_cards`."
+- **Module/file locations:** "The card feed module lives at `modules/custom/rm_cards`."
 - **Architectural relationships:** "Module X depends on service Y."
 
 **Map nodes can be extracted from either `[USER]:` or `[AGENT]:` turns.** Sometimes the agent surfaces a module name or file location during exploration that's worth recording. Both roles are valid sources.
@@ -155,11 +155,11 @@ This filter stacks with the end-state framing rule rather than replacing it. A t
 
 A single user statement can contain both kinds of content. Split them:
 
-> "Use the bravo_analytics dispatcher for tracking - it's a service we built so we can swap backends without rewriting every module."
+> "Use the rm_analytics dispatcher for tracking - it's a service we built so we can swap backends without rewriting every module."
 
 This has:
-- A practice node: "Use the bravo_analytics dispatcher for all event tracking (rationale: swappable backends)."
-- A map node: "bravo_analytics.dispatcher - service that fans out tracking events to whatever backend is currently wired in."
+- A practice node: "Use the rm_analytics dispatcher for all event tracking (rationale: swappable backends)."
+- A map node: "rm_analytics.dispatcher - service that fans out tracking events to whatever backend is currently wired in."
 
 Practice owns the imperative knowledge (do/don't/why). Map owns the named entity (what it is). They reference each other later via `relates_to` populated by the curator; you do not need to populate `relates_to` in your output.
 
@@ -174,8 +174,8 @@ Here is a small example transcript and the correct output, so you know exactly w
 ```
 [USER]: Let's add caching to the user profile page. Use Drupal's render cache.
 [AGENT]: I'll add #cache properties with appropriate contexts and tags.
-[USER]: No, don't use the default render cache for profile pages. We have a custom cache backend for anything with PII - the service is bravo_pii.cache. It encrypts at rest. Default Drupal cache stores plaintext in the database and we got dinged on that during the GDPR audit.
-[AGENT]: Got it. I'll use bravo_pii.cache instead.
+[USER]: No, don't use the default render cache for profile pages. We have a custom cache backend for anything with PII - the service is rm_pii.cache. It encrypts at rest. Default Drupal cache stores plaintext in the database and we got dinged on that during the GDPR audit.
+[AGENT]: Got it. I'll use rm_pii.cache instead.
 ```
 
 **Correct output:**
@@ -186,9 +186,9 @@ Here is a small example transcript and the correct output, so you know exactly w
     {
       "kind": "practice",
       "tags": ["caching", "pii", "gdpr", "drupal"],
-      "title": "Use bravo_pii.cache for any content with PII",
-      "summary": "Don't use Drupal's default render cache for PII-bearing pages; use bravo_pii.cache (encrypts at rest).",
-      "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `bravo_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
+      "title": "Use rm_pii.cache for any content with PII",
+      "summary": "Don't use Drupal's default render cache for PII-bearing pages; use rm_pii.cache (encrypts at rest).",
+      "body": "For pages that render personally-identifiable information, the default Drupal render cache is not acceptable because it stores plaintext in the database. Use the `rm_pii.cache` service instead - it encrypts at rest. This was flagged during the GDPR audit.\n\nApplies to: any route or render array that includes user-identifying data.",
       "confidence": "high"
     }
   ],
@@ -196,9 +196,9 @@ Here is a small example transcript and the correct output, so you know exactly w
     {
       "kind": "map",
       "tags": ["service", "caching", "pii"],
-      "title": "bravo_pii.cache - encrypted cache backend for PII",
+      "title": "rm_pii.cache - encrypted cache backend for PII",
       "summary": "Custom Drupal cache backend service that encrypts at rest; used wherever content includes user PII.",
-      "body": "`bravo_pii.cache` is a custom cache backend service. It encrypts cached entries at rest, unlike Drupal's default render cache which stores plaintext in the database. Adopted in response to a GDPR audit finding.",
+      "body": "`rm_pii.cache` is a custom cache backend service. It encrypts cached entries at rest, unlike Drupal's default render cache which stores plaintext in the database. Adopted in response to a GDPR audit finding.",
       "confidence": "high"
     }
   ]

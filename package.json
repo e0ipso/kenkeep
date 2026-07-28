@@ -1,6 +1,6 @@
 {
   "name": "kenkeep",
-  "version": "1.16.0",
+  "version": "1.16.2",
   "description": "Builds and maintains a per-repo knowledge base from AI coding sessions, for Claude Code, OpenAI Codex CLI, Cursor, OpenCode, GitHub Copilot CLI, and Kiro CLI.",
   "license": "MIT",
   "author": "e0ipso",
@@ -54,6 +54,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "pretest": "npm run build",
+    "prompt-eval": "node scripts/build-templates.mjs && tsup scripts/prompt-eval/run.ts --no-config --format esm --target node22 --out-dir .ai/kenkeep/.state/prompt-eval-runner --clean --silent && node .ai/kenkeep/.state/prompt-eval-runner/run.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

@@ -69,6 +69,10 @@ class CopilotHeadless extends BufferedAnswerStrategy {
   override harnessName(): string {
     return 'copilot';
   }
+
+  override cwd(): string | undefined {
+    return this.runOpts.cwd;
+  }
 }
 
 export async function runHeadlessCopilot<T>(

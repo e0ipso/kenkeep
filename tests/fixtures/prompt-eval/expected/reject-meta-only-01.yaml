@@ -1,0 +1,7 @@
+fixture_id: reject-meta-only-01
+category: reject-meta-only
+expect_empty: true
+expected_points: []
+max_unexpected_proposals: 0
+notes: >-
+  Tests that /kk-curate review traffic does not re-extract a dropped planning candidate.

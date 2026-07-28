@@ -67,7 +67,7 @@ execution_routing:
         yaml, json, jekyll, markdown-authoring. Complexity score roughly 3-4.
         Choose this only when the task requires no cross-module code reasoning.
       models:
-        - model: haiku
+        - model: sonnet
           harness: claude
           reasoning_effort: medium
         - model: gpt-5.6-sol
@@ -88,7 +88,7 @@ execution_routing:
         profile when a task fits neither docs-and-config nor
         complex-architecture.
       models:
-        - model: sonnet
+        - model: opus
           harness: claude
           reasoning_effort: medium
         - model: gpt-5.6-sol
@@ -112,7 +112,7 @@ execution_routing:
       models:
         - model: opus
           harness: claude
-          reasoning_effort: high
+          reasoning_effort: xhigh
         - model: gpt-5.6-sol
           harness: codex
           reasoning_effort: high

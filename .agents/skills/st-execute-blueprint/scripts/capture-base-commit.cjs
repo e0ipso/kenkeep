@@ -27,14 +27,16 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/skill-scripts/create-feature-branch.ts
-var create_feature_branch_exports = {};
-__export(create_feature_branch_exports, {
-  _extractPlanName: () => _extractPlanName,
-  _sanitizeBranchName: () => _sanitizeBranchName,
+// src/skill-scripts/capture-base-commit.ts
+var capture_base_commit_exports = {};
+__export(capture_base_commit_exports, {
+  _isGitRepo: () => _isGitRepo,
+  _isValidSha: () => _isValidSha,
+  _readExistingBaseCommit: () => _readExistingBaseCommit,
   main: () => main
 });
-module.exports = __toCommonJS(create_feature_branch_exports);
+module.exports = __toCommonJS(capture_base_commit_exports);
+var fs4 = __toESM(require("fs"));
 var path4 = __toESM(require("path"));
 
 // src/skill-scripts/shared/git-utils.ts
@@ -255,115 +257,69 @@ var resolvePlan = (input, startPath = process.cwd()) => {
   return resolveByIdInAncestry(planId, startPath);
 };
 
-// src/skill-scripts/create-feature-branch.ts
-var _printError = (message) => {
-  console.error(`ERROR: ${message}`);
+// src/skill-scripts/capture-base-commit.ts
+var SHA_RE = /^[0-9a-f]{40}$/i;
+var emit = (result, exitCode) => {
+  process.stdout.write(`${JSON.stringify(result)}
+`);
+  process.exit(exitCode);
 };
-var _printSuccess = (message) => {
-  console.log(`\u2713 ${message}`);
-};
-var _printWarning = (message) => {
-  console.log(`\u26A0 ${message}`);
-};
-var _printInfo = (message) => {
-  console.log(message);
-};
-var _isGitRepo = () => {
-  const result = execGit("git rev-parse --is-inside-work-tree");
-  return result === "true";
-};
-var _getCurrentBranch = () => {
-  return execGit("git rev-parse --abbrev-ref HEAD");
-};
-var _getUncommittedChangesOutsideWorkspace = () => execGit("git status --porcelain -- ':(top)' ':(top,exclude).ai/strikethroo'");
-var _branchExists = (branchName) => {
-  const localMatch = execGit(`git branch --list "${branchName}"`);
-  if (localMatch) {
-    const names = localMatch.split("\n").map((b) => b.trim().replace(/^\*\s*/, "")).filter(Boolean);
-    if (names.includes(branchName)) return true;
+var _isGitRepo = () => execGit("git rev-parse --is-inside-work-tree") === "true";
+var _isValidSha = (value) => typeof value === "string" && SHA_RE.test(value);
+var _readExistingBaseCommit = (filePath) => {
+  let raw;
+  try {
+    raw = fs4.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
   }
-  const remoteMatch = execGit(`git branch -r --list "origin/${branchName}"`);
-  if (remoteMatch && remoteMatch.trim().length > 0) return true;
-  return false;
-};
-var _sanitizeBranchName = (planName) => {
-  return planName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 60);
-};
-var _extractPlanName = (planDir) => {
-  const dirName = path4.basename(planDir);
-  const match = dirName.match(/^\d+--(.+)$/);
-  return match && match[1] ? match[1] : dirName;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && _isValidSha(parsed.baseCommit)) {
+      return parsed.baseCommit;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 };
 var main = (startPath = process.cwd()) => {
-  if (process.argv.length < 3) {
-    _printError("Missing plan ID argument");
-    console.log("Usage: node create-feature-branch.cjs <plan-id-or-path>");
-    console.log("Example: node create-feature-branch.cjs 58");
-    process.exit(1);
-  }
-  const inputId = process.argv[2];
   if (!_isGitRepo()) {
-    _printError("Not a git repository");
-    process.exit(1);
+    emit({ kind: "skipped", reason: "not-a-git-repository" }, 0);
   }
+  const head = execGit("git rev-parse HEAD");
+  if (!_isValidSha(head)) {
+    emit({ kind: "skipped", reason: "no-commits" }, 0);
+  }
+  const inputId = process.argv[2] ?? "";
   const resolved = resolvePlan(inputId, startPath);
   if (!resolved) {
-    _printError(`Plan "${inputId}" not found or invalid`);
-    process.exit(1);
+    emit({ kind: "error", detail: `Plan "${inputId}" not found or invalid` }, 2);
   }
-  const { planDir, planId } = resolved;
-  _printInfo(`Found plan: ${path4.basename(planDir)}`);
-  const currentBranch = _getCurrentBranch();
-  if (!currentBranch) {
-    _printError("Could not determine current git branch");
-    process.exit(1);
+  const { planDir } = resolved;
+  const reviewDir = path4.join(planDir, "review");
+  const filePath = path4.join(reviewDir, "base-commit.json");
+  const existing = _readExistingBaseCommit(filePath);
+  if (existing) {
+    emit({ kind: "already-captured", baseCommit: existing, file: filePath }, 0);
   }
-  if (currentBranch !== "main" && currentBranch !== "master") {
-    _printWarning(`Not on main/master branch (current: ${currentBranch})`);
-    _printInfo("Proceeding without creating a new branch");
-    process.exit(0);
-  }
-  const outsideWorkspaceStatus = _getUncommittedChangesOutsideWorkspace();
-  if (outsideWorkspaceStatus === null) {
-    _printError("Could not inspect git status; branch creation has been blocked");
-    process.exit(1);
-  }
-  if (outsideWorkspaceStatus.length > 0) {
-    _printError("Uncommitted changes detected outside .ai/strikethroo");
-    _printInfo("Commit or stash changes outside .ai/strikethroo before creating a feature branch");
-    process.exit(1);
-  }
-  const planName = _extractPlanName(planDir);
-  const sanitizedName = _sanitizeBranchName(planName);
-  const branchName = `feature/${planId}--${sanitizedName}`;
-  if (_branchExists(branchName)) {
-    if (currentBranch === branchName) {
-      _printSuccess(`Already on branch: ${branchName}`);
-      process.exit(0);
-    }
-    _printWarning(`Branch "${branchName}" already exists`);
-    const checkoutResult = execGit(`git checkout "${branchName}"`);
-    if (checkoutResult === null) {
-      _printError(`Failed to checkout branch "${branchName}"`);
-      process.exit(1);
-    }
-    _printSuccess(`Switched to existing branch: ${branchName}`);
-    process.exit(0);
-  }
-  const createResult = execGit(`git checkout -b "${branchName}"`);
-  if (createResult === null) {
-    _printError(`Failed to create branch "${branchName}"`);
-    process.exit(1);
-  }
-  _printSuccess(`Created and switched to branch: ${branchName}`);
-  process.exit(0);
+  fs4.mkdirSync(reviewDir, { recursive: true });
+  const record = {
+    version: 1,
+    baseCommit: head,
+    capturedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  fs4.writeFileSync(filePath, `${JSON.stringify(record)}
+`, "utf8");
+  emit({ kind: "captured", baseCommit: head, file: filePath }, 0);
 };
 if (require.main === module) {
   main();
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  _extractPlanName,
-  _sanitizeBranchName,
+  _isGitRepo,
+  _isValidSha,
+  _readExistingBaseCommit,
   main
 });

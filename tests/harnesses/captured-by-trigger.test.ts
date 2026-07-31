@@ -5,6 +5,7 @@ import { CURSOR_EVENT_TO_TRIGGER } from '../../src/harnesses/cursor/hooks/kk-cap
 import { CODEX_EVENT_TO_TRIGGER } from '../../src/harnesses/codex/hooks/kk-capture.js';
 import { OPENCODE_EVENT_TO_TRIGGER } from '../../src/harnesses/opencode/hooks/kk-capture.js';
 import { COPILOT_EVENT_TO_TRIGGER } from '../../src/harnesses/copilot/hooks/kk-capture.js';
+import { KIRO_HOOK_SPECS } from '../../src/harnesses/kiro/hook-spec.js';
 
 /**
  * Each adapter owns the native→canonical `captured_by` mapping for its own
@@ -82,5 +83,17 @@ describe('adapter-owned captured_by trigger mapping', () => {
   it.each(unknownDefaultCases)('$harness defaults an unknown native event to "stop"', ({ map }) => {
     expect(resolve(map, 'totally-unknown-event')).toBe('stop');
     expect(resolve(map, undefined)).toBe('stop');
+  });
+
+  it('kiro always records trigger "stop" — no event map needed (only one capture event)', () => {
+    // Kiro fires kk-capture on its `stop` event only. The hook hardcodes
+    // trigger: 'stop' directly rather than using an event→trigger map, because
+    // there is no multi-event capture surface to disambiguate. This test
+    // documents that design decision so a future maintainer knows why there is
+    // no KIRO_EVENT_TO_TRIGGER export.
+    const kiroHook = KIRO_HOOK_SPECS.find(h => h.scriptPath === 'kk-capture.cjs');
+    expect(kiroHook?.event).toBe('stop');
+    // Only one capture hook registered.
+    expect(KIRO_HOOK_SPECS.filter(h => h.scriptPath === 'kk-capture.cjs')).toHaveLength(1);
   });
 });

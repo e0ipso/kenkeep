@@ -3,6 +3,7 @@ import { claudeAdapter } from '../../src/harnesses/claude/index.js';
 import { codexAdapter } from '../../src/harnesses/codex/index.js';
 import { copilotAdapter } from '../../src/harnesses/copilot/index.js';
 import { cursorAdapter } from '../../src/harnesses/cursor/index.js';
+import { kiroAdapter } from '../../src/harnesses/kiro/index.js';
 import { openCodeAdapter } from '../../src/harnesses/opencode/index.js';
 import { getHarness, hasHarness, listHarnessIds } from '../../src/harnesses/registry.js';
 
@@ -12,8 +13,9 @@ describe('harness registry', () => {
     expect(getHarness('codex')).toBe(codexAdapter);
     expect(getHarness('copilot')).toBe(copilotAdapter);
     expect(getHarness('cursor')).toBe(cursorAdapter);
+    expect(getHarness('kiro')).toBe(kiroAdapter);
     expect(getHarness('opencode')).toBe(openCodeAdapter);
-    expect(listHarnessIds()).toEqual(['claude', 'codex', 'copilot', 'cursor', 'opencode']);
+    expect(listHarnessIds()).toEqual(['claude', 'codex', 'copilot', 'cursor', 'kiro', 'opencode']);
   });
 
   it('hasHarness recognizes registered ids and getHarness throws for unregistered ones', () => {
@@ -91,5 +93,24 @@ describe('copilot adapter shape', () => {
       // rides the headless runner's child env instead.
       expect(hook.payload).not.toHaveProperty('env');
     }
+  });
+});
+
+describe('kiro adapter shape', () => {
+  it('exposes documented paths, declares lifecycle hooks, and detects KIRO_SESSION_ID', () => {
+    const paths = kiroAdapter.paths('/repo');
+    expect(paths.dir).toBe('/repo/.kiro');
+    expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/kiro');
+    expect(paths.skillsDir).toBe('/repo/.kiro/skills');
+    expect(paths.settingsFile).toBe('/repo/.kiro/agents/kk-hooks.json');
+    // Full lifecycle hooks: agentSpawn, stop, userPromptSubmit
+    const events = new Set(kiroAdapter.hooks.map(h => h.event));
+    expect(events.has('agentSpawn')).toBe(true);
+    expect(events.has('stop')).toBe(true);
+    expect(events.has('userPromptSubmit')).toBe(true);
+    expect(kiroAdapter.hooks.length).toBeGreaterThan(0);
+    expect(kiroAdapter.detectFromEnv?.({ KIRO_SESSION_ID: 'ses_abc123' })).toBe(true);
+    expect(kiroAdapter.detectFromEnv?.({ KIRO_SESSION_ID: '' })).toBe(false);
+    expect(kiroAdapter.detectFromEnv?.({})).toBe(false);
   });
 });

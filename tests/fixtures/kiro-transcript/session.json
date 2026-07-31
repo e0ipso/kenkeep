@@ -1,0 +1,25 @@
+{
+  "session_id": "test-kiro-session-id",
+  "cwd": "/test/repo",
+  "created_at": "2026-07-08T00:00:00Z",
+  "updated_at": "2026-07-08T00:01:00Z",
+  "title": "test session",
+  "session_state": {
+    "version": "v1",
+    "conversation_metadata": {
+      "user_turn_metadatas": [
+        {
+          "result": {
+            "Ok": {
+              "id": "test-turn-1",
+              "role": "assistant",
+              "content": [
+                { "kind": "text", "data": "Hello from Kiro." }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

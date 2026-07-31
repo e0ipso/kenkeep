@@ -6,11 +6,12 @@
 // drift against the TS adapters via scripts/lint-detect-harness.mjs.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
+const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'kiro', 'opencode'];
 const ENV_DETECTORS = [
   { env: 'CURSOR_AGENT', value: '1', harness: 'cursor' },
   { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
   { env: 'CLAUDECODE', value: '1', harness: 'claude' },
+  { env: 'KIRO_SESSION_ID', value: '*nonempty*', harness: 'kiro' },
 ];
 function findHint(argv) {
   for (let i = 0; i < argv.length; i++) {

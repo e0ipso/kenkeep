@@ -6,6 +6,7 @@ import {
 } from '../../src/harnesses/detect.js';
 import { claudeAdapter } from '../../src/harnesses/claude/index.js';
 import { cursorAdapter } from '../../src/harnesses/cursor/index.js';
+import { kiroAdapter } from '../../src/harnesses/kiro/index.js';
 
 describe('detectHarnessFromEnv', () => {
   it('detects claude from CLAUDECODE=1 and prefers it over cursor when both are present', () => {
@@ -60,5 +61,16 @@ describe('resolveWithHint', () => {
     expect(resolveWithHint({ CLAUDECODE: '1' }, 'definitely-not-registered').id).toBe('claude');
     expect(() => resolveWithHint({})).toThrow(/--hint <id>/);
     expect(() => resolveWithHint({})).toThrow(/cliDefaultHarness/);
+  });
+});
+
+describe('kiroAdapter.detectFromEnv', () => {
+  it('detects KIRO_SESSION_ID when non-empty', () => {
+    expect(kiroAdapter.detectFromEnv?.({ KIRO_SESSION_ID: 'some-id' })).toBe(true);
+  });
+
+  it('returns false when KIRO_SESSION_ID is absent or empty', () => {
+    expect(kiroAdapter.detectFromEnv?.({})).toBe(false);
+    expect(kiroAdapter.detectFromEnv?.({ KIRO_SESSION_ID: '' })).toBe(false);
   });
 });

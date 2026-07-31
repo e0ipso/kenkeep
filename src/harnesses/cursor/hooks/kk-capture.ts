@@ -8,7 +8,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
@@ -30,13 +30,7 @@ runHookEntry({
   deadlineMs: 1000,
   requirePayload: true,
   main: async payload => {
-    const workspaceRoots = payload['workspace_roots'];
-    const startCwd =
-      Array.isArray(workspaceRoots) &&
-      typeof workspaceRoots[0] === 'string' &&
-      workspaceRoots[0].length > 0
-        ? (workspaceRoots[0] as string)
-        : process.cwd();
+    const startCwd = hookStartCwd(payload, 'workspace_roots');
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
     if (!existsSync(paths.kkDir)) return;

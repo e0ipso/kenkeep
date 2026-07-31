@@ -76,6 +76,50 @@ export interface HookEntryOptions {
 }
 
 /**
+ * First non-empty string carried by `value`: the string itself, or the first
+ * non-empty string element when the host passes an array (Cursor's
+ * `workspace_roots`). Anything else yields `undefined`.
+ */
+function firstString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.length > 0 ? value : undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === 'string' && item.length > 0) return item;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * First non-empty string the payload carries under any of `keys`, in order.
+ * Hosts disagree on both the key name and whether the value is scalar, so a
+ * single reader keeps every hook from re-deriving the same guard.
+ */
+export function payloadString(
+  payload: Record<string, unknown>,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const value = firstString(payload[key]);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Directory a hook starts its repo-root search from: the first non-empty
+ * string under `keys` (default `'cwd'`; Cursor passes `'workspace_roots'`),
+ * falling back to the process cwd when the host sends nothing usable.
+ *
+ * Every hook needs exactly this, and each one used to inline its own
+ * four-line conditional — twenty near-identical copies whose fallback
+ * behaviour had to be re-read to confirm it matched.
+ */
+export function hookStartCwd(payload: Record<string, unknown>, ...keys: string[]): string {
+  return payloadString(payload, ...(keys.length > 0 ? keys : ['cwd'])) ?? process.cwd();
+}
+
+/**
  * Runs the standard kenkeep hook entry scaffold, then calls `options.main`.
  * Returns `void`; the function is fire-and-forget (call without `await`).
  */

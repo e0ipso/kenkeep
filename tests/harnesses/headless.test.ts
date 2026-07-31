@@ -68,6 +68,17 @@ const execaHeadlessCases: Array<{
     ],
     noResult: [JSON.stringify({ type: 'session.idle' })],
   },
+  {
+    id: 'kiro',
+    // Kiro has no structured stream-json; it reads buffered stdout and calls
+    // extractJsonPayload on the combined output. A fenced JSON block satisfies
+    // the payload contract.
+    success: payload => [`\`\`\`json\n${JSON.stringify(payload)}\n\`\`\``],
+    // Non-empty stdout carrying no JSON payload — the same "produced output but
+    // no usable result" case the other adapters cover, rather than the distinct
+    // empty-stdout path.
+    noResult: ['I had a look around but there is nothing to report.'],
+  },
 ];
 
 describe('adapter.runHeadless (parametrized over execa-backed harnesses)', () => {
@@ -278,5 +289,40 @@ describe('cursor headless option mapping', () => {
     expect(captured.command).toBe('/tmp/fake-agent');
     expect(captured.args).toContain('-p');
     expect(captured.args).toContain('--output-format');
+  });
+});
+
+describe('kiro headless option mapping', () => {
+  const kiro = getHarness('kiro');
+  afterEach(() => vi.clearAllMocks());
+
+  it('spawns kiro-cli-chat with chat, --no-interactive, --trust-all-tools, and forces the recursion guard', async () => {
+    const { captured } = mockExecaOnce([
+      `\`\`\`json\n${JSON.stringify({ ok: true, n: 1 })}\n\`\`\``,
+    ]);
+    const out = await kiro.runHeadless('hello kiro', '', Schema);
+    expect(out).toEqual({ ok: true, n: 1 });
+    expect(captured.command).toBe('kiro-cli-chat');
+    expect(captured.args).toContain('chat');
+    expect(captured.args).toContain('--no-interactive');
+    expect(captured.args).toContain('--trust-all-tools');
+    const env = captured.options?.['env'] as NodeJS.ProcessEnv;
+    expect(env['KENKEEP_BUILDER_INTERNAL']).toBe('1');
+    // The prompt travels in argv, so the child has nothing to read. stdin must
+    // be closed explicitly: execa defaults to 'pipe', which hands the child an
+    // open pipe that is never written to nor ended, and a CLI that reads stdin
+    // then blocks until the timeout fires.
+    expect(captured.options?.['stdin']).toBe('ignore');
+  });
+
+  it('appends --model when provided in harnessOpts', async () => {
+    const { captured } = mockExecaOnce([
+      `\`\`\`json\n${JSON.stringify({ ok: true, n: 2 })}\n\`\`\``,
+    ]);
+    await kiro.runHeadless('prompt', '', Schema, {
+      harnessOpts: { model: 'claude-sonnet-4' },
+    });
+    expect(captured.args).toContain('--model');
+    expect(captured.args).toContain('claude-sonnet-4');
   });
 });

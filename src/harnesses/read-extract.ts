@@ -15,6 +15,8 @@
  * entries rather than throwing, so usage extraction can never break capture.
  */
 
+import { kiroSessionTurns, kiroTurnAssistantText } from './kiro/transcript.js';
+
 /**
  * Path-like token matcher for command strings: a maximal run of path characters
  * that ends in `.md`. The negative class drops surrounding shell quotes,
@@ -370,6 +372,43 @@ export function extractOpenCodeReads(exportJson: unknown): string[] {
       if (!part || typeof part !== 'object') continue;
       out.push(...openCodePartCandidates(part as OpenCodePart));
     }
+  }
+  return out;
+}
+
+/**
+ * Kiro: walks the parsed Kiro session JSON (`~/.kiro/sessions/cli/<id>.json`)
+ * and returns, in document order with duplicates preserved, markdown path
+ * candidates named in the assistant response text of each turn.
+ *
+ * Accepts the raw session JSON text, matching the capture pipeline's
+ * `extractReads` callback signature; unparseable input yields `[]`.
+ *
+ * Kiro's session JSON does not surface individual tool calls, so unlike the
+ * other adapters there is no read-tool column to mine — the assistant text is
+ * the only signal available. That makes this extractor broader than its
+ * siblings: it scans prose, not just command strings, so a node merely
+ * *mentioned* in an answer counts alongside one actually read.
+ * `src/lib/usage.ts` remains the authoritative filter for which candidates are
+ * knowledge-base documents.
+ *
+ * The session-shape walk is shared with `parseKiroTranscript` via
+ * `kiroSessionTurns`/`kiroTurnAssistantText` so the two consumers of the Kiro
+ * session format cannot drift apart. Both are total: any malformed shape
+ * yields no entries rather than throwing.
+ */
+export function extractKiroReads(rawText: string): string[] {
+  let sessionJson: unknown;
+  try {
+    sessionJson = JSON.parse(rawText);
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const turn of kiroSessionTurns(sessionJson)) {
+    const text = kiroTurnAssistantText(turn);
+    if (text === undefined || text.length === 0) continue;
+    out.push(...extractCommandMarkdownCandidates(text));
   }
   return out;
 }

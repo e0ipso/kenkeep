@@ -1,30 +1,22 @@
-import { execa } from 'execa';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import type { Readable } from 'node:stream';
-import split2 from 'split2';
 import type { ZodSchema } from 'zod';
 import type { HeadlessRunOptions, HeadlessStreamMessage } from '../types.js';
-import { extractJsonPayload } from '../../lib/json-extract.js';
+import {
+  HeadlessStrategy,
+  routePrompt,
+  runHeadlessStrategy,
+  type ChildStdin,
+} from '../../lib/headless-run.js';
 import { CodexHarnessOptsSchema } from './opts.js';
 
 export const DEFAULT_TIMEOUT_MS = 60_000;
 
 /**
- * Threshold above which the prompt is piped through stdin instead of being
- * passed as a positional argv. Most shells comfortably handle far larger
- * argv lists, but Codex's CLI accepts a `-` placeholder for stdin and
- * staying under this bound keeps the spawn portable.
- */
-const PROMPT_STDIN_THRESHOLD = 64 * 1024;
-
-/**
- * Codex event-stream record shape. Codex documents
- * `thread.started`, `turn.started`, `item.started`, `item.completed`,
- * `turn.completed`, and `error`. We only consume `item.completed` events
- * whose nested `item.type === 'agent_message'` to recover the final
- * structured answer; everything else is forwarded to `onMessage` / logged
- * but does not influence the return value.
+ * Codex event-stream record shape. Codex documents `thread.started`,
+ * `turn.started`, `item.started`, `item.completed`, `turn.completed`, and
+ * `error`. We only consume `item.completed` events whose nested
+ * `item.type === 'agent_message'` to recover the final structured answer;
+ * everything else is forwarded to `onMessage` / logged but does not influence
+ * the return value.
  */
 interface CodexEvent extends HeadlessStreamMessage {
   type?: string;
@@ -35,97 +27,48 @@ interface CodexEvent extends HeadlessStreamMessage {
   };
 }
 
-/**
- * Invokes `codex exec --json` and validates the final agent message as
- * structured JSON against `schema`. Each stdout line is a JSON event;
- * events are mirrored to `opts.logFile` (if given), surfaced via
- * `opts.onMessage`, and used to track the most recent `agent_message`.
- * The final agent message's `text` field is parsed as JSON after the
- * child exits.
- *
- * The recursion guard env var (`KENKEEP_BUILDER_INTERNAL=1`) is always set on
- * the child so that capture and drain hooks fired from the spawned process
- * exit silently.
- *
- * Codex-specific knobs (`model`, `reasoningEffort`) live inside the
- * adapter-opaque `harnessOpts` blob and are validated by
- * `CodexHarnessOptsSchema` at the top of the call.
- */
-export async function runHeadlessCodex<T>(
-  promptBody: string,
-  stdin: string,
-  schema: ZodSchema<T>,
-  opts: HeadlessRunOptions = {}
-): Promise<T> {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const harnessOpts = CodexHarnessOptsSchema.parse(opts.harnessOpts ?? {});
+/** `codex exec --json --sandbox read-only`. */
+class CodexHeadless extends HeadlessStrategy {
+  readonly cli = 'codex';
+  readonly args: readonly string[];
+  readonly env: NodeJS.ProcessEnv;
+  readonly timeoutMs: number;
+  readonly role: string;
 
-  const usePromptStdin =
-    stdin.length > 0 || Buffer.byteLength(promptBody, 'utf8') > PROMPT_STDIN_THRESHOLD;
-  const args: string[] = ['exec', '--json', '--sandbox', 'read-only'];
-  // codex refuses to start outside a trusted git repository. A caller that set
-  // an explicit cwd did so to escape repository context on purpose (see the
-  // prompt evaluation sandbox), so waive the check for that case only.
-  if (opts.cwd) args.push('--skip-git-repo-check');
-  if (harnessOpts.model) args.push('--model', harnessOpts.model);
-  if (harnessOpts.reasoningEffort) {
-    args.push('-c', `reasoning.effort=${harnessOpts.reasoningEffort}`);
-  }
-  let childStdin: string;
-  if (usePromptStdin) {
-    args.push('-');
-    childStdin = stdin.length > 0 ? stdin : promptBody;
-  } else {
-    args.push(promptBody);
-    childStdin = '';
+  private readonly childStdin: string;
+  private lastAgentMessage: string | undefined;
+
+  constructor(
+    promptBody: string,
+    stdin: string,
+    private readonly opts: HeadlessRunOptions
+  ) {
+    super();
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.role = opts.role ?? 'headless';
+
+    const harnessOpts = CodexHarnessOptsSchema.parse(opts.harnessOpts ?? {});
+    const args: string[] = ['exec', '--json', '--sandbox', 'read-only'];
+    // codex refuses to start outside a trusted git repository. A caller that set
+    // an explicit cwd did so to escape repository context on purpose (see the
+    // prompt evaluation sandbox), so waive the check for that case only.
+    if (opts.cwd) args.push('--skip-git-repo-check');
+    if (harnessOpts.model) args.push('--model', harnessOpts.model);
+    if (harnessOpts.reasoningEffort) {
+      args.push('-c', `reasoning.effort=${harnessOpts.reasoningEffort}`);
+    }
+    const routed = routePrompt(promptBody, stdin);
+    args.push(routed.promptArg);
+    this.childStdin = routed.childStdin;
+    this.args = args;
+
+    this.env = { ...(opts.env ?? process.env), KENKEEP_BUILDER_INTERNAL: '1' };
   }
 
-  const env: NodeJS.ProcessEnv = {
-    ...(opts.env ?? process.env),
-    KENKEEP_BUILDER_INTERNAL: '1',
-  };
-
-  let logStream: ReturnType<typeof createWriteStream> | null = null;
-  if (opts.logFile) {
-    mkdirSync(dirname(opts.logFile), { recursive: true });
-    logStream = createWriteStream(opts.logFile, { encoding: 'utf8', flags: 'a' });
-  }
-
-  let lastAgentMessage: string | undefined;
-  const stderrChunks: string[] = [];
-  const proc = execa('codex', args, {
-    input: childStdin,
-    env,
-    timeout: timeoutMs,
-    stdin: 'pipe',
-    stdout: 'pipe',
-    stderr: 'pipe',
-    reject: false,
-    ...(opts.cwd ? { cwd: opts.cwd } : {}),
-  });
-  const stdout = proc.stdout as Readable;
-  const stderr = proc.stderr as Readable | null;
-  if (stderr) {
-    stderr.setEncoding('utf8');
-    stderr.on('data', (chunk: string) => {
-      stderrChunks.push(chunk);
-    });
-  }
-
-  const resultPromise = proc.then(r => ({
-    exitCode: typeof r.exitCode === 'number' ? r.exitCode : undefined,
-    failed: r.failed === true,
-    timedOut: r.timedOut === true,
-  }));
-
-  const splitter = stdout.pipe(split2());
-  splitter.on('data', (line: string) => {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) return;
-    if (logStream) logStream.write(`${trimmed}\n`);
+  consumeLine(line: string): void {
     let parsed: CodexEvent;
     try {
-      parsed = JSON.parse(trimmed) as CodexEvent;
+      parsed = JSON.parse(line) as CodexEvent;
     } catch {
       return;
     }
@@ -135,58 +78,37 @@ export async function runHeadlessCodex<T>(
       parsed.item.type === 'agent_message' &&
       typeof parsed.item.text === 'string'
     ) {
-      lastAgentMessage = parsed.item.text;
+      this.lastAgentMessage = parsed.item.text;
     }
-    if (opts.onMessage) opts.onMessage(parsed);
-  });
-  const streamDone = new Promise<void>((resolve, reject) => {
-    splitter.once('end', () => resolve());
-    splitter.once('error', err => reject(err));
-  });
-
-  let runResult;
-  try {
-    const [r] = await Promise.all([resultPromise, streamDone]);
-    runResult = r;
-  } finally {
-    if (logStream) {
-      await new Promise<void>(resolve => logStream!.end(resolve));
-    }
+    if (this.opts.onMessage) this.opts.onMessage(parsed);
   }
 
-  if (runResult.timedOut) {
-    throw new Error(`codex subprocess timed out after ${timeoutMs}ms`);
-  }
-  if (runResult.failed || (runResult.exitCode !== undefined && runResult.exitCode !== 0)) {
-    const stderrTail = tailString(stderrChunks.join(''), 2000);
-    const suffix = stderrTail ? `: ${stderrTail}` : '';
-    throw new Error(
-      `codex subprocess failed (exit code ${String(runResult.exitCode ?? 'unknown')})${suffix}`
-    );
+  finalText(): string | undefined {
+    return this.lastAgentMessage;
   }
 
-  if (typeof lastAgentMessage !== 'string') {
-    throw new Error('codex subprocess produced no agent_message event');
+  noOutputError(): string {
+    return 'codex subprocess produced no agent_message event';
   }
 
-  const role = opts.role ?? 'headless';
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(extractJsonPayload(lastAgentMessage));
-  } catch (parseError) {
-    throw new Error(
-      `${role} output was not valid JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. See ${opts.logFile ?? 'log'} for the full transcript.`
-    );
+  override stdin(): ChildStdin {
+    return { mode: 'write', input: this.childStdin };
   }
 
-  const validated = schema.safeParse(parsedJson);
-  if (!validated.success) {
-    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
+  override logFile(): string | undefined {
+    return this.opts.logFile;
   }
-  return validated.data;
+
+  override cwd(): string | undefined {
+    return this.opts.cwd;
+  }
 }
 
-function tailString(s: string, maxChars: number): string {
-  if (s.length <= maxChars) return s.trim();
-  return s.slice(s.length - maxChars).trim();
+export async function runHeadlessCodex<T>(
+  promptBody: string,
+  stdin: string,
+  schema: ZodSchema<T>,
+  opts: HeadlessRunOptions = {}
+): Promise<T> {
+  return runHeadlessStrategy(new CodexHeadless(promptBody, stdin, opts), schema);
 }

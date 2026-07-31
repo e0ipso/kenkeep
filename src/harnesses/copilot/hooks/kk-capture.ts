@@ -17,7 +17,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
-import { runHookEntry } from '../../../lib/hook-entry.js';
+import { runHookEntry, hookStartCwd, payloadString } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
@@ -33,20 +33,12 @@ export const COPILOT_EVENT_TO_TRIGGER = {
   sessionEnd: 'session_end',
 } as const satisfies Record<string, CaptureTrigger>;
 
-function pickString(payload: Record<string, unknown>, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === 'string' && value.length > 0) return value;
-  }
-  return undefined;
-}
-
 runHookEntry({
   tag: 'copilot:kk-capture',
   deadlineMs: 1000,
   requirePayload: true,
   main: async payload => {
-    const startCwd = pickString(payload, 'cwd') ?? process.cwd();
+    const startCwd = hookStartCwd(payload);
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
     // No-op silently when this repo is not a kenkeep project. The repo-level
@@ -56,13 +48,13 @@ runHookEntry({
     if (!existsSync(paths.installedVersionFile)) return;
 
     try {
-      const sessionId = assertValidSessionId(pickString(payload, 'sessionId', 'session_id'));
+      const sessionId = assertValidSessionId(payloadString(payload, 'sessionId', 'session_id'));
       const eventsFile = join(copilotHome(), 'session-state', sessionId, 'events.jsonl');
       if (!existsSync(eventsFile)) {
         // The transcript may not be flushed yet, or the session ran elsewhere.
         return;
       }
-      const event = pickString(payload, 'hook_event_name', 'event', 'type');
+      const event = payloadString(payload, 'hook_event_name', 'event', 'type');
       const trigger: CaptureTrigger =
         (event !== undefined
           ? COPILOT_EVENT_TO_TRIGGER[event as keyof typeof COPILOT_EVENT_TO_TRIGGER]

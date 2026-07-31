@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execa } from 'execa';
 import { getHarness } from '../../src/harnesses/registry.js';
 import { claudeAdapter } from '../../src/harnesses/claude/index.js';
+import { kiroListMemoryFiles } from '../../src/harnesses/kiro/index.js';
 import { discoverHarnessMemoryFiles, loadMemoryLedger } from '../../src/lib/memory-files.js';
 import { repoPaths, type RepoPaths } from '../../src/lib/paths.js';
 import type { HarnessAdapter } from '../../src/harnesses/types.js';
@@ -167,5 +168,76 @@ describe('loadMemoryLedger', () => {
     mkdirSync(paths.stateDir, { recursive: true });
     expect(loadMemoryLedger(paths)).toEqual({ schema_version: 1, entries: {} });
     rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe('kiroAdapter.listMemoryFiles', () => {
+  let tmpRoot: string;
+  let tmpHome: string;
+
+  beforeEach(() => {
+    tmpRoot = mkdtempSync(join(tmpdir(), 'kk-kiro-memory-'));
+    tmpHome = mkdtempSync(join(tmpdir(), 'kk-kiro-home-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmpRoot, { recursive: true, force: true });
+    rmSync(tmpHome, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('returns [] when .kiro/steering/ does not exist in project root or home', () => {
+    // Neither tmpRoot/.kiro/steering/ nor tmpHome/.kiro/steering/ exists
+    const result = kiroListMemoryFiles(tmpRoot, tmpHome);
+    expect(result).toEqual([]);
+  });
+
+  it('returns file:// IRIs for .md files in project .kiro/steering/', () => {
+    const steeringDir = join(tmpRoot, '.kiro', 'steering');
+    mkdirSync(steeringDir, { recursive: true });
+    writeFileSync(join(steeringDir, 'conventions.md'), '# Conventions\n');
+    writeFileSync(join(steeringDir, 'not-markdown.txt'), 'ignored\n');
+
+    const result = kiroListMemoryFiles(tmpRoot, tmpHome);
+    const expected = pathToFileURL(join(steeringDir, 'conventions.md')).href;
+    expect(result).toContain(expected);
+    // The .txt file must not appear
+    expect(result.every(iri => iri.endsWith('.md'))).toBe(true);
+    // Exactly one file
+    expect(result).toHaveLength(1);
+  });
+
+  it('combines project and home .kiro/steering/ files', () => {
+    const projectSteering = join(tmpRoot, '.kiro', 'steering');
+    const homeSteering = join(tmpHome, '.kiro', 'steering');
+    mkdirSync(projectSteering, { recursive: true });
+    mkdirSync(homeSteering, { recursive: true });
+    writeFileSync(join(projectSteering, 'project.md'), '# Project\n');
+    writeFileSync(join(homeSteering, 'user.md'), '# User\n');
+
+    const result = kiroListMemoryFiles(tmpRoot, tmpHome);
+    expect(result).toContain(pathToFileURL(join(projectSteering, 'project.md')).href);
+    expect(result).toContain(pathToFileURL(join(homeSteering, 'user.md')).href);
+    expect(result).toHaveLength(2);
+  });
+
+  it('de-duplicates and orders stably when the repo root is the home directory', () => {
+    // A repo checked out at ~ collapses the two scanned directories into one.
+    // Without de-duplication every steering file is reported twice and the
+    // memory ledger records phantom duplicates.
+    const steering = join(tmpRoot, '.kiro', 'steering');
+    mkdirSync(steering, { recursive: true });
+    for (const name of ['zeta.md', 'alpha.md', 'mid.md']) {
+      writeFileSync(join(steering, name), `# ${name}\n`);
+    }
+
+    const result = kiroListMemoryFiles(tmpRoot, tmpRoot);
+    expect(result).toHaveLength(3);
+    expect(new Set(result).size).toBe(3);
+    // Sorted rather than in readdir order, so the result does not churn
+    // between machines or filesystems.
+    expect(result).toEqual(
+      ['alpha.md', 'mid.md', 'zeta.md'].map(n => pathToFileURL(join(steering, n)).href)
+    );
   });
 });

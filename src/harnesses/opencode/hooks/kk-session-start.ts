@@ -13,55 +13,24 @@
  * which the script honors by exiting silently to avoid recursion when
  * our own headless runner spawns `opencode run`.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { runHookEntry } from '../../../lib/hook-entry.js';
 import {
-  buildNudgeContent,
-  buildSessionStartContext,
-  sendSessionStartNotifications,
-} from '../../../lib/session-start.js';
-import { lintStateFile } from '../../../lib/lint-state.js';
-import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { resolveSettings } from '../../../lib/settings.js';
+  runSessionStartHook,
+  SessionStartStrategy,
+  type SessionStartEmit,
+} from '../../../lib/session-start-hook.js';
 
-const PACKAGE_TAG = '[kenkeep]';
-const AGENTS_HEADER = `<!-- ${PACKAGE_TAG} auto-generated session-start context. Re-run init to remove. -->\n`;
+const AGENTS_HEADER = `<!-- [kenkeep] auto-generated session-start context. Re-run init to remove. -->\n`;
 
-runHookEntry({
-  tag: 'opencode:kk-session-start',
-  deadlineMs: 1000,
-  main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
-    const root = findRepoRoot(startCwd);
-    const paths = repoPaths(root);
-    if (!existsSync(paths.installedVersionFile)) return;
+class OpenCodeSessionStart extends SessionStartStrategy {
+  readonly tag = 'opencode:kk-session-start';
 
-    try {
-      process.stderr.write('📖 kenkeep Index: Loading knowledge base…\n');
-      const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-      const result = buildSessionStartContext({
-        kkDir: paths.kkDir,
-        nodesDir: paths.nodesDir,
-        sessionsDir: paths.sessionsDir,
-        stateFile: join(paths.stateDir, 'state.json'),
-        lintStateFile: lintStateFile(paths.stateDir),
-        threshold: settings.curationThreshold,
-      });
-      sendSessionStartNotifications(settings, result, paths.kkDir);
-      const { statusLine, content } = buildNudgeContent(result);
-      const target = join(root, '.opencode', 'AGENTS.md');
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, `${AGENTS_HEADER}${content}`);
-      process.stderr.write(`${statusLine}\n`);
-      process.stderr.write('🧠 kenkeep Index: Knowledge base loaded.\n');
-    } catch (err) {
-      process.stderr.write(
-        `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`
-      );
-    }
-  },
-});
+  emit({ content, root }: SessionStartEmit): void {
+    const target = join(root, '.opencode', 'AGENTS.md');
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, `${AGENTS_HEADER}${content}`);
+  }
+}
+
+runSessionStartHook(new OpenCodeSessionStart());

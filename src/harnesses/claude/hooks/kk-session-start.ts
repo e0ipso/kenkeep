@@ -10,58 +10,29 @@
  * `.claude/settings.json` without `async: true` so stdout actually flows
  * back into the parent session.
  */
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { runHookEntry } from '../../../lib/hook-entry.js';
 import {
-  buildNudgeContent,
-  buildSessionStartContext,
-  sendSessionStartNotifications,
-} from '../../../lib/session-start.js';
-import { lintStateFile } from '../../../lib/lint-state.js';
-import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { resolveSettings } from '../../../lib/settings.js';
+  runSessionStartHook,
+  SessionStartStrategy,
+  type SessionStartEmit,
+} from '../../../lib/session-start-hook.js';
 
-const PACKAGE_TAG = '[kenkeep]';
+class ClaudeSessionStart extends SessionStartStrategy {
+  readonly tag = 'claude:kk-session-start';
 
-runHookEntry({
-  tag: 'claude:kk-session-start',
-  deadlineMs: 1000,
-  main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
-    const root = findRepoRoot(startCwd);
-    const paths = repoPaths(root);
-    if (!existsSync(paths.installedVersionFile)) return;
+  emit({ content, statusLine }: SessionStartEmit): void {
+    process.stdout.write(
+      `${JSON.stringify({
+        systemMessage: statusLine,
+        hookSpecificOutput: {
+          hookEventName: 'SessionStart',
+          additionalContext: content,
+        },
+      })}\n`
+    );
+  }
 
-    try {
-      process.stderr.write('📖 kenkeep Index: Loading knowledge base…\n');
-      const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
-      const result = buildSessionStartContext({
-        kkDir: paths.kkDir,
-        nodesDir: paths.nodesDir,
-        sessionsDir: paths.sessionsDir,
-        stateFile: join(paths.stateDir, 'state.json'),
-        lintStateFile: lintStateFile(paths.stateDir),
-        threshold: settings.curationThreshold,
-      });
-      sendSessionStartNotifications(settings, result, paths.kkDir);
-      const { statusLine, content } = buildNudgeContent(result);
-      process.stdout.write(
-        `${JSON.stringify({
-          systemMessage: statusLine,
-          hookSpecificOutput: {
-            hookEventName: 'SessionStart',
-            additionalContext: content,
-          },
-        })}\n`
-      );
-    } catch (err) {
-      process.stderr.write(
-        `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`
-      );
-    }
-  },
-});
+  /** Claude surfaces the status line via the envelope's `systemMessage`. */
+  override reportStatus(): void {}
+}
+
+runSessionStartHook(new ClaudeSessionStart());

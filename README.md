@@ -142,7 +142,7 @@ npx kenkeep init --harnesses claude
 npx kenkeep doctor
 ```
 
-Swap `claude` for `codex`, `cursor`, `opencode`, or `copilot` (or pass a comma-separated list). For GitHub Copilot CLI, `npx kenkeep init --harnesses copilot` installs the skills under `.github/skills/` (Copilot's documented project skill location) and keeps the adapter's hook scripts under the project-local `.copilot/` directory, registering them in the repo-level `.github/hooks/kk.json` (Copilot loads repo-level hooks before user-level; nothing is written to `~/.copilot/`).
+Swap `claude` for `codex`, `cursor`, `opencode`, `copilot`, or `kiro` (or pass a comma-separated list). For GitHub Copilot CLI, `npx kenkeep init --harnesses copilot` installs the skills under `.github/skills/` (Copilot's documented project skill location) and keeps the adapter's hook scripts under the project-local `.copilot/` directory, registering them in the repo-level `.github/hooks/kk.json` (Copilot loads repo-level hooks before user-level; nothing is written to `~/.copilot/`). For Kiro CLI, `npx kenkeep init --harnesses kiro` installs the skills under `.kiro/skills/` and registers the lifecycle hooks in `.kiro/agents/kk-hooks.json`, with the hook scripts under the shared `.ai/kenkeep/hooks/kiro/` directory.
 
 Then code normally. When you want to turn captured material into knowledge nodes, run `/kk-curate` inside your harness session (also `/kk-add`, `/kk-bootstrap`). The skills are context-aware and walk you through conflict resolution. New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
 

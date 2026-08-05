@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   renameSync,
   rmSync,
   statSync,
@@ -9,8 +10,9 @@ import {
 } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
+import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
 import { copyTree } from '../lib/fs-atomic.js';
 import { runLint, type LintEntry } from '../lib/lint.js';
 import { log } from '../lib/log.js';
@@ -61,11 +63,13 @@ export async function runPackExportCommand(opts: PackExportOptions = {}): Promis
     try {
       const knowledgeOut = join(tmpOut, PACK_KNOWLEDGE_DIRNAME);
       copyTree(paths.nodesDir, knowledgeOut);
+      const unsummarized = writePackFolderSummaries(paths.nodesDir, knowledgeOut);
       writeManifest(tmpOut, resolved.manifest);
       writeReadme(tmpOut, resolved.manifest);
 
       const lint = runLint({ nodesDir: knowledgeOut });
       reportLint(lint.errors, lint.findings);
+      reportMissingFolderSummaries(unsummarized);
       if (lint.errors.length > 0) {
         rmSync(tmpOut, { recursive: true, force: true });
         log.error('pack export: lint errors blocked export; output was not written.');
@@ -188,6 +192,59 @@ function writeReadme(outDir: string, manifest: PackManifest): void {
     '',
   ];
   writeFileSync(join(outDir, 'README.md'), lines.join('\n'));
+}
+
+/**
+ * Ship the knowledge base's folder summary registry with the pack, pruned to
+ * the folders the exported tree actually contains, reusing the same notion of
+ * "which folders count" that `harvestFolderSummaries` applies in memory.
+ *
+ * The staged tree is `<tmp>/knowledge`, so `writeFolderSummaries` resolves the
+ * sibling file `<tmp>/knowledge.FOLDER_SUMMARIES.md` at the pack root; the
+ * later rename carries it into the published directory. Returns the exported
+ * folders that carry no summary, for warn-level reporting by the caller.
+ */
+function writePackFolderSummaries(nodesDir: string, knowledgeOut: string): string[] {
+  const registry = readFolderSummaries(nodesDir);
+  const pruned = new Map<string, string>();
+  const missing: string[] = [];
+  for (const folder of collectExportedFolders(knowledgeOut)) {
+    const summary = registry.get(folder);
+    if (summary !== undefined) pruned.set(folder, summary);
+    // The root folder's summary lives in ENTRY.md, not the registry, so its
+    // absence here is the normal state rather than a gap worth warning about.
+    else if (folder !== '') missing.push(folder);
+  }
+  writeFolderSummaries(knowledgeOut, pruned);
+  return missing;
+}
+
+/** Every folder in the exported tree as a POSIX path relative to its root, root included as `''`. */
+function collectExportedFolders(knowledgeOut: string): string[] {
+  const folders = [''];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const fullPath = join(dir, entry.name);
+      folders.push(relative(knowledgeOut, fullPath).split(sep).join(posix.sep));
+      walk(fullPath);
+    }
+  };
+  walk(knowledgeOut);
+  return folders;
+}
+
+/**
+ * An exported folder with no summary leaves consumers without routing text for
+ * that branch. The author is told before publishing, but an incomplete registry
+ * never blocks an export.
+ */
+function reportMissingFolderSummaries(folders: string[]): void {
+  for (const folder of folders) {
+    log.warn(
+      `folder-summary: ${folder === '' ? '.' : folder}: exported folder has no summary; consumers will get no routing text for it.`
+    );
+  }
 }
 
 function reportLint(errors: LintEntry[], findings: LintEntry[]): void {

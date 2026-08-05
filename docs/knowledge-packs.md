@@ -40,6 +40,15 @@ directory is read in place under the same rule, which lets a pack author import
 whatever `pack export` just wrote without tarring it first. Import only ever
 reads from the source, so nothing in that directory is modified.
 
+A pack published against the previous node schema is not rejected. Import stages
+a copy of it, runs the same conversion `kenkeep migrate okf-v3` applies to a
+repository, and imports the result, reporting how many nodes were converted. The
+source is never modified, which matters for a directory source pointing at a
+directory you own. Such a pack also gets its folder summaries back: the previous
+schema kept them in `index.md` frontmatter, and the conversion harvests those
+into the registry that import already merges. A pack older than that is still
+rejected, because only one conversion step exists.
+
 By default, the destination branch name under `nodes/` comes from the manifest
 `name`. Use `--as` to override it:
 
@@ -127,7 +136,7 @@ Manifest fields:
 |---|---:|---|
 | `name` | Yes | Lowercase pack slug. It becomes `nodes/<name>/` unless import uses `--as`. |
 | `version` | Yes | Pack version string. Kenkeep records and validates it, but does not resolve version ranges. |
-| `schema_version` | Yes | Must equal the installed kenkeep node schema version. Export writes this automatically. |
+| `schema_version` | Yes | Must equal the installed kenkeep node schema version, or be the immediately preceding one, which import migrates. Export writes this automatically. |
 | `summary` | Yes | One-line pack summary. Import uses it as the imported branch summary when needed. |
 | `homepage` | No | URL for pack docs or source. |
 

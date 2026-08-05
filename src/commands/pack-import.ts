@@ -12,9 +12,11 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import yaml from 'js-yaml';
 import { runIndexRebuild } from './index-rebuild.js';
+import { LEGACY_NODE_SCHEMA_VERSION, migrateNodesTreeToV3 } from './migrate-okf-v3.js';
 import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
-import { atomicWriteFile } from '../lib/fs-atomic.js';
+import { atomicWriteFile, copyTree } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
 import { PACK_KNOWLEDGE_DIRNAME, PACK_MANIFEST_FILENAME, validatePack } from '../lib/pack.js';
 import {
@@ -24,6 +26,7 @@ import {
   readAllNodes,
 } from '../lib/nodes.js';
 import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
+import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 
 const exec = promisify(execFile);
 const PACK_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -58,7 +61,8 @@ export async function runPackImportCommand(
   try {
     const acquire = opts.acquireSource ?? acquirePackSource;
     const acquired = await acquire(source, tmpRoot);
-    const validation = validatePack(acquired.packRoot);
+    const packRoot = migrateLegacyPack(acquired.packRoot, tmpRoot);
+    const validation = validatePack(packRoot);
     if (!validation.ok || !validation.manifest) {
       log.error(`pack import: ${acquired.resolvedSource} is not a valid kenkeep pack:`);
       for (const error of validation.errors) log.error(`  ${error}`);
@@ -96,7 +100,7 @@ export async function runPackImportCommand(
       return 1;
     }
 
-    const knowledgeDir = join(acquired.packRoot, PACK_KNOWLEDGE_DIRNAME);
+    const knowledgeDir = join(packRoot, PACK_KNOWLEDGE_DIRNAME);
     let existingIds: Set<string>;
     let packNodes;
     try {
@@ -143,6 +147,72 @@ export async function runPackImportCommand(
   } finally {
     rmSync(tmpRoot, { recursive: true, force: true });
   }
+}
+
+/**
+ * Read the manifest's declared node schema version without validating anything
+ * else, so a legacy pack can be routed to migration before `validatePack` fails
+ * it on the schema equality gate. Anything unreadable returns null and falls
+ * through to normal validation, which reports the real problem.
+ */
+function packManifestSchemaVersion(packRoot: string): number | null {
+  const file = join(packRoot, PACK_MANIFEST_FILENAME);
+  if (!existsSync(file)) return null;
+  try {
+    const data = yaml.load(readFileSync(file, 'utf8'));
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) return null;
+    const value = (data as Record<string, unknown>)['schema_version'];
+    return typeof value === 'number' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bring a pack published against the previous node schema up to the installed
+ * one, returning the root to import from.
+ *
+ * Without this a v2 pack is simply unusable: `validatePack` requires the
+ * manifest's schema_version to equal the installed node schema exactly, and
+ * there is no pack-level migration command, so an author who published under v2
+ * has no path forward and a consumer has no way in.
+ *
+ * The conversion runs on a copy staged under the import's own temp root, never
+ * on the acquired tree. That matters because a directory source points at a
+ * real directory the user owns, and importing must never rewrite it.
+ *
+ * A migrated v2 pack also recovers its folder summaries for free: v2 kept them
+ * in `index.md` frontmatter, and the migration harvests those into the sidecar
+ * registry that v3 import already knows how to merge.
+ */
+function migrateLegacyPack(packRoot: string, tmpRoot: string): string {
+  if (packManifestSchemaVersion(packRoot) !== LEGACY_NODE_SCHEMA_VERSION) return packRoot;
+
+  const staged = join(tmpRoot, 'migrated');
+  copyTree(packRoot, staged);
+
+  const summary = migrateNodesTreeToV3(join(staged, PACK_KNOWLEDGE_DIRNAME));
+
+  const manifestFile = join(staged, PACK_MANIFEST_FILENAME);
+  const manifest = yaml.load(readFileSync(manifestFile, 'utf8')) as Record<string, unknown>;
+  manifest['schema_version'] = NODE_SCHEMA_VERSION;
+  atomicWriteFile(
+    manifestFile,
+    yaml.dump(manifest, { indent: 2, lineWidth: 0, noRefs: true, sortKeys: true })
+  );
+
+  log.warn(
+    `pack import: pack declares node schema ${LEGACY_NODE_SCHEMA_VERSION}; migrated a copy to ` +
+      `${NODE_SCHEMA_VERSION} before import (${summary.converted} node(s), ` +
+      `${summary.folder_summaries} folder summary/summaries recovered). The source was not modified.`
+  );
+  for (const collision of summary.collisions) {
+    log.warn(
+      `pack import: ${collision.path}: authored heading(s) ${collision.headings.join(', ')} ` +
+        `collide with kenkeep-generated sections; review the imported node.`
+    );
+  }
+  return staged;
 }
 
 export async function acquirePackSource(source: string, tmpRoot: string): Promise<AcquiredPack> {

@@ -79,6 +79,47 @@ function writePack(root: string): string {
   return root;
 }
 
+const LEGACY_FOLDER_SUMMARY = 'service wiring conventions; read when adding a service';
+
+/**
+ * A pack published against node schema 2: leaf frontmatter uses the pre-OKF
+ * field names, and folder summaries live in `index.md` frontmatter rather than
+ * in a sidecar registry, which did not exist yet.
+ */
+function writeLegacyV2Pack(root: string): void {
+  writeFileSync(
+    join(root, 'kenkeep-pack.yaml'),
+    ['name: legacy', 'schema_version: 2', 'summary: A legacy v2 pack.', 'version: 1.0.0', ''].join(
+      '\n'
+    )
+  );
+  const dir = join(root, 'knowledge/framework');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(root, 'knowledge/index.md'),
+    matter.stringify('# Index\n', { summary: 'legacy root' })
+  );
+  writeFileSync(
+    join(dir, 'index.md'),
+    matter.stringify('# Index\n', { summary: LEGACY_FOLDER_SUMMARY })
+  );
+  writeFileSync(
+    join(dir, 'practice-legacy-thing.md'),
+    matter.stringify('# Legacy thing\nBody text.\n', {
+      schema_version: 2,
+      id: 'practice-legacy-thing',
+      title: 'Legacy thing',
+      kind: 'practice',
+      summary: 'A legacy practice node.',
+      tags: ['legacy'],
+      derived_from: [],
+      relates_to: [],
+      depends_on: [],
+      confidence: 'high',
+    })
+  );
+}
+
 /**
  * Write the pack's registry at the pack ROOT (sibling of `knowledge/`), where
  * export puts it. Raw frontmatter so a fixture can ship keys that
@@ -489,6 +530,66 @@ describe('pack import command', () => {
     expect(summaries.get('drupal/framework')).toBe(FRAMEWORK_SUMMARY);
     expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
     expect(summaries.has('drupal/removed')).toBe(false);
+  });
+
+  it('migrates a legacy v2 pack on the way in, recovering its folder summaries', async () => {
+    const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
+    extraRoots.push(legacyRoot);
+    writeLegacyV2Pack(legacyRoot);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'legacy',
+        acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toContain('migrated a copy to');
+
+    // The node landed at the installed schema, not the legacy one.
+    const imported = matter(
+      readFileSync(
+        join(sandbox, '.ai/kenkeep/nodes/legacy/framework/practice-legacy-thing.md'),
+        'utf8'
+      )
+    );
+    expect(imported.data['kk_schema_version']).toBe(NODE_SCHEMA_VERSION);
+    expect(imported.data['kk_id']).toBe('practice-legacy-thing');
+
+    // v2 kept folder summaries in index.md frontmatter, so migrating recovers
+    // routing text that would otherwise be lost outright.
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('legacy/framework')).toBe(LEGACY_FOLDER_SUMMARY);
+    const branchIndex = readFileSync(join(sandbox, '.ai/kenkeep/nodes/legacy/index.md'), 'utf8');
+    expect(branchIndex).toContain(`for more information on ${LEGACY_FOLDER_SUMMARY}`);
+  });
+
+  it('never modifies the source when migrating a legacy v2 pack', async () => {
+    const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
+    extraRoots.push(legacyRoot);
+    writeLegacyV2Pack(legacyRoot);
+    const manifestBefore = readFileSync(join(legacyRoot, 'kenkeep-pack.yaml'), 'utf8');
+    const nodeBefore = readFileSync(
+      join(legacyRoot, 'knowledge/framework/practice-legacy-thing.md'),
+      'utf8'
+    );
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'legacy',
+        acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    // A directory source points at a real directory the user owns; importing
+    // must migrate a copy, never rewrite it in place.
+    expect(readFileSync(join(legacyRoot, 'kenkeep-pack.yaml'), 'utf8')).toBe(manifestBefore);
+    expect(
+      readFileSync(join(legacyRoot, 'knowledge/framework/practice-legacy-thing.md'), 'utf8')
+    ).toBe(nodeBefore);
+    expect(existsSync(join(legacyRoot, 'knowledge.FOLDER_SUMMARIES.md'))).toBe(false);
   });
 
   it('accepts a pack directory as the source, not only a tarball', async () => {

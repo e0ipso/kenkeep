@@ -1,3 +1,9 @@
+## [1.16.4](https://github.com/e0ipso/kenkeep/compare/v1.16.3...v1.16.4) (2026-08-05)
+
+### Bug Fixes
+
+* update devcontainer ([baca901](https://github.com/e0ipso/kenkeep/commit/baca901f3effd6ff014c4ca8daca62e2bcb88bb6))
+
 ## [1.16.3](https://github.com/e0ipso/kenkeep/compare/v1.16.2...v1.16.3) (2026-07-28)
 
 ### Bug Fixes

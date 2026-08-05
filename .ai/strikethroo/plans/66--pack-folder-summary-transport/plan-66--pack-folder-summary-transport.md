@@ -323,9 +323,9 @@ No circular dependencies: the graph is a DAG with sources `001` and `002` and si
 
 No file overlap between these two tasks, so they run fully in parallel.
 
-### Phase 2: Import Merge
+### ✅ Phase 2: Import Merge
 **Parallel Tasks:**
-- Task 003: Merge the pack registry into the consumer on `pack import` — re-key under `destinationName`, single write before `runIndexRebuild()`, surface success-path warnings, remove the dead v2 guard (depends on: 002)
+- ✔️ Task 003: Merge the pack registry into the consumer on `pack import` — re-key under `destinationName`, single write before `runIndexRebuild()`, surface success-path warnings, remove the dead v2 guard (depends on: 002) — `completed`
 
 Depends on 002 because the merge assumes every surviving key has already been rejected if it escapes the knowledge tree; validating mid-merge would risk a partially written consumer registry.
 

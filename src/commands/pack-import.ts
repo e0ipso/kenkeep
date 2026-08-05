@@ -10,10 +10,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
-import matter from 'gray-matter';
 import { runIndexRebuild } from './index-rebuild.js';
+import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
 import { atomicWriteFile } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
 import { PACK_KNOWLEDGE_DIRNAME, PACK_MANIFEST_FILENAME, validatePack } from '../lib/pack.js';
@@ -22,7 +22,6 @@ import {
   InvalidNodeFrontmatterError,
   OldLayoutError,
   readAllNodes,
-  stampFolderSummary,
 } from '../lib/nodes.js';
 import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
 
@@ -66,6 +65,7 @@ export async function runPackImportCommand(
       for (const warning of validation.warnings) log.warn(`  ${warning}`);
       return 1;
     }
+    for (const warning of validation.warnings) log.warn(`pack import: ${warning}`);
 
     const destinationName = opts.as ?? validation.manifest.name;
     if (!PACK_NAME_PATTERN.test(destinationName)) {
@@ -118,7 +118,12 @@ export async function runPackImportCommand(
       packLeafIds: new Map(packNodes.map(node => [node.path, node.frontmatter.kk_id])),
     });
 
-    ensureDestinationSummary(paths.nodesDir, destinationName, validation.manifest.summary);
+    mergePackFolderSummaries({
+      knowledgeDir,
+      nodesDir: paths.nodesDir,
+      destinationName,
+      manifestSummary: validation.manifest.summary,
+    });
 
     const rebuildCode = await runIndexRebuild();
     if (rebuildCode !== 0) return rebuildCode;
@@ -210,17 +215,57 @@ function graftKnowledgeTree(args: {
   return { grafted, skipped };
 }
 
-function ensureDestinationSummary(
-  nodesDir: string,
-  destinationName: string,
-  summary: string
-): void {
-  const indexFile = join(nodesDir, destinationName, INDEX_FILENAME);
-  if (existsSync(indexFile)) {
-    const parsed = matter(readFileSync(indexFile, 'utf8'));
-    if (typeof parsed.data.summary === 'string' && parsed.data.summary.trim() !== '') return;
+/**
+ * Merge the pack's folder summary registry into the consumer's, re-keyed under
+ * the destination branch, in a single write.
+ *
+ * Must run BEFORE `runIndexRebuild`: the rebuild's `harvestFolderSummaries`
+ * reads the sidecar off disk (src/lib/index-gen.ts), so a merge written after
+ * it would stay invisible until some later rebuild — the exact silent failure
+ * this transport exists to fix.
+ *
+ * `readFolderSummaries` returns an empty `Map` when the file is absent, so a
+ * pack published before the registry existed merges to a no-op; that is the
+ * backwards-compatibility path and needs no separate existence check.
+ *
+ * Ordering inside the merge is load-bearing: the consumer map seeds the result,
+ * the pack entries overwrite it (last-write-wins, because the on-disk registry
+ * is never pruned and stale keys under `<dest>/` must not beat the incoming
+ * pack), and `manifest.summary` is applied last so it stays authoritative for
+ * the destination key.
+ */
+function mergePackFolderSummaries(args: {
+  knowledgeDir: string;
+  nodesDir: string;
+  destinationName: string;
+  manifestSummary: string;
+}): void {
+  const merged = readFolderSummaries(args.nodesDir);
+  for (const [key, summary] of readFolderSummaries(args.knowledgeDir)) {
+    merged.set(destinationKeyForPackKey(key, args.destinationName), summary);
   }
-  stampFolderSummary(nodesDir, destinationName, summary);
+  merged.set(args.destinationName, args.manifestSummary);
+  writeFolderSummaries(args.nodesDir, merged);
+}
+
+/**
+ * Re-key one pack registry entry as a prefix join under the destination branch:
+ * the pack root maps to `<dest>` and `a/b` to `<dest>/a/b`.
+ *
+ * `validatePack` has already rejected keys that escape the knowledge tree, but
+ * it neither normalizes them in place nor does `readFolderSummaries` normalize
+ * on read, so a surviving key may still be `''`, `.`, `/` or `foo/`. Collapsing
+ * those here rather than emitting `<dest>/.` and leaving `writeFolderSummaries`
+ * to clean it up afterwards is what makes `manifest.summary` unconditionally
+ * authoritative: two root-equivalent pack keys would otherwise reach the map as
+ * distinct entries and their post-hoc collapse would resolve by insertion
+ * order, letting a pack root entry beat the manifest.
+ */
+function destinationKeyForPackKey(key: string, destinationName: string): string {
+  const normalized = posix.normalize(key.split(sep).join(posix.sep));
+  if (normalized === '.' || normalized === '/') return destinationName;
+  const trimmed = normalized.replace(/\/+$/u, '');
+  return trimmed === '' ? destinationName : `${destinationName}/${trimmed}`;
 }
 
 function parseGitHubSource(source: string): GitHubRepo | null {

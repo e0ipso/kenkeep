@@ -346,3 +346,56 @@ Task 004 touches only `tests/`, task 005 touches only `docs/`, so they run fully
 - Total Phases: 3
 - Total Tasks: 5
 
+## Execution Halt — Code Review Gate Not Certified
+
+**Date:** 2026-08-05
+**Status:** Implementation complete and verified; terminal review gate uncertified. Plan remains in `plans/` and is **not** archived.
+
+### What completed
+
+All three phases executed and committed on `feature/66--pack-folder-summary-transport`:
+
+| Commit | Scope |
+| --- | --- |
+| `8441c47` | Phase 1 — export emits the pack-root registry; `validatePack` validates it |
+| `1f3fb13` | Phase 2 — import merges and re-keys before the index rebuild |
+| `879eb1d` | Phase 3 — round-trip tests and documentation corrections |
+
+Mechanical gates all green on the final tree: `npm run lint` exit 0, `npx tsc --noEmit` exit 0, `npm test` 73 files / **614 tests passed** (up from 604), Prettier clean on every touched file. All five task files carry `status: "completed"`.
+
+Self Validation executed in full against built artifacts in throwaway sandboxes. Every step passed, including: the registry ships at the pack root and never inside `knowledge/`; its 13 keys match the source repo text byte-for-byte; a `--as vendor` import produces 14 correctly re-keyed consumer keys with zero missing-summary warnings; the rendered descent pointers in `nodes/vendor/index.md` are **identical** to the pack's own `knowledge/index.md`; consumer `lint` and `doctor` both exit 0; a registry-less legacy pack imports at exit 0 with the rebuild's `13 folder(s) have no summary` warning and no error; and a pack carrying `../../../evil` is rejected at exit 1 with the consumer registry never created and no branch grafted, proving error-before-write.
+
+### Which gate failed, and why
+
+The terminal `st-code-review` gate returned `decision.kind = round-failed`.
+
+`decision.detail`, verbatim:
+
+> The reviewer did not write /workspace/.ai/strikethroo/plans/66--pack-folder-summary-transport/review/round-1/review.xml. A round with no findings document cannot be read as a round with no findings.
+
+The cause is environmental, not a code defect. The reviewer harness (`codex`, `gpt-5.6-sol`) ran under a read-only sandbox with approval escalation disabled, so its `review.xml` write was rejected: `patch rejected: writing is blocked by read-only sandbox`. Its shell probes also failed with `bwrap: No permissions to create new namespace, likely because the kernel does not allow non-privileged user namespaces`, so this environment cannot run that reviewer as configured. `review/round-1/findings.json` records `status: "findings-absent"` with empty `actionable` and `recorded` arrays.
+
+Retrying the same round would fail identically, and the gate must not be re-routed to a different harness.
+
+### The reviewer's one uncertified finding
+
+The reviewer reported one finding in its stdout before the write was blocked. It is **uncertified** — it was never schema-validated and carries no confidence or severity attestation — and is recorded here only so it is not lost:
+
+> The validator returns immediately when the sidecar is absent, so legacy packs generate no missing-folder warnings. The plan explicitly requires successful legacy import with a warning and says absent registries should fall through as zero entries.
+
+Assessment: the user-visible requirement is already satisfied, and the finding appears to misread which component emits the warning. A legacy import does warn — `13 folder(s) have no summary (rendering the Title-cased name fallback)` — emitted by the index rebuild's `foldersMissingSummary`, verified live at exit 0. The finding argues `validatePack` should *additionally* emit one warning per folder when no registry is present. That was considered and deliberately rejected during Phase 1 for three reasons: this plan's own flowchart terminates the absent-registry branch at "zero entries, no error" and does not route it to the per-folder warning node; the pre-existing test `accepts a valid pack` asserts `warnings` is empty against a fixture that has no registry; and it would duplicate a warning the rebuild already emits. Adopting it would be a behavior change, not a defect fix. It is left for the reviewing human to rule on.
+
+### Actionable next steps
+
+1. Re-run the gate in an environment where the reviewer harness can write, then archive:
+   `node .claude/skills/st-code-review/scripts/code-review.cjs 66 <harness> 1`
+   The environment must permit unprivileged user namespaces (or run the reviewer without `bwrap`) and must not mount the workspace read-only.
+2. Alternatively, have a human review the three-commit diff against base `c9d99d75f4d962d37a3a2c37a9b01371fecbfdc4` and rule on the uncertified finding above.
+3. Once the gate certifies a round, append the execution summary and move this directory to `.ai/strikethroo/archive/`.
+
+### Follow-ups discovered, out of scope
+
+- **Pre-existing CLI defect.** `pack export --version 1.0.0` (space-separated) never reaches the subcommand: the root program registers `.version(packageVersion())` without `enablePositionalOptions()`, so Commander binds `--version` to the root and prints the package version instead of exporting. `--version=1.0.0` works. Present before this plan; warrants its own issue.
+- **`pack import` rejects directory sources.** `acquirePackSource` accepts only `*.tar.gz`, `owner/repo`, or a github.com URL, so this plan's own Self Validation step 6 was not runnable verbatim and required tarring the export first. Worth either supporting directories or documenting the constraint.
+- **v2 packs remain unimportable**, as noted in issue #119. Deliberately out of scope; needs its own issue.
+

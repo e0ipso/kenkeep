@@ -181,6 +181,8 @@ summaries:
 
 Validated by `FolderSummaryRegistrySchema`. `generateIndex` reads a folder's summary from this sidecar to render the parent's descent pointer; `harvestFolderSummaries` / `stampFolderSummary` read and write it, so a summary survives the otherwise-total rebuild. The lint OKF-conformance rule enforces that ordinary reserved indexes stay frontmatter-free and that only the bundle root declares `okf_version`.
 
+A knowledge pack ships the same registry at its root, as `knowledge.FOLDER_SUMMARIES.md`, reusing `FolderSummaryRegistrySchema` and the same serialization. `validatePack` treats a shipped registry as untrusted input: a schema failure or a key that escapes the knowledge tree is an error, and a folder with no entry is a warning. An absent registry is valid and silent, so packs published before this transport existed keep importing.
+
 ### `nodes_hash` algorithm
 
 Deterministic, mtime-independent. Defined in `computeNodesHash` (`src/lib/nodes.ts`):

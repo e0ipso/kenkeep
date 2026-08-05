@@ -32,18 +32,30 @@ import { packageVersion } from './lib/version.js';
 
 async function main(): Promise<void> {
   const program = new Command();
+  const harnessOptionDescription = `select the active harness adapter for this invocation (one of: ${listHarnessIds().join(', ')})`;
   program
     .name('kenkeep')
+    // Without positional options Commander scans the whole argv for program
+    // options, so the root `--version` swallowed `pack export --version <v>`:
+    // the export printed the package version and exited 0 without writing a
+    // pack. Positional options confine each command's flags to its own segment.
+    .enablePositionalOptions()
     .description('Build and maintain a per-repo knowledge base from AI coding sessions.')
     .version(packageVersion())
-    .option(
-      '--harness <id>',
-      `select the active harness adapter for this invocation (one of: ${listHarnessIds().join(', ')})`
-    );
+    .option('--harness <id>', harnessOptionDescription);
 
-  const getHarnessFlag = (): string | undefined => {
-    const value = program.opts<{ harness?: string }>().harness;
-    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  let harnessFlag: string | undefined;
+  const getHarnessFlag = (): string | undefined => harnessFlag;
+
+  // Positional options mean a program option is no longer recognized after a
+  // subcommand name, which would break the documented-adjacent `kenkeep doctor
+  // --harness copilot` form. Registering `--harness` on every subcommand keeps
+  // both placements working; the preAction hook below picks whichever was used.
+  const registerHarnessOption = (parent: Command): void => {
+    for (const child of parent.commands) {
+      child.option('--harness <id>', harnessOptionDescription);
+      registerHarnessOption(child);
+    }
   };
 
   program
@@ -83,7 +95,10 @@ async function main(): Promise<void> {
     )
     .option('-v, --verbose', 'show extra diagnostics', false)
     .action(async (opts: { verbose: boolean }) => {
-      const code = await runDoctor({ ...opts, harness: program.opts().harness });
+      const flags: Parameters<typeof runDoctor>[0] = { ...opts };
+      const harness = getHarnessFlag();
+      if (harness !== undefined) flags.harness = harness;
+      const code = await runDoctor(flags);
       process.exit(code);
     });
 
@@ -247,12 +262,17 @@ async function main(): Promise<void> {
   packGroup
     .command('import')
     .description('Import a validated knowledge pack into an isolated nodes/<name>/ branch.')
-    .argument('<source>', 'GitHub owner/repo, GitHub URL, or local .tar.gz path')
+    .argument('<source>', 'GitHub owner/repo, GitHub URL, local .tar.gz path, or pack directory')
     .option('--as <name>', 'destination branch name under nodes/')
+    .option(
+      '--migrate',
+      'convert a copy of a pack published against the previous node schema before importing (the source is not modified)'
+    )
     .allowExcessArguments(true)
-    .action(async (source: string, opts: { as?: string }) => {
+    .action(async (source: string, opts: { as?: string; migrate?: boolean }) => {
       const flags: Parameters<typeof runPackImportCommand>[1] = {};
       if (opts.as !== undefined) flags.as = opts.as;
+      if (opts.migrate !== undefined) flags.migrate = opts.migrate;
       const code = await runPackImportCommand(source, flags);
       process.exit(code);
     });
@@ -562,6 +582,14 @@ async function main(): Promise<void> {
       const code = await runValidateCommand(flags);
       process.exit(code);
     });
+
+  registerHarnessOption(program);
+  program.hook('preAction', (_thisCommand, actionCommand) => {
+    const fromCommand = actionCommand.opts<{ harness?: string }>().harness;
+    const fromRoot = program.opts<{ harness?: string }>().harness;
+    const value = fromCommand ?? fromRoot;
+    harnessFlag = typeof value === 'string' && value.length > 0 ? value : undefined;
+  });
 
   await program.parseAsync(process.argv);
 }

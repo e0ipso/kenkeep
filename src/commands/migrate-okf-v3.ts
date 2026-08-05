@@ -18,7 +18,7 @@ import {
   type NodeFrontmatter,
 } from '../lib/schemas.js';
 
-const LEGACY_NODE_SCHEMA_VERSION = 2;
+export const LEGACY_NODE_SCHEMA_VERSION = 2;
 
 const V2NodeFrontmatterSchema = z.object({
   schema_version: z.literal(LEGACY_NODE_SCHEMA_VERSION),
@@ -46,6 +46,56 @@ interface MigrationSummary {
   collisions: Array<{ id: string; path: string; headings: string[] }>;
 }
 
+/**
+ * Convert one v2 node tree in place to v3, regenerating every folder index.
+ *
+ * Split out of `runMigrateOkfV3` so a knowledge pack's `knowledge/` tree can go
+ * through the identical conversion: a v2 pack is otherwise unimportable, since
+ * `validatePack` requires the manifest's schema_version to equal the installed
+ * node schema exactly.
+ *
+ * `entryFile` and `graphFile` are the repo's kenkeep-owned artifacts. A pack
+ * has neither, so both are optional: with no `entryFile` the root catalog is
+ * not written, and with no `graphFile` no graph is emitted.
+ *
+ * Mutates `nodesDir`. Callers that do not own the tree must copy it first.
+ * Throws on unreadable v2 frontmatter or a failed regeneration.
+ */
+export function migrateNodesTreeToV3(
+  nodesDir: string,
+  artifacts: { entryFile?: string; graphFile?: string } = {}
+): MigrationSummary {
+  const leaves = readV2Leaves(nodesDir);
+  const folderSummaries = migrateFolderSummaries(nodesDir);
+  const idToRelPath = new Map(leaves.map(leaf => [leaf.frontmatter.id, leaf.relPath]));
+  const collisions: MigrationSummary['collisions'] = [];
+
+  for (const leaf of leaves) {
+    const frontmatter = v2ToV3Frontmatter(leaf.frontmatter);
+    const headings = collidingHeadings(leaf.body);
+    if (headings.length > 0) {
+      collisions.push({ id: frontmatter.kk_id, path: leaf.relPath, headings });
+    }
+    const body = renderGeneratedNodeSections(
+      leaf.body,
+      frontmatter,
+      id => idToRelPath.get(id) ?? null
+    );
+    atomicWriteFile(leaf.path, matter.stringify(body.trimEnd() + '\n', frontmatter));
+  }
+
+  const index = generateIndex(nodesDir, artifacts.entryFile);
+  for (const folder of index.folders.values()) {
+    const dir = folder.relDir === '' ? nodesDir : join(nodesDir, ...folder.relDir.split('/'));
+    mkdirSync(dir, { recursive: true });
+    writeIndex(join(dir, INDEX_FILENAME), folder.content);
+  }
+  if (artifacts.entryFile !== undefined) writeIndex(artifacts.entryFile, index.rootCatalog);
+  if (artifacts.graphFile !== undefined) writeGraph(artifacts.graphFile, generateGraph(nodesDir));
+
+  return { converted: leaves.length, folder_summaries: folderSummaries, collisions };
+}
+
 export async function runMigrateOkfV3(): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
@@ -58,55 +108,17 @@ export async function runMigrateOkfV3(): Promise<number> {
     return 1;
   }
 
-  let leaves: V2Leaf[];
+  let summary: MigrationSummary;
   try {
-    leaves = readV2Leaves(paths.nodesDir);
+    summary = migrateNodesTreeToV3(paths.nodesDir, {
+      entryFile: join(paths.kkDir, 'ENTRY.md'),
+      graphFile: join(paths.kkDir, 'GRAPH.md'),
+    });
   } catch (err) {
     log.error(`migrate okf-v3: ${(err as Error).message}`);
     return 1;
   }
 
-  const folderSummaries = migrateFolderSummaries(paths.nodesDir);
-  const idToRelPath = new Map(leaves.map(leaf => [leaf.frontmatter.id, leaf.relPath]));
-  const collisions: MigrationSummary['collisions'] = [];
-
-  try {
-    for (const leaf of leaves) {
-      const frontmatter = v2ToV3Frontmatter(leaf.frontmatter);
-      const headings = collidingHeadings(leaf.body);
-      if (headings.length > 0) {
-        collisions.push({ id: frontmatter.kk_id, path: leaf.relPath, headings });
-      }
-      const body = renderGeneratedNodeSections(
-        leaf.body,
-        frontmatter,
-        id => idToRelPath.get(id) ?? null
-      );
-      atomicWriteFile(leaf.path, matter.stringify(body.trimEnd() + '\n', frontmatter));
-    }
-
-    const entryFile = join(paths.kkDir, 'ENTRY.md');
-    const graphFile = join(paths.kkDir, 'GRAPH.md');
-    const index = generateIndex(paths.nodesDir, entryFile);
-    const graph = generateGraph(paths.nodesDir);
-    for (const folder of index.folders.values()) {
-      const dir =
-        folder.relDir === '' ? paths.nodesDir : join(paths.nodesDir, ...folder.relDir.split('/'));
-      mkdirSync(dir, { recursive: true });
-      writeIndex(join(dir, INDEX_FILENAME), folder.content);
-    }
-    writeIndex(entryFile, index.rootCatalog);
-    writeGraph(graphFile, graph);
-  } catch (err) {
-    log.error(`migrate okf-v3: ${(err as Error).message}`);
-    return 1;
-  }
-
-  const summary: MigrationSummary = {
-    converted: leaves.length,
-    folder_summaries: folderSummaries,
-    collisions,
-  };
   process.stdout.write(`${JSON.stringify(summary)}\n`);
   return 0;
 }

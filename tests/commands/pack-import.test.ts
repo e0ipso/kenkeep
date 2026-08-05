@@ -5,14 +5,22 @@ import { basename, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runPackExportCommand } from '../../src/commands/pack-export.js';
 import { acquirePackSource, runPackImportCommand } from '../../src/commands/pack-import.js';
 import type { AcquiredPack } from '../../src/commands/pack-import.js';
-import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
+import { readFolderSummaries, writeFolderSummaries } from '../../src/lib/folder-summaries.js';
+import { PACK_KNOWLEDGE_DIRNAME } from '../../src/lib/pack.js';
 import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 import { defaultProjectConfigBody } from '../../src/lib/settings.js';
 
 const exec = promisify(execFile);
+
+const MANIFEST_SUMMARY = 'Drupal project conventions.';
+// Authored routing text, distinguishable from the Title-cased `deterministicIntent`
+// fallback ("Framework." / "Hooks.") that a lost summary would render instead.
+const FRAMEWORK_SUMMARY = 'Service wiring conventions; read when adding a service.';
+const HOOKS_SUMMARY = 'Hook implementations; read when reacting to core events.';
 
 function writePackManifest(root: string, overrides: Record<string, unknown> = {}): void {
   const values = {
@@ -71,6 +79,60 @@ function writePack(root: string): string {
   return root;
 }
 
+const LEGACY_FOLDER_SUMMARY = 'service wiring conventions; read when adding a service';
+
+/**
+ * A pack published against node schema 2: leaf frontmatter uses the pre-OKF
+ * field names, and folder summaries live in `index.md` frontmatter rather than
+ * in a sidecar registry, which did not exist yet.
+ */
+function writeLegacyV2Pack(root: string): void {
+  writeFileSync(
+    join(root, 'kenkeep-pack.yaml'),
+    ['name: legacy', 'schema_version: 2', 'summary: A legacy v2 pack.', 'version: 1.0.0', ''].join(
+      '\n'
+    )
+  );
+  const dir = join(root, 'knowledge/framework');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(root, 'knowledge/index.md'),
+    matter.stringify('# Index\n', { summary: 'legacy root' })
+  );
+  writeFileSync(
+    join(dir, 'index.md'),
+    matter.stringify('# Index\n', { summary: LEGACY_FOLDER_SUMMARY })
+  );
+  writeFileSync(
+    join(dir, 'practice-legacy-thing.md'),
+    matter.stringify('# Legacy thing\nBody text.\n', {
+      schema_version: 2,
+      id: 'practice-legacy-thing',
+      title: 'Legacy thing',
+      kind: 'practice',
+      summary: 'A legacy practice node.',
+      tags: ['legacy'],
+      derived_from: [],
+      relates_to: [],
+      depends_on: [],
+      confidence: 'high',
+    })
+  );
+}
+
+/**
+ * Write the pack's registry at the pack ROOT (sibling of `knowledge/`), where
+ * export puts it. Raw frontmatter so a fixture can ship keys that
+ * `writeFolderSummaries` would collapse on the way out — root-equivalent keys
+ * in particular.
+ */
+function writePackRegistry(packRoot: string, frontmatter: string[]): void {
+  writeFileSync(
+    join(packRoot, 'knowledge.FOLDER_SUMMARIES.md'),
+    ['---', ...frontmatter, '---', '', '# kenkeep Folder Summaries', ''].join('\n')
+  );
+}
+
 function writeProjectNode(root: string, relDir: string, kind: NodeKind, id: string): void {
   const dir = join(root, '.ai/kenkeep/nodes', relDir);
   mkdirSync(dir, { recursive: true });
@@ -126,6 +188,50 @@ async function capture(
   }
 }
 
+/**
+ * Produce a pack the way an author actually would: seed a real knowledge base
+ * with nested folders and an authored registry, then run `pack export` against
+ * it. Returns the exported pack directory. The source sandbox is pushed onto
+ * `cleanup`; `returnTo` is restored as the cwd before returning, because export
+ * and import each resolve their repo from `process.cwd()`.
+ */
+async function exportFixturePack(cleanup: string[], returnTo: string): Promise<string> {
+  const source = mkdtempSync(join(tmpdir(), 'kk-pack-source-'));
+  cleanup.push(source);
+  await initSandbox(source);
+  const nodesDir = join(source, '.ai/kenkeep/nodes');
+  writeIndex(nodesDir, { root: true });
+  writeProjectNode(source, 'framework', 'practice', 'practice-drupal-services');
+  writeIndex(join(nodesDir, 'framework'));
+  writeProjectNode(source, 'framework/hooks', 'map', 'map-drupal-hooks');
+  writeIndex(join(nodesDir, 'framework/hooks'));
+  writeFolderSummaries(
+    nodesDir,
+    new Map([
+      ['framework', FRAMEWORK_SUMMARY],
+      ['framework/hooks', HOOKS_SUMMARY],
+    ])
+  );
+
+  const outDir = join(source, 'pack-out');
+  process.chdir(source);
+  try {
+    const exported = await capture(() =>
+      runPackExportCommand({
+        name: 'drupal',
+        version: '1.2.0',
+        summary: MANIFEST_SUMMARY,
+        out: outDir,
+      })
+    );
+    expect(exported.code).toBe(0);
+    expect(exported.stderr).not.toContain('folder-summary:');
+  } finally {
+    process.chdir(returnTo);
+  }
+  return outDir;
+}
+
 async function createTarball(packRoot: string): Promise<string> {
   const tarball = join(dirname(packRoot), `${basename(packRoot)}.tar.gz`);
   await exec('tar', ['-czf', tarball, '-C', dirname(packRoot), basename(packRoot)]);
@@ -166,6 +272,7 @@ describe('pack import command', () => {
   let original: string;
   let sandbox: string;
   let packRoot = '';
+  let extraRoots: string[] = [];
 
   beforeEach(async () => {
     original = process.cwd();
@@ -173,6 +280,7 @@ describe('pack import command', () => {
     process.chdir(sandbox);
     await initSandbox(sandbox);
     packRoot = writePack(mkdtempSync(join(tmpdir(), 'kk-pack-fixture-')));
+    extraRoots = [];
   });
 
   afterEach(() => {
@@ -180,6 +288,7 @@ describe('pack import command', () => {
     process.chdir(original);
     rmSync(sandbox, { recursive: true, force: true });
     if (packRoot) rmSync(packRoot, { recursive: true, force: true });
+    for (const root of extraRoots) rmSync(root, { recursive: true, force: true });
   });
 
   it('grafts a valid pack into an isolated branch and rebuilds indexes', async () => {
@@ -267,6 +376,259 @@ describe('pack import command', () => {
     // frontmatter; the imported branch summary falls back to the manifest.
     const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
     expect(summaries.get('drupal')).toBe('Drupal project conventions.');
+  });
+
+  it('carries authored folder summaries through an export/import round trip', async () => {
+    const exportedPack = await exportFixturePack(extraRoots, sandbox);
+
+    expect(readFolderSummaries(join(exportedPack, PACK_KNOWLEDGE_DIRNAME))).toEqual(
+      new Map([
+        ['framework', FRAMEWORK_SUMMARY],
+        ['framework/hooks', HOOKS_SUMMARY],
+      ])
+    );
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot: exportedPack, resolvedSource: 'round-trip' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).not.toContain('has no summary');
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+    expect(summaries.get('drupal/framework')).toBe(FRAMEWORK_SUMMARY);
+    expect(summaries.get('drupal/framework/hooks')).toBe(HOOKS_SUMMARY);
+
+    // The rebuild must see the merged registry: these routing sentences are the
+    // authored text, not the Title-cased deterministic fallback.
+    const branchIndex = readFileSync(join(sandbox, '.ai/kenkeep/nodes/drupal/index.md'), 'utf8');
+    expect(branchIndex).toContain(`for more information on ${FRAMEWORK_SUMMARY}`);
+    expect(branchIndex).not.toContain('for more information on Framework.');
+    const frameworkIndex = readFileSync(
+      join(sandbox, '.ai/kenkeep/nodes/drupal/framework/index.md'),
+      'utf8'
+    );
+    expect(frameworkIndex).toContain(`for more information on ${HOOKS_SUMMARY}`);
+    expect(frameworkIndex).not.toContain('for more information on Hooks.');
+    const entry = readFileSync(join(sandbox, '.ai/kenkeep/ENTRY.md'), 'utf8');
+    expect(entry).toContain(`for more information on ${MANIFEST_SUMMARY}`);
+  });
+
+  it('re-keys every folder summary under the --as branch', async () => {
+    const exportedPack = await exportFixturePack(extraRoots, sandbox);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'renamed',
+        acquireSource: async () => ({ packRoot: exportedPack, resolvedSource: 'round-trip' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect([...summaries.keys()]).toEqual([
+      'renamed',
+      'renamed/framework',
+      'renamed/framework/hooks',
+    ]);
+    expect(summaries.get('renamed')).toBe(MANIFEST_SUMMARY);
+    expect(summaries.get('renamed/framework')).toBe(FRAMEWORK_SUMMARY);
+    expect(summaries.get('renamed/framework/hooks')).toBe(HOOKS_SUMMARY);
+    const branchIndex = readFileSync(join(sandbox, '.ai/kenkeep/nodes/renamed/index.md'), 'utf8');
+    expect(branchIndex).toContain(`for more information on ${FRAMEWORK_SUMMARY}`);
+  });
+
+  it('imports a legacy pack that ships no folder summary registry', async () => {
+    expect(existsSync(join(packRoot, 'knowledge.FOLDER_SUMMARIES.md'))).toBe(false);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'legacy-pack' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    // log.error prefixes every error line with ✗; no line may carry one.
+    expect(result.stderr).not.toContain('✗');
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect([...summaries.keys()]).toEqual(['drupal']);
+    expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+  });
+
+  it('reports registry validation warnings on a successful import', async () => {
+    writePackNode(packRoot, 'runtime', 'practice', 'practice-runtime-tuning');
+    writeFolderSummaries(
+      join(packRoot, PACK_KNOWLEDGE_DIRNAME),
+      new Map([['framework', FRAMEWORK_SUMMARY]])
+    );
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toContain(
+      'pack import: folder "runtime" has no summary in knowledge.FOLDER_SUMMARIES.md'
+    );
+    expect(result.stderr).not.toContain('pack import: folder "framework"');
+  });
+
+  it('keeps manifest.summary authoritative over root-equivalent pack keys', async () => {
+    // '', '.' and '/' all denote the pack root and all re-key to the destination
+    // branch. Collapsing them after the merge instead of during it would let one
+    // of them beat the manifest by insertion order.
+    writePackRegistry(packRoot, [
+      'schema_version: 1',
+      'summaries:',
+      '  "": Pack root text.',
+      '  ".": Pack dot text.',
+      '  "/": Pack slash text.',
+    ]);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect([...summaries.keys()]).toEqual(['drupal']);
+    expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+  });
+
+  it('overwrites stale destination keys while leaving other consumer keys alone', async () => {
+    writeProjectNode(sandbox, 'existing', 'practice', 'practice-local-conventions');
+    writeFolderSummaries(
+      join(sandbox, '.ai/kenkeep/nodes'),
+      new Map([
+        ['existing', 'Local conventions; read before touching this repo.'],
+        ['drupal/framework', 'Stale text from an earlier import.'],
+        // The pack no longer carries this folder. Nothing else prunes the
+        // on-disk registry, so the import has to drop it or it survives forever.
+        ['drupal/removed', 'Text for a folder this pack no longer ships.'],
+      ])
+    );
+    writeFolderSummaries(
+      join(packRoot, PACK_KNOWLEDGE_DIRNAME),
+      new Map([['framework', FRAMEWORK_SUMMARY]])
+    );
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('existing')).toBe('Local conventions; read before touching this repo.');
+    expect(summaries.get('drupal/framework')).toBe(FRAMEWORK_SUMMARY);
+    expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+    expect(summaries.has('drupal/removed')).toBe(false);
+  });
+
+  it('refuses a legacy v2 pack without --migrate, and says how to proceed', async () => {
+    const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
+    extraRoots.push(legacyRoot);
+    writeLegacyV2Pack(legacyRoot);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'legacy',
+        acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
+      })
+    );
+
+    // A schema bump is a clean break, so conversion stays opt-in. The refusal
+    // has to name the flag: the bare schema-mismatch error does not, and a
+    // consumer would otherwise have no way to discover the escape hatch.
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('--migrate');
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/legacy'))).toBe(false);
+  });
+
+  it('migrates a legacy v2 pack under --migrate, recovering its folder summaries', async () => {
+    const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
+    extraRoots.push(legacyRoot);
+    writeLegacyV2Pack(legacyRoot);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'legacy',
+        migrate: true,
+        acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toContain('--migrate converted a copy');
+
+    // The node landed at the installed schema, not the legacy one.
+    const imported = matter(
+      readFileSync(
+        join(sandbox, '.ai/kenkeep/nodes/legacy/framework/practice-legacy-thing.md'),
+        'utf8'
+      )
+    );
+    expect(imported.data['kk_schema_version']).toBe(NODE_SCHEMA_VERSION);
+    expect(imported.data['kk_id']).toBe('practice-legacy-thing');
+
+    // v2 kept folder summaries in index.md frontmatter, so migrating recovers
+    // routing text that would otherwise be lost outright.
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('legacy/framework')).toBe(LEGACY_FOLDER_SUMMARY);
+    const branchIndex = readFileSync(join(sandbox, '.ai/kenkeep/nodes/legacy/index.md'), 'utf8');
+    expect(branchIndex).toContain(`for more information on ${LEGACY_FOLDER_SUMMARY}`);
+  });
+
+  it('never modifies the source when --migrate converts a legacy v2 pack', async () => {
+    const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
+    extraRoots.push(legacyRoot);
+    writeLegacyV2Pack(legacyRoot);
+    const manifestBefore = readFileSync(join(legacyRoot, 'kenkeep-pack.yaml'), 'utf8');
+    const nodeBefore = readFileSync(
+      join(legacyRoot, 'knowledge/framework/practice-legacy-thing.md'),
+      'utf8'
+    );
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'legacy',
+        migrate: true,
+        acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    // A directory source points at a real directory the user owns; importing
+    // must migrate a copy, never rewrite it in place.
+    expect(readFileSync(join(legacyRoot, 'kenkeep-pack.yaml'), 'utf8')).toBe(manifestBefore);
+    expect(
+      readFileSync(join(legacyRoot, 'knowledge/framework/practice-legacy-thing.md'), 'utf8')
+    ).toBe(nodeBefore);
+    expect(existsSync(join(legacyRoot, 'knowledge.FOLDER_SUMMARIES.md'))).toBe(false);
+  });
+
+  it('accepts a pack directory as the source, not only a tarball', async () => {
+    const result = await capture(() => runPackImportCommand(packRoot));
+
+    expect(result.code).toBe(0);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal/index.md'))).toBe(true);
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+  });
+
+  it('rejects a source that is neither a directory, a tarball, nor a GitHub ref', async () => {
+    const result = await capture(() => runPackImportCommand('not a pack'));
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('unsupported pack source');
+    expect(result.stderr).toContain('pack directory');
   });
 
   it('returns validation errors without writing on an invalid pack', async () => {

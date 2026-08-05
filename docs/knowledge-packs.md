@@ -29,12 +29,35 @@ The source can be any of these forms:
 npx kenkeep pack import e0ipso/kenkeep-pack-drupal
 npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal
 npx kenkeep pack import ./kenkeep-pack-drupal.tar.gz
+npx kenkeep pack import ./dist
 ```
 
 For GitHub sources, kenkeep first asks GitHub for the latest release tarball. If
 the repo has no latest release, it falls back to the repository default branch
 tarball. Local `.tar.gz` sources are extracted locally and must contain exactly
-one `kenkeep-pack.yaml` at the pack root or inside one wrapping directory.
+one `kenkeep-pack.yaml` at the pack root or inside one wrapping directory. A
+directory is read in place under the same rule, which lets a pack author import
+whatever `pack export` just wrote without tarring it first. Import only ever
+reads from the source, so nothing in that directory is modified.
+
+A pack published against the previous node schema is rejected, and the error
+names the way forward:
+
+```sh
+npx kenkeep pack import ./legacy-pack --migrate
+```
+
+`--migrate` stages a copy of the pack, runs the same conversion
+`kenkeep migrate okf-v3` applies to a repository, and imports the result,
+reporting how many nodes were converted. The conversion is opt-in because a
+schema bump is a clean break: without the flag nothing is rewritten, so you never
+silently import third-party content a migration rewrote.
+
+The source is never modified, which matters for a directory source pointing at a
+directory you own. Such a pack also gets its folder summaries back: the previous
+schema kept them in `index.md` frontmatter, and the conversion harvests those
+into the registry that import already merges. A pack older than that is rejected
+with or without the flag, because only one conversion step exists.
 
 By default, the destination branch name under `nodes/` comes from the manifest
 `name`. Use `--as` to override it:
@@ -103,6 +126,7 @@ A pack repository root has this layout:
 <pack-root>/
 |-- kenkeep-pack.yaml
 |-- README.md
+|-- knowledge.FOLDER_SUMMARIES.md
 `-- knowledge/
 ```
 
@@ -122,12 +146,25 @@ Manifest fields:
 |---|---:|---|
 | `name` | Yes | Lowercase pack slug. It becomes `nodes/<name>/` unless import uses `--as`. |
 | `version` | Yes | Pack version string. Kenkeep records and validates it, but does not resolve version ranges. |
-| `schema_version` | Yes | Must equal the installed kenkeep node schema version. Export writes this automatically. |
+| `schema_version` | Yes | Must equal the installed kenkeep node schema version, or be the immediately preceding one, which import converts under `--migrate`. Export writes this automatically. |
 | `summary` | Yes | One-line pack summary. Import uses it as the imported branch summary when needed. |
 | `homepage` | No | URL for pack docs or source. |
 
 `README.md` is for humans and is ignored by import. `knowledge/` is the only
 content import reads. It contains the same shape as a kenkeep `nodes/` tree:
 topical folders, `practice-*` and `map-*` leaf nodes, and generated per-folder
-`index.md` files. Folder `index.md` summaries survive the import rebuild, so pack
-authors can describe branches before publishing.
+`index.md` files.
+
+Folder summaries do not travel inside `knowledge/`. They ship separately, in the
+pack-root sidecar `knowledge.FOLDER_SUMMARIES.md`. Export writes this registry
+pruned to the folders the pack actually contains; an exported folder with no
+summary produces a warning but does not block the export.
+
+Import re-keys every entry from the pack's registry under the destination
+branch: a pack's `apis` key lands as `<branch>/apis` in the consumer, and
+`--as <name>` re-keys under the renamed branch instead. `manifest.summary`
+is always used for the branch root key itself, regardless of what the pack's
+registry contains there. A pack published before this registry existed ships
+no `knowledge.FOLDER_SUMMARIES.md`; it still imports successfully, and the
+following index rebuild warns how many folders have no summary, rendering the
+Title-cased folder name in their place.

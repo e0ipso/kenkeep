@@ -1,6 +1,8 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { basename, join, posix, relative, sep } from 'node:path';
+import matter from 'gray-matter';
 import yaml from 'js-yaml';
+import { folderSummariesFileForNodesDir, FolderSummaryRegistrySchema } from './folder-summaries.js';
 import {
   formatIssue,
   InvalidNodeFrontmatterError,
@@ -86,6 +88,100 @@ function invalidFrontmatterErrors(err: InvalidNodeFrontmatterError): string[] {
   return lines;
 }
 
+/**
+ * Every directory under `knowledgeDir`, inclusive, as a POSIX path relative to
+ * it. The root folder is the empty string, matching the registry's root key.
+ */
+function knowledgeFolders(knowledgeDir: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    out.push(relative(knowledgeDir, dir).split(sep).join(posix.sep));
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(join(dir, entry.name));
+    }
+  };
+  walk(knowledgeDir);
+  return out.sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Normalize an untrusted registry key exactly as `normalizeFolderSummaryKey`
+ * (src/lib/folder-summaries.ts) does on write, but returning `null` instead of
+ * throwing when the key escapes the knowledge tree. A pack is third-party
+ * content and its keys are never normalized on read, so a hostile pack can ship
+ * `../../../evil`; prefixing with the destination branch does not neutralize it
+ * because `dest/../..` normalizes away. `''`, `.` and `/` all denote the
+ * legitimate root folder and must be accepted.
+ */
+function normalizeRegistryKey(key: string): string | null {
+  const normalized = posix.normalize(key.split(sep).join(posix.sep));
+  if (normalized === '.' || normalized === '/') return '';
+  if (normalized.startsWith('../') || normalized === '..' || normalized.startsWith('/')) {
+    return null;
+  }
+  return normalized.replace(/\/+$/u, '');
+}
+
+/**
+ * Validate the pack-root folder summary registry. An absent file is valid and
+ * silent: packs published before the registry existed carry none and must keep
+ * importing. A present file is untrusted input — schema failures and keys that
+ * escape the knowledge tree are errors, rejected here rather than mid-merge so
+ * a consumer registry is never left partially written. Folders shipped in
+ * `knowledge/` with no entry are warnings only.
+ */
+function validateFolderSummaryRegistry(
+  knowledgeDir: string,
+  errors: string[],
+  warnings: string[]
+): void {
+  const file = folderSummariesFileForNodesDir(knowledgeDir);
+  const name = basename(file);
+  if (!existsSync(file)) return;
+
+  let content: string;
+  try {
+    content = readFileSync(file, 'utf8');
+  } catch (err) {
+    errors.push(`cannot read ${name}: ${(err as Error).message}`);
+    return;
+  }
+
+  let data: unknown;
+  try {
+    data = matter(content).data;
+  } catch (err) {
+    errors.push(`malformed frontmatter in ${name}: ${(err as Error).message}`);
+    return;
+  }
+
+  const result = FolderSummaryRegistrySchema.safeParse(data);
+  if (!result.success) {
+    errors.push(`${name} does not match FolderSummaryRegistrySchema:`);
+    for (const issue of result.error.issues) {
+      errors.push(`  - ${formatIssue(issue)}`);
+    }
+    return;
+  }
+
+  const entries = new Set<string>();
+  for (const key of Object.keys(result.data.summaries)) {
+    const normalized = normalizeRegistryKey(key);
+    if (normalized === null) {
+      errors.push(`folder summary key "${key}" escapes ${PACK_KNOWLEDGE_DIRNAME}/`);
+      continue;
+    }
+    entries.add(normalized);
+  }
+
+  for (const folder of knowledgeFolders(knowledgeDir)) {
+    // The pack root never needs an entry: import stamps the destination branch
+    // key from the manifest's required `summary` field, which is authoritative.
+    if (folder === '' || entries.has(folder)) continue;
+    warnings.push(`folder "${folder}" has no summary in ${name}`);
+  }
+}
+
 export function validatePack(packRoot: string): PackValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -129,6 +225,8 @@ export function validatePack(packRoot: string): PackValidationResult {
       seen.set(id, node.path);
     }
   }
+
+  validateFolderSummaryRegistry(knowledgeDir, errors, warnings);
 
   return {
     ok: errors.length === 0,

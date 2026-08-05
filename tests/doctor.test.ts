@@ -196,6 +196,23 @@ describe('doctor', () => {
     expect(combined).not.toContain('Harness claude install status');
   });
 
+  // The docs use `kenkeep --harness <id> <command>`, the form above puts the
+  // flag after the subcommand, and both must keep working: positional option
+  // scoping (added so `pack export --version` reaches the subcommand) would
+  // otherwise silently drop whichever placement is not registered.
+  it('scopes per-harness status with --harness before the subcommand', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = {
+      PATH: `${stubBin}:${process.env['PATH'] ?? ''}`,
+      COPILOT_HOME: join(sandbox, 'copilot-home'),
+    };
+    await runCli(sandbox, ['init', '--harnesses', 'claude,copilot'], env);
+    const result = await runCli(sandbox, ['--harness', 'copilot', 'doctor'], env);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('Harness copilot install status');
+    expect(combined).not.toContain('Harness claude install status');
+  });
+
   it('surfaces hygiene findings from lint and reports dangling derived_from once', async () => {
     const stubBin = writeHarnessBinaryStubs(sandbox);
     const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };

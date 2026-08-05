@@ -10,11 +10,13 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
-import matter from 'gray-matter';
+import yaml from 'js-yaml';
 import { runIndexRebuild } from './index-rebuild.js';
-import { atomicWriteFile } from '../lib/fs-atomic.js';
+import { LEGACY_NODE_SCHEMA_VERSION, migrateNodesTreeToV3 } from './migrate-okf-v3.js';
+import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
+import { atomicWriteFile, copyTree } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
 import { PACK_KNOWLEDGE_DIRNAME, PACK_MANIFEST_FILENAME, validatePack } from '../lib/pack.js';
 import {
@@ -22,9 +24,9 @@ import {
   InvalidNodeFrontmatterError,
   OldLayoutError,
   readAllNodes,
-  stampFolderSummary,
 } from '../lib/nodes.js';
 import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
+import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 
 const exec = promisify(execFile);
 const PACK_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -38,6 +40,7 @@ export type PackSourceAcquirer = (source: string, tmpRoot: string) => Promise<Ac
 
 export interface PackImportOptions {
   as?: string | undefined;
+  migrate?: boolean | undefined;
   acquireSource?: PackSourceAcquirer | undefined;
 }
 
@@ -59,13 +62,28 @@ export async function runPackImportCommand(
   try {
     const acquire = opts.acquireSource ?? acquirePackSource;
     const acquired = await acquire(source, tmpRoot);
-    const validation = validatePack(acquired.packRoot);
+
+    // A schema bump is a clean break: readers reject a mismatch rather than
+    // shimming it. Conversion is available but stays opt-in, so a consumer
+    // never silently imports third-party content a migration rewrote.
+    const isLegacy = packManifestSchemaVersion(acquired.packRoot) === LEGACY_NODE_SCHEMA_VERSION;
+    if (isLegacy && opts.migrate !== true) {
+      log.error(
+        `pack import: ${acquired.resolvedSource} declares node schema ${LEGACY_NODE_SCHEMA_VERSION}, ` +
+          `but this kenkeep installs schema ${NODE_SCHEMA_VERSION}. Re-run with --migrate to convert ` +
+          `a copy of the pack before importing; the source is not modified.`
+      );
+      return 1;
+    }
+    const packRoot = isLegacy ? migrateLegacyPack(acquired.packRoot, tmpRoot) : acquired.packRoot;
+    const validation = validatePack(packRoot);
     if (!validation.ok || !validation.manifest) {
       log.error(`pack import: ${acquired.resolvedSource} is not a valid kenkeep pack:`);
       for (const error of validation.errors) log.error(`  ${error}`);
       for (const warning of validation.warnings) log.warn(`  ${warning}`);
       return 1;
     }
+    for (const warning of validation.warnings) log.warn(`pack import: ${warning}`);
 
     const destinationName = opts.as ?? validation.manifest.name;
     if (!PACK_NAME_PATTERN.test(destinationName)) {
@@ -96,7 +114,7 @@ export async function runPackImportCommand(
       return 1;
     }
 
-    const knowledgeDir = join(acquired.packRoot, PACK_KNOWLEDGE_DIRNAME);
+    const knowledgeDir = join(packRoot, PACK_KNOWLEDGE_DIRNAME);
     let existingIds: Set<string>;
     let packNodes;
     try {
@@ -118,7 +136,12 @@ export async function runPackImportCommand(
       packLeafIds: new Map(packNodes.map(node => [node.path, node.frontmatter.kk_id])),
     });
 
-    ensureDestinationSummary(paths.nodesDir, destinationName, validation.manifest.summary);
+    mergePackFolderSummaries({
+      knowledgeDir,
+      nodesDir: paths.nodesDir,
+      destinationName,
+      manifestSummary: validation.manifest.summary,
+    });
 
     const rebuildCode = await runIndexRebuild();
     if (rebuildCode !== 0) return rebuildCode;
@@ -140,7 +163,84 @@ export async function runPackImportCommand(
   }
 }
 
+/**
+ * Read the manifest's declared node schema version without validating anything
+ * else, so a legacy pack can be routed to migration before `validatePack` fails
+ * it on the schema equality gate. Anything unreadable returns null and falls
+ * through to normal validation, which reports the real problem.
+ */
+function packManifestSchemaVersion(packRoot: string): number | null {
+  const file = join(packRoot, PACK_MANIFEST_FILENAME);
+  if (!existsSync(file)) return null;
+  try {
+    const data = yaml.load(readFileSync(file, 'utf8'));
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) return null;
+    const value = (data as Record<string, unknown>)['schema_version'];
+    return typeof value === 'number' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Convert a pack published against the previous node schema, returning the root
+ * to import from. Only reached once the caller has confirmed the pack is legacy
+ * and that `--migrate` was passed.
+ *
+ * Without this a v2 pack is simply unusable: `validatePack` requires the
+ * manifest's schema_version to equal the installed node schema exactly, so an
+ * author who published under v2 has no path forward and a consumer has no way
+ * in. Gating it behind a flag keeps the schema break clean: nothing is rewritten
+ * unless the consumer asked for it.
+ *
+ * The conversion runs on a copy staged under the import's own temp root, never
+ * on the acquired tree. That matters because a directory source points at a
+ * real directory the user owns, and importing must never rewrite it.
+ *
+ * A migrated v2 pack also recovers its folder summaries for free: v2 kept them
+ * in `index.md` frontmatter, and the migration harvests those into the sidecar
+ * registry that v3 import already knows how to merge.
+ */
+function migrateLegacyPack(packRoot: string, tmpRoot: string): string {
+  const staged = join(tmpRoot, 'migrated');
+  copyTree(packRoot, staged);
+
+  const summary = migrateNodesTreeToV3(join(staged, PACK_KNOWLEDGE_DIRNAME));
+
+  const manifestFile = join(staged, PACK_MANIFEST_FILENAME);
+  const manifest = yaml.load(readFileSync(manifestFile, 'utf8')) as Record<string, unknown>;
+  manifest['schema_version'] = NODE_SCHEMA_VERSION;
+  atomicWriteFile(
+    manifestFile,
+    yaml.dump(manifest, { indent: 2, lineWidth: 0, noRefs: true, sortKeys: true })
+  );
+
+  log.warn(
+    `pack import: --migrate converted a copy of this pack from node schema ` +
+      `${LEGACY_NODE_SCHEMA_VERSION} to ${NODE_SCHEMA_VERSION} (${summary.converted} node(s), ` +
+      `${summary.folder_summaries} folder summary/summaries recovered). The source was not modified.`
+  );
+  for (const collision of summary.collisions) {
+    log.warn(
+      `pack import: ${collision.path}: authored heading(s) ${collision.headings.join(', ')} ` +
+        `collide with kenkeep-generated sections; review the imported node.`
+    );
+  }
+  return staged;
+}
+
 export async function acquirePackSource(source: string, tmpRoot: string): Promise<AcquiredPack> {
+  // A directory is the shape `pack export` produces, so accepting it lets an
+  // author import what they just exported without tarring it first. Import only
+  // ever reads from packRoot, so pointing at the real directory is safe.
+  const localDir = isAbsolute(source) ? source : resolve(process.cwd(), source);
+  if (existsSync(localDir) && statSync(localDir).isDirectory()) {
+    return {
+      packRoot: locatePackRoot(localDir),
+      resolvedSource: localDir,
+    };
+  }
+
   if (source.endsWith('.tar.gz')) {
     const tarball = isAbsolute(source) ? source : resolve(process.cwd(), source);
     if (!existsSync(tarball)) throw new Error(`tarball does not exist (${tarball})`);
@@ -155,7 +255,7 @@ export async function acquirePackSource(source: string, tmpRoot: string): Promis
   const repo = parseGitHubSource(source);
   if (!repo) {
     throw new Error(
-      `unsupported pack source "${source}"; use owner/repo, a github.com URL, or a .tar.gz path.`
+      `unsupported pack source "${source}"; use owner/repo, a github.com URL, a .tar.gz path, or a pack directory.`
     );
   }
 
@@ -210,17 +310,67 @@ function graftKnowledgeTree(args: {
   return { grafted, skipped };
 }
 
-function ensureDestinationSummary(
-  nodesDir: string,
-  destinationName: string,
-  summary: string
-): void {
-  const indexFile = join(nodesDir, destinationName, INDEX_FILENAME);
-  if (existsSync(indexFile)) {
-    const parsed = matter(readFileSync(indexFile, 'utf8'));
-    if (typeof parsed.data.summary === 'string' && parsed.data.summary.trim() !== '') return;
+/**
+ * Merge the pack's folder summary registry into the consumer's, re-keyed under
+ * the destination branch, in a single write.
+ *
+ * Must run BEFORE `runIndexRebuild`: the rebuild's `harvestFolderSummaries`
+ * reads the sidecar off disk (src/lib/index-gen.ts), so a merge written after
+ * it would stay invisible until some later rebuild — the exact silent failure
+ * this transport exists to fix.
+ *
+ * `readFolderSummaries` returns an empty `Map` when the file is absent, so a
+ * pack published before the registry existed merges to a no-op; that is the
+ * backwards-compatibility path and needs no separate existence check.
+ *
+ * Ordering inside the merge is load-bearing: the consumer map seeds the result,
+ * the destination subtree is cleared, the pack entries repopulate it, and
+ * `manifest.summary` is applied last so it stays authoritative for the
+ * destination key.
+ *
+ * Clearing the subtree first is what makes the pack the sole authority for the
+ * branch it owns. Overwriting only the keys the pack supplies would strand any
+ * key the pack no longer carries: nothing prunes the on-disk registry, since
+ * `harvestFolderSummaries` prunes only its in-memory copy, so a `<dest>/gone`
+ * key left by an earlier import of the same branch would survive indefinitely.
+ * Keys outside the destination subtree belong to the consumer and are untouched.
+ */
+function mergePackFolderSummaries(args: {
+  knowledgeDir: string;
+  nodesDir: string;
+  destinationName: string;
+  manifestSummary: string;
+}): void {
+  const merged = readFolderSummaries(args.nodesDir);
+  const ownedPrefix = `${args.destinationName}/`;
+  for (const key of [...merged.keys()]) {
+    if (key === args.destinationName || key.startsWith(ownedPrefix)) merged.delete(key);
   }
-  stampFolderSummary(nodesDir, destinationName, summary);
+  for (const [key, summary] of readFolderSummaries(args.knowledgeDir)) {
+    merged.set(destinationKeyForPackKey(key, args.destinationName), summary);
+  }
+  merged.set(args.destinationName, args.manifestSummary);
+  writeFolderSummaries(args.nodesDir, merged);
+}
+
+/**
+ * Re-key one pack registry entry as a prefix join under the destination branch:
+ * the pack root maps to `<dest>` and `a/b` to `<dest>/a/b`.
+ *
+ * `validatePack` has already rejected keys that escape the knowledge tree, but
+ * it neither normalizes them in place nor does `readFolderSummaries` normalize
+ * on read, so a surviving key may still be `''`, `.`, `/` or `foo/`. Collapsing
+ * those here rather than emitting `<dest>/.` and leaving `writeFolderSummaries`
+ * to clean it up afterwards is what makes `manifest.summary` unconditionally
+ * authoritative: two root-equivalent pack keys would otherwise reach the map as
+ * distinct entries and their post-hoc collapse would resolve by insertion
+ * order, letting a pack root entry beat the manifest.
+ */
+function destinationKeyForPackKey(key: string, destinationName: string): string {
+  const normalized = posix.normalize(key.split(sep).join(posix.sep));
+  if (normalized === '.' || normalized === '/') return destinationName;
+  const trimmed = normalized.replace(/\/+$/u, '');
+  return trimmed === '' ? destinationName : `${destinationName}/${trimmed}`;
 }
 
 function parseGitHubSource(source: string): GitHubRepo | null {

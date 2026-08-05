@@ -1,3 +1,9 @@
+## [1.17.0](https://github.com/e0ipso/kenkeep/compare/v1.16.4...v1.17.0) (2026-08-05)
+
+### Features
+
+* **pack:** ship folder summaries in knowledge packs ([#120](https://github.com/e0ipso/kenkeep/issues/120)) ([ca71e75](https://github.com/e0ipso/kenkeep/commit/ca71e7518059f5063c65febe7044a6e93104ca70)), closes [#119](https://github.com/e0ipso/kenkeep/issues/119) [#119](https://github.com/e0ipso/kenkeep/issues/119) [#119](https://github.com/e0ipso/kenkeep/issues/119)
+
 ## [1.16.4](https://github.com/e0ipso/kenkeep/compare/v1.16.3...v1.16.4) (2026-08-05)
 
 ### Bug Fixes

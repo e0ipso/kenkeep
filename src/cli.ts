@@ -264,10 +264,15 @@ async function main(): Promise<void> {
     .description('Import a validated knowledge pack into an isolated nodes/<name>/ branch.')
     .argument('<source>', 'GitHub owner/repo, GitHub URL, local .tar.gz path, or pack directory')
     .option('--as <name>', 'destination branch name under nodes/')
+    .option(
+      '--migrate',
+      'convert a copy of a pack published against the previous node schema before importing (the source is not modified)'
+    )
     .allowExcessArguments(true)
-    .action(async (source: string, opts: { as?: string }) => {
+    .action(async (source: string, opts: { as?: string; migrate?: boolean }) => {
       const flags: Parameters<typeof runPackImportCommand>[1] = {};
       if (opts.as !== undefined) flags.as = opts.as;
+      if (opts.migrate !== undefined) flags.migrate = opts.migrate;
       const code = await runPackImportCommand(source, flags);
       process.exit(code);
     });

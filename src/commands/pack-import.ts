@@ -40,6 +40,7 @@ export type PackSourceAcquirer = (source: string, tmpRoot: string) => Promise<Ac
 
 export interface PackImportOptions {
   as?: string | undefined;
+  migrate?: boolean | undefined;
   acquireSource?: PackSourceAcquirer | undefined;
 }
 
@@ -61,7 +62,20 @@ export async function runPackImportCommand(
   try {
     const acquire = opts.acquireSource ?? acquirePackSource;
     const acquired = await acquire(source, tmpRoot);
-    const packRoot = migrateLegacyPack(acquired.packRoot, tmpRoot);
+
+    // A schema bump is a clean break: readers reject a mismatch rather than
+    // shimming it. Conversion is available but stays opt-in, so a consumer
+    // never silently imports third-party content a migration rewrote.
+    const isLegacy = packManifestSchemaVersion(acquired.packRoot) === LEGACY_NODE_SCHEMA_VERSION;
+    if (isLegacy && opts.migrate !== true) {
+      log.error(
+        `pack import: ${acquired.resolvedSource} declares node schema ${LEGACY_NODE_SCHEMA_VERSION}, ` +
+          `but this kenkeep installs schema ${NODE_SCHEMA_VERSION}. Re-run with --migrate to convert ` +
+          `a copy of the pack before importing; the source is not modified.`
+      );
+      return 1;
+    }
+    const packRoot = isLegacy ? migrateLegacyPack(acquired.packRoot, tmpRoot) : acquired.packRoot;
     const validation = validatePack(packRoot);
     if (!validation.ok || !validation.manifest) {
       log.error(`pack import: ${acquired.resolvedSource} is not a valid kenkeep pack:`);
@@ -169,13 +183,15 @@ function packManifestSchemaVersion(packRoot: string): number | null {
 }
 
 /**
- * Bring a pack published against the previous node schema up to the installed
- * one, returning the root to import from.
+ * Convert a pack published against the previous node schema, returning the root
+ * to import from. Only reached once the caller has confirmed the pack is legacy
+ * and that `--migrate` was passed.
  *
  * Without this a v2 pack is simply unusable: `validatePack` requires the
- * manifest's schema_version to equal the installed node schema exactly, and
- * there is no pack-level migration command, so an author who published under v2
- * has no path forward and a consumer has no way in.
+ * manifest's schema_version to equal the installed node schema exactly, so an
+ * author who published under v2 has no path forward and a consumer has no way
+ * in. Gating it behind a flag keeps the schema break clean: nothing is rewritten
+ * unless the consumer asked for it.
  *
  * The conversion runs on a copy staged under the import's own temp root, never
  * on the acquired tree. That matters because a directory source points at a
@@ -186,8 +202,6 @@ function packManifestSchemaVersion(packRoot: string): number | null {
  * registry that v3 import already knows how to merge.
  */
 function migrateLegacyPack(packRoot: string, tmpRoot: string): string {
-  if (packManifestSchemaVersion(packRoot) !== LEGACY_NODE_SCHEMA_VERSION) return packRoot;
-
   const staged = join(tmpRoot, 'migrated');
   copyTree(packRoot, staged);
 
@@ -202,8 +216,8 @@ function migrateLegacyPack(packRoot: string, tmpRoot: string): string {
   );
 
   log.warn(
-    `pack import: pack declares node schema ${LEGACY_NODE_SCHEMA_VERSION}; migrated a copy to ` +
-      `${NODE_SCHEMA_VERSION} before import (${summary.converted} node(s), ` +
+    `pack import: --migrate converted a copy of this pack from node schema ` +
+      `${LEGACY_NODE_SCHEMA_VERSION} to ${NODE_SCHEMA_VERSION} (${summary.converted} node(s), ` +
       `${summary.folder_summaries} folder summary/summaries recovered). The source was not modified.`
   );
   for (const collision of summary.collisions) {

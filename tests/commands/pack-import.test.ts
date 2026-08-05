@@ -532,7 +532,7 @@ describe('pack import command', () => {
     expect(summaries.has('drupal/removed')).toBe(false);
   });
 
-  it('migrates a legacy v2 pack on the way in, recovering its folder summaries', async () => {
+  it('refuses a legacy v2 pack without --migrate, and says how to proceed', async () => {
     const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
     extraRoots.push(legacyRoot);
     writeLegacyV2Pack(legacyRoot);
@@ -544,8 +544,29 @@ describe('pack import command', () => {
       })
     );
 
+    // A schema bump is a clean break, so conversion stays opt-in. The refusal
+    // has to name the flag: the bare schema-mismatch error does not, and a
+    // consumer would otherwise have no way to discover the escape hatch.
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('--migrate');
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/legacy'))).toBe(false);
+  });
+
+  it('migrates a legacy v2 pack under --migrate, recovering its folder summaries', async () => {
+    const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
+    extraRoots.push(legacyRoot);
+    writeLegacyV2Pack(legacyRoot);
+
+    const result = await capture(() =>
+      runPackImportCommand('fixture', {
+        as: 'legacy',
+        migrate: true,
+        acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
+      })
+    );
+
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain('migrated a copy to');
+    expect(result.stderr).toContain('--migrate converted a copy');
 
     // The node landed at the installed schema, not the legacy one.
     const imported = matter(
@@ -565,7 +586,7 @@ describe('pack import command', () => {
     expect(branchIndex).toContain(`for more information on ${LEGACY_FOLDER_SUMMARY}`);
   });
 
-  it('never modifies the source when migrating a legacy v2 pack', async () => {
+  it('never modifies the source when --migrate converts a legacy v2 pack', async () => {
     const legacyRoot = mkdtempSync(join(tmpdir(), 'kk-pack-v2-'));
     extraRoots.push(legacyRoot);
     writeLegacyV2Pack(legacyRoot);
@@ -578,6 +599,7 @@ describe('pack import command', () => {
     const result = await capture(() =>
       runPackImportCommand('fixture', {
         as: 'legacy',
+        migrate: true,
         acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
       })
     );

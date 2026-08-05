@@ -63,6 +63,18 @@ function writeNode(
   writeFileSync(join(dir, filename), [...base, ...overrides, '---', '', '# Body'].join('\n'));
 }
 
+/**
+ * Write the pack's folder summary registry at the pack ROOT, as a sibling of
+ * `knowledge/`. The path is hardcoded rather than derived from the production
+ * helper so a change of location fails this test instead of following it.
+ */
+function writeRegistry(root: string, frontmatter: string[]): void {
+  writeFileSync(
+    join(root, `${PACK_KNOWLEDGE_DIRNAME}.FOLDER_SUMMARIES.md`),
+    ['---', ...frontmatter, '---', '', '# kenkeep Folder Summaries', ''].join('\n')
+  );
+}
+
 function seedValidPack(root: string): void {
   writeManifest(root);
   const knowledge = join(root, PACK_KNOWLEDGE_DIRNAME);
@@ -186,5 +198,48 @@ describe('validatePack', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('duplicate node id practice-drupal-services');
+  });
+
+  it('rejects a folder summary registry that fails the schema', () => {
+    seedValidPack(root);
+    writeRegistry(root, ['schema_version: 2', 'summaries:', '  framework: Framework conventions.']);
+
+    const result = validatePack(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain(
+      'knowledge.FOLDER_SUMMARIES.md does not match FolderSummaryRegistrySchema'
+    );
+  });
+
+  it('rejects a folder summary key that escapes the knowledge tree', () => {
+    seedValidPack(root);
+    writeRegistry(root, [
+      'schema_version: 1',
+      'summaries:',
+      '  framework: Framework conventions.',
+      '  "../../../evil": Escapes the tree.',
+    ]);
+
+    const result = validatePack(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('folder summary key "../../../evil" escapes knowledge/');
+  });
+
+  it('warns, without failing, about a knowledge folder with no registry entry', () => {
+    seedValidPack(root);
+    writeNode(root, 'runtime', 'practice-runtime-tuning');
+    writeRegistry(root, ['schema_version: 1', 'summaries:', '  framework: Framework conventions.']);
+
+    const result = validatePack(root);
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    // Exactly one warning: `framework` is covered, and the pack root is never
+    // reported because import stamps that key from the manifest summary.
+    expect(result.warnings).toEqual([
+      'folder "runtime" has no summary in knowledge.FOLDER_SUMMARIES.md',
+    ]);
   });
 });

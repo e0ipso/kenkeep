@@ -329,10 +329,10 @@ No file overlap between these two tasks, so they run fully in parallel.
 
 Depends on 002 because the merge assumes every surviving key has already been rejected if it escapes the knowledge tree; validating mid-merge would risk a partially written consumer registry.
 
-### Phase 3: Verification and Documentation
+### ✅ Phase 3: Verification and Documentation
 **Parallel Tasks:**
-- Task 004: Test the folder summary round trip and its failure modes — round trip, `--as`, legacy pack, malformed registry, traversal key, export assertions (depends on: 001, 002, 003)
-- Task 005: Correct the pack documentation for the summary transport — `docs/knowledge-packs.md`, `docs/internals/schemas.md`, `docs/internals/architecture.md` (depends on: 001, 002, 003)
+- ✔️ Task 004: Test the folder summary round trip and its failure modes — round trip, `--as`, legacy pack, malformed registry, traversal key, export assertions (depends on: 001, 002, 003) — `completed`
+- ✔️ Task 005: Correct the pack documentation for the summary transport — `docs/knowledge-packs.md`, `docs/internals/schemas.md`, `docs/internals/architecture.md` (depends on: 001, 002, 003) — `completed`
 
 Task 004 touches only `tests/`, task 005 touches only `docs/`, so they run fully in parallel.
 

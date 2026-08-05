@@ -103,6 +103,7 @@ A pack repository root has this layout:
 <pack-root>/
 |-- kenkeep-pack.yaml
 |-- README.md
+|-- knowledge.FOLDER_SUMMARIES.md
 `-- knowledge/
 ```
 
@@ -129,5 +130,18 @@ Manifest fields:
 `README.md` is for humans and is ignored by import. `knowledge/` is the only
 content import reads. It contains the same shape as a kenkeep `nodes/` tree:
 topical folders, `practice-*` and `map-*` leaf nodes, and generated per-folder
-`index.md` files. Folder `index.md` summaries survive the import rebuild, so pack
-authors can describe branches before publishing.
+`index.md` files.
+
+Folder summaries do not travel inside `knowledge/`. They ship separately, in the
+pack-root sidecar `knowledge.FOLDER_SUMMARIES.md`. Export writes this registry
+pruned to the folders the pack actually contains; an exported folder with no
+summary produces a warning but does not block the export.
+
+Import re-keys every entry from the pack's registry under the destination
+branch: a pack's `apis` key lands as `<branch>/apis` in the consumer, and
+`--as <name>` re-keys under the renamed branch instead. `manifest.summary`
+is always used for the branch root key itself, regardless of what the pack's
+registry contains there. A pack published before this registry existed ships
+no `knowledge.FOLDER_SUMMARIES.md`; it still imports successfully, and the
+following index rebuild warns how many folders have no summary, rendering the
+Title-cased folder name in their place.

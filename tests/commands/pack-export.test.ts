@@ -13,6 +13,7 @@ import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runPackExportCommand } from '../../src/commands/pack-export.js';
+import { readFolderSummaries, writeFolderSummaries } from '../../src/lib/folder-summaries.js';
 import { validatePack } from '../../src/lib/pack.js';
 import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter, NodeKind, PackManifest } from '../../src/lib/schemas.js';
@@ -53,6 +54,8 @@ function writeNode(
   writeFileSync(join(dir, `${id}.md`), matter.stringify(`# ${id}\nBody.\n`, fm));
 }
 
+const FRAMEWORK_SUMMARY = 'Service wiring conventions; read when adding a service.';
+
 function seedKnowledgeBase(root: string): void {
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/nodes'), { recursive: true });
@@ -67,6 +70,12 @@ function seedKnowledgeBase(root: string): void {
   writeNode(root, 'framework', 'map', 'map-drupal-hooks', {
     kk_relates_to: ['practice-drupal-services'],
   });
+  // v3 folder summaries live in the sidecar registry beside nodes/, which is
+  // what the export has to carry into the pack.
+  writeFolderSummaries(
+    join(root, '.ai/kenkeep/nodes'),
+    new Map([['framework', FRAMEWORK_SUMMARY]])
+  );
 }
 
 async function capture(
@@ -152,16 +161,56 @@ describe('pack export command', () => {
       summary: 'Drupal project conventions.',
       version: '1.2.0',
     });
-    expect(validatePack(dist).ok).toBe(true);
+    const validation = validatePack(dist);
+    expect(validation.ok).toBe(true);
+    expect(validation.warnings).toEqual([]);
     expect(readFileSync(join(dist, 'README.md'), 'utf8')).toContain(
       'npx kenkeep pack import <this-repo>'
     );
     expect(existsSync(join(dist, 'knowledge/framework/practice-drupal-services.md'))).toBe(true);
     expect(existsSync(join(dist, 'knowledge/index.md'))).toBe(true);
+    // The registry ships at the pack ROOT as a sibling of knowledge/. Inside
+    // knowledge/ it would be collected as a leaf node and break every import.
+    expect(listFiles(dist)).toContain('knowledge.FOLDER_SUMMARIES.md');
+    expect(
+      listFiles(dist).filter(
+        file => file.startsWith('knowledge/') && file.endsWith('FOLDER_SUMMARIES.md')
+      )
+    ).toEqual([]);
+    expect(readFolderSummaries(join(dist, 'knowledge'))).toEqual(
+      new Map([['framework', FRAMEWORK_SUMMARY]])
+    );
     expect(existsSync(join(dist, 'ENTRY.md'))).toBe(false);
     expect(existsSync(join(dist, 'GRAPH.md'))).toBe(false);
     expect(existsSync(join(dist, '.state'))).toBe(false);
     expect(existsSync(join(dist, 'config.yaml'))).toBe(false);
+  });
+
+  it('prunes the shipped registry to exported folders and warns about the gaps', async () => {
+    writeNode(sandbox, 'runtime', 'practice', 'practice-runtime-tuning');
+    // A summary for a folder that is not in the tree must not ship.
+    writeFolderSummaries(
+      join(sandbox, '.ai/kenkeep/nodes'),
+      new Map([
+        ['framework', FRAMEWORK_SUMMARY],
+        ['retired', 'Summary for a folder that no longer exists.'],
+      ])
+    );
+
+    const result = await capture(() =>
+      runPackExportCommand({
+        name: 'drupal',
+        version: '1.2.0',
+        summary: 'Drupal project conventions.',
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(readFolderSummaries(join(sandbox, 'dist/knowledge'))).toEqual(
+      new Map([['framework', FRAMEWORK_SUMMARY]])
+    );
+    expect(result.stderr).toContain('folder-summary: runtime: exported folder has no summary');
+    expect(result.stderr).not.toContain('retired');
   });
 
   it('prompts for missing required fields and never prompts for schema_version', async () => {

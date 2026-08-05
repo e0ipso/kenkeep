@@ -29,12 +29,16 @@ The source can be any of these forms:
 npx kenkeep pack import e0ipso/kenkeep-pack-drupal
 npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal
 npx kenkeep pack import ./kenkeep-pack-drupal.tar.gz
+npx kenkeep pack import ./dist
 ```
 
 For GitHub sources, kenkeep first asks GitHub for the latest release tarball. If
 the repo has no latest release, it falls back to the repository default branch
 tarball. Local `.tar.gz` sources are extracted locally and must contain exactly
-one `kenkeep-pack.yaml` at the pack root or inside one wrapping directory.
+one `kenkeep-pack.yaml` at the pack root or inside one wrapping directory. A
+directory is read in place under the same rule, which lets a pack author import
+whatever `pack export` just wrote without tarring it first. Import only ever
+reads from the source, so nothing in that directory is modified.
 
 By default, the destination branch name under `nodes/` comes from the manifest
 `name`. Use `--as` to override it:

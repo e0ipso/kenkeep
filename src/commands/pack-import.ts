@@ -146,6 +146,17 @@ export async function runPackImportCommand(
 }
 
 export async function acquirePackSource(source: string, tmpRoot: string): Promise<AcquiredPack> {
+  // A directory is the shape `pack export` produces, so accepting it lets an
+  // author import what they just exported without tarring it first. Import only
+  // ever reads from packRoot, so pointing at the real directory is safe.
+  const localDir = isAbsolute(source) ? source : resolve(process.cwd(), source);
+  if (existsSync(localDir) && statSync(localDir).isDirectory()) {
+    return {
+      packRoot: locatePackRoot(localDir),
+      resolvedSource: localDir,
+    };
+  }
+
   if (source.endsWith('.tar.gz')) {
     const tarball = isAbsolute(source) ? source : resolve(process.cwd(), source);
     if (!existsSync(tarball)) throw new Error(`tarball does not exist (${tarball})`);
@@ -160,7 +171,7 @@ export async function acquirePackSource(source: string, tmpRoot: string): Promis
   const repo = parseGitHubSource(source);
   if (!repo) {
     throw new Error(
-      `unsupported pack source "${source}"; use owner/repo, a github.com URL, or a .tar.gz path.`
+      `unsupported pack source "${source}"; use owner/repo, a github.com URL, a .tar.gz path, or a pack directory.`
     );
   }
 
@@ -229,10 +240,16 @@ function graftKnowledgeTree(args: {
  * backwards-compatibility path and needs no separate existence check.
  *
  * Ordering inside the merge is load-bearing: the consumer map seeds the result,
- * the pack entries overwrite it (last-write-wins, because the on-disk registry
- * is never pruned and stale keys under `<dest>/` must not beat the incoming
- * pack), and `manifest.summary` is applied last so it stays authoritative for
- * the destination key.
+ * the destination subtree is cleared, the pack entries repopulate it, and
+ * `manifest.summary` is applied last so it stays authoritative for the
+ * destination key.
+ *
+ * Clearing the subtree first is what makes the pack the sole authority for the
+ * branch it owns. Overwriting only the keys the pack supplies would strand any
+ * key the pack no longer carries: nothing prunes the on-disk registry, since
+ * `harvestFolderSummaries` prunes only its in-memory copy, so a `<dest>/gone`
+ * key left by an earlier import of the same branch would survive indefinitely.
+ * Keys outside the destination subtree belong to the consumer and are untouched.
  */
 function mergePackFolderSummaries(args: {
   knowledgeDir: string;
@@ -241,6 +258,10 @@ function mergePackFolderSummaries(args: {
   manifestSummary: string;
 }): void {
   const merged = readFolderSummaries(args.nodesDir);
+  const ownedPrefix = `${args.destinationName}/`;
+  for (const key of [...merged.keys()]) {
+    if (key === args.destinationName || key.startsWith(ownedPrefix)) merged.delete(key);
+  }
   for (const [key, summary] of readFolderSummaries(args.knowledgeDir)) {
     merged.set(destinationKeyForPackKey(key, args.destinationName), summary);
   }

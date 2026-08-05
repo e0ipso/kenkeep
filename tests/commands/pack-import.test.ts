@@ -467,6 +467,9 @@ describe('pack import command', () => {
       new Map([
         ['existing', 'Local conventions; read before touching this repo.'],
         ['drupal/framework', 'Stale text from an earlier import.'],
+        // The pack no longer carries this folder. Nothing else prunes the
+        // on-disk registry, so the import has to drop it or it survives forever.
+        ['drupal/removed', 'Text for a folder this pack no longer ships.'],
       ])
     );
     writeFolderSummaries(
@@ -485,6 +488,24 @@ describe('pack import command', () => {
     expect(summaries.get('existing')).toBe('Local conventions; read before touching this repo.');
     expect(summaries.get('drupal/framework')).toBe(FRAMEWORK_SUMMARY);
     expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+    expect(summaries.has('drupal/removed')).toBe(false);
+  });
+
+  it('accepts a pack directory as the source, not only a tarball', async () => {
+    const result = await capture(() => runPackImportCommand(packRoot));
+
+    expect(result.code).toBe(0);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal/index.md'))).toBe(true);
+    const summaries = readFolderSummaries(join(sandbox, '.ai/kenkeep/nodes'));
+    expect(summaries.get('drupal')).toBe(MANIFEST_SUMMARY);
+  });
+
+  it('rejects a source that is neither a directory, a tarball, nor a GitHub ref', async () => {
+    const result = await capture(() => runPackImportCommand('not a pack'));
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('unsupported pack source');
+    expect(result.stderr).toContain('pack directory');
   });
 
   it('returns validation errors without writing on an invalid pack', async () => {

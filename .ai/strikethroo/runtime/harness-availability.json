@@ -15,27 +15,27 @@
     },
     "cursor": {
       "available": false,
-      "observedAt": 1785966961354,
-      "expiresAt": 1785967261354,
+      "observedAt": 1785967784689,
+      "expiresAt": 1785968084689,
       "reason": "⚠ Workspace Trust Required   Cursor Agent can execute code and access files in this directory.   Do you trust the contents of this directory?     /workspace   To proceed, you can either:     • Run 'ag"
     },
     "gemini": {
       "available": false,
-      "observedAt": 1785966961356,
-      "expiresAt": 1785967261356,
+      "observedAt": 1785967784695,
+      "expiresAt": 1785968084695,
       "reason": "spawn gemini ENOENT"
     },
     "copilot": {
       "available": false,
-      "observedAt": 1785966961358,
-      "expiresAt": 1785967261358,
+      "observedAt": 1785967784698,
+      "expiresAt": 1785968084698,
       "reason": "spawn copilot ENOENT"
     },
     "opencode": {
       "available": false,
-      "observedAt": 1785966961360,
-      "expiresAt": 1785967261360,
-      "reason": "📖 kenkeep Index: Loading knowledge base… 🔄 kenkeep Proposals: Draining queue… kenkeep: workspace on kenkeep-dev. Action needed: Run /kk-curate. 🧠 kenkeep Index: Knowledge base loaded. \u001b[91m\u001b[1mErro"
+      "observedAt": 1785967784699,
+      "expiresAt": 1785968084699,
+      "reason": "📖 kenkeep Index: Loading knowledge base… 🔄 kenkeep Proposals: Draining queue… 📬 kenkeep Proposals: Queue drained. kenkeep: workspace on kenkeep-dev. Action needed: Run npx kenkeep lint --verbose. \ud83e"
     }
   }
 }

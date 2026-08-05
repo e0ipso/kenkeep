@@ -1,0 +1,31 @@
+{
+  "round": 1,
+  "reviewFile": "/workspace/.ai/strikethroo/plans/66--pack-folder-summary-transport/review/round-1/review.xml",
+  "xsdFile": "/workspace/.ai/strikethroo/config/schemas/self-review-v2.xsd",
+  "severityFloor": "major",
+  "confidenceFloor": "high",
+  "status": "evaluated",
+  "counts": {
+    "total": 1,
+    "aboveFloor": 1,
+    "belowFloor": 0,
+    "actionable": 0,
+    "recorded": 1,
+    "aboveFloorWithoutSuggestion": 1
+  },
+  "actionable": [],
+  "recorded": [
+    {
+      "file": "src/commands/pack-import.ts",
+      "location": "new:243-248",
+      "severity": "major",
+      "confidence": "high",
+      "category": "requirement-conformance",
+      "hasSuggestion": false,
+      "summary": "The plan explicitly requires stale consumer keys under the destination prefix to be removed when the incoming pack no longer contains that branch. This merge starts with the complete consumer map and only overwrites keys supplied by the pack. For example, if the consumer registry contains `drupal/removed` while `nodes/drupal/` is absent, importing a `drupal` pack whose registry contains only `fram",
+      "reasons": [
+        "no-suggestion"
+      ]
+    }
+  ]
+}

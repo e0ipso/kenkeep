@@ -22,7 +22,7 @@ function runHook(cwd: string, input: object, env: NodeJS.ProcessEnv = {}): Promi
     const proc = execFile(
       'node',
       [hookPath],
-      { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
+      { cwd, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', ...env } },
       (err, stdout, stderr) => {
         const code =
           err && typeof (err as { code?: unknown }).code === 'number'
@@ -100,7 +100,7 @@ describe('kk-proposal-drain hook (spawned)', () => {
       const proc = execFile(
         process.execPath,
         [cursorHookPath],
-        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1', PATH: pathForHook } },
+        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', PATH: pathForHook } },
         (err, stdout, stderr) => {
           const code =
             err && typeof (err as { code?: unknown }).code === 'number'
@@ -148,7 +148,7 @@ describe('kk-proposal-drain hook (spawned)', () => {
       const proc = execFile(
         process.execPath,
         [cursorHookPath],
-        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1', ...env } },
+        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', ...env } },
         (err, stdout, stderr) => {
           resolveFn({
             stdout: stdout.toString(),
@@ -240,7 +240,7 @@ describe('kk-proposal-drain launch path: held-open stdin without EOF', () => {
       const start = Date.now();
       const child = spawn(process.execPath, [drainHook], {
         cwd: sandbox,
-        env: { ...process.env, NO_COLOR: '1', ...env },
+        env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', ...env },
         stdio: ['pipe', 'ignore', 'ignore'],
       });
       // Write the payload but NEVER end stdin: emulate a host that holds the

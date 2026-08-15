@@ -74,7 +74,7 @@ How is kenkeep different from solutions like [`claude-mem`](https://github.com/t
 <div>
 <img src="{{ '/assets/icons/key-round.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>No API keys</h3>
-<p>It all runs from within the assistant of your choice, Claude Code, Codex, Cursor, OpenCode, or Copilot, on the subscription you already pay for. There is no separate API key to obtain, store, or rotate.</p>
+<p>It all runs from within the assistant of your choice, Claude Code, Codex, Cursor, OpenCode, Copilot, or Grok Build, on the subscription you already pay for. There is no separate API key to obtain, store, or rotate.</p>
 </div>
 </div>
 
@@ -85,7 +85,7 @@ npx kenkeep init --harnesses claude
 npx kenkeep doctor
 ```
 
-Swap `claude` for `codex`, `cursor`, `opencode`, or `copilot` to match your harness; pass a comma-separated list to install several at once.
+Swap `claude` for `codex`, `cursor`, `opencode`, `copilot`, or `grok` to match your harness; pass a comma-separated list to install several at once.
 
 Then code normally. When you want to turn captured material into knowledge nodes, run `/kk-curate` inside your harness session (also `/kk-add`, `/kk-bootstrap`). The skills are context-aware and walk you through conflict resolution. New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
 

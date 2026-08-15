@@ -19,7 +19,7 @@ vi.mock('execa', () => ({ execa: vi.fn() }));
  * the host, so its parsing/dedup/error behavior is exercised as a targeted
  * block below.
  */
-const noMemoryAdapters = ['codex', 'copilot', 'opencode'];
+const noMemoryAdapters = ['codex', 'copilot', 'grok', 'opencode'];
 
 describe('adapter.listMemoryFiles (parametrized over no-memory harnesses)', () => {
   afterEach(() => vi.clearAllMocks());

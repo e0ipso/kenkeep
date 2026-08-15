@@ -8,7 +8,7 @@ nav_order: 3
 ## Prerequisites
 
 - Node.js 22+
-- One of the supported AI harnesses on PATH: [Claude Code](https://docs.claude.com/en/docs/claude-code/getting-started), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs) (agent CLI), [OpenCode](https://opencode.ai/), or [GitHub Copilot CLI](https://github.com/github/copilot) (`@github/copilot`).
+- One of the supported AI harnesses on PATH: [Claude Code](https://docs.claude.com/en/docs/claude-code/getting-started), [Codex CLI](https://developers.openai.com/codex/cli/), [Cursor](https://cursor.com/docs) (agent CLI), [OpenCode](https://opencode.ai/), [GitHub Copilot CLI](https://github.com/github/copilot) (`@github/copilot`), or [Grok Build TUI](https://x.ai/build) (`grok`).
 
 No API key required. `init` spawns the harness's own headless driver (`claude -p`, `codex exec`, `agent -p`, `opencode run`, or `copilot -p`) and inherits whatever auth that CLI already uses. A `package.json` at the repo root is **not** required.
 
@@ -21,19 +21,19 @@ npx kenkeep init --harnesses <id>
 npx kenkeep --harness <id> doctor
 ```
 
-`<id>` is one of `claude`, `codex`, `cursor`, `opencode`, `copilot`. Pass a comma-separated list to install several at once.
+`<id>` is one of `claude`, `codex`, `cursor`, `opencode`, `copilot`, `grok`. Pass a comma-separated list to install several at once.
 
 `init` creates:
 
 - `.ai/kenkeep/`: knowledge base scaffold (nodes, INDEX, GRAPH, state, config, prompt overrides). Shared across harnesses.
-- One harness-specific hook + skills directory (`.claude/`, `.codex/` + `.agents/skills/`, `.cursor/`, `.opencode/`, or `.copilot/` + `.github/skills/`).
+- One harness-specific hook + skills directory (`.claude/`, `.codex/` + `.agents/skills/`, `.cursor/`, `.opencode/`, `.copilot/` + `.github/skills/`, or `.grok/hooks/` + `.grok/skills/` when Claude skills are not already present).
 - A managed block in `.gitignore` for runtime state.
 
 `init` does **not** install husky, lint-staged, secretlint as devDeps, or commitlint. See [Optional: commit-time hardening](#optional-commit-time-hardening) below if you want them.
 
 ## Per-harness notes
 
-The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_AGENT=1`). **Codex, OpenCode, and Copilot export no in-session env var**, so when invoking from outside a session, or from inside a Codex/OpenCode/Copilot session, pass `--harness <id>` explicitly, or set `cliDefaultHarness` in `.ai/kenkeep/config.yaml`.
+The CLI auto-detects Claude (via `CLAUDECODE=1`), Grok Build (via `GROK_AGENT=1`), and Cursor (via `CURSOR_AGENT=1`). **Codex, OpenCode, and Copilot export no in-session env var**, so when invoking from outside a session, or from inside a Codex/OpenCode/Copilot session, pass `--harness <id>` explicitly, or set `cliDefaultHarness` in `.ai/kenkeep/config.yaml`.
 
 | Harness | Capture events | Prompt-time injection | Notable |
 |---|---|---|---|
@@ -42,6 +42,7 @@ The CLI auto-detects Claude (via `CLAUDECODE=1`) and Cursor (via `CURSOR_AGENT=1
 | Cursor | `stop`, `sessionEnd`, `preCompact` | — | If Cursor's *Third-party skills* is on, don't also install the `claude` adapter, or you'll double-fire. INDEX injection via `sessionStart` is fire-and-forget; reference INDEX from `AGENTS.md` if it proves unreliable. |
 | OpenCode | `session.idle`, `session.created` | — | No `additionalContext` channel. The session-start hook writes the entry catalog to `.opencode/AGENTS.md`, and `init` registers it in `.opencode/opencode.json`'s `instructions` array so OpenCode loads it natively (no manual reference needed; verified against opencode 1.17.3), alongside the `plugin` entry OpenCode requires to load the hooks. `.opencode/AGENTS.md` is per-user, regenerated every session — add it to your `.gitignore`, never commit it. |
 | Copilot | `sessionEnd`, `agentStop` | — | Hooks register in the repo-level `.github/hooks/kk.json` (Copilot loads it before any user-level hooks). No `additionalContext` channel; the session-start hook writes INDEX into `.github/copilot-instructions.md` under a sentinel block. See [GitHub Copilot CLI](#github-copilot-cli) below. |
+| Grok | `Stop`, `SessionEnd`, `PreCompact` | — | No `additionalContext` channel (`SessionStart` / `UserPromptSubmit` stdout is ignored). Orientation is the `AGENTS.md` kk-index pointer (Grok auto-loads `AGENTS.md`). Hooks live in `.grok/hooks/kk.json`. Capture reads `~/.grok/sessions/<encoded-cwd>/<sessionId>/chat_history.jsonl`. Dual-install with Claude: keep skills in `.claude/skills/` only; Claude kenkeep hooks no-op when `GROK_AGENT=1`. Project hooks stay silent until `/hooks-trust`. See [Grok Build TUI](#grok-build-tui) below. |
 
 If your harness isn't listed above, this tool doesn't support it yet.
 
@@ -92,6 +93,43 @@ What `init` writes:
 
 **Advanced (not wired by this tool)**: Copilot's `preToolUse` hook supports a stdout `permissionDecision` contract that advanced users can use to enforce tool-restriction policies. This plan does not wire it.
 
+### Grok Build TUI
+
+The Grok adapter targets the `grok` binary (Grok Build TUI), not Grok-as-a-model inside Cursor or OpenCode.
+
+**Install**:
+
+```sh
+npx kenkeep init --harnesses grok
+npx kenkeep --harness grok doctor
+```
+
+For a repo already wired for Claude Code:
+
+```sh
+npx kenkeep init --harnesses claude,grok
+```
+
+What `init` writes:
+
+- `.ai/kenkeep/hooks/grok/kk-{capture,session-start,proposal-drain,lint-tick}.cjs`
+- `.grok/hooks/kk.json`: the project hook file Grok reads (requires `/hooks-trust` or `grok --trust` once)
+- `.grok/skills/kk-*` only when `.claude/skills/kk-curate` is absent. Dual-harness installs keep a single skill tree under `.claude/skills/`; Grok already loads those via Claude-compat.
+
+**Detection**: Grok exports `GROK_AGENT=1` (and `GROK_SESSION_ID`) in the agent shell and on hook subprocesses. Skills and `npx kenkeep` resolve to `grok` automatically inside a Grok session.
+
+**Recall**: Grok ignores hook stdout on `SessionStart` and `UserPromptSubmit`, so there is no prompt-time injection and no `additionalContext` path. The `AGENTS.md` `kenkeep:kk-index` pointer (written by `init`) is the orientation channel — Grok auto-loads `AGENTS.md`.
+
+**Capture**: `Stop`, `SessionEnd`, and `PreCompact` locate `~/.grok/sessions/<url-encoded-cwd>/<sessionId>/chat_history.jsonl` (honors `GROK_HOME`). The lookup is realpath-confined to that sessions tree and checks `summary.json` cwd. Subagent sessions (`subagentType` set) are skipped. Session ids are UUID-shaped (UUIDv7 accepted).
+
+**Dual-harness isolation**: Grok also scans `.claude/settings.json` when Claude-compat hooks are on. Claude kenkeep hooks no-op when `GROK_AGENT=1` so they do not capture with the Claude parser or spawn `claude -p`. Do not copy kk-* skills into `.grok/skills/` on top of a Claude install.
+
+**Trust**: project hooks are silently skipped until `/hooks-trust`. `doctor --harness grok` warns when the repo is missing from `~/.grok/trusted_folders.toml`.
+
+**Memory**: leave Grok experimental memory off. Kenkeep is the store (`listMemoryFiles` returns `[]`).
+
+**Headless**: proposal drain runs `grok -p --output-format json --yolo` with `KENKEEP_BUILDER_INTERNAL=1`.
+
 ### Claude permission shortcut
 
 The shared SKILL.md does not carry per-tool `allowed-tools` frontmatter. To pre-approve every CLI subcommand under Claude, add to `.claude/settings.json`:
@@ -131,7 +169,7 @@ by this setting.
 
 ### Extraction model (optional)
 
-On Codex, Cursor, OpenCode, and Copilot, candidate extraction runs in the background after each session via the harness's headless driver. You can set the model and effort it uses:
+On Codex, Cursor, OpenCode, Copilot, and Grok, candidate extraction runs in the background after each session via the harness's headless driver. You can set the model and effort it uses:
 
 ```yaml
 proposalModel: { name: <model>, effort: <low|medium|high|xhigh|max> }

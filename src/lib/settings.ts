@@ -155,6 +155,7 @@ export function defaultProjectConfigBody(): string {
     '#   opencode: { harness: opencode, model: <id>, agent: <str>? }',
     '#   cursor:   { harness: cursor, model: <id> }',
     '#   copilot:  { harness: copilot, model: <id> }',
+    '#   grok:     { harness: grok, model: <id>, effort: low|medium|high|xhigh|max? }',
     '#',
     '# Uncomment one and fill in the fields for your harness from the shapes above:',
     '#',

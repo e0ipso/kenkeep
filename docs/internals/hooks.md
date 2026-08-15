@@ -45,6 +45,7 @@ How "the background" is achieved depends on what the host supports:
 | Codex | async launcher (`src/lib/async-launcher.ts`) |
 | Cursor | async launcher |
 | Copilot | async launcher |
+| Grok | async launcher |
 
 Codex, Cursor, and Copilot have no native async hook support — their config writers even drop the spec's `async` flag (Codex writes a 30s `timeout` instead). On those three, non-blocking behavior is guaranteed by the **runtime launcher, not a host flag**. A hook opts in with `runHookEntry({ asyncLauncher: true })`; the launcher then re-spawns the current hook script as a detached, `unref`'d child in its own process group and the parent exits, freeing the host's hook slot. The first invocation does a hard-bounded stdin capture (≤250ms) to carry the payload to the child, then launches and exits *before* any host-dependent or unbounded operation — so a host that holds stdin open without EOF, or enforces a hook timeout, can no longer block or kill the hook before it detaches. (This closed a real defect: the Codex `SessionStart` drain previously awaited an unbounded stdin read before detaching and was killed at Codex's 30s timeout.)
 

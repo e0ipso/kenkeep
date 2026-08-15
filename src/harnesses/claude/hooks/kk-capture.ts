@@ -25,6 +25,7 @@ runHookEntry({
   tag: 'claude:kk-capture',
   deadlineMs: 1000,
   requirePayload: true,
+  skipWhenEnv: { GROK_AGENT: '1' },
   main: async payload => {
     const startCwd =
       typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0

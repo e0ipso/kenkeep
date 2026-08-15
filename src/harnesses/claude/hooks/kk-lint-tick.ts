@@ -13,6 +13,7 @@ import { runLintTick } from '../../../lib/lint-state.js';
 
 runHookEntry({
   tag: 'claude:kk-lint-tick',
+  skipWhenEnv: { GROK_AGENT: '1' },
   // No deadline — configured async in .claude/settings.json.
   main: async payload => {
     const startCwd =

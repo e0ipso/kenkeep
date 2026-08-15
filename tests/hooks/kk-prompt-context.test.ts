@@ -26,7 +26,7 @@ function runHook(
     const proc = execFile(
       'node',
       [hookPath],
-      { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
+      { cwd, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', ...env } },
       (err, stdout, stderr) => {
         const code =
           err && typeof (err as { code?: unknown }).code === 'number'

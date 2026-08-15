@@ -6,8 +6,9 @@
 // drift against the TS adapters via scripts/lint-detect-harness.mjs.
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'opencode'];
+const REGISTERED = ['claude', 'codex', 'copilot', 'cursor', 'grok', 'opencode'];
 const ENV_DETECTORS = [
+  { env: 'GROK_AGENT', value: '1', harness: 'grok' },
   { env: 'CURSOR_AGENT', value: '1', harness: 'cursor' },
   { env: 'CURSOR_VERSION', value: '*nonempty*', harness: 'cursor' },
   { env: 'CLAUDECODE', value: '1', harness: 'claude' },
@@ -25,6 +26,7 @@ function findRoot(argv) {
   return undefined;
 }
 function detectFromEnv(env) {
+  if (env.GROK_AGENT === '1') return 'grok';
   if (env.CLAUDECODE === '1') return 'claude';
   for (const d of ENV_DETECTORS) {
     if (d.value === '*nonempty*') {

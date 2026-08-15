@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -116,7 +116,7 @@ describe('launchSkill', () => {
     expect(call.args.options['stdio']).toBe('inherit');
     // The harness starts from the project root even if the launcher was
     // invoked from a nested directory.
-    expect(call.args.options['cwd']).toBe(sandbox);
+    expect(call.args.options['cwd']).toBe(realpathSync(sandbox));
     // Recursion guard env var present and process.env preserved.
     const env = call.args.options['env'] as Record<string, string>;
     expect(env['KENKEEP_BUILDER_INTERNAL']).toBe('1');
@@ -137,7 +137,7 @@ describe('launchSkill', () => {
     const exitFn = vi.fn((_code: number) => undefined as never);
     launchSkill({ skill: 'kk-curate', harness: 'claude', spawnFn, exitFn });
 
-    expect(captured[0]!.args.options['cwd']).toBe(sandbox);
+    expect(captured[0]!.args.options['cwd']).toBe(realpathSync(sandbox));
   });
 
   it('omits the slash-command tail entirely when no passedArgs are given', () => {
@@ -154,6 +154,8 @@ describe('launchSkill', () => {
       ['codex', 'codex'],
       ['cursor', 'agent'],
       ['opencode', 'opencode'],
+      ['grok', 'grok'],
+      ['copilot', 'copilot'],
     ];
     for (const [harness, expectedBinary] of cases) {
       const { spawnFn, captured } = makeFakeSpawn();

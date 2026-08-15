@@ -23,7 +23,7 @@ function runHook(cwd: string, input: object = {}): Promise<SpawnResult> {
     const proc = execFile(
       'node',
       [hookPath],
-      { cwd, env: { ...process.env, NO_COLOR: '1' } },
+      { cwd, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '' } },
       (err, stdout, stderr) => {
         const code =
           err && typeof (err as { code?: unknown }).code === 'number'

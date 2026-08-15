@@ -73,6 +73,13 @@ export interface HookEntryOptions {
    * when stdin was empty or unparseable.
    */
   main: (payload: Record<string, unknown>, raw: string) => Promise<void>;
+
+  /**
+   * When any listed env var equals the given value, return immediately.
+   * Used so Claude-owned hook scripts no-op inside a Grok session
+   * (`GROK_AGENT=1`) instead of double-firing capture/drain.
+   */
+  skipWhenEnv?: Record<string, string>;
 }
 
 /**
@@ -87,12 +94,19 @@ export function runHookEntry(options: HookEntryOptions): void {
     requirePayload = false,
     invalidJson = 'diagnostic',
     main,
+    skipWhenEnv,
   } = options;
 
   async function run(): Promise<void> {
     // Recursion guard: prevent re-entry when our own headless runners
     // (runHeadlessClaude, runHeadlessCodex, etc.) spawn child processes.
     if (process.env['KENKEEP_BUILDER_INTERNAL'] === '1') return;
+
+    if (skipWhenEnv) {
+      for (const [key, value] of Object.entries(skipWhenEnv)) {
+        if (process.env[key] === value) return;
+      }
+    }
 
     // Hard wall-clock deadline. When it fires we record a diagnostic so the
     // abandoned work is traceable, then exit 0 so the host is never blocked.

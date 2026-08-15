@@ -32,7 +32,7 @@ function runHook(
     const proc = execFile(
       'node',
       [hookPath],
-      { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
+      { cwd, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', ...env } },
       (err, stdout, stderr) => {
         const code =
           err && typeof (err as { code?: unknown }).code === 'number'
@@ -62,7 +62,7 @@ function runHookRaw(
     const proc = execFile(
       'node',
       [hookPath],
-      { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
+      { cwd, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '', ...env } },
       (err, stdout, stderr) => {
         const code =
           err && typeof (err as { code?: unknown }).code === 'number'
@@ -690,7 +690,7 @@ describe('kk-capture hook (spawned) [claude specifics]', () => {
       const proc = execFile(
         'node',
         [hookPath],
-        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1' } },
+        { cwd: sandbox, env: { ...process.env, NO_COLOR: '1', GROK_AGENT: '' } },
         (err, stdout, stderr) => {
           const code =
             err && typeof (err as NodeJS.ErrnoException).code === 'number'
@@ -724,5 +724,17 @@ describe('kk-capture hook (spawned) [claude specifics]', () => {
   it('exits 0 on empty stdin without throwing', async () => {
     const result = await runHook(hookPath, sandbox, null);
     expect(result.exitCode).toBe(0);
+  });
+
+  it('no-ops when GROK_AGENT=1 so a Grok session does not run Claude capture', async () => {
+    const result = await runHook(
+      hookPath,
+      sandbox,
+      { session_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', cwd: sandbox },
+      { GROK_AGENT: '1' }
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('');
+    expect(sessionLogs(sandbox)).toHaveLength(0);
   });
 });

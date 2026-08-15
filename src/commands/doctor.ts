@@ -432,7 +432,12 @@ function renderHarnessInstallStatus(
   }
 
   const skillsDir = locs.skillsDir;
-  if (!existsSync(skillsDir)) {
+  const claudeSkillsComplete =
+    harnessId === 'grok' &&
+    EXPECTED_SKILLS.every(name => existsSync(join(root, '.claude', 'skills', name, 'SKILL.md')));
+  if (!existsSync(skillsDir) && claudeSkillsComplete) {
+    log.success('skills: using .claude/skills/ (Grok Claude-compat)');
+  } else if (!existsSync(skillsDir)) {
     log.warn(`skills: missing directory ${skillsDir}`);
     onWarn(1);
   } else {

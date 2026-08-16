@@ -15,7 +15,7 @@ describe('kenkeep-init scripts', () => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  it('init-repo.sh inits git, kenkeep claude+grok, and CLAUDE.md pointer', () => {
+  it('init-repo.sh inits git, kenkeep claude+codex+grok, and CLAUDE.md pointer', () => {
     dir = mkdtempSync(join(tmpdir(), 'kk-init-skill-'));
     mkdirSync(dir, { recursive: true });
     execFileSync('sh', [initRepo, dir], {
@@ -26,7 +26,9 @@ describe('kenkeep-init scripts', () => {
     expect(existsSync(join(dir, '.git'))).toBe(true);
     expect(existsSync(join(dir, '.ai/kenkeep/.state/installed-version'))).toBe(true);
     expect(existsSync(join(dir, '.grok/hooks/kk.json'))).toBe(true);
+    expect(existsSync(join(dir, '.codex/hooks.json'))).toBe(true);
     expect(existsSync(join(dir, '.claude/skills/kk-curate/SKILL.md'))).toBe(true);
+    expect(existsSync(join(dir, '.agents/skills/kk-curate/SKILL.md'))).toBe(true);
     expect(readFileSync(join(dir, 'CLAUDE.md'), 'utf8')).toContain('AGENTS.md');
     expect(readFileSync(join(dir, 'AGENTS.md'), 'utf8')).toContain('kenkeep:kk-index');
   });

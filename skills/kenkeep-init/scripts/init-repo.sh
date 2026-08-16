@@ -1,8 +1,8 @@
 #!/bin/sh
-# Fully init a consumer repo for Claude Code + Grok Build.
+# Fully init a consumer repo for Claude Code, Codex, and Grok Build.
 # Usage: init-repo.sh [repo-root]
-# Env:   KENKEEP_HARNESSES=claude,grok   (default)
-#        KENKEEP_BIN=...                 (see resolve-kenkeep.sh)
+# Env:   KENKEEP_HARNESSES=claude,codex,grok   (default)
+#        KENKEEP_BIN=...                       (see resolve-kenkeep.sh)
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
@@ -11,7 +11,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 
 ROOT=${1:-.}
 ROOT=$(CDPATH= cd -- "$ROOT" && pwd)
-HARNESSES=${KENKEEP_HARNESSES:-claude,grok}
+HARNESSES=${KENKEEP_HARNESSES:-claude,codex,grok}
 
 echo "kenkeep-init: repo=$ROOT harnesses=$HARNESSES"
 cd "$ROOT"
@@ -35,13 +35,13 @@ if [ -f "$HOME/.grok/config.toml" ] && grep -qE '^[[:space:]]*enabled[[:space:]]
 fi
 
 echo "kenkeep-init: doctor"
-kk --harness grok doctor || kk doctor
+kk doctor
 
 cat <<'EOF'
 
-NEXT (human, once per repo, in Grok Build):
-  /hooks-trust
-or launch with: grok --trust
+NEXT (human, once per repo):
+  Grok:  /hooks-trust   (or launch with grok --trust)
+  Codex: /hooks         (trust kenkeep hook scripts in that session)
 
 Do not turn on Grok experimental memory.
 EOF

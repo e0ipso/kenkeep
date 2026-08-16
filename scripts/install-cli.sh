@@ -14,6 +14,16 @@ exec node "$ROOT/dist/cli.js" "\$@"
 EOF
 chmod +x "$BIN/kenkeep"
 echo "Installed $BIN/kenkeep -> $ROOT/dist/cli.js"
+
+SKILL_SRC="$ROOT/skills/kenkeep-init"
+if [ -d "$SKILL_SRC" ]; then
+  for dest in "$HOME/.agents/skills/kenkeep-init" "$HOME/.claude/skills/kenkeep-init"; do
+    mkdir -p "$(dirname "$dest")"
+    ln -sfn "$SKILL_SRC" "$dest"
+    echo "Linked $dest -> $SKILL_SRC"
+  done
+fi
+
 if ! command -v kenkeep >/dev/null 2>&1; then
   echo "Note: $BIN is not on PATH. Add it, then open a new shell."
 fi

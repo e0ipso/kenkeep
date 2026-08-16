@@ -5,6 +5,7 @@ import { CURSOR_EVENT_TO_TRIGGER } from '../../src/harnesses/cursor/hooks/kk-cap
 import { CODEX_EVENT_TO_TRIGGER } from '../../src/harnesses/codex/hooks/kk-capture.js';
 import { OPENCODE_EVENT_TO_TRIGGER } from '../../src/harnesses/opencode/hooks/kk-capture.js';
 import { COPILOT_EVENT_TO_TRIGGER } from '../../src/harnesses/copilot/hooks/kk-capture.js';
+import { GROK_EVENT_TO_TRIGGER } from '../../src/harnesses/grok/hooks/kk-capture.js';
 
 /**
  * Each adapter owns the native→canonical `captured_by` mapping for its own
@@ -63,6 +64,19 @@ const cases: Array<{
     event: 'sessionEnd',
     expected: 'session_end',
   },
+  { harness: 'grok', map: GROK_EVENT_TO_TRIGGER, event: 'Stop', expected: 'stop' },
+  {
+    harness: 'grok',
+    map: GROK_EVENT_TO_TRIGGER,
+    event: 'SessionEnd',
+    expected: 'session_end',
+  },
+  {
+    harness: 'grok',
+    map: GROK_EVENT_TO_TRIGGER,
+    event: 'PreCompact',
+    expected: 'pre_compact',
+  },
 ];
 
 describe('adapter-owned captured_by trigger mapping', () => {
@@ -77,6 +91,7 @@ describe('adapter-owned captured_by trigger mapping', () => {
     { harness: 'codex', map: CODEX_EVENT_TO_TRIGGER },
     { harness: 'opencode', map: OPENCODE_EVENT_TO_TRIGGER },
     { harness: 'copilot', map: COPILOT_EVENT_TO_TRIGGER },
+    { harness: 'grok', map: GROK_EVENT_TO_TRIGGER },
   ];
 
   it.each(unknownDefaultCases)('$harness defaults an unknown native event to "stop"', ({ map }) => {

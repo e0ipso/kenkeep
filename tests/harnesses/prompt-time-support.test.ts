@@ -41,6 +41,14 @@ describe('prompt-time injection support matrix', () => {
     expect(promptTimeHooks('opencode')).toHaveLength(0);
   });
 
+  it('Grok registers no prompt-time hook', () => {
+    expect(promptTimeHooks('grok')).toHaveLength(0);
+    const promptSubmitEvents = getHarness('grok').hooks.filter(
+      h => h.event === 'UserPromptSubmit' || h.event === 'userPromptSubmitted'
+    );
+    expect(promptSubmitEvents).toHaveLength(0);
+  });
+
   it('Copilot registers no prompt-time hook and uses no userPromptSubmitted prompt injection', () => {
     expect(promptTimeHooks('copilot')).toHaveLength(0);
     // GitHub marks `userPromptSubmitted` output as not processed, so it must not

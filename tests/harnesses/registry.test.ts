@@ -3,6 +3,7 @@ import { claudeAdapter } from '../../src/harnesses/claude/index.js';
 import { codexAdapter } from '../../src/harnesses/codex/index.js';
 import { copilotAdapter } from '../../src/harnesses/copilot/index.js';
 import { cursorAdapter } from '../../src/harnesses/cursor/index.js';
+import { grokAdapter } from '../../src/harnesses/grok/index.js';
 import { openCodeAdapter } from '../../src/harnesses/opencode/index.js';
 import { getHarness, hasHarness, listHarnessIds } from '../../src/harnesses/registry.js';
 
@@ -12,8 +13,9 @@ describe('harness registry', () => {
     expect(getHarness('codex')).toBe(codexAdapter);
     expect(getHarness('copilot')).toBe(copilotAdapter);
     expect(getHarness('cursor')).toBe(cursorAdapter);
+    expect(getHarness('grok')).toBe(grokAdapter);
     expect(getHarness('opencode')).toBe(openCodeAdapter);
-    expect(listHarnessIds()).toEqual(['claude', 'codex', 'copilot', 'cursor', 'opencode']);
+    expect(listHarnessIds()).toEqual(['claude', 'codex', 'copilot', 'cursor', 'grok', 'opencode']);
   });
 
   it('hasHarness recognizes registered ids and getHarness throws for unregistered ones', () => {
@@ -65,6 +67,24 @@ describe('codex adapter shape', () => {
     // carries the about-to-compact capture, matching Claude and Cursor.
     expect(events.has('SessionEnd')).toBe(false);
     expect(events.has('PreCompact')).toBe(true);
+  });
+});
+
+describe('grok adapter shape', () => {
+  it('exposes documented paths, detects GROK_AGENT, and has no prompt-time hook', () => {
+    const paths = grokAdapter.paths('/repo');
+    expect(paths.hooksDir).toBe('/repo/.ai/kenkeep/hooks/grok');
+    expect(paths.skillsDir).toBe('/repo/.grok/skills');
+    expect(paths.settingsFile).toBe('/repo/.grok/hooks/kk.json');
+    const events = new Set(grokAdapter.hooks.map(h => h.event));
+    expect(events.has('SessionStart')).toBe(true);
+    expect(events.has('SessionEnd')).toBe(true);
+    expect(events.has('Stop')).toBe(true);
+    expect(events.has('PreCompact')).toBe(true);
+    expect(grokAdapter.hooks.some(h => h.scriptPath === 'kk-prompt-context.cjs')).toBe(false);
+    expect(grokAdapter.detectFromEnv?.({ GROK_AGENT: '1' })).toBe(true);
+    expect(grokAdapter.detectFromEnv?.({})).toBe(false);
+    expect(grokAdapter.launchBinary).toBe('grok');
   });
 });
 

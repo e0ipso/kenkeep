@@ -18,6 +18,10 @@ describe('detectHarnessFromEnv', () => {
     expect(adapter?.id).toBe('cursor');
   });
 
+  it('detects grok from GROK_AGENT=1 even when CLAUDE_PROJECT_DIR is set', () => {
+    expect(detectHarnessFromEnv({ GROK_AGENT: '1', CLAUDE_PROJECT_DIR: '/repo' })?.id).toBe('grok');
+  });
+
   it('returns null for no signal, a bare CLAUDE_PROJECT_DIR, or CLAUDECODE other than "1"', () => {
     expect(detectHarnessFromEnv({ HOME: '/root', PATH: '/usr/bin' })).toBeNull();
     expect(detectHarnessFromEnv({ CLAUDE_PROJECT_DIR: '/repo' })).toBeNull();

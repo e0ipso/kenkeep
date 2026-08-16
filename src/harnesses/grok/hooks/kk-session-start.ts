@@ -1,38 +1,37 @@
 /**
- * SessionStart hook (sync) for the Claude Code adapter.
+ * SessionStart hook for Grok Build.
  *
- * Injects the current `ENTRY.md` body as additionalContext, optionally
- * appends a stale-entry warning, and optionally appends a curate nudge
- * when the pending-session backlog exceeds the threshold.
- *
- * Output format: a JSON object on stdout matching Claude Code's
- * `hookSpecificOutput.additionalContext` convention. Configured in
- * `.claude/settings.json` without `async: true` so stdout actually flows
- * back into the parent session.
+ * Grok ignores SessionStart stdout (no additionalContext). Orientation is
+ * the static AGENTS.md kk-index pointer written by `init`. This hook only
+ * computes nudges and fires OS notifications — it does not grow AGENTS.md.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { runHookEntry } from '../../../lib/hook-entry.js';
+import { lintStateFile } from '../../../lib/lint-state.js';
+import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
+import { resolveSettings } from '../../../lib/settings.js';
 import {
   buildNudgeContent,
   buildSessionStartContext,
   sendSessionStartNotifications,
 } from '../../../lib/session-start.js';
-import { lintStateFile } from '../../../lib/lint-state.js';
-import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
-import { resolveSettings } from '../../../lib/settings.js';
 
 const PACKAGE_TAG = '[kenkeep]';
 
+function pickString(payload: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
+  return undefined;
+}
+
 runHookEntry({
-  tag: 'claude:kk-session-start',
+  tag: 'grok:kk-session-start',
   deadlineMs: 1000,
-  skipWhenEnv: { GROK_AGENT: '1' },
   main: async payload => {
-    const startCwd =
-      typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
-        ? (payload['cwd'] as string)
-        : process.cwd();
+    const startCwd = pickString(payload, 'cwd', 'workspaceRoot') ?? process.cwd();
     const root = findRepoRoot(startCwd);
     const paths = repoPaths(root);
     if (!existsSync(paths.installedVersionFile)) return;
@@ -49,16 +48,9 @@ runHookEntry({
         threshold: settings.curationThreshold,
       });
       sendSessionStartNotifications(settings, result, paths.kkDir);
-      const { statusLine, content } = buildNudgeContent(result);
-      process.stdout.write(
-        `${JSON.stringify({
-          systemMessage: statusLine,
-          hookSpecificOutput: {
-            hookEventName: 'SessionStart',
-            additionalContext: content,
-          },
-        })}\n`
-      );
+      const { statusLine } = buildNudgeContent(result);
+      process.stderr.write(`${statusLine}\n`);
+      process.stderr.write('🧠 kenkeep Index: Knowledge base loaded.\n');
     } catch (err) {
       process.stderr.write(
         `${PACKAGE_TAG} session-start error: ${err instanceof Error ? err.message : String(err)}\n`

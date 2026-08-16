@@ -2,6 +2,7 @@ import { claudeAdapter } from './claude/index.js';
 import { codexAdapter } from './codex/index.js';
 import { copilotAdapter } from './copilot/index.js';
 import { cursorAdapter } from './cursor/index.js';
+import { grokAdapter } from './grok/index.js';
 import { openCodeAdapter } from './opencode/index.js';
 import type { HarnessAdapter } from './types.js';
 
@@ -19,6 +20,7 @@ const ADAPTERS: Readonly<Record<string, HarnessAdapter>> = {
   [codexAdapter.id]: codexAdapter,
   [copilotAdapter.id]: copilotAdapter,
   [cursorAdapter.id]: cursorAdapter,
+  [grokAdapter.id]: grokAdapter,
   [openCodeAdapter.id]: openCodeAdapter,
 };
 

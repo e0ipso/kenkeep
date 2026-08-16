@@ -89,12 +89,22 @@ export const CopilotModelChoiceSchema = z
   .strict();
 export type CopilotModelChoice = z.infer<typeof CopilotModelChoiceSchema>;
 
+export const GrokModelChoiceSchema = z
+  .object({
+    harness: z.literal('grok'),
+    model: z.string().min(1),
+    effort: EffortLevelSchema.optional(),
+  })
+  .strict();
+export type GrokModelChoice = z.infer<typeof GrokModelChoiceSchema>;
+
 export const ModelChoiceSchema = z.discriminatedUnion('harness', [
   ClaudeModelChoiceSchema,
   CodexModelChoiceSchema,
   OpenCodeModelChoiceSchema,
   CursorModelChoiceSchema,
   CopilotModelChoiceSchema,
+  GrokModelChoiceSchema,
 ]);
 export type ModelChoice = z.infer<typeof ModelChoiceSchema>;
 

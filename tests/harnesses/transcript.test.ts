@@ -74,6 +74,34 @@ const textTranscriptCases: Array<{
     ],
   },
   {
+    id: 'grok',
+    text: [
+      JSON.stringify({
+        type: 'system',
+        content: 'You are Grok.',
+      }),
+      JSON.stringify({
+        type: 'user',
+        synthetic_reason: 'system_reminder',
+        content: [{ type: 'text', text: 'ignore me' }],
+      }),
+      JSON.stringify({
+        type: 'user',
+        prompt_index: 0,
+        content: [{ type: 'text', text: '<user_query>\nHow do I run tests?\n</user_query>' }],
+      }),
+      JSON.stringify({
+        type: 'assistant',
+        content: 'Run npm test from the repo root.',
+        tool_calls: [],
+      }),
+    ].join('\n'),
+    expected: [
+      { role: 'user', text: 'How do I run tests?' },
+      { role: 'agent', text: 'Run npm test from the repo root.' },
+    ],
+  },
+  {
     id: 'cursor',
     text: readFileSync(
       join(import.meta.dirname, '../fixtures/cursor-transcript/sample.jsonl'),

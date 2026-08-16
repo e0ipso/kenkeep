@@ -4,6 +4,7 @@ import {
   extractCodexReads,
   extractCommandMarkdownCandidates,
   extractCopilotReads,
+  extractGrokReads,
   extractCursorReads,
   extractOpenCodeReads,
 } from '../../src/harnesses/read-extract.js';
@@ -203,6 +204,45 @@ describe('extractCopilotReads', () => {
       }),
     ].join('\n');
     expect(extractCopilotReads(text)).toEqual(['nodes/d.md']);
+  });
+});
+
+describe('extractGrokReads', () => {
+  it('returns target_file from assistant read_file tool_calls', () => {
+    const text = [
+      JSON.stringify({
+        type: 'assistant',
+        content: 'reading',
+        tool_calls: [
+          {
+            name: 'read_file',
+            arguments: JSON.stringify({ target_file: '/r/g.md' }),
+          },
+          {
+            name: 'web_fetch',
+            arguments: JSON.stringify({ url: 'https://example.com' }),
+          },
+        ],
+      }),
+    ].join('\n');
+    expect(extractGrokReads(text)).toEqual(['/r/g.md']);
+  });
+
+  it('extracts markdown candidates from run_terminal_command and skips junk lines', () => {
+    const text = [
+      JSON.stringify({
+        type: 'assistant',
+        tool_calls: [
+          {
+            name: 'run_terminal_command',
+            arguments: JSON.stringify({ command: 'cat nodes/g.md' }),
+          },
+        ],
+      }),
+      'not json',
+      JSON.stringify({ type: 'user', content: 'hi' }),
+    ].join('\n');
+    expect(extractGrokReads(text)).toEqual(['nodes/g.md']);
   });
 });
 

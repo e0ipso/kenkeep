@@ -373,3 +373,67 @@ export function extractOpenCodeReads(exportJson: unknown): string[] {
   }
   return out;
 }
+
+const GROK_READ_TOOLS = new Set(['read_file']);
+const GROK_COMMAND_TOOLS = new Set(['run_terminal_command']);
+
+interface GrokToolCall {
+  name?: string;
+  arguments?: unknown;
+}
+
+interface GrokHistoryLine {
+  type?: string;
+  tool_calls?: unknown;
+}
+
+function parseGrokToolArgs(raw: unknown): Record<string, unknown> | null {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Grok Build `chat_history.jsonl`: assistant lines carry `tool_calls[]` with
+ * `name` and `arguments` (JSON string). `read_file` contributes `target_file`;
+ * `run_terminal_command` contributes markdown candidates from `command`.
+ */
+export function extractGrokReads(text: string): string[] {
+  const out: string[] = [];
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+    let msg: GrokHistoryLine;
+    try {
+      msg = JSON.parse(line) as GrokHistoryLine;
+    } catch {
+      continue;
+    }
+    if (msg.type !== 'assistant' || !Array.isArray(msg.tool_calls)) continue;
+    for (const rawCall of msg.tool_calls) {
+      if (!rawCall || typeof rawCall !== 'object') continue;
+      const call = rawCall as GrokToolCall;
+      if (typeof call.name !== 'string') continue;
+      const args = parseGrokToolArgs(call.arguments);
+      if (args === null) continue;
+      if (GROK_READ_TOOLS.has(call.name)) {
+        const path = firstStringField(args, ['target_file', 'path']);
+        if (path !== null) out.push(path);
+      } else if (GROK_COMMAND_TOOLS.has(call.name)) {
+        const command = firstCommandField(args, ['command']);
+        if (command !== null) out.push(...extractCommandMarkdownCandidates(command));
+      }
+    }
+  }
+  return out;
+}

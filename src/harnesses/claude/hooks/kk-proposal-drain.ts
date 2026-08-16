@@ -11,6 +11,7 @@ import { runHookEntry } from '../../../lib/hook-entry.js';
 
 runHookEntry({
   tag: 'claude:kk-proposal-drain',
+  skipWhenEnv: { GROK_AGENT: '1' },
   // No deadline — this hook is async and intentionally a no-op.
   // Recursion guard in the scaffold handles KENKEEP_BUILDER_INTERNAL.
   main: async () => {

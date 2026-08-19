@@ -5,6 +5,7 @@ import {
   extractCommandMarkdownCandidates,
   extractCopilotReads,
   extractCursorReads,
+  extractKiroReads,
   extractOpenCodeReads,
 } from '../../src/harnesses/read-extract.js';
 
@@ -242,5 +243,52 @@ describe('extractOpenCodeReads', () => {
       ],
     };
     expect(extractOpenCodeReads(exportJson)).toEqual(['/r/e.md', 'nodes/f.md']);
+  });
+});
+
+describe('extractKiroReads', () => {
+  function makeSession(assistantTexts: string[]): string {
+    return JSON.stringify({
+      session_id: 'test-id',
+      session_state: {
+        conversation_metadata: {
+          user_turn_metadatas: assistantTexts.map(text => ({
+            result: {
+              Ok: {
+                role: 'assistant',
+                content: [{ kind: 'text', data: text }],
+              },
+            },
+          })),
+        },
+      },
+    });
+  }
+
+  it('returns [] for non-JSON or malformed input', () => {
+    expect(extractKiroReads('null')).toEqual([]);
+    expect(extractKiroReads('not-json')).toEqual([]);
+    expect(extractKiroReads('{}')).toEqual([]);
+  });
+
+  it('extracts markdown path candidates from assistant response text', () => {
+    const result = extractKiroReads(makeSession(['cat .ai/kenkeep/nodes/foo.md', 'rg term .ai/kenkeep/nodes/']));
+    expect(result).toContain('.ai/kenkeep/nodes/foo.md');
+  });
+
+  it('returns [] when there are no markdown references', () => {
+    expect(extractKiroReads(makeSession(['Hello! How can I help you today?']))).toEqual([]);
+  });
+
+  it('collects from multiple turns in document order', () => {
+    const result = extractKiroReads(makeSession([
+      'Reading .ai/kenkeep/nodes/a.md for context.',
+      'Also checked .ai/kenkeep/nodes/b.md',
+    ]));
+    expect(result).toContain('.ai/kenkeep/nodes/a.md');
+    expect(result).toContain('.ai/kenkeep/nodes/b.md');
+    expect(result.indexOf('.ai/kenkeep/nodes/a.md')).toBeLessThan(
+      result.indexOf('.ai/kenkeep/nodes/b.md')
+    );
   });
 });

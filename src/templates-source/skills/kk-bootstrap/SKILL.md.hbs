@@ -53,6 +53,8 @@ Read `.ai/kenkeep/.state/bootstrap-state.json` (it may not exist on a first run;
 
 Read the top-level entry points completely (README.md, ARCHITECTURE.md, CONTRIBUTING.md, top-level docs hubs). They usually frame project vocabulary, name the major components, and establish the conventions vocabulary you'll need to recognize.
 
+**Kiro SDD artifacts**: If the scan includes `.kiro/specs/<feature>/` directories, treat `spec.md` as a requirements document (extract as `practice` nodes for any conventions or constraints it establishes), `design.md` as an architecture document (extract as a `map` node), and `tasks.md` as an ephemeral implementation checklist — skip it unless it encodes a durable convention.
+
 ### 4. Sample and follow cross-references
 
 Don't read every file end-to-end. Sample representative content and follow links between docs. If a top-level README mentions "see docs/architecture/auth.md for the authentication design," that's a high-signal pointer to follow.

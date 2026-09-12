@@ -31,6 +31,21 @@
       "skillPath": ".cursor/skills/kk-session-extract/SKILL.md",
       "computedHash": "eec0266ba6d78c60b4f066f2198d657b16aad8bdc54cd3662f89f1ebf84e0d01"
     },
+    "sift-drain": {
+      "source": "../sift",
+      "sourceType": "local",
+      "computedHash": "11d25b80bbd1e660ba887a445df857a9c78e44de7e4a555c26dd5fd3d4ac7884"
+    },
+    "sift-init": {
+      "source": "../sift",
+      "sourceType": "local",
+      "computedHash": "feaa6b2a15ef6611dbc7214ae48931133e346e399103275cfe8a4551727ce309"
+    },
+    "sift-prime": {
+      "source": "../sift",
+      "sourceType": "local",
+      "computedHash": "4696fcd5ba48ace575ff1bcfa650f07c7e91dc71d4fd1c4732fb0e8995cf8532"
+    },
     "st-code-review": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
@@ -41,37 +56,37 @@
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "skills/st-create-plan/SKILL.md",
-      "computedHash": "41d3206f44742d3cf76446b13ae3304e1b7b175e63897ae435fc77a4aaaa254c"
+      "computedHash": "fec3b0fc5d6f14a8865f64d49d76322a74c4a62761686d5702e39ccce076cd02"
     },
     "st-execute-blueprint": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "skills/st-execute-blueprint/SKILL.md",
-      "computedHash": "13c6e21b7f2f2a01810fc8c3b2043bc39b0c7ca10709e4c70baa75b4ff9b0d34"
+      "computedHash": "7ff57176ef37c72bd28047379d93b89333fba0cdc6205b5b94a8997667a5b7fa"
     },
     "st-execute-task": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "skills/st-execute-task/SKILL.md",
-      "computedHash": "df85712fa941b22c154c006586ce254484a03b58457bd78a8b0ad7fb0e632bc5"
+      "computedHash": "14b119d27c1e5878d01b1b0fd91040af3c72b70239a5c79f520b6eff1ac16a1d"
     },
     "st-full-workflow": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "skills/st-full-workflow/SKILL.md",
-      "computedHash": "4fb17734713eb0470563fbfc8c3157c98be72690d9e142fd68c93d3c0bb8342f"
+      "computedHash": "b835f6a1a2c67e21c6b74f1153d0a9a3f82d0c1ba364f8834dd71c95bbe5247a"
     },
     "st-generate-tasks": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "skills/st-generate-tasks/SKILL.md",
-      "computedHash": "c70f14b2e92950e770eb0c86d9662d0765292d81c53007efea95a8d47efd65c7"
+      "computedHash": "e6369765820012e02cbfc0d1b14fdb9659075359a25de3be6e6e2e816cfa8346"
     },
     "st-refine-plan": {
       "source": "e0ipso/strikethroo",
       "sourceType": "github",
       "skillPath": "skills/st-refine-plan/SKILL.md",
-      "computedHash": "1197993488ca82efeb41e0b7ae52f95ddbed818ea970c547d479e7ade119f190"
+      "computedHash": "d154b0db227ffce66b129d057582831f8564abe97692c1d1ef86bf0c43bb5162"
     },
     "task-create-plan": {
       "source": "e0ipso/ai-task-manager",
@@ -108,6 +123,11 @@
       "sourceType": "github",
       "skillPath": "templates/harness/skills/task-refine-plan/SKILL.md",
       "computedHash": "79116e3da7ede487ec7d7a124e7e0377f7e826f51f546fcd30b19861fd2cbbcb"
+    },
+    "verification-before-completion": {
+      "source": "../sift",
+      "sourceType": "local",
+      "computedHash": "b529822bdac4b197b180fe12225cff86b930b65910435103c10622df7f041651"
     }
   }
 }

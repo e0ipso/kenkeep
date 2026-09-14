@@ -11,15 +11,17 @@ _None._
 
 ## Conventions (how we build)
 - Open [**Don't run curate or bootstrap-incremental in CI**](practice-dont-run-llm-pipelines-in-ci.md) to learn about: Both spawn the model and produce changes to nodes/ that still need human review. CI validates what's committed, not new LLM output. #ci #llm #workflow
+- Open [**Harness directories are vendored or dogfooded, never source**](practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) to learn about: Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source. #harnesses #dogfooding #vendored #build #source-of-truth #code-review
 - Open [**Ignore harness JavaScript artifacts in Prettier**](practice-ignore-harness-javascript-artifacts-in-prettier.md) to learn about: Prettier ignores JavaScript-family files under harness and agent folders, including CJS and MJS bundles. #prettier #harnesses #formatting
+- Open [**No em dashes anywhere in the project**](practice-no-em-dashes.md) to learn about: Prohibit em dashes in all files to avoid patterns that signal AI-generated text. Restructure with commas or periods instead. #style #writing #ai-detection
 - Open [**Testing philosophy: few tests, mostly integration**](practice-testing-philosophy-few-tests-mostly-integration.md) to learn about: This repo deliberately keeps a small test suite weighted toward integration tests; redundant unit tests are pruned. #testing #philosophy #integration-tests #coverage
 - Open [**Consumers are responsible for secret hygiene**](practice-consumers-are-responsible-for-secret-hygiene.md) to learn about: kenkeep does not scan or redact secrets in the capture pipeline; secret hygiene is the consumer's responsibility. #security #secrets #capture #documentation
 - Open [**Conventional Commits drive semantic-release**](practice-conventional-commits-and-release.md) to learn about: semantic-release automates releases on merge to main; commit type (feat/fix/etc.) sets the version bump; no manual tag or npm publish. #git #release #conventional-commits
 - Open [**Do not justify scope decisions by current-snapshot file contents**](practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md) to learn about: Claims like 'that folder only contains code' are snapshot observations, not guarantees; decide scope from the principle, not today's files. #yagni #assumptions #verification
-- Open [**Harness directories are vendored or dogfooded, never source**](practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) to learn about: Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source. #harnesses #dogfooding #vendored #build #source-of-truth #code-review
+- Open [**Docs are short and structured; the README keeps its reader hooks**](practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md) to learn about: Documentation is organized and terse for human readers, and the README's hero, slides, why-cards and packs teaser stay in place. #docs #readme #writing-style
 - Open [**Never force push**](practice-never-force-push.md) to learn about: Force pushing rewrites remote history and can lose collaborators' work. #git #conventions
-- Open [**No em dashes anywhere in the project**](practice-no-em-dashes.md) to learn about: Prohibit em dashes in all files to avoid patterns that signal AI-generated text. Restructure with commas or periods instead. #style #writing #ai-detection
 - Open [**Review node changes via git**](practice-review-nodes-via-git.md) to learn about: All node changes are reviewed via git diff: accept with git commit, reject with git restore. Same for curator and bootstrap output. #review #git #workflow
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) to learn about: In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH. #git #github #gh #authentication #remote #push #environment
 
 ## Components (what exists)
 _None yet._
@@ -41,6 +43,8 @@ _None yet._
 - Open [**No em dashes anywhere in the project**](practice-no-em-dashes.md) — Prohibit em dashes in all files to avoid patterns that signal AI-generated text. Restructure with commas or periods instead.
 ### #assumptions
 - Open [**Do not justify scope decisions by current-snapshot file contents**](practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md) — Claims like 'that folder only contains code' are snapshot observations, not guarantees; decide scope from the principle, not today's files.
+### #authentication
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #build
 - Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](../hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.
@@ -59,14 +63,25 @@ _None yet._
 - Open [**Never force push**](practice-never-force-push.md) — Force pushing rewrites remote history and can lose collaborators' work.
 ### #coverage
 - Open [**Testing philosophy: few tests, mostly integration**](practice-testing-philosophy-few-tests-mostly-integration.md) — This repo deliberately keeps a small test suite weighted toward integration tests; redundant unit tests are pruned.
+### #docs
+- Open [**kenkeep docs site custom domain**](../overview/map-kenkeep-docs-site-custom-domain.md) — The Jekyll docs site is configured for https://kenkeep.canpicasoft.com with an empty baseurl.
+- Open [**Docs are short and structured; the README keeps its reader hooks**](practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md) — Documentation is organized and terse for human readers, and the README's hero, slides, why-cards and packs teaser stay in place.
+- Open [**docs/assets/diagrams/ (docs site SVG diagrams)**](../overview/map-docs-assets-diagrams-docs-site-svg-diagrams.md) — Hand-authored SVG diagrams for the docs site, in the cream-and-ink house palette with pink marking reader-performed steps.
 ### #documentation
 - Open [**Skills-first documentation, only init is CLI**](../cli/practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
 - Open [**Consumers are responsible for secret hygiene**](practice-consumers-are-responsible-for-secret-hygiene.md) — kenkeep does not scan or redact secrets in the capture pipeline; secret hygiene is the consumer's responsibility.
 - Open [**Avoid harness favoritism in examples and recommendations**](../config-and-prompts/practice-document-model-recommendations-with-harness-agnostic-framing-2.md) — Generated or documented examples and model recommendations must not favor one harness; use neutral placeholders or per-harness examples.
 ### #dogfooding
 - Open [**Harness directories are vendored or dogfooded, never source**](practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
+- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](../practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) — Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract.
+### #environment
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #formatting
 - Open [**Ignore harness JavaScript artifacts in Prettier**](practice-ignore-harness-javascript-artifacts-in-prettier.md) — Prettier ignores JavaScript-family files under harness and agent folders, including CJS and MJS bundles.
+### #gh
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
+### #github
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #integration-tests
 - Open [**Testing philosophy: few tests, mostly integration**](practice-testing-philosophy-few-tests-mostly-integration.md) — This repo deliberately keeps a small test suite weighted toward integration tests; redundant unit tests are pruned.
 ### #llm
@@ -77,8 +92,14 @@ _None yet._
 - Open [**Testing philosophy: few tests, mostly integration**](practice-testing-philosophy-few-tests-mostly-integration.md) — This repo deliberately keeps a small test suite weighted toward integration tests; redundant unit tests are pruned.
 ### #prettier
 - Open [**Ignore harness JavaScript artifacts in Prettier**](practice-ignore-harness-javascript-artifacts-in-prettier.md) — Prettier ignores JavaScript-family files under harness and agent folders, including CJS and MJS bundles.
+### #push
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
+### #readme
+- Open [**Docs are short and structured; the README keeps its reader hooks**](practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md) — Documentation is organized and terse for human readers, and the README's hero, slides, why-cards and packs teaser stay in place.
 ### #release
 - Open [**Conventional Commits drive semantic-release**](practice-conventional-commits-and-release.md) — semantic-release automates releases on merge to main; commit type (feat/fix/etc.) sets the version bump; no manual tag or npm publish.
+### #remote
+- Open [**Use origin-https with gh-minted auth for pushes**](practice-use-origin-https-with-gh-minted-auth-for-pushes.md) — In this environment, push GitHub changes through origin-https using a token minted by gh rather than SSH.
 ### #review
 - Open [**Review node changes via git**](practice-review-nodes-via-git.md) — All node changes are reviewed via git diff: accept with git commit, reject with git restore. Same for curator and bootstrap output.
 ### #secrets
@@ -87,6 +108,7 @@ _None yet._
 - Open [**Consumers are responsible for secret hygiene**](practice-consumers-are-responsible-for-secret-hygiene.md) — kenkeep does not scan or redact secrets in the capture pipeline; secret hygiene is the consumer's responsibility.
 ### #source-of-truth
 - Open [**Harness directories are vendored or dogfooded, never source**](practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
+- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](../practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) — Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract.
 ### #style
 - Open [**No em dashes anywhere in the project**](practice-no-em-dashes.md) — Prohibit em dashes in all files to avoid patterns that signal AI-generated text. Restructure with commas or periods instead.
 ### #testing
@@ -99,5 +121,7 @@ _None yet._
 - Open [**Do not justify scope decisions by current-snapshot file contents**](practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md) — Claims like 'that folder only contains code' are snapshot observations, not guarantees; decide scope from the principle, not today's files.
 ### #writing
 - Open [**No em dashes anywhere in the project**](practice-no-em-dashes.md) — Prohibit em dashes in all files to avoid patterns that signal AI-generated text. Restructure with commas or periods instead.
+### #writing-style
+- Open [**Docs are short and structured; the README keeps its reader hooks**](practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md) — Documentation is organized and terse for human readers, and the README's hero, slides, why-cards and packs teaser stay in place.
 ### #yagni
 - Open [**Do not justify scope decisions by current-snapshot file contents**](practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md) — Claims like 'that folder only contains code' are snapshot observations, not guarantees; decide scope from the principle, not today's files.

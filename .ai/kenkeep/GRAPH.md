@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:ed666f26fb7cea55de940f561c4780b1f64da1a86b36a21735d0ef81c628153b'
-node_count: 84
+nodes_hash: 'sha256:9e397b095d3362a9581af4c13db303ff029d92b7ae9880421f278a413073035c'
+node_count: 87
 ---
 # kenkeep Graph
 
-Total nodes: 84
+Total nodes: 87
 
 ## map-bootstrap-incremental-command
 
@@ -49,8 +49,8 @@ Total nodes: 84
 - **title:** Codex CLI harness adapter
 - **path:** harnesses/map-codex-harness.md
 - **tags:** harness, codex, hooks
-- **relates_to:** map-harness-adapter
-- **derived_from:** docs/installation.md, docs/installation/codex-toml-hooks-coexistence.md, docs/how-it-works.md
+- **relates_to:** map-harness-adapter, map-capture-hook, map-kenkeep-directory
+- **derived_from:** docs/installation.md, docs/installation/codex-toml-hooks-coexistence.md, docs/how-it-works.md, 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:1
 
 ## map-config-yaml
 
@@ -123,6 +123,15 @@ Total nodes: 84
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, https://cursor.com/docs/hooks, https://cursor.com/docs/cli/using
 
+## map-docs-assets-diagrams-docs-site-svg-diagrams
+
+- **kind:** map
+- **title:** docs/assets/diagrams/ (docs site SVG diagrams)
+- **path:** overview/map-docs-assets-diagrams-docs-site-svg-diagrams.md
+- **tags:** docs, diagrams, assets, svg
+- **relates_to:** map-kenkeep-docs-site-custom-domain
+- **derived_from:** 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:3
+
 ## map-entry-md
 
 - **kind:** map
@@ -163,8 +172,8 @@ Total nodes: 84
 - **title:** .ai/kenkeep/ directory layout
 - **path:** overview/map-kenkeep-directory.md
 - **tags:** layout, state, directory
-- **relates_to:** map-nodes-directory, map-session-log, map-entry-md, map-graph-md, map-state-file, map-bootstrap-state-file, map-config-yaml, map-conflict-files
-- **derived_from:** docs/internals/architecture.md, docs/installation.md
+- **relates_to:** map-nodes-directory, map-session-log, map-entry-md, map-graph-md, map-state-file, map-bootstrap-state-file, map-config-yaml, map-conflict-files, map-hook-build-pipeline-ts-to-cjs
+- **derived_from:** docs/internals/architecture.md, docs/installation.md, 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0
 
 ## map-kenkeep-docs-site-custom-domain
 
@@ -473,12 +482,29 @@ Total nodes: 84
 - **relates_to:** map-nodes-hash, map-entry-md, map-graph-md
 - **derived_from:** docs/internals/architecture.md
 
+## practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product
+
+- **kind:** practice
+- **title:** Distinguish Kenkeep development tooling from the Kenkeep product
+- **path:** practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md
+- **tags:** dogfooding, development, source-of-truth, distribution
+- **relates_to:** practice-harness-dirs-are-vendored-or-dogfooded-not-source
+
 ## practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents
 
 - **kind:** practice
 - **title:** Do not justify scope decisions by current-snapshot file contents
 - **path:** conventions/practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md
 - **tags:** yagni, assumptions, verification
+
+## practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks
+
+- **kind:** practice
+- **title:** Docs are short and structured; the README keeps its reader hooks
+- **path:** conventions/practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md
+- **tags:** docs, readme, writing-style
+- **relates_to:** practice-no-em-dashes, map-kenkeep-docs-site-custom-domain
+- **derived_from:** 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:practice:0
 
 ## practice-document-model-recommendations-with-harness-agnostic-framing-2
 
@@ -727,5 +753,5 @@ Total nodes: 84
 
 - **kind:** practice
 - **title:** Use origin-https with gh-minted auth for pushes
-- **path:** git/practice-use-origin-https-with-gh-minted-auth-for-pushes.md
+- **path:** conventions/practice-use-origin-https-with-gh-minted-auth-for-pushes.md
 - **tags:** git, github, gh, authentication, remote, push, environment

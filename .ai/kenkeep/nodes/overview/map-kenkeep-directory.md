@@ -3,7 +3,7 @@ type: map
 title: .ai/kenkeep/ directory layout
 description: >-
   Per-repo scaffold at .ai/kenkeep/: nodes/, ENTRY/GRAPH, _sessions/, _logs/,
-  .state/, .config/prompts/, conflicts/.
+  .state/, .config/prompts/, hooks/, conflicts/.
 tags:
   - layout
   - state
@@ -13,6 +13,7 @@ kk_id: map-kenkeep-directory
 kk_derived_from:
   - docs/internals/architecture.md
   - docs/installation.md
+  - '7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0'
 kk_relates_to:
   - map-nodes-directory
   - map-session-log
@@ -22,12 +23,10 @@ kk_relates_to:
   - map-bootstrap-state-file
   - map-config-yaml
   - map-conflict-files
+  - map-hook-build-pipeline-ts-to-cjs
 kk_depends_on: []
 kk_confidence: high
 ---
-
-# `.ai/kenkeep/` directory layout
-
 Created by `init`. Same layout across all five harnesses.
 
 | Path | Purpose |
@@ -37,6 +36,7 @@ Created by `init`. Same layout across all five harnesses.
 | `GRAPH.md` | Full edge listing. Not injected; read on demand. Regenerated deterministically. |
 | `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` | Per-session checkpoint (redacted transcript + frontmatter). |
 | `_logs/{proposal,curator,bootstrap-incremental}/*.jsonl` | Stream-JSON traces from LLM pipelines. Gitignored. |
+| `hooks/<harness>/kk-*.cjs` | Generated hook scripts, one directory per harness. Gitignored. |
 | `.state/installed-version` | Package version + selected harnesses. Committed. |
 | `.state/state.json` | Lock + `last_nudged_at`. Gitignored. |
 | `.state/bootstrap-state.json` | Per-doc SHA-256 cache for bootstrap. Gitignored. |
@@ -44,7 +44,9 @@ Created by `init`. Same layout across all five harnesses.
 | `conflicts/<run-id>-<n>.md` | Curator-detected contradictions, one file per conflict. |
 | `config.yaml` | Project settings (committed). |
 
-The package installs a managed block in the repo `.gitignore` for the runtime state files (`_sessions/`, `_logs/`, `state.json`, `bootstrap-state.json`).
+Hook scripts live under `hooks/<harness>/`, not in the harness's own directory such as `.claude/hooks/`. Each adapter still registers those paths in its own config file (`.claude/settings.json`, `.codex/hooks.json`, and so on). Because `hooks/` is gitignored, the scripts are not shared through the repository and every teammate runs `init` after cloning to generate their own copy.
+
+The package installs a managed block in the repo `.gitignore` for the runtime state files (`_sessions/`, `_logs/`, `hooks/`, `state.json`, `bootstrap-state.json`).
 
 <!-- kk:related:start -->
 # Related
@@ -57,6 +59,7 @@ The package installs a managed block in the repo `.gitignore` for the runtime st
 - Related: [map-bootstrap-state-file](/bootstrap/map-bootstrap-state-file.md)
 - Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
 - Related: [map-conflict-files](/curation/map-conflict-files.md)
+- Related: [map-hook-build-pipeline-ts-to-cjs](/hooks/map-hook-build-pipeline-ts-to-cjs.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
@@ -64,4 +67,5 @@ The package installs a managed block in the repo `.gitignore` for the runtime st
 
 [1] [docs/internals/architecture.md](docs/internals/architecture.md)
 [2] [docs/installation.md](docs/installation.md)
+[3] [7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0](7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0)
 <!-- kk:citations:end -->

@@ -1,7 +1,7 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:ed666f26fb7cea55de940f561c4780b1f64da1a86b36a21735d0ef81c628153b'
-node_count: 84
+nodes_hash: 'sha256:9e397b095d3362a9581af4c13db303ff029d92b7ae9880421f278a413073035c'
+node_count: 87
 ---
 # kenkeep
 
@@ -13,7 +13,6 @@ node_count: 84
 - Load [`config-and-prompts/`](nodes/config-and-prompts/index.md) for more information on config.yaml settings and the prompt templates with their versioning; read when adding a setting or touching a prompt.
 - Load [`conventions/`](nodes/conventions/index.md) for more information on commit, release, testing, CI, and writing-style rules; read before committing, releasing, or writing docs.
 - Load [`curation/`](nodes/curation/index.md) for more information on the curator pipeline from proposals to nodes, including conflicts; read when changing curation, dedup, or conflict handling.
-- Load [`git/`](nodes/git/index.md) for more information on GitHub remote push authentication in this environment; read before pushing branches or debugging GitHub auth from this workspace.
 - Load [`harnesses/`](nodes/harnesses/index.md) for more information on the five harness adapters and their isolation rules; read before adding a harness, changing hook wiring, or debugging a host integration.
 - Load [`hooks/`](nodes/hooks/index.md) for more information on the capture, session-start, drain, and lint-tick hooks and how they are built; read when changing any hook behavior.
 - Load [`index/`](nodes/index/index.md) for more information on the deterministic ENTRY/GRAPH/index generation and nodes_hash; read when touching index generation or staleness checks.
@@ -24,4 +23,5 @@ node_count: 84
 
 ## Conventions (how we build)
 - Open [**Copilot file-based SessionStart must use shared context builder**](nodes/practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) to learn about: Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status. #copilot #harness #hooks #sessionstart #context-injection #drift
+- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](nodes/practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) to learn about: Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract. #dogfooding #development #source-of-truth #distribution
 - Open [**Keep template partials out of the knowledge base**](nodes/practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build

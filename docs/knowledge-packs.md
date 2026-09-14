@@ -5,95 +5,37 @@ nav_order: 5
 
 # Knowledge packs
 
-Knowledge packs are portable, reviewed `nodes/` trees. They let a team publish
-domain knowledge for a framework, platform, client, or internal system, then let
-another repo graft that knowledge into its own `.ai/kenkeep/nodes/` tree.
+A pack is a reviewed `nodes/` tree published for a framework, platform, client, or internal system. Another repo imports it and gets the whole thing as one isolated branch. Import and export move markdown only. No LLM is involved.
 
-Pack import and export are CLI workflows by design. They move already-reviewed
-markdown and do not ask an LLM to curate, summarize, or rebalance anything. The
-skills-first rule still applies to authoring new knowledge: use `/kk-bootstrap`,
-`/kk-curate`, and `/kk-add` to create or refine nodes, then use `pack export` to
-publish the reviewed result.
+<p align="center">
+  <img src="{{ '/assets/diagrams/packs.svg' | relative_url }}" alt="A pack author exports their reviewed nodes tree into dist/ with pack export, publishes it as a GitHub release or tarball, and a consumer runs pack import to land it as one isolated branch under their own nodes tree" />
+</p>
 
 ## Import a pack
 
-Run import from a repo that already has kenkeep initialized:
+From a repo where kenkeep is already initialized:
 
 ```sh
 npx kenkeep pack import e0ipso/kenkeep-pack-drupal
-```
-
-The source can be any of these forms:
-
-```sh
-npx kenkeep pack import e0ipso/kenkeep-pack-drupal
-npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal
+npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal --as drupal
 npx kenkeep pack import ./kenkeep-pack-drupal.tar.gz
 npx kenkeep pack import ./dist
 ```
 
-For GitHub sources, kenkeep first asks GitHub for the latest release tarball. If
-the repo has no latest release, it falls back to the repository default branch
-tarball. Local `.tar.gz` sources are extracted locally and must contain exactly
-one `kenkeep-pack.yaml` at the pack root or inside one wrapping directory. A
-directory is read in place under the same rule, which lets a pack author import
-whatever `pack export` just wrote without tarring it first. Import only ever
-reads from the source, so nothing in that directory is modified.
+A GitHub source resolves to the latest release tarball, or the default branch when there is no release. A tarball or directory must contain one `kenkeep-pack.yaml` at its root or inside one wrapping directory. The source is never modified.
 
-A pack published against the previous node schema is rejected, and the error
-names the way forward:
+The pack lands under `nodes/<name>/`, where `name` comes from the manifest unless you pass `--as`. If that folder already exists, import stops and asks for another name. A note whose id already exists in your repo is skipped with a warning. Nothing local is merged or overwritten.
 
-```sh
-npx kenkeep pack import ./legacy-pack --migrate
-```
+A pack published against the previous node schema is rejected unless you add `--migrate`, which converts a copy and reports how many notes it changed. Older packs are rejected either way.
 
-`--migrate` stages a copy of the pack, runs the same conversion
-`kenkeep migrate okf-v3` applies to a repository, and imports the result,
-reporting how many nodes were converted. The conversion is opt-in because a
-schema bump is a clean break: without the flag nothing is rewritten, so you never
-silently import third-party content a migration rewrote.
-
-The source is never modified, which matters for a directory source pointing at a
-directory you own. Such a pack also gets its folder summaries back: the previous
-schema kept them in `index.md` frontmatter, and the conversion harvests those
-into the registry that import already merges. A pack older than that is rejected
-with or without the flag, because only one conversion step exists.
-
-By default, the destination branch name under `nodes/` comes from the manifest
-`name`. Use `--as` to override it:
-
-```sh
-npx kenkeep pack import e0ipso/kenkeep-pack-drupal --as drupal
-```
-
-Import validates the manifest and every knowledge node, then copies only the
-pack's `knowledge/` markdown into `.ai/kenkeep/nodes/<name>/`. The imported pack
-lands as one isolated branch. If `nodes/<name>/` already exists, import stops
-and asks you to choose another name with `--as`.
-
-If a pack leaf has the same node id as one already present in the consumer repo,
-kenkeep skips that leaf and prints a warning listing the skipped ids. It does not
-merge or overwrite reviewed local knowledge.
-
-After the graft, import rebuilds `ENTRY.md`, `GRAPH.md`, and folder indexes.
-Import does not rebalance the tree. Structural cleanup happens later through the
-normal `/kk-curate` rebalance phase, where it is reviewed in the same git diff as
-other knowledge-base changes.
+After the copy, import rebuilds `ENTRY.md`, `GRAPH.md`, and the folder indexes. It does not rebalance. Structural cleanup happens in the next `/kk-curate`, where you review it like any other change.
 
 ## Export a pack
 
-Author a pack in an ordinary repository:
-
-1. Create a new folder or repository for the pack.
-2. Add source docs, READMEs, ADRs, or other material the pack should teach.
-3. Run `npx kenkeep init --harnesses <id>` and seed the knowledge base with the
-   supervised `/kk-bootstrap` workflow.
-4. Review the generated `.ai/kenkeep/nodes/` changes with `git diff`, curate or
-   edit as needed, and commit the reviewed nodes.
-5. Run `npx kenkeep pack export`.
-
-Export turns the current `.ai/kenkeep/nodes/` tree into a publishable pack under
-`dist/` by default:
+1. Start a repo for the pack and add the docs it should teach.
+2. Run `npx kenkeep init --harnesses <id>`, then `/kk-bootstrap` in a session.
+3. Review and commit the notes.
+4. Export:
 
 ```sh
 npx kenkeep pack export \
@@ -103,24 +45,9 @@ npx kenkeep pack export \
   --homepage https://github.com/e0ipso/kenkeep-pack-drupal
 ```
 
-`--name`, `--version`, and `--summary` are required. If you omit any of them,
-the command prompts for the missing values. `--homepage` is optional and is
-included only when supplied. `--out <dir>` changes the output directory; the
-default is `dist/`.
-
-The command copies `nodes/` to `dist/knowledge/`, writes
-`dist/kenkeep-pack.yaml`, and writes a minimal `dist/README.md`. It auto-stamps
-`schema_version` from the installed kenkeep node schema, so the manifest tracks
-the version the current CLI can validate.
-
-Before replacing the output directory, export runs the same knowledge-base lint
-gate against the copied `knowledge/` tree. Lint errors block the export and leave
-the previous output untouched. Lint findings are printed as warnings, but do not
-block the pack.
+`--name`, `--version`, and `--summary` are required, and the command prompts for any you omit. `--out <dir>` changes the destination from `dist/`. Export runs the lint gate first. Lint errors block it and leave the previous output untouched. Findings print as warnings.
 
 ## Pack format
-
-A pack repository root has this layout:
 
 ```text
 <pack-root>/
@@ -130,8 +57,6 @@ A pack repository root has this layout:
 `-- knowledge/
 ```
 
-`kenkeep-pack.yaml` is the manifest:
-
 ```yaml
 name: drupal
 version: 1.0.0
@@ -140,31 +65,6 @@ summary: Drupal conventions for kenkeep-enabled projects
 homepage: https://github.com/e0ipso/kenkeep-pack-drupal
 ```
 
-Manifest fields:
+`name` becomes `nodes/<name>/` unless import uses `--as`. `version` is recorded, not range-resolved. `schema_version` must match the installed node schema, or the one before it with `--migrate`. `summary` becomes the imported branch's description. `homepage` is optional.
 
-| Field | Required | Meaning |
-|---|---:|---|
-| `name` | Yes | Lowercase pack slug. It becomes `nodes/<name>/` unless import uses `--as`. |
-| `version` | Yes | Pack version string. Kenkeep records and validates it, but does not resolve version ranges. |
-| `schema_version` | Yes | Must equal the installed kenkeep node schema version, or be the immediately preceding one, which import converts under `--migrate`. Export writes this automatically. |
-| `summary` | Yes | One-line pack summary. Import uses it as the imported branch summary when needed. |
-| `homepage` | No | URL for pack docs or source. |
-
-`README.md` is for humans and is ignored by import. `knowledge/` is the only
-content import reads. It contains the same shape as a kenkeep `nodes/` tree:
-topical folders, `practice-*` and `map-*` leaf nodes, and generated per-folder
-`index.md` files.
-
-Folder summaries do not travel inside `knowledge/`. They ship separately, in the
-pack-root sidecar `knowledge.FOLDER_SUMMARIES.md`. Export writes this registry
-pruned to the folders the pack actually contains; an exported folder with no
-summary produces a warning but does not block the export.
-
-Import re-keys every entry from the pack's registry under the destination
-branch: a pack's `apis` key lands as `<branch>/apis` in the consumer, and
-`--as <name>` re-keys under the renamed branch instead. `manifest.summary`
-is always used for the branch root key itself, regardless of what the pack's
-registry contains there. A pack published before this registry existed ships
-no `knowledge.FOLDER_SUMMARIES.md`; it still imports successfully, and the
-following index rebuild warns how many folders have no summary, rendering the
-Title-cased folder name in their place.
+`knowledge/` has the same shape as a `nodes/` tree and is the only content import reads. Folder descriptions travel in `knowledge.FOLDER_SUMMARIES.md`, and import re-keys them under the destination branch. A pack without that file still imports. The next index rebuild warns how many folders lack a description and shows the folder name instead.

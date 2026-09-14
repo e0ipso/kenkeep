@@ -256,7 +256,7 @@ describe('writeCodexHooks (Codex hooks.json specifics)', () => {
     expect(caught!.message).toContain('Refusing to write .codex/hooks.json');
     expect(caught!.message).toContain('.codex/config.toml already defines [hooks]');
     expect(caught!.message).toContain(
-      'https://github.com/e0ipso/kenkeep/blob/main/docs/installation/codex-toml-hooks-coexistence.md'
+      'https://github.com/e0ipso/kenkeep/blob/main/docs/installation.md#per-harness-notes'
     );
   });
 });

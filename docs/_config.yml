@@ -37,6 +37,7 @@ twitter:
 # Jekyll plugins
 plugins:
   - jekyll-sitemap
+  - jekyll-redirect-from
   - jekyll-feed
   - jekyll-seo-tag
 

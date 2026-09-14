@@ -56,7 +56,7 @@ h1,
 // theme and the hover/active accent for free. Files are committed Lucide SVGs in
 // assets/icons; url() is relative to the compiled stylesheet (assets/css/*), so
 // it resolves to assets/icons/* without hard-coding the site baseurl. Targeting
-// is by href suffix, so only these six top-level links get an icon (nested
+// is by href suffix, so only these seven top-level links get an icon (nested
 // Internals children keep their plain style). NOTE: this site compiles with the
 // old Ruby Sass, which rejects CSS custom properties that hold a url(), so the
 // icon is set with mask-image longhands per link rather than a shared --var.
@@ -64,6 +64,7 @@ h1,
 .site-nav .nav-list-link[href$='/how-it-works.html']::before,
 .site-nav .nav-list-link[href$='/installation.html']::before,
 .site-nav .nav-list-link[href$='/daily-use.html']::before,
+.site-nav .nav-list-link[href$='/knowledge-packs.html']::before,
 .site-nav .nav-list-link[href$='/troubleshooting.html']::before,
 .site-nav .nav-list-link[href$='/internals/']::before {
   content: '';
@@ -96,6 +97,10 @@ h1,
 .site-nav .nav-list-link[href$='/daily-use.html']::before {
   -webkit-mask-image: url('../icons/repeat.svg');
   mask-image: url('../icons/repeat.svg');
+}
+.site-nav .nav-list-link[href$='/knowledge-packs.html']::before {
+  -webkit-mask-image: url('../icons/package.svg');
+  mask-image: url('../icons/package.svg');
 }
 .site-nav .nav-list-link[href$='/troubleshooting.html']::before {
   -webkit-mask-image: url('../icons/wrench.svg');

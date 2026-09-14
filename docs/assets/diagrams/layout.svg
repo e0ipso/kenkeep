@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" width="1000" height="520" role="img" aria-labelledby="t d">
+  <title id="t">What lives in .ai/kenkeep/</title>
+  <desc id="d">Two groups of files. Committed and shared with the team: nodes with one markdown file per fact and a generated index per folder, ENTRY.md which is injected at session start, GRAPH.md, FOLDER_SUMMARIES.md, conflicts, config.yaml, and prompt overrides. Gitignored and per user: captured sessions, run logs, compiled hook scripts, and state.</desc>
+  <style>
+    .t { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 24px; fill: #19110a; letter-spacing: 0.06em; }
+    .h { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 15px; fill: #19110a; letter-spacing: 0.06em; }
+    .b { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; fill: #463c30; }
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #19110a; }
+    .pill { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.1em; fill: #f8f4ec; }
+    .wm { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 500; font-size: 20px; fill: #19110a; letter-spacing: -0.02em; }
+    .panel { fill: #f1e8d6; stroke: #d8c7a4; stroke-width: 2; }
+    .ghost { fill: #f5efe3; stroke: #d8c7a4; stroke-width: 2; stroke-dasharray: 6 5; }
+    .tree { fill: none; stroke: #b39b72; stroke-width: 1.5; }
+    .fold { fill: #e8d5ae; stroke: #8a5a2b; stroke-width: 1.8; stroke-linejoin: round; }
+    .doc { fill: #fbf8f1; stroke: #8a5a2b; stroke-width: 1.8; stroke-linejoin: round; }
+  </style>
+  <rect width="1000" height="520" rx="18" fill="#f8f4ec"/>
+  <text class="t" x="500" y="46" text-anchor="middle">WHAT LIVES IN .ai/kenkeep/</text>
+
+  <!-- committed -->
+  <rect class="panel" x="40" y="80" width="580" height="360" rx="14"/>
+  <text class="h" x="60" y="110">COMMITTED · SHARED WITH THE TEAM</text>
+  <path class="tree" d="M78,132 V400 M78,148 H92 M78,178 H92 M78,208 H92 M78,238 H92 M78,268 H92 M78,298 H92 M78,328 H92 M78,358 H92 M78,388 H92"/>
+  <path class="tree" d="M118,150 V206 M118,178 H132 M118,206 H132"/>
+
+  <path class="fold" d="M96,141 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="132" y="153">nodes/</text>
+  <text class="b" x="306" y="153">one markdown file per fact, by topic</text>
+
+  <path class="doc" d="M138,171 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="162" y="183">index.md</text>
+  <text class="b" x="306" y="183">generated table of contents per folder</text>
+
+  <path class="fold" d="M136,201 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="168" y="213">&lt;topic&gt;/&lt;id&gt;.md</text>
+  <text class="b" x="306" y="213">practice (how we build) or map (what exists)</text>
+
+  <path class="doc" d="M98,231 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="132" y="243">ENTRY.md</text>
+  <rect x="300" y="228" width="196" height="20" rx="10" fill="#ad2e6a"/>
+  <text class="pill" x="398" y="242" text-anchor="middle">INJECTED EVERY SESSION</text>
+
+  <path class="doc" d="M98,261 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="132" y="273">GRAPH.md</text>
+  <text class="b" x="306" y="273">every cross-reference between notes</text>
+
+  <path class="doc" d="M98,291 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="132" y="303">FOLDER_SUMMARIES.md</text>
+  <text class="b" x="306" y="303">one line describing each folder</text>
+
+  <path class="fold" d="M96,321 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="132" y="333">conflicts/</text>
+  <text class="b" x="306" y="333">contradictions waiting for your call</text>
+
+  <path class="doc" d="M98,351 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="132" y="363">config.yaml</text>
+  <text class="b" x="306" y="363">thresholds, notifications, model choice</text>
+
+  <path class="fold" d="M96,381 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="132" y="393">.config/prompts/</text>
+  <text class="b" x="306" y="393">your overrides of the shipped prompts</text>
+
+  <!-- gitignored -->
+  <rect class="ghost" x="650" y="80" width="310" height="360" rx="14"/>
+  <text class="h" x="670" y="110">GITIGNORED · PER USER</text>
+  <path class="tree" d="M688,132 V280 M688,148 H702 M688,192 H702 M688,236 H702 M688,280 H702"/>
+
+  <path class="fold" d="M706,141 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="742" y="153">_sessions/</text>
+  <text class="b" x="742" y="172">captured transcripts</text>
+
+  <path class="fold" d="M706,185 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="742" y="197">_logs/</text>
+  <text class="b" x="742" y="216">run traces and hook errors</text>
+
+  <path class="fold" d="M706,229 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="742" y="241">hooks/</text>
+  <text class="b" x="742" y="260">compiled hook scripts</text>
+
+  <path class="fold" d="M706,273 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="742" y="285">.state/</text>
+  <text class="b" x="742" y="304">queues and locks</text>
+
+  <text class="b" x="670" y="372">Each teammate runs init once per</text>
+  <text class="b" x="670" y="392">clone to recreate the hook scripts.</text>
+
+  <text class="wm" x="500" y="490" text-anchor="middle">kenkeep</text>
+</svg>

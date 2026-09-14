@@ -5,7 +5,7 @@ name: kenkeep-check
 # Copy this file to `.github/workflows/kenkeep-check.yml` in your repo to use
 # it. GitHub does NOT auto-discover workflows outside `.github/workflows/`, so
 # shipping it under `examples/` is safe — it only runs once you copy it into
-# place. See `docs/continuous-integration.md` for the full guide.
+# place. See `docs/installation.md#continuous-integration` for the full guide.
 #
 # What it does (NEVER writes to `nodes/`, NEVER runs an LLM, NEVER commits):
 #   1. `kenkeep lint`     — naming, dangling edges, index presence (errors fail)
@@ -23,7 +23,7 @@ name: kenkeep-check
 # This is NOT the OpenWiki unattended-agent-PR model. Kenkeep constitution §3
 # mandates human-in-the-loop curation (a human runs the curation skill and
 # `git commit`s the result); the LLM does its work in a human-supervised
-# session, not in a CI runner. See `docs/continuous-integration.md` for the
+# session, not in a CI runner. See `docs/installation.md#continuous-integration` for the
 # rationale and the OpenWiki contrast.
 
 on:
@@ -86,7 +86,7 @@ jobs:
         # comment step alive so findings are still posted. The final gate below
         # re-fails the job on a doctor hard error. Warnings — including expected
         # harness-install warnings on a generic CI runner with no harness CLI —
-        # are captured verbatim. See docs/continuous-integration.md#caveats.
+        # are captured verbatim. See docs/installation.md#continuous-integration.
         run: |
           set -o pipefail
           npx --yes kenkeep doctor --verbose 2>&1 | tee "$RUNNER_TEMP/doctor.txt"
@@ -167,7 +167,7 @@ jobs:
             echo "### 🔧 Remediation"
             echo ""
             echo "Process accumulated session captures (see the curation skill in"
-            echo "\`docs/continuous-integration.md\`), or run \`kenkeep index rebuild\`"
+            echo "\`docs/installation.md#continuous-integration\`), or run \`kenkeep index rebuild\`"
             echo "locally and commit the regenerated \`ENTRY.md\`/\`GRAPH.md\`."
             echo ""
             echo "KENKEEP_COMMENT_EOF"

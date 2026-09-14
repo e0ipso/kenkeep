@@ -5,53 +5,46 @@ nav_order: 2
 
 # How it works
 
-kenkeep runs a loop around your AI sessions. Capture and recall happen on their own. You trigger curation, and you decide what to keep.
+Kenkeep runs a loop around your AI sessions. Two steps are automatic. Two are yours.
 
 <p align="center">
-  <img src="{{ '/assets/images/kenkeep-infography.png' | relative_url }}" alt="kenkeep knowledge lifecycle: capture transcripts, curate them into reviewed notes, and inject them back into every session" />
+  <img src="{{ '/assets/diagrams/loop.svg' | relative_url }}" alt="The kenkeep loop: capture (automatic), curate (you run /kk-curate), review (git diff and git commit), recall (automatic), then back to capture on the next session" />
 </p>
 
 ## 1. Capture (automatic)
 
-When a session ends, a hook saves the transcript to `.ai/kenkeep/_sessions/`. You don't run this; it happens on its own. Each harness fires capture on the lifecycle events its runtime emits: Claude on `Stop`, `SessionEnd`, and `PreCompact`; Codex on `Stop`; Cursor on `stop`, `sessionEnd`, and `preCompact`; OpenCode on `session.idle`; and GitHub Copilot CLI on `sessionEnd` and `agentStop`, reading the per-session `events.jsonl` transcript under `${COPILOT_HOME:-~/.copilot}/session-state/<sessionID>/`.
+When a session ends, a hook saves the transcript to `.ai/kenkeep/_sessions/`. Each harness fires it on its own lifecycle events. Claude Code, for example, fires on `Stop`, `SessionEnd`, and `PreCompact`. The full list is in [Installation](installation.md#per-harness-notes).
 
-## 2. Curate (you start it, the AI does most of the work)
+Wrap anything in `<kk-private>…</kk-private>` and it never reaches disk.
 
-Run `/kk-curate` (the system nudges you once transcripts pile up). It reads the captured sessions, drafts proposed notes, writes them under `.ai/kenkeep/nodes/`, then rebuilds the `index.md` tree (root catalog `ENTRY.md`) and `GRAPH.md`.
+## 2. Curate (you start it)
 
-For a single session that already produced durable knowledge, `/kk-session-extract` offers the same curation tail on demand: it applies `proposal-extract.md` to the visible live context, stages a done session log, and curates only that session without waiting for the deferred batch path.
+Run `/kk-curate` in your assistant when the nudge appears. It reads the captured sessions, drafts one note per durable fact, places each note in the best-fitting existing folder under `nodes/`, and rebuilds the index files.
 
-In the same pass that links a note to its neighbors, the curator picks its home folder — the best-fitting existing folder under `nodes/`, or the `nodes/` root when nothing fits. Identity is the note's id, not its path, so its links hold wherever it lives. Curation only places notes in existing folders; it never creates, splits, or merges them.
+When a new note contradicts one you already have, nothing is overwritten. The skill shows both and asks you to accept, reject, skip, or keep the conflict on record.
 
-When a proposed note contradicts one you already have, the curator never overwrites it silently. It records the conflict, and `/kk-curate` walks each one with you: accept the new note, reject it, or keep the conflict as a record. This walkthrough is the only way contradictions get resolved.
-
-### Rebalance (the final phase of curate)
-
-Curation alone lets the tree go lopsided. The last phase of `/kk-curate` rebalances it — no second command, no second nudge. A deterministic, LLM-free trigger checks the per-folder metrics with a hysteresis margin (so a borderline note can't flip a folder back and forth); most runs trip nothing and skip it at zero cost.
-
-When a threshold trips, the LLM reworks the affected branches only: split a folder, split a bloated note, merge a sparse branch, or create a branch for a new topic. A deterministic primitive applies the moves as byte-stable, id-stable renames — split-leaf mints new ids and a redirect — then regenerates the affected `index.md` nodes and `nodes_hash`.
+The last phase checks whether the folder tree has gone lopsided. Most runs trip nothing. When one does, the skill splits or merges only the affected branches, as plain renames you review in the same diff.
 
 ## 3. Review (you decide)
 
-The files under `nodes/` are plain markdown. Review them with `git diff`, then keep with `git commit` or drop with `git restore <path>`. These notes shape every future session, so this is the one place a human stays in the loop. After a `git restore` that drops a note, run `npx kenkeep index rebuild` so the generated index stops referencing it — committing a `nodes/` change instead refreshes the index through the pre-commit hook.
-
-Rebalance moves land in this same diff (act-and-fold), reviewed alongside the note writes. `git restore` is path-scoped, so you can reject just the moves and keep the writes, or the reverse. Either way, follow a `git restore` with `npx kenkeep index rebuild` to resync the generated index with the on-disk tree.
+Notes are markdown files. Inspect them with `git diff`, keep them with `git commit`, drop them with `git restore <path>`. After a restore, run `npx kenkeep index rebuild` so the index forgets the dropped note.
 
 ## 4. Recall (automatic)
 
-At the start of every session a hook injects the knowledge base back into your assistant — like capture, you don't run it. It injects **only** the entry catalog (`ENTRY.md`, the catalog of top-level branches), never the whole base, plus a directive to descend by relevance. This is **progressive disclosure**: the assistant reads the root, picks the branches whose intent and tags match the task, and opens only the leaf notes it needs, following `kk_relates_to` / `kk_depends_on` cross-edges to related notes in other branches. The injected payload stays small no matter how large the knowledge base grows.
+At session start a hook injects `ENTRY.md`, the catalog of top-level branches, plus a directive to descend by relevance. The assistant opens only the branch indexes and notes the task needs. The payload stays small however large the base grows.
 
 <p align="center">
   <img src="{{ '/assets/images/progressive-disclosure.png' | relative_url }}" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" />
 </p>
 
-## What's stored
+On Claude Code and Codex a second hook fires after each prompt you type. It injects summaries and links for the handful of notes most relevant to that prompt, ranked locally without an LLM call.
 
-Every kept fact is a markdown file (a **leaf node**) under `nodes/`, in a tree of topical folders. The `nodes/` tree is an OKF v0.1 bundle, and each leaf has a `type`:
+## What is stored
 
-- **Practice**: _how we build._ Conventions, prohibitions, gotchas.
-- **Map**: _what exists._ Modules, services, vocabulary.
+<p align="center">
+  <img src="{{ '/assets/diagrams/layout.svg' | relative_url }}" alt="What lives in .ai/kenkeep/: committed files shared with the team (nodes, ENTRY.md, GRAPH.md, FOLDER_SUMMARIES.md, conflicts, config.yaml, prompt overrides) and gitignored per-user files (_sessions, _logs, hooks, .state)" />
+</p>
 
-`type` is a label, not a location — folders are topical. Every folder also has a generated `index.md` (an OKF reserved index file): an actionable table-of-contents with verb-first `Load …` (descend) and `Open …` (read a note) pointers that splice in each target's `description`, an embedded "how to descend" directive, a parent breadcrumb, and a "By topic" section pointing at the most relevant notes per tag — and no bookkeeping statistics. Folder summaries live in the committed `FOLDER_SUMMARIES.md` sidecar and are preserved across rebuilds; they are written only when the LLM clusters folders (during migrate or rebalance) or by hand. Notes link by `kk_id`, never by path, so a note can move without breaking a reference. `GRAPH.md` is the cross-reference graph the harness reads on demand. The `index.md` files regenerate automatically; everything is plain text, diffable and version-controlled like any code. Full frontmatter shape: [Schemas](internals/schemas.md).
+Each note is a markdown file with frontmatter. A `practice` note says how we build: conventions, prohibitions, gotchas. A `map` note says what exists: modules, services, vocabulary. Notes link to each other by id, never by path, so a note can move between folders without breaking a link. Every folder gets a generated `index.md`, and the whole `nodes/` tree is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle.
 
-For how the AI actually runs inside your harness session, see [Internals, Architecture](internals/architecture.md).
+Frontmatter reference: [Internals, Prompts and schemas](internals/prompts.md#node-frontmatter).

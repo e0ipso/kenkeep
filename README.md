@@ -26,11 +26,9 @@
 
 ---
 
-Coding assistants forget about everything in past sessions. Kenkeep creates a system that **salvages the gold nuggets in your past conversations**, and discards the rest. This way, the assistant can use that important detail you shared two weeks ago, without you even worrying about it.
+Coding assistants forget everything between sessions. Kenkeep **salvages the gold nuggets from your past conversations** and discards the rest, so the detail you explained two weeks ago is there the next time the assistant needs it.
 
-Kenkeep is a **team-shared, git-native knowledge base** for AI coding assistants.
-
-Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
+Kenkeep is a **team-shared, git-native knowledge base** for AI coding assistants. Conventions, gotchas, module names, and the reasons behind decisions get captured from your sessions, curated by a human, committed to the repo, and injected back into every future session.
 
 ## Overview
 
@@ -81,7 +79,7 @@ Your AI conversations produce a steady stream of project-specific knowledge (con
 
 ### Built up and shared across your team
 
-The knowledge base grows in your repo as plain markdown, one node per fact, accumulated from real coding sessions. The `nodes/` tree is a conformant [Open Knowledge Format (OKF v0.1)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle — an open, vendor-neutral format any OKF tool can read — with kenkeep's own fields carried under the self-describing `kk_` extension namespace. It travels with the project through `git pull`, so every teammate works from the same conventions instead of rediscovering them on their own laptop.
+One markdown file per fact, accumulated from real coding sessions and stored in your repo. It travels with `git pull`, so every teammate works from the same conventions instead of rediscovering them alone. The `nodes/` tree is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle any OKF tool can read.
 
 </td>
 <td width="50%" valign="top">
@@ -90,7 +88,7 @@ The knowledge base grows in your repo as plain markdown, one node per fact, accu
 
 ### Reviewed and versioned like code
 
-Nothing reaches the knowledge base without a human approving it. Every addition or change is an ordinary git diff you review in a commit or PR, with the full history there to inspect, blame, or revert like any other code.
+Nothing reaches the knowledge base without a human approving it. Every addition is an ordinary git diff you review in a commit or PR, with the full history there to blame or revert.
 
 </td>
 </tr>
@@ -101,7 +99,7 @@ Nothing reaches the knowledge base without a human approving it. Every addition 
 
 ### No extra infrastructure
 
-No daemons, services, databases, or vector stores. kenkeep is just Node and git, so there is nothing to provision, host, or keep alive, and nothing new to secure.
+No daemons, services, databases, or vector stores. Kenkeep is Node and git. Nothing to provision, host, keep alive, or secure.
 
 </td>
 <td width="50%" valign="top">
@@ -110,7 +108,7 @@ No daemons, services, databases, or vector stores. kenkeep is just Node and git,
 
 ### No API keys
 
-It all runs from within the assistant of your choice, on the subscription you already pay for. There is no separate API key to obtain, store, or rotate.
+It runs inside the assistant you already pay for: Claude Code, Codex, Cursor, OpenCode, or Copilot. There is no separate key to obtain, store, or rotate.
 
 </td>
 </tr>
@@ -119,15 +117,13 @@ It all runs from within the assistant of your choice, on the subscription you al
 ## How it works
 
 <p align="center">
-  <img src="docs/assets/images/kenkeep-infography.png" alt="kenkeep knowledge lifecycle: capture transcripts, curate them into reviewed notes, and inject them back into every session" width="100%">
+  <img src="docs/assets/diagrams/loop.svg" alt="The kenkeep loop: capture (automatic), curate (you run /kk-curate), review (git diff and git commit), recall (automatic), then back to capture on the next session" width="100%">
 </p>
 
-kenkeep runs a loop around your AI sessions. Capture and recall happen on their own; you trigger curation, and you decide what to keep:
-
-- **Capture** (automatic): when a session ends, a hook saves the transcript.
-- **Curate** (you run `/kk-curate`): the AI drafts proposed notes under `nodes/`, then walks you through any contradictions with an existing note.
-- **Review** (you decide): inspect the notes with `git diff`, then commit the ones you want to keep.
-- **Recall** (automatic): at the start of every session a hook injects only the root index; the assistant descends by relevance, opening just the notes it needs (**progressive disclosure**), so the payload stays small as the base grows.
+- **Capture** is automatic. When a session ends, a hook saves the transcript.
+- **Curate** is yours to start. Run `/kk-curate` and the assistant drafts one note per durable fact, then walks you through any contradiction with a note you already have.
+- **Review** is yours to decide. Read the notes with `git diff` and commit the ones you want.
+- **Recall** is automatic. Every new session starts with the root catalog and descends only into the notes the task needs, so the payload stays small as the base grows.
 
 <p align="center">
   <img src="docs/assets/images/progressive-disclosure.png" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" width="100%">
@@ -142,9 +138,9 @@ npx kenkeep init --harnesses claude
 npx kenkeep doctor
 ```
 
-Swap `claude` for `codex`, `cursor`, `opencode`, or `copilot` (or pass a comma-separated list). For GitHub Copilot CLI, `npx kenkeep init --harnesses copilot` installs the skills under `.github/skills/` (Copilot's documented project skill location) and keeps the adapter's hook scripts under the project-local `.copilot/` directory, registering them in the repo-level `.github/hooks/kk.json` (Copilot loads repo-level hooks before user-level; nothing is written to `~/.copilot/`).
+Swap `claude` for `codex`, `cursor`, `opencode`, or `copilot`, or pass a comma-separated list. Per-harness details, including where GitHub Copilot CLI keeps its hooks and skills, are in [Installation](https://kenkeep.canpicasoft.com/installation.html).
 
-Then code normally. When you want to turn captured material into knowledge nodes, run `/kk-curate` inside your harness session (also `/kk-add`, `/kk-bootstrap`). The skills are context-aware and walk you through conflict resolution. New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
+Then code as usual. When the assistant nudges you, run `/kk-curate` in your session. New notes land under `.ai/kenkeep/nodes/`. Review them with `git diff` and commit the ones you want to keep.
 
 <table>
 <tr>
@@ -154,13 +150,13 @@ Then code normally. When you want to turn captured material into knowledge nodes
 
 ### Seed from existing docs
 
-If your repo already has READMEs, ADRs, or module docs, seed the knowledge base from them. Inside a harness session:
+If your repo already has READMEs, ADRs, or module docs, seed the knowledge base from them. Inside a session:
 
 ```
 /kk-bootstrap
 ```
 
-The scan walks the repo root, filtered by `.kkignore` (generated by `init`, uses [gitignore-style syntax](https://git-scm.com/docs/gitignore)). Edit `.kkignore` to exclude directories you don't want scanned. Review the resulting nodes under `nodes/` with `git diff` and commit the ones you want to keep.
+The scan starts at the repo root and honors `.kkignore`, which `init` creates with [gitignore syntax](https://git-scm.com/docs/gitignore). Review the resulting notes with `git diff` and commit the ones you want.
 
 </td>
 <td width="50%" valign="top">
@@ -169,9 +165,7 @@ The scan walks the repo root, filtered by `.kkignore` (generated by `init`, uses
 
 ### Add knowledge manually
 
-At any time during a session you can use `/kk-add` to make sure the assistant remembers a message. Just casually mention it, and you're done:
-
-Example:
+Mid-session, mention `/kk-add` and the assistant records the point you just made:
 
 ```
 No, you got that wrong.
@@ -188,24 +182,20 @@ this use case. Also, /kk-add this.
 
 ## Knowledge packs
 
-Knowledge packs let teams publish a reviewed `.ai/kenkeep/nodes/` tree for a
-framework, platform, or shared domain and graft it into another project as one
-isolated branch:
+A pack is a reviewed `nodes/` tree published for a framework, platform, or shared domain. Import one and it lands as a single isolated branch in your own knowledge base:
 
 ```sh
 npx kenkeep pack import e0ipso/kenkeep-pack-drupal
 npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal --as drupal
 ```
 
-Imports are deterministic and LLM-free. Colliding node ids are skipped with a
-warning, and any structural rebalancing happens later through the normal
-curation workflow. See the full guide: **[Knowledge packs](https://kenkeep.canpicasoft.com/knowledge-packs.html)**.
+Import is deterministic and never calls an LLM. Colliding note ids are skipped with a warning. Full guide: **[Knowledge packs](https://kenkeep.canpicasoft.com/knowledge-packs.html)**.
 
 ## Documentation
 
 Full documentation: **<https://kenkeep.canpicasoft.com>**
 
-For maintainers of this package itself, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Working on the package itself? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400" role="img" aria-labelledby="t d">
+  <title id="t">The review gate</title>
+  <desc id="d">Running /kk-curate writes notes under nodes/ as an uncommitted diff. You inspect it with git diff, then either git commit to keep or git restore to drop, followed by npx kenkeep index rebuild. Contradictions go to conflicts/ and the skill walks each one with a y, n, s, k prompt.</desc>
+  <style>
+    .t { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 24px; fill: #19110a; letter-spacing: 0.06em; }
+    .h { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 13px; fill: #19110a; letter-spacing: 0.08em; }
+    .b { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; fill: #463c30; }
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #19110a; }
+    .mw { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #f8f4ec; }
+    .wm { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 500; font-size: 20px; fill: #19110a; letter-spacing: -0.02em; }
+    .box { fill: #f1e8d6; stroke: #d8c7a4; stroke-width: 2; }
+    .you { fill: #ad2e6a; stroke: none; }
+    .keep { fill: #e2efd9; stroke: #3f7a3a; stroke-width: 2; }
+    .drop { fill: #f7e3ec; stroke: #ad2e6a; stroke-width: 2; }
+    .arrow { fill: none; stroke: #2c2318; stroke-width: 2.5; }
+    .dashed { fill: none; stroke: #8a5a2b; stroke-width: 2; stroke-dasharray: 2 7; stroke-linecap: round; }
+    .s1 { animation: in 0.6s ease-out both; animation-delay: 0.1s; }
+    .s2 { animation: in 0.6s ease-out both; animation-delay: 0.7s; }
+    .s3 { animation: in 0.6s ease-out both; animation-delay: 1.3s; }
+    .s4 { animation: in 0.6s ease-out both; animation-delay: 1.9s; }
+    .s5 { animation: in 0.6s ease-out both; animation-delay: 2.5s; }
+    @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .s1, .s2, .s3, .s4, .s5 { animation: none; } }
+  </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2c2318"/>
+    </marker>
+    <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a5a2b"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="400" rx="18" fill="#f8f4ec"/>
+  <text class="t" x="500" y="46" text-anchor="middle">NOTHING LANDS WITHOUT A COMMIT</text>
+
+  <g class="s1">
+    <rect class="you" x="40" y="100" width="170" height="56" rx="12"/>
+    <text class="mw" x="125" y="134" text-anchor="middle">/kk-curate</text>
+    <text class="b" x="125" y="180" text-anchor="middle">in your assistant</text>
+  </g>
+  <path class="arrow s1" d="M210,128 H246" marker-end="url(#ah)"/>
+
+  <g class="s2">
+    <rect class="box" x="250" y="92" width="200" height="72" rx="12"/>
+    <text class="h" x="350" y="116" text-anchor="middle">UNCOMMITTED DIFF</text>
+    <text class="m" x="350" y="142" text-anchor="middle">nodes/&lt;topic&gt;/&lt;id&gt;.md</text>
+  </g>
+  <path class="arrow s2" d="M450,128 H486" marker-end="url(#ah)"/>
+
+  <g class="s3">
+    <rect class="box" x="490" y="100" width="150" height="56" rx="12"/>
+    <text class="m" x="565" y="134" text-anchor="middle">git diff</text>
+    <text class="b" x="565" y="180" text-anchor="middle">you read it</text>
+  </g>
+  <path class="arrow s3" d="M640,118 C700,118 700,84 736,84" marker-end="url(#ah)"/>
+  <path class="arrow s3" d="M640,138 C700,138 700,172 736,172" marker-end="url(#ah)"/>
+
+  <g class="s4">
+    <rect class="keep" x="740" y="58" width="220" height="52" rx="12"/>
+    <text class="m" x="850" y="80" text-anchor="middle">git commit</text>
+    <text class="b" x="850" y="100" text-anchor="middle">keep · now in every session</text>
+    <rect class="drop" x="740" y="146" width="220" height="52" rx="12"/>
+    <text class="m" x="850" y="168" text-anchor="middle">git restore &lt;path&gt;</text>
+    <text class="b" x="850" y="188" text-anchor="middle">drop · then index rebuild</text>
+  </g>
+
+  <!-- contradiction lane -->
+  <path class="dashed s5" d="M350,164 V236" marker-end="url(#ah2)"/>
+  <g class="s5">
+    <rect class="box" x="250" y="240" width="200" height="72" rx="12"/>
+    <text class="h" x="350" y="264" text-anchor="middle">CONTRADICTION</text>
+    <text class="m" x="350" y="290" text-anchor="middle">conflicts/&lt;id&gt;.md</text>
+    <path class="arrow" d="M450,276 H486" marker-end="url(#ah)"/>
+    <rect class="box" x="490" y="240" width="470" height="72" rx="12"/>
+    <text class="b" x="510" y="264">The skill shows old and new side by side and asks:</text>
+    <text class="m" x="510" y="292">Accept this proposal? [Y/n/s/k]</text>
+    <text class="b" x="510" y="336">y accept · n reject · s skip · k keep on record</text>
+  </g>
+
+  <text class="wm" x="500" y="380" text-anchor="middle">kenkeep</text>
+</svg>

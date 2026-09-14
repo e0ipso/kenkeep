@@ -5,110 +5,74 @@ nav_order: 7
 
 # Troubleshooting
 
-Start with `npx kenkeep doctor --verbose`.
+Start with `npx kenkeep doctor --verbose`. Then find your symptom below.
 
-## Nothing is being captured
+## Nothing is captured
 
 `.ai/kenkeep/_sessions/` stays empty.
 
-- **Hooks aren't registered.** Check `.claude/settings.json` for the knowledge base hook entries. Re-run `init --upgrade` if missing.
-- **A wrapper script around `claude` leaked the internal flag** (`KENKEEP_BUILDER_INTERNAL=1`) into a normal session.
+- The hooks are not registered, or the scripts are missing because this clone never ran `init`. Run `npx kenkeep init --harnesses <id>` (add `--upgrade` on an existing install).
+- On Codex, you have not trusted the hooks yet. Run `/hooks` in a Codex session.
+- A wrapper around the assistant leaked `KENKEEP_BUILDER_INTERNAL=1` into a normal session. That variable tells every hook to exit.
 
-## A hook seems to be silently doing nothing
+## A hook seems to do nothing
 
-Check `<kk-root>/_logs/hook-errors-YYYY-MM-DD.log` for the most recent day. Each line is a JSON object recording one swallowed hook failure, either a parse error (the harness sent malformed JSON) or an uncaught throw inside the hook, with the hook name, phase, and error message. The file is dated; rotation is implicit. Hooks always exit 0 by design, so this log is the primary breadcrumb when a hook appears to do nothing.
+Hooks always exit 0. Their failures go to `.ai/kenkeep/_logs/hook-errors-YYYY-MM-DD.log`, one JSON line each with the hook name, phase, and error. Read the latest file.
 
-## Captured sessions never get extracted
+## Captures stay `pending`
 
-Session logs are stuck pending.
+On Codex, Cursor, OpenCode, and Copilot, extraction runs in the background at the start of the next session. Open one. The assistant binary must be on PATH for the shell that runs the hook.
 
-- Background extraction runs at the start of the **next** Claude Code session. Open a new one.
-- Make sure `claude` is on PATH in the shell that runs the hook.
-- A stale `proposal-drain` lock can briefly block extraction. The drain uses `proper-lockfile` on `.ai/kenkeep/.state/state.json` with a 60s stale threshold, so a lock left by an interrupted (SIGKILLed) drain auto-reclaims on the next drain within about a minute. To recover immediately, remove the `.ai/kenkeep/.state/state.json.lock` directory. (Curate and bootstrap don't take a state lock — they run single-author in one host session.)
+A drain killed mid-run leaves a lock that clears itself after a minute. To clear it now, delete the `.ai/kenkeep/.state/state.json.lock` directory.
 
-## `/kk-curate` says "no pending sessions"
+On Claude Code there is no background extraction. `/kk-curate` extracts inline.
 
-Either everything is already curated, or some session logs have invalid frontmatter and are being silently skipped. Run `doctor`.
+## `/kk-curate` reports no pending sessions
 
-If session logs clearly exist under `.ai/kenkeep/_sessions/` but the skill reports none, a flat `*.md` glob may have missed them in your harness. The skill falls back to listing the directory directly (or `find .ai/kenkeep/_sessions -type f -name '*.md'`) before giving up, so this is normally self-healing; if it still misses, confirm the files end in `.md` and carry `proposal_status: pending` frontmatter.
+Everything is curated, or some session logs have invalid frontmatter and are skipped. `doctor` names them. Files must end in `.md` and carry `proposal_status: pending`.
 
-## `/kk-curate` fails with `EBUSY` running a primitive
+## `/kk-curate` asks which harness to use
 
-In Cursor-like environments a direct `node`/`npx` shell call can fail with `EBUSY` even when the command is valid. The skill retries the **same** argv through Python's `subprocess` list form (no wrapper, no shell), so a transient `EBUSY` is expected to recover on its own. A persistent failure through both paths is a real error — check that `npx --yes kenkeep@latest <command>` runs in a plain terminal.
+Detection failed and more than one harness is installed. Run from the harness you installed, or pass `--harness <id>`.
 
-## `/kk-curate` asks which harness to use, or picks the wrong one
+## `/kk-curate` fails with `EBUSY`
 
-The skill resolves the harness id via the shared detector at `.ai/kenkeep/scripts/kk-detect-harness.mjs` (needed for `index rebuild`). When that detector cannot run, it falls back to `.ai/kenkeep/.state/installed-version`: if exactly one harness is installed it uses that; if several are installed it uses your runtime only when it matches one of them; otherwise it asks you to pick. To stop the prompt, make `installed-version` unambiguous (one installed harness) or run from a runtime whose id matches an installed harness.
+Some Cursor environments fail a direct `node` call with `EBUSY`. The skill retries the same command through Python and usually recovers. If it fails both ways, check that `npx --yes kenkeep@latest status` works in a plain terminal.
 
-## Curator reported `add_collision` or `modify_missing_target` failures
+## `add_collision` or `modify_missing_target`
 
-- **`add_collision`**: the curator wanted to write a new node, but a node with that id already exists. Pick a different title for the candidate (re-run `/kk-curate` after deleting/editing the offending session log) or treat the existing node as the canonical version.
-- **`modify_missing_target`**: the curator pointed at a `target_node_id` that's not on disk, usually because the node was renamed or deleted between captures. Either restore the target file or treat the modification as an addition by editing the session log so the next curate run reproposes it as `add`.
+- `add_collision`: a note with that id already exists. Retitle the candidate, or treat the existing note as canonical.
+- `modify_missing_target`: the note the curator wanted to modify was renamed or deleted. Restore it, or let the next run re-propose the change as an add.
 
 ## `ENTRY.md` is stale
 
-`doctor` reports a hash drift. Cause: someone hand-edited or rebased `nodes/` without running the curator.
-
-Fix:
+Someone changed `nodes/` by hand, or restored a note after curate rebuilt the index.
 
 ```sh
 npx kenkeep index rebuild
 ```
 
-## Curator produces weird proposals
+## Bootstrap re-reads docs it already processed
 
-The prompt has drifted from your project's needs. Edit `.ai/kenkeep/.config/prompts/curator.md` and bump its `Version:` comment. See [Customization](internals/prompts.md).
+`.state/bootstrap-state.json` keys on content hash. The file changed, even by whitespace, or the state file was deleted or corrupted. Delete the state file to force a full re-run on purpose.
 
-## Bootstrap re-processes done docs
+## `/kk-bootstrap` eats the context window
 
-`bootstrap-state.json` keys on file content hash. Causes:
+It reads every candidate doc into the session. On Claude Code and Cursor the drafting fans out to sub-agents, which keeps the docs out of the main context. Elsewhere, narrow the run:
 
-- The file was actually modified (even whitespace).
-- The state file was deleted or is malformed.
+1. `/kk-bootstrap docs/` limits the walk to one subtree.
+2. Add large vendored or generated trees to `.kkignore`.
+3. Run several small scopes instead of one big pass.
 
-## Logs directory keeps growing
+To see which path ran, look under `.ai/kenkeep/_logs/bootstrap/`. Every run writes `<runId>__<batchN>.jsonl`. Only the parallel path also writes `.draft.json` beside it.
 
-`_logs/` is gitignored but unbounded. Prune periodically:
+## Curator proposals are off
 
-```sh
-npx kenkeep logs prune
-```
+Edit `.ai/kenkeep/.config/prompts/proposal-extract.md` and bump its `Version:` comment. See [Prompts and schemas](internals/prompts.md).
 
-This deletes `*.jsonl` files older than `logsRetentionDays` (default 30) across the whole `_logs/` tree.
+## Logs keep growing
 
-## Reviewing changes to `nodes/`
-
-The curator writes directly to `.ai/kenkeep/nodes/<folder>/<id>.md`. Review with `git diff nodes/`, your editor, or a tool like [self-review](https://github.com/e0ipso/self-review). Accept with `git commit` (the pre-commit hook regenerates and stages a fresh INDEX/GRAPH). Reject with `git restore <path>` — then run `npx kenkeep index rebuild`, because the curator already rebuilt the index over the rejected node and restoring it without committing a `nodes/` change leaves that index stale.
-
-## Resolving curator contradictions
-
-Each contradiction lands as a markdown file under `.ai/kenkeep/conflicts/<id>.md` with `status: pending`; the existing node is never overwritten. Run `/kk-curate` and the skill walks each one with the `y`/`n`/`s`/`k` prompt (see [Daily use → Conflict walkthrough](daily-use.md#conflict-walkthrough)). To resolve by hand, edit the target node yourself and `git restore` (or `git commit`) the conflict file.
-
-## `/kk-bootstrap` uses a lot of context on large repos
-
-`/kk-bootstrap` reads every candidate doc into your harness session, so on a large doc tree (hundreds of markdown files) it can force a compaction mid-run, or in extreme cases exhaust the session's context window.
-
-Remediation, in order of preference:
-
-1. **Scope the run.** `/kk-bootstrap docs/` limits the walk to that subtree.
-2. **Tighten `.kkignore`.** Add entries to deny large vendored or generated markdown subtrees.
-3. **Run multiple smaller scopes one at a time** instead of one repo-wide pass.
-
-On Claude Code and Cursor, drafting fans out to native sub-agents, which keeps each candidate doc out of the main session's context (see [Architecture → Parallel drafting and per-batch logs](internals/architecture.md#parallel-drafting-and-per-batch-logs)).
-
-## Bootstrap is still sequential: why?
-
-Per-harness support for native host sub-agents varies: **Claude Code** and **Cursor** ship a documented in-session `Task` tool and run the parallel path by default; **Codex** supports subagent dispatch at the workflow level (the exact in-LLM tool surface depends on your runtime); **opencode** is treated as a conservative fallback because its headless `run --format json` mode does not affirm Task-dispatch in current vendor docs. The `kk-bootstrap` and `kk-curate` skills probe their own tool surface at the start of each run and **silently degrade to inline sequential drafting** when no dispatch primitive is detected. This is by design, never an error, so a sequential run on an unsupported harness looks identical to a healthy parallel run from the outside.
-
-To confirm which path actually ran, inspect the per-batch artefacts:
-
-```sh
-ls .ai/kenkeep/_logs/bootstrap/
-```
-
-You'll see one `<runId>__<batchN>.jsonl` per batch in either mode (the JSONL contract is the cross-harness lowest-common-denominator trace). The accompanying `<runId>__<batchN>.draft.json` files are only written by the parallel path. If they are missing while `.jsonl` files exist, the inline fallback ran. Same convention under `_logs/curator/` and `_logs/kk-add/`.
-
-
+`_logs/` is gitignored and unbounded. `npx kenkeep logs prune` deletes JSONL files older than `logsRetentionDays`.
 
 ## When all else fails
 

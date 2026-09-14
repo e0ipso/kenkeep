@@ -1,123 +1,71 @@
 ---
-title: Prompts
+title: Prompts and schemas
 parent: Internals
-nav_order: 4
+nav_order: 3
+redirect_from:
+  - /internals/schemas.html
+  - /internals/prompt-eval.html
 ---
 
-# Customizing prompts
+# Prompts and schemas
 
-The knowledge base's LLM work runs in **two places**:
-
-1. **The proposal-drain hook** spawns the active harness's headless driver to turn each captured session log into a structured proposal. Its prompt loads from a local override path, falling back to the bundled template. Edit `.ai/kenkeep/.config/prompts/proposal-extract.md` to customize; delete it to revert.
-2. **The kk-bootstrap, kk-curate, kk-session-extract, and kk-add skills** run inside the host harness session (via `<harness> -p "/kk-<name>"` or invoked directly). Their prompts live in the skill itself: edit `.claude/skills/kk-<name>/SKILL.md` (and the `.codex/`, `.cursor/`, `.opencode/` equivalents).
-
-{% include callout.html variant="note" content="On the Claude adapter the proposal-drain hook is a no-op: extraction runs inline during `/kk-curate`." %}
-
-{% include callout.html variant="tip" content="Bump the top-of-file `Version: N` comment on every behavior change. Logs record the prompt content, so historic decisions stay auditable." %}
+Two prompts decide what the knowledge base keeps. The proposal extractor turns a transcript into candidates. The curator turns candidates into files. Bootstrap is a third extractor fed by docs instead of transcripts.
 
 ## Where each prompt lives
 
-| Prompt | Role |
-|---|---|
-| **`proposal-extract.md`** (in the bundled template) | Converts a captured transcript into structured practice and map candidates. Run by `kk-proposal-drain` via the headless driver. References the shared `knowledge-admission.md` for the durability criteria. |
-| **`prompt-eval-judge.md`** | Lives at `scripts/prompt-eval/prompt-eval-judge.md` (not under `src/templates-source/`, so it is never copied into `templates/` or a consumer's `.ai/kenkeep/.config/prompts/`). Source-repository-only semantic verifier for proposal-evaluation facets. The explicit maintainer evaluator runs it through the same selected harness in a fresh isolated call. |
-| **`knowledge-admission.md`** | Single source for the durability admission criteria (maintenance/lifecycle, plan/ticket/issue references, incidental one-off facts, the six-months keep test). Referenced by curate, bootstrap, the batch prompt, and `proposal-extract.md`. |
-| **`sub-agent-delegation.md`** | Single source for the sub-agent probe / ≤5 concurrency cap / inline-fallback contract. Referenced by `kk-curate`, `kk-bootstrap`, and `kk-add`. |
-| **`kk-curate/SKILL.md`** | Reads pending session logs, drafts add/modify/contradict/drop actions in-session (validated with `validate curator-output`), hands the merged set to `curate-dedup`, persists survivors via `curate-persist`, renders `conflict prepare` output to walk contradictions with the user. The parallel path aggregates batch drafts with `drafts collect`. |
-| **`kk-session-extract/SKILL.md`** | Applies `proposal-extract.md` to the visible live session, stages proposals via `session-log stage-live`, then runs the shared curation tail with `curate-dedup --session-id` scoped to the staged log. |
-| **`kk-bootstrap/SKILL.md`** | Enumerates source markdown via `finddocs`, drafts node bodies inline, persists via `node write`. |
-| **`kk-add/SKILL.md`** | Conversationally gathers fields, persists via `node write`. |
-
-| Surface | Source of truth | Local override |
-|---|---|---|
-| Proposal extraction | `templates/prompts/proposal-extract.md` | `.config/prompts/proposal-extract.md` |
-| Curate skill | `src/templates-source/skills/kk-curate/SKILL.md` (regenerated into `.claude/skills/kk-curate/SKILL.md` etc.) | edit the per-harness copy directly |
-| Live session extract skill | `src/templates-source/skills/kk-session-extract/SKILL.md` (regenerated similarly) | edit the per-harness copy directly |
-| Bootstrap skill | `src/templates-source/skills/kk-bootstrap/SKILL.md` (regenerated similarly) | edit the per-harness copy directly |
-| Manual-add skill | `src/templates-source/skills/kk-add/SKILL.md` (regenerated similarly) | edit the per-harness copy directly |
-
-The templates-source `SKILL.md` is canonical; per-harness copies are regenerated from it by template-sync. Edit the per-harness copy when iterating in a consumer repo; edit the templates-source when contributing back to the package.
+`proposal-extract.md` runs in the drain's headless driver, or inline in `/kk-curate` on Claude Code. Override it, along with `knowledge-admission.md` and `sub-agent-delegation.md`, under `.ai/kenkeep/.config/prompts/`. The skills (`kk-curate`, `kk-bootstrap`, `kk-add`, `kk-session-extract`, `kk-migrate`) run in your session, and their per-harness `SKILL.md` copy is the override. Canonical sources are `src/templates-source/skills/*/SKILL.md.hbs`. Bump the `Version:` comment on every behavior change.
 
 ## The durability filter
 
-All three extractor/curator prompts apply the same filter: keep **principles and current-state facts**, drop **actions and story**. Specifically dropped:
+Every extractor and the curator apply the same test from `knowledge-admission.md`: keep principles and current-state facts, drop actions and story. Maintenance steps, ticket references, migration narratives, and one-off facts dressed as practices are the usual rejections.
 
-- Maintenance and lifecycle actions.
-- Project story or history, especially any reference to a plan, ticket, or issue.
-- Incidental one-off facts dressed up as practices.
-
-This is the single most common reason a candidate is rejected. The sections below reference it rather than restate it.
-
-## Pipeline overview
-
-Two extractors emit candidate nodes: the **proposal extractor** for live sessions and the **bootstrap skill** for existing docs. The **curator skill** decides what becomes a file on disk.
+## Pipeline
 
 ```mermaid
 flowchart TB
-    subgraph proposal["Proposal extraction · proposal-extract.md v1"]
+    subgraph proposal["Proposal extraction · proposal-extract.md"]
         direction TB
-        PI["Captured transcript<br/>role-tagged USER / AGENT segments"]
-        PG{"Session-disposition gate<br/>abandoned · exploratory<br/>unrelated · meta-only?"}
-        PEMPTY["Empty proposal<br/>practice=[], map=[]"]
-        PP1["Practice pass<br/>USER turns + self-review-apply<br/>(incl. corrective patterns)"]
-        PP2["Map pass<br/>USER or AGENT turns"]
-        PF2{"Task-specific scope?<br/>one-off names · 'in this PR'<br/>this file / this function"}
-        PF3{"End-state framing?<br/>present tense<br/>no transition narrative"}
-        PO["Practice + Map candidates<br/>tags · title · description · body · kk_confidence"]
-
+        PI["Captured transcript"]
+        PG{"Abandoned, exploratory,<br/>unrelated, or meta-only?"}
+        PEMPTY["Empty proposal"]
+        PP["Practice pass + map pass"]
+        PF{"Task-scoped or<br/>change-oriented?"}
+        PO["Candidates"]
         PI --> PG
-        PG -- "non-productive" --> PEMPTY
-        PG -- "productive" --> PP1
-        PG -- "productive" --> PP2
-        PP1 --> PF2
-        PF2 -- "yes → drop" --> PEMPTY
-        PF2 -- "no" --> PF3
-        PP2 --> PF3
-        PF3 -- "no → drop" --> PEMPTY
-        PF3 -- "yes" --> PO
+        PG -- "yes" --> PEMPTY
+        PG -- "no" --> PP
+        PP --> PF
+        PF -- "yes → drop" --> PEMPTY
+        PF -- "no" --> PO
     end
 
-    subgraph bootstrap["Bootstrap skill · kk-bootstrap/SKILL.md"]
+    subgraph bootstrap["Bootstrap skill"]
         direction TB
-        BI["One markdown doc<br/>=== FILE: path === ... === END FILE ==="]
-        BS{"Skip filter<br/>API dumps · boilerplate<br/>generic framework · TODOs?"}
-        BSKIP["Empty output"]
-        BP1["Practice pass<br/>imperatives · rationale markers<br/>admonitions"]
-        BP2["Map pass<br/>component headers · definitions<br/>file paths"]
-        BC["Confidence calibration<br/>high: explicit + maintained<br/>medium: default<br/>low: draft/legacy/ambiguous"]
-        BO["Practice + Map candidates"]
-
+        BI["One markdown doc"]
+        BS{"API dump, boilerplate,<br/>generic, or TODO?"}
+        BSKIP["Skip"]
+        BP["Practice pass + map pass"]
+        BO["Candidates"]
         BI --> BS
         BS -- "yes" --> BSKIP
-        BS -- "no" --> BP1
-        BS -- "no" --> BP2
-        BP1 --> BC
-        BP2 --> BC
-        BC --> BO
+        BS -- "no" --> BP
+        BP --> BO
     end
 
-    subgraph curator["Curator skill · kk-curate/SKILL.md"]
+    subgraph curator["Curator skill"]
         direction TB
-        CI["Batch of candidates<br/>plus the live KB tree<br/>(overlap judged by reading indexes/leaves)"]
-        CG{"Non-productive<br/>provenance signals?<br/>hedged · hypothetical · plan-scoped"}
-        CCF{"Change-oriented framing?<br/>'used to X, now Y' · rename · removal"}
-        CSAL{"Clean end-state claim<br/>salvageable?"}
-        COV{"Suspected overlap<br/>with existing knowledge base node?"}
-        CNEG{"Direct negation?<br/>(both cannot be true<br/>in the same scope)"}
+        CI["Candidates + the live tree"]
+        CG{"Hedged, hypothetical,<br/>or plan-scoped?"}
+        COV{"Overlaps an<br/>existing node?"}
+        CNEG{"Direct negation?"}
         CEXT{"Extends without<br/>negating?"}
-
-        CADD["add<br/>writes nodes/&lt;topic&gt;/&lt;kk_id&gt;.md"]
-        CMOD["modify<br/>overwrites target node<br/>requires target_node_id on disk<br/>end-state rewrite rule"]
-        CCON["contradict<br/>writes conflicts/&lt;id&gt;.md<br/>no node touched"]
-        CDROP["drop<br/>(rationale recorded)"]
-
+        CADD["add"]
+        CMOD["modify"]
+        CCON["contradict"]
+        CDROP["drop"]
         CI --> CG
         CG -- "yes" --> CDROP
-        CG -- "no" --> CCF
-        CCF -- "yes" --> CSAL
-        CSAL -- "no" --> CDROP
-        CSAL -- "yes" --> COV
-        CCF -- "no" --> COV
+        CG -- "no" --> COV
         COV -- "no" --> CADD
         COV -- "yes" --> CNEG
         CNEG -- "yes" --> CCON
@@ -128,196 +76,62 @@ flowchart TB
 
     PO --> CI
     BO --> CI
-    CADD --> NODES[("nodes/<br/>(topical folders)")]
+    CADD --> NODES[("nodes/")]
     CMOD --> NODES
     CCON --> CONF[("conflicts/&lt;id&gt;.md")]
 ```
 
-Read top to bottom: each extractor short-circuits to an empty output when its gate fires; surviving candidates land in the curator, which routes every candidate to exactly one of four actions. The extractors never interact; the curator is the only stage that writes to `nodes/` or `conflicts/`.
+The curator is the only stage that writes to `nodes/` or `conflicts/`, through two primitives. `curate-dedup` collapses duplicate actions, writes conflict files, and stamps the source logs. `curate-persist` writes every surviving add or modify and reports each result with its placement. A missing modify target or an unresolved id collision comes back as `failed`, never silently.
 
-## Proposal prompt
+## Rebalance trigger
 
-The biggest quality lever in capture: it controls what the extractor treats as worth remembering.
+The last phase of `/kk-curate` calls `rebalance trigger`, a pure function in `src/lib/rebalance.ts`. Each rule sits past a hysteresis margin so one borderline leaf cannot flip a folder back and forth.
 
-### Sections
+| Action | Fires when |
+|---|---|
+| split-folder | a folder holds more than 12 direct leaves |
+| merge | a childless non-root folder holds fewer than 2 leaves |
+| split-leaf | a leaf exceeds 1500 estimated tokens and carries at least 3 distinct tags |
+| create-branch | root leaves have no edges; those sharing a tag are grouped into one action |
 
-1. **Version comment**.
-2. **What to extract**: practice/map definitions, trigger phrases.
-3. **What to skip**: typos, file reads, agent paraphrases, generic programming knowledge; the [durability filter](#the-durability-filter); and non-productive sessions (abandoned, exploratory, cursory, unrelated, meta-only), which short-circuit to `{"practice": [], "map": []}` via the session-disposition gate at the top of the prompt. The gate fires when the session as a whole does not converge on durable knowledge.
-4. **Ownership boundary**: how to split combined statements between practice and map, with maps admitted only when they add independently useful structural knowledge rather than restating a practice.
-5. **Atomicity gate**: one indivisible concept per candidate. Independently reusable concepts stay separate, while a rule retains the rationale, qualifiers, and boundaries needed to apply it correctly.
-6. **Inline example**: a worked transcript with expected JSON.
-7. **Output schema**: must match `ProposalOutputSchema`.
+An empty decision skips the LLM step. When the LLM clusters, it also writes the one-line summary for each new folder, as a lowercase fragment with no trailing period, because it completes the rendered "for more information on ..." prefix.
 
-The drain replaces `[TRANSCRIPT PLACEHOLDER, substituted at runtime]` with the captured slice. If the placeholder is removed, the transcript is appended at the end.
+## Node frontmatter
 
-### Calibration
+Leaves are [OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) concept documents. The four bare keys are OKF's. Everything kenkeep adds sits under `kk_`.
 
-Fixtures under `tests/fixtures/transcripts/`:
-
-- `routine-zero/`: a session with no teaching moments. Correct output is empty.
-- `rivermark-discover/`: 4 practice + 3 map candidates. `expected.md` is the target.
-
-{% include callout.html variant="tip" content="Mocked tests only pin the schema. Only a real headless harness run reveals prompt quality, so run the fixtures with the real CLI before shipping changes." %}
-
-### Schema
-
-Output must match `ProposalOutputSchema` in `src/lib/schemas.ts`. New fields mean extending the Zod schema. Bump `schema_version` on rename, removal, or semantic change; new optional fields do not bump.
-
-## Curator skill prompt
-
-The kk-curate skill's `SKILL.md` decides what happens to every proposal candidate: add, modify, contradict, or drop. Runs in the host harness session. Second-biggest quality lever.
-
-### Input
-
-`[BATCH PLACEHOLDER]` is replaced with:
-
-```json
-{
-  "existing_nodes": [
-    { "kk_id": "...", "title": "...", "type": "practice", "tags": ["..."], "description": "...", "body": "..." }
-  ],
-  "batch": [
-    {
-      "session_id": "...",
-      "captured_at": "...",
-      "candidate_origin": "session-<id>:practice:0",
-      "practice_candidates": [...],
-      "map_candidates": [...]
-    }
-  ]
-}
+```yaml
+---
+type: practice | map
+title: "..."
+description: "one-line summary"
+tags: [string, ...]
+kk_schema_version: 3
+kk_id: practice-prefer-constructor-injection   # <type>-<slug>, the identity
+kk_derived_from: [20260510-1014-session-abc.md]
+kk_relates_to: [string, ...]
+kk_depends_on: [string, ...]
+kk_confidence: low | medium | high
+---
 ```
 
-The candidate arrays carry proposal records only; they no longer contain legacy
-`supports_existing_node` / `contradicts_existing_node` hints. The curator reads
-the live KB tree to decide add/modify/contradict/drop, then records the chosen
-target on `target_node_id` when needed.
+A fenced `Related` block and a numbered `# Citations` block are regenerated from those arrays on every write. Prose outside the fences is never touched. There are no timestamps. Git history is the timeline.
 
-### Output
+## Every other shape
 
-A single JSON array. Each element:
+`src/lib/schemas.ts` is the source of truth, and a mismatch drops the file silently. Print any contract as JSON Schema, or validate a file against it:
 
-```json
-{
-  "action": "add | modify | contradict | drop",
-  "candidate_origin": "<session_id>:<practice|map>:<index>",
-  "target_node_id": "<id-or-null>",
-  "proposed_node": { /* full proposed node, or null for drop */ },
-  "rationale": "...",
-  "home_folder": "cli"
-}
+```sh
+npx kenkeep schema node
+npx kenkeep validate curator-output actions.json
 ```
 
-The skill applies actions through two deterministic primitives in sequence. `curate-dedup` runs first: it deduplicates by target id for modifies or by the derived `type`+title id for adds, writes `contradict` actions to `conflicts/`, stamps the source session logs, and emits the surviving `add`/`modify` actions as a **survivor batch**. The skill then pipes that batch to `curate-persist`, which performs every write to `nodes/` and reports per-action `written` / `dropped` / `failed` counts plus the placement decision for each leaf:
+Names: `node`, `proposed-node`, `proposal-output`, `curator-output`, `pack-manifest`.
 
-| Action | Behavior |
-|---|---|
-| `add` | `curate-persist` atomically writes `nodes/<folder>/<id>.md` into the chosen folder (or the `nodes/` root when none was chosen). If the file exists, it resolves the slug via `ensureUniqueId` (`<id>-2`, ...); a true collision-after-resolution is reported as a `failed` result. |
-| `modify` | `curate-persist` runs against the existing `nodes/<folder>/<target_node_id>.md`, overwriting in place by id (never relocating). If the target is missing on disk, it reports a `failed` result. |
-| `contradict` | Handled by `curate-dedup` (not `curate-persist`): the conflict is written to `.ai/kenkeep/conflicts/<id>.md` (`status: pending`) and the source session log is stamped. The skill then walks each conflict in-session with the user. |
-| `drop` | No-op. |
+Session logs carry `session_id`, `captured_by`, `proposal_status` (`pending`, `done`, `failed`, `skipped`), the extracted `proposals`, and `curator_processed_at` once curated. `ENTRY.md` and `GRAPH.md` carry `schema_version`, `node_count`, and `nodes_hash`, a `sha256` over the sorted `path\tsha256(contents)` lines of every leaf, excluding generated indexes.
 
-`curate-persist` emits a `PERSIST_SUMMARY` whose `results` carry the per-leaf placement (the chosen folder, or `root fallback`). The skill reports these so the human reviews placement alongside content.
+## Run logs and privacy
 
-Only `add` actions set `home_folder`; `modify`, `contradict`, and `drop` omit
-it. Conflict resolution happens via the in-session walkthrough.
+The drain writes one stream-JSON trace per session under `_logs/proposal/`. No `result` line means the driver was killed or timed out. Curate and bootstrap leave their reasoning in the host session transcript instead.
 
-### Verifying
-
-1. `npm test`: `curate-dedup` tests assert that add/modify proposals survive to the output batch and contradict actions become conflict files under `conflicts/`; `curate-persist` tests assert that survivors are written to `nodes/`, slug-collision-after-resolution and missing modify targets land as `failed` results, and the placement decision is reported per leaf.
-2. Inspect the harness session transcript for the surviving-actions JSON the skill piped from `curate-dedup` into `curate-persist`.
-
-### Anti-patterns
-
-- Modifications that rephrase existing content (drop instead).
-- Additions when a near-duplicate exists (modify instead).
-- Emitting legacy `supports_existing_node`, `contradicts_existing_node`, or `suggested_resolution` keys; the schemas reject them.
-- Crossing the practice/map boundary.
-- **Change-oriented framing** (transition narratives, migration stories, rename or removal logs): automatic drop regardless of confidence, unless a clean end-state claim can be salvaged.
-- **Durability-filter violations** (see [above](#the-durability-filter)): automatic drop, unless a durable operating principle or current-state fact can be salvaged.
-- **Non-productive provenance signatures**: candidates whose framing carries hedged wording, references to hypothetical entities, plan- or task-scoped wording, or low-confidence-without-rationale. The curator weighs these signals together (not any single one) and treats a combined signature as evidence the candidate slipped the extractor's session-disposition gate from an abandoned, exploratory, cursory, unrelated, or meta-only session.
-
-## Bootstrap skill prompt
-
-Controls what the kk-bootstrap skill treats as candidates from your source docs. Runs in the host harness session.
-
-### Skill behavior
-
-1. **Discovery**: call `finddocs --from <scope> --with-hashes` to enumerate candidate markdown.
-2. **Per-doc loop**: for each surviving doc, `Read` it, decide whether it carries durable knowledge (skipping auto-generated reference, licenses, generic framework knowledge, aspirational TODOs, and [durability-filter](#the-durability-filter) cases), draft practice and map candidates inline, and persist via `node write --source-doc <relpath> --source-hash <sha256>` (which folds the hash into `bootstrap-state.json` in the same atomic transaction).
-3. **Hash-aware skip**: before reading a doc, compare its `finddocs --with-hashes` digest against `bootstrap-state.json`. Skip on hit.
-4. **Finalize**: call `index rebuild` to regenerate `ENTRY.md` and `GRAPH.md`.
-5. **Rules**: never invent facts, quote rationale verbatim, never overwrite an existing node.
-
-### Calibration loop
-
-1. Pick 3-5 representative docs.
-2. `finddocs --from <subset>` to confirm scope.
-3. Run `bootstrap --from <subset>`. Review proposals as they land in `nodes/`.
-4. Note false positives and negatives. Adjust the "what to extract" and "what to skip" sections of `src/templates-source/skills/kk-bootstrap/SKILL.md` (or the per-harness copy under `.claude/skills/kk-bootstrap/SKILL.md` for a consumer-side override).
-5. Delete `bootstrap-state.json` and re-run.
-6. Repeat until acceptance lands around 60-80%. Higher rates tend to drop true positives.
-
-## Rebalance trigger (deterministic, LLM-free)
-
-The final phase of `/kk-curate` calls `rebalance trigger`, a pure function of the per-folder metrics and the leaf set (`src/lib/rebalance.ts`). It decides which branches, if any, the LLM clustering step may touch; on an empty decision the skill skips clustering at zero cost. Every rule is gated past a hysteresis margin so a single borderline leaf cannot make a folder oscillate:
-
-- **split-folder** — a folder whose direct-leaf occupancy is strictly greater than `FOLDER_OCCUPANCY_MAX` (12).
-- **merge** — a non-root branch whose occupancy is strictly less than `BRANCH_OCCUPANCY_MIN` (2) **and that has no child folders**. A sparse folder that still parents subfolders is never a merge candidate (collapsing it would orphan its children); recursive merge is deliberately not implemented by the trigger. The `nodes/` root is also never a merge candidate — it is the deliberate fallback home.
-- **split-leaf** — a single leaf whose estimated size exceeds `LEAF_SIZE_SPLIT_THRESHOLD` (1500 tokens) **and** whose distinct-tag count is at least `LEAF_CONCEPT_MIN` (3), the LLM-free stand-in for "covers two or more concepts".
-- **create-branch** — one or more leaves sitting at the `nodes/` root with zero `kk_relates_to` + `kk_depends_on` edges (the curate root-fallback signal for a homeless, novel top-level topic). Root leaves sharing a useful tag are **grouped into a single `create-branch` action**: the action carries a stable representative `branch`, the full `branches` array naming every leaf in the group, and the shared `topic` tag. Older consumers can read the one `branch`; the skill reads `branches` as the complete named group to cluster together. `branches` and `topic` are absent for a lone homeless leaf.
-
-The decision is sorted by branch path then operation, so identical input yields byte-identical output.
-
-## Folder-summary authoring (migrate and rebalance clustering)
-
-A folder's one-line `summary` is the single non-deterministic field in the committed `FOLDER_SUMMARIES.md` sidecar (see [Architecture, Knowledge base storage](architecture.md#knowledge-base-storage-tree-over-dag)). It cannot be derived from leaf text, so it is authored only at the two existing quarantined LLM clustering moments; deterministic code merely carries it.
-
-- **v1→v2 migrate clustering** (kk-migrate SKILL.md §2): the in-host skill clusters flat leaves into topical folders in the user's current session and authors one `summary` per folder it creates. The placement-and-folders document the skill produces has the shape `{"placements":[{"id","targetFolder"}],"folders":[{"folder","summary"}]}`; the deterministic `place apply` primitive stamps each summary into `FOLDER_SUMMARIES.md`, and the subsequent rebuild carries it.
-- **Rebalance clustering** (kk-curate SKILL.md §6b.2): the `split-folder` (per subfolder), `create-branch`, and `split-leaf` operations carry a `summary` for each new folder. `merge` creates no folder, so it authors none; the destination keeps its own self-preserved summary.
-
-**Phrasing contract.** A folder `summary` must read as a noun phrase / sentence fragment that completes the rendered imperative prefixes — `for more information on <summary>` and `to learn about: <summary>`. Author it with a lowercase start, no trailing period, and concise (≤ ~140 chars). This is enforced in the prompt text at both authoring sites, not mass-applied to existing leaf summaries.
-
-## Reading run logs
-
-The proposal-drain hook writes a stream-JSON trace per run. Curate and bootstrap do not: their work is part of the host harness session transcript, captured wherever the user already captures that.
-
-### Proposal: `_logs/proposal/<session-id>__<ts>.jsonl`
-
-| Line type | What it is |
-|---|---|
-| `system / init` | Records session id and resolved model. |
-| `assistant` | Intermediate streamed turns. |
-| `user` | Rare follow-ups. |
-| `result` | Final message. Parsed as JSON, validated against `ProposalOutputSchema`. |
-
-Common failures:
-
-| Failure | Diagnosis |
-|---|---|
-| **No final result** | `claude` was killed or timed out. Check timestamps. The drain writes `proposal_status: failed` and does not retry on its own; these modes do not heal on retry. |
-| **Schema mismatch** | Model emitted extra prose or skipped a field. Inspect `result` text; tune the prompt if consistent. |
-
-To force re-extraction of a `failed` entry: set `proposal_status: pending` in the session log and clear `proposal_error`. The next drain sweep picks it up.
-
-### Curate / bootstrap
-
-These do not write `_logs/curator/*.jsonl` or `_logs/bootstrap/*.jsonl`; the work runs in the host harness session and that transcript captures the reasoning. To inspect what the curate skill did on a run, read the host session transcript: the `curate-dedup` survivor batch and the `curate-persist` `PERSIST_SUMMARY` (with per-leaf `written` / `dropped` / `failed` results and placement) are both printed there.
-
-| Issue | Diagnosis |
-|---|---|
-| **`written: 0` despite a non-empty batch** | Read the `curate-persist` `PERSIST_SUMMARY` in the transcript: each `failed` result names its cause (slug collision after resolution, or a missing modify target). |
-| **Conflict not surfacing in `/kk-curate`** | Check `.ai/kenkeep/conflicts/` for a file with `status: pending`. The skill walks from there. |
-| **Duplicates after dedup** | `curate-dedup` keeps the higher-confidence action per target id or derived add id. Duplicates mean inconsistent title/type choices produced different ids. |
-
-To re-run a single batch: clear `curator_processed_at` and `curator_run_id` from the affected session log and re-run `curate`.
-
-### Privacy
-
-{% capture privacy_body %}
-Proposal logs contain the **raw** transcript. kenkeep does not scan or redact for secrets, so anything in the session appears verbatim.
-
-Treat `_logs/` with the same care as `_sessions/`. Both are gitignored by default.
-{% endcapture %}
-{% include callout.html variant="warning" content=privacy_body %}
+{% include callout.html variant="warning" content="Proposal logs contain the raw transcript. Treat `_logs/` like `_sessions/`. Both are gitignored." %}

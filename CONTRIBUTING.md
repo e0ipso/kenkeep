@@ -62,7 +62,31 @@ npm run format:check   # prettier
 
 ### Manual test plan
 
-Before a significant release - schema bump, capture/curate/consume behavior change, pinned Claude Code CLI bump - work through [`docs/internals/manual-test-plan.md`](docs/internals/manual-test-plan.md). It covers the checks that resist automation: per-platform smoke (macOS / Linux / WSL2 / native Windows), PreCompact timing on long sessions, real capture quality, `init --upgrade` from the previous published version, concurrent-pipeline locking, and a few intentionally-broken-state doctor exit-code checks. Record results in the release PR description.
+Before a significant release (schema bump, capture/curate/consume behavior change, pinned Claude Code CLI bump), run these checks and record the results in the release PR. They cover what automation cannot: real sessions, other operating systems, and judgment about capture quality.
+
+Sandbox: `git init` an empty directory, `npm pack` the candidate build, run `npx ./e0ipso-kenkeep-<v>.tgz init --harnesses claude`, then `npx kenkeep doctor` (exit 0, warnings allowed).
+
+1. **Platform smoke.** On macOS, Linux, WSL2, and native Windows: one `Stop` capture produces one `_sessions/` log with `proposal_status: pending`. On Windows, hook scripts must be LF and commands must use forward slashes.
+2. **PreCompact timing.** Drive a session past auto-compact. Capture adds under 1 s, and the log holds the full transcript slice, not a summary. `time node .ai/kenkeep/hooks/claude/kk-capture.cjs < /dev/null` should stay under 200 ms cold.
+3. **End-to-end.** Ten to fifteen substantive messages, end the session, open a new one, run `/kk-curate`. Expect one to four nodes, and judge whether they are the right facts (target 80 percent acceptance). Commit some, `git restore` the rest, run `index rebuild`, then ask the assistant what it knows about the project.
+4. **`init --upgrade`.** From the last published version with an edited `proposal-extract.md` and a custom `config.yaml` key: the edit and the key survive, hook scripts and `installed-version` show the new version, `doctor` exits 0.
+5. **`logs prune`.** Backdate one JSONL with `touch -d "60 days ago"`. Prune deletes it and nothing newer. `logsRetentionDays: 0` deletes everything; a second run reports zero.
+6. **`/kk-bootstrap`.** On a small public repo, nodes land in topical folders, the summary lists skipped collisions, and no node carries a secret or a stale TODO. Re-running skips every unchanged doc by hash and reprocesses only an edited one.
+7. **Concurrency.** Two parallel `curate` launchers both finish without a lock error, `state.json` and every session log still parse, and unstamped sessions reprocess on the next run. Two rapid `SessionStart` drains: the second skips while the first holds the lock, and a killed drain's lock is reclaimed within about a minute.
+8. **Settings.** No `config.yaml` uses the defaults. `curationThreshold: 3` is honored. An unknown key fails with an error naming the file.
+9. **Doctor exit codes.** Deleted `installed-version` is an error (exit 1). A dangling `kk_derived_from`, a hand-edited node after curate, or a version mismatch each warn (exit 0).
+
+If a manual check finds a regression automation should have caught, add the missing test in the fix PR.
+
+### Prompt evaluation
+
+Run this before bumping the `Version:` of `src/templates-source/prompts/proposal-extract.md` or `knowledge-admission.md`:
+
+```sh
+npm run prompt-eval -- --harness <id>
+```
+
+It runs one headless call per fixture in `tests/fixtures/prompt-eval/` through the selected adapter (24 generation calls plus up to 13 judge calls, two at a time), validates every result against the schema, and prints a Markdown report with recall, phantom count, and gate accuracy per category. Score failures are advisory. A nonzero exit means the run itself was incomplete. Use `--runs 3` to expose variance, and `--concurrency` or `--timeout-ms` to tune the pool. Paste the report into the PR and compare it with the previous report on the same harness and model. Artifacts land under `.ai/kenkeep/.state/prompt-eval/` and must not be committed.
 
 ## Schema-version bump policy
 

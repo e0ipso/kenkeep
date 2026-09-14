@@ -5,101 +5,70 @@ nav_order: 4
 
 # Daily use
 
-After install, kenkeep runs itself. Capture and injection happen on their own; the only thing you ever do by hand is **curate**, **review**, and **commit**.
+Most days you do nothing. Capture and recall run on their own. When the nudge appears, it is three steps: `/kk-curate`, then `git diff`, then `git commit`.
 
-{% include callout.html variant="tip" content="Most days you do nothing. When the nudge appears, it's three steps: `/kk-curate`, then `git diff`, then `git commit` what you want to keep." %}
+<p align="center">
+  <img src="{{ '/assets/diagrams/review-gate.svg' | relative_url }}" alt="The review gate: /kk-curate writes an uncommitted diff under nodes/, you read it with git diff, then git commit to keep or git restore to drop. Contradictions go to conflicts/ and the skill asks y, n, s, or k for each." />
+</p>
 
 ## The loop
 
-1. Code with your AI assistant as usual. Anything you wrap in `<kk-private>…</kk-private>` mid-session is stripped from the capture before it touches disk.
-2. When you see the curate nudge (or whenever you feel like it), run `/kk-curate`.
-3. If the curator reports any contradictions, the skill walks you through each one in-session and applies your chosen resolution.
-4. Inspect the resulting changes under `.ai/kenkeep/nodes/` with `git diff` (or your preferred diff tool, e.g. [self-review](https://github.com/e0ipso/self-review)).
-5. `git commit` what you want to keep; `git restore <path>` to discard.
+1. Code with your assistant as usual. Wrap anything in `<kk-private>…</kk-private>` and it never reaches disk.
+2. When the nudge appears, run `/kk-curate`.
+3. Answer the prompt for each contradiction, if there are any.
+4. Read the diff under `.ai/kenkeep/nodes/`. Commit what you want, `git restore <path>` what you don't.
+5. After a restore, run `npx kenkeep index rebuild` so the index forgets the dropped notes.
 
-The pre-commit hook regenerates `ENTRY.md` and `GRAPH.md` and stages them into the same commit, so the injected index never drifts from the committed nodes. If you `git restore <path>` to discard nodes without committing another `nodes/` change, that hook doesn't fire — run `npx kenkeep index rebuild` so the regenerated index drops the removed nodes too.
+## The nudge
 
-That is the entire daily workflow. The rest of this page is reference: the intake skills, and the two manual actions you reach for occasionally.
+Every session start counts captured sessions still waiting for curation. At `curationThreshold` (default 20) it appends one line to the injected context and sends a desktop notification where one is available, through `osascript` on macOS or `notify-send` on Linux. The nudge gets loud when the queue reaches twice the threshold, or when the oldest capture is a week old. Both the threshold and the notifications are set in [`config.yaml`](installation.md#configuration).
 
 ## Skills
 
-Four in-session skills cover knowledge intake. Run them inside your harness session; the LLM call happens in that same session, with the model, prompt cache, and tools you already use interactively.
+`init` installs five skills into your harness. Run them inside a session.
 
-| Skill | What it does | When you reach for it |
-|---|---|---|
-| `/kk-add` | Conversationally gathers a node's fields, checks `ENTRY.md` for overlap, writes it under `nodes/`. | When you already know the node you want. |
-| `/kk-session-extract` | Extracts durable knowledge from the **visible current session**, stages a done session log, and runs the same curation tail as `/kk-curate` for that one session only. | When the current session just produced teaching moments you want to process now. |
-| `/kk-curate` | Reads pending captured sessions, drafts proposed notes under `nodes/`, rebuilds `ENTRY.md`/`GRAPH.md`, and walks you through any contradictions with the `y/n/s/k` prompt. | The daily loop, when nudged — deferred batch processing of captured logs. |
-| `/kk-bootstrap` | Seeds nodes from your existing docs — a one-time setup step, see [Installation → Seed from existing docs](installation.md#seed-from-existing-docs). | Once, at setup. |
-
-{% include callout.html variant="warning" content="Run only one LLM skill at a time per repo. `/kk-curate` and `/kk-bootstrap` are single-author by design and take no cross-process lock, so concurrent runs against the same repo can silently waste work (sessions reprocess on the next run — no data loss). See [Architecture → Locking](internals/architecture.md#locking)." %}
-
-## The curate nudge
-
-You don't have to remember to curate. SessionStart counts the curation queue, meaning captured sessions that still need `/kk-curate`; this includes both logs awaiting proposal extraction and extracted logs awaiting curator review. Once the queue is worth your attention, it appends a one-line nudge to the injected context and prints a visible warning to stderr. It also attempts a native desktop notification when supported by the OS (`osascript` on macOS, `notify-send` on Linux). Linux notifications show the kenkeep mark when `.ai/kenkeep/assets/notification-icon.png` is present. Missing or headless notification backends are skipped silently. It escalates to a loud heading when the queue is large or stale. The thresholds and notification opt-out are configurable. See [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume) and [Installation → Configuration](installation.md#configuration).
-
-## Curate
-
-In a harness session:
-
-```
-/kk-curate
-```
-
-The curator reads every captured session that's been processed but not yet curated and applies its decisions directly to `nodes/`:
-
-| Decision | Effect |
+| Skill | What it does |
 |---|---|
-| **add** | Writes the new note into the best-fitting existing folder under `nodes/` (or the `nodes/` root when nothing fits). The note id is independent of the folder. |
-| **modify** | Updates the target note in place by id; no relocation. Fails loud if `target_node_id` is missing on disk. |
-| **contradict** | Records the conflict under `.ai/kenkeep/conflicts/<id>.md` with `status: pending`; writes nothing to `nodes/`. |
-| **drop** | No change. |
+| `/kk-curate` | Reads pending captures, drafts notes, rebuilds the index, and walks you through contradictions. The daily loop. |
+| `/kk-add` | Records one note from the current conversation. Reach for it the moment you make a decision. |
+| `/kk-session-extract` | Curates the current session right now, without waiting for capture and a later `/kk-curate`. Covers only what is still visible after compaction. |
+| `/kk-bootstrap` | Seeds notes from existing docs. Usually once, at [setup](installation.md#seed-from-existing-docs). |
+| `/kk-migrate` | Runs a pending knowledge-base migration when `doctor` asks for one. |
 
-The home folder is chosen in the same pass that links a note to its neighbors. Curation only places notes in existing folders; it never creates, splits, or merges them. The end-of-run summary lists each written note's placement (its folder, or `root fallback`) so you can review placement alongside content.
+{% include callout.html variant="warning" content="Run one LLM skill at a time per repo. `/kk-curate` and `/kk-bootstrap` take no lock, so two concurrent runs can silently lose each other's bookkeeping. Nothing is corrupted, but some sessions get reprocessed on the next run." %}
 
-### Rebalance (act-and-fold)
+## What curate does
 
-Structural upkeep folds into curate as its last phase — no separate command, no extra nudge. A deterministic, LLM-free trigger checks the per-folder metrics with a hysteresis margin; if nothing trips, the phase is skipped. When a threshold trips, the LLM splits a folder, splits a bloated note, merges a sparse branch, or creates a branch for a new topic, on the affected branches only.
+For every candidate fact the curator picks one action:
 
-The moves land in the **same** diff as the note writes (act-and-fold), reviewed with the gate you already use: `git diff` to inspect, `git commit` to accept, or a path-scoped `git restore <path>` to reject just the moves. They preserve content byte-for-byte, so `git diff --summary` shows them as `R` renames; ids stay stable, so cross references survive. Curate prints a structural summary as a legend for the diff. If you `git restore` the moves rather than committing them, run `npx kenkeep index rebuild` afterward so the generated index matches the restored layout.
+| Action | Effect |
+|---|---|
+| add | Writes a new note into the best-fitting existing folder, or the `nodes/` root when nothing fits. |
+| modify | Rewrites an existing note in place, by id. |
+| contradict | Writes `conflicts/<id>.md` and touches no note. |
+| drop | Nothing. |
 
-### Fast path
+Curation never creates, splits, or merges folders. The last phase, rebalance, does that only when a deterministic size check trips, which most runs do not. The moves are renames (`R` in `git diff --summary`), ids stay stable, and you can `git restore` just the moves and keep the notes.
 
-Zero conflicts and zero failures → the skill prints one summary line and exits. Once a project stabilizes, this is the common case.
-
-### Conflict walkthrough
-
-When the curator reports contradictions, the skill walks each one with the existing node shown side-by-side and a single-character prompt:
+Each contradiction gets one prompt:
 
 ```
 Accept this proposal? [Y/n/s/k] (default: Y)
 ```
 
-| Key | Action |
+| Key | Meaning |
 |---|---|
-| `y` | Accept: rewrite the node with the proposed body, then `git restore` the conflict file. |
-| `n` | Reject: `git restore` the conflict file; node unchanged. |
-| `s` | Skip: leave the conflict file pending; it re-surfaces next pass. |
-| `k` | Keep: `git commit` the conflict file as a historical record; node unchanged. |
+| `y` | Rewrite the existing note with the proposed body. |
+| `n` | Reject. The note stays as it was. |
+| `s` | Skip. The conflict comes back next run. |
+| `k` | Keep the conflict file as a record and commit it. |
 
-Defaults are heuristic per conflict (small diffs default `y`, rewrites `n`, otherwise `s`). Long forms (`yes`, `skip`) and uppercase work; anything else is re-prompted.
+## Status and freshness
 
-## Add knowledge manually
+`npx kenkeep status` prints both queues: captures awaiting extraction, and extracted captures awaiting curation.
 
-`/kk-add` writes a node directly from the current session. Review with `git diff` and commit. Reach for it when you want to capture a decision the moment you make it, without waiting for the next curate pass.
+`npx kenkeep freshness` lists notes that mention source files which changed since the note was last committed. Add `--verbose` for the file list, then feed it to `/kk-curate`. It reads git history only and always exits 0. On a shallow clone it flags less, never more.
 
-## Extract from the current session
+## Housekeeping
 
-`/kk-session-extract` applies the same `proposal-extract.md` gate to the **visible** conversation, stages a `proposal_status: done` log under `_sessions/`, and immediately runs curation for that session only. Use it when a session has converged on durable project knowledge and you do not want to wait for capture hooks plus a later `/kk-curate`.
-
-Meta-only or planning sessions may correctly yield no proposals — that is success, not failure. If compaction has occurred, extraction covers only what remains visible. When the runtime cannot expose a UUID-v4 session id, the skill reports degraded idempotency; whole-tree dedup remains the secondary safety net.
-
-## Status
-
-`npx kenkeep status` reports both queue names: the proposal extraction queue is logs with `proposal_status: pending`, while the curation queue is logs that `/kk-curate` still needs to process, including extracted `done` logs without `curator_processed_at`. It also prints how many nodes may describe changed code (see Freshness).
-
-## Freshness
-
-`npx kenkeep freshness` reports how many nodes may describe **source code that changed since the node was last curated** — the number-one way a knowledge base silently rots. It is read-only and advisory: it never rewrites nodes, never runs the LLM, and always exits 0. Add `--verbose` to list each flagged node and the paths that changed, then feed that into `/kk-curate` to refresh them.
-
-There is no stamp to maintain: each node's "curated at" point is derived from git history (the last commit that touched the node's file), and a node is flagged when a source path it references — named in its body or its `kk_derived_from` — changed after that point. Because the signal comes from git, it needs a git repository with useful history; on a shallow clone it degrades to fewer flags, never to an error. The same signal also appears as an advisory line in `doctor` and one line at the start of a session so a descending agent applies mild skepticism to branches whose code moved.
+`npx kenkeep logs prune` deletes JSONL traces under `_logs/` older than `logsRetentionDays` (default 30).

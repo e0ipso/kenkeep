@@ -22,10 +22,10 @@ const DEFAULT_HOOK_TIMEOUT_SECONDS = 30;
 
 /**
  * Stable documentation URL surfaced when the TOML coexistence guard
- * triggers. Documented in `docs/installation/codex-toml-hooks-coexistence.md`.
+ * triggers. Documented in `docs/installation.md#per-harness-notes`.
  */
 const TOML_COEXISTENCE_DOCS_URL =
-  'https://github.com/e0ipso/kenkeep/blob/main/docs/installation/codex-toml-hooks-coexistence.md';
+  'https://github.com/e0ipso/kenkeep/blob/main/docs/installation.md#per-harness-notes';
 
 const HookCommandSchema = z
   .object({

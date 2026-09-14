@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400" role="img" aria-labelledby="t d">
+  <title id="t">Knowledge packs</title>
+  <desc id="d">A pack author exports their reviewed nodes tree with pack export into a dist folder holding kenkeep-pack.yaml, knowledge, knowledge.FOLDER_SUMMARIES.md, and README.md. They publish it as a GitHub release or tarball. A consumer runs pack import and the pack lands as one isolated branch under their own nodes tree.</desc>
+  <style>
+    .t { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 24px; fill: #19110a; letter-spacing: 0.06em; }
+    .h { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 13px; fill: #19110a; letter-spacing: 0.08em; }
+    .b { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; fill: #463c30; }
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; fill: #19110a; }
+    .mp { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; fill: #ad2e6a; font-weight: 700; }
+    .wm { font-family: Outfit, 'Helvetica Neue', Arial, sans-serif; font-weight: 500; font-size: 20px; fill: #19110a; letter-spacing: -0.02em; }
+    .panel { fill: #f1e8d6; stroke: #d8c7a4; stroke-width: 2; }
+    .arrow { fill: none; stroke: #2c2318; stroke-width: 2.5; }
+    .fold { fill: #e8d5ae; stroke: #8a5a2b; stroke-width: 1.8; stroke-linejoin: round; }
+    .foldp { fill: #f7e3ec; stroke: #ad2e6a; stroke-width: 1.8; stroke-linejoin: round; }
+    .doc { fill: #fbf8f1; stroke: #8a5a2b; stroke-width: 1.8; stroke-linejoin: round; }
+    .tree { fill: none; stroke: #b39b72; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2c2318"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="400" rx="18" fill="#f8f4ec"/>
+  <text class="t" x="500" y="46" text-anchor="middle">SHIP REVIEWED KNOWLEDGE BETWEEN REPOS</text>
+
+  <!-- author repo -->
+  <rect class="panel" x="40" y="80" width="190" height="230" rx="14"/>
+  <text class="h" x="60" y="108">PACK AUTHOR REPO</text>
+  <path class="tree" d="M78,130 V216 M78,146 H92 M78,182 H92 M78,216 H92"/>
+  <path class="fold" d="M96,139 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="132" y="151">nodes/</text>
+  <path class="fold" d="M96,175 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="132" y="187">apis/</text>
+  <path class="fold" d="M96,209 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="132" y="221">theming/</text>
+  <text class="b" x="60" y="262">Bootstrapped, reviewed,</text>
+  <text class="b" x="60" y="282">committed.</text>
+
+  <path class="arrow" d="M230,195 H326" marker-end="url(#ah)"/>
+  <text class="mp" x="280" y="182" text-anchor="middle">pack export</text>
+
+  <!-- dist -->
+  <rect class="panel" x="330" y="80" width="310" height="230" rx="14"/>
+  <text class="h" x="350" y="108">dist/</text>
+  <path class="tree" d="M368,130 V250 M368,146 H382 M368,182 H382 M368,216 H382 M368,250 H382"/>
+  <path class="doc" d="M388,139 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="422" y="151">kenkeep-pack.yaml</text>
+  <path class="fold" d="M386,175 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="422" y="187">knowledge/</text>
+  <path class="doc" d="M388,209 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="422" y="221">knowledge.FOLDER_SUMMARIES.md</text>
+  <path class="doc" d="M388,243 h11 l5,5 v11 h-16 z"/>
+  <text class="m" x="422" y="255">README.md</text>
+  <text class="b" x="350" y="292">Publish as a GitHub release or tarball.</text>
+
+  <path class="arrow" d="M640,195 H716" marker-end="url(#ah)"/>
+  <text class="mp" x="680" y="182" text-anchor="middle">pack import</text>
+
+  <!-- consumer repo -->
+  <rect class="panel" x="720" y="80" width="240" height="230" rx="14"/>
+  <text class="h" x="740" y="108">YOUR REPO</text>
+  <path class="tree" d="M758,130 V250 M758,146 H772 M758,182 H772 M758,216 H772 M758,250 H772"/>
+  <path class="fold" d="M776,139 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="812" y="151">nodes/</text>
+  <path class="fold" d="M776,175 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="812" y="187">cli/</text>
+  <path class="fold" d="M776,209 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="m" x="812" y="221">hooks/</text>
+  <path class="foldp" d="M776,243 h9 l4,4 h13 v12 h-26 z"/>
+  <text class="mp" x="812" y="255">drupal/</text>
+  <text class="b" x="740" y="292">One isolated branch.</text>
+
+  <text class="wm" x="500" y="380" text-anchor="middle">kenkeep</text>
+</svg>

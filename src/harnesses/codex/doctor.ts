@@ -49,7 +49,7 @@ function checkCodexHooks(
       const toml = readFileSync(configToml, 'utf8');
       if (TOML_HOOKS_HEADER.test(toml)) {
         return warnCheck(
-          `inline [hooks] table detected in .codex/config.toml; see docs/installation/codex-toml-hooks-coexistence.md for the migration to .codex/hooks.json.`
+          `inline [hooks] table detected in .codex/config.toml; see the Codex notes in docs/installation.md for the migration to .codex/hooks.json.`
         );
       }
     } catch {

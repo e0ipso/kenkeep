@@ -8,7 +8,7 @@
 // changed its contract", attributable to the host release — never to a
 // kenkeep commit. The post-auth slice (does injected context reach the
 // model, does capture fire in a live session) is the manual tier: see
-// docs/internals/manual-test-plan.md.
+// the manual test plan in CONTRIBUTING.md.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';

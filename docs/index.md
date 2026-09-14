@@ -2,6 +2,8 @@
 title: Home
 layout: home
 nav_order: 1
+redirect_from:
+  - /why-kenkeep.html
 ---
 
 # kenkeep
@@ -10,11 +12,9 @@ nav_order: 1
   <img src="{{ '/assets/images/kenkeep-hero.png' | relative_url }}" alt="kenkeep: AI coding sessions are curated into a reviewed, git-tracked knowledge library" />
 </p>
 
-Coding assistants forget about everything in past sessions. Kenkeep creates a system that **salvages the gold nuggets in your past conversations**, and discards the rest. This way, the assistant can use that important detail you shared two weeks ago, without you even worrying about it.
+Coding assistants forget everything between sessions. Kenkeep **salvages the gold nuggets from your past conversations** and discards the rest, so the detail you explained two weeks ago is there the next time the assistant needs it.
 
-Kenkeep is a **team-shared, git-native knowledge base** for AI coding assistants.
-
-Your AI conversations produce a steady stream of project-specific knowledge (conventions, gotchas, named modules, decision rationale), and most of it evaporates when the session ends. This tool captures it, asks a human to curate it, commits it to the repo, and injects it back into every future session.
+Kenkeep is a **team-shared, git-native knowledge base** for AI coding assistants. Conventions, gotchas, module names, and the reasons behind decisions get captured from your sessions, curated by a human, committed to the repo, and injected back into every future session.
 
 ## Overview
 
@@ -53,30 +53,44 @@ Your AI conversations produce a steady stream of project-specific knowledge (con
 
 ## Why kenkeep?
 
-How is kenkeep different from solutions like [`claude-mem`](https://github.com/thedotmack/claude-mem) or [`MemPalace`](https://github.com/mempalace/mempalace)?
-
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:1rem;">
 <div>
 <img src="{{ '/assets/icons/users.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>Built up and shared across your team</h3>
-<p>The knowledge base grows in your repo as plain markdown, one node per fact, accumulated from real coding sessions. It travels with the project through <code>git pull</code>, so every teammate works from the same conventions instead of rediscovering them on their own laptop.</p>
+<p>One markdown file per fact, accumulated from real coding sessions and stored in your repo. It travels with <code>git pull</code>, so every teammate works from the same conventions instead of rediscovering them alone.</p>
 </div>
 <div>
 <img src="{{ '/assets/icons/git-pull-request.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>Reviewed and versioned like code</h3>
-<p>Nothing reaches the knowledge base without a human approving it. Every addition or change is an ordinary git diff you review in a commit or PR, with the full history there to inspect, blame, or revert like any other code.</p>
+<p>Nothing reaches the knowledge base without a human approving it. Every addition is an ordinary git diff you review in a commit or PR, with the full history there to blame or revert.</p>
 </div>
 <div>
 <img src="{{ '/assets/icons/server-off.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>No extra infrastructure</h3>
-<p>No daemons, services, databases, or vector stores. kenkeep is just Node and git, so there is nothing to provision, host, or keep alive, and nothing new to secure.</p>
+<p>No daemons, services, databases, or vector stores. Kenkeep is Node and git. Nothing to provision, host, keep alive, or secure.</p>
 </div>
 <div>
 <img src="{{ '/assets/icons/key-round.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>No API keys</h3>
-<p>It all runs from within the assistant of your choice, Claude Code, Codex, Cursor, OpenCode, or Copilot, on the subscription you already pay for. There is no separate API key to obtain, store, or rotate.</p>
+<p>It runs inside the assistant you already pay for: Claude Code, Codex, Cursor, OpenCode, or Copilot. There is no separate key to obtain, store, or rotate.</p>
 </div>
 </div>
+
+### How it compares
+
+Most memory tools are solo, living on one machine for one user, or heavy, needing a daemon, a database, or an API key.
+
+| | Storage | Shared | Review gate | Runs on |
+|---|---|---|---|---|
+| [claude-mem](https://github.com/thedotmack/claude-mem) | SQLite and ChromaDB, per user | No | None | A Bun worker plus Python |
+| Claude Code auto-memory | Markdown under `~/.claude/` | No | None | Claude Code only |
+| mem0, Letta, Zep | Vector or graph database | Via a service | None | A database and an embedding API |
+| Cursor rules, `AGENTS.md` | Committed markdown | Via git | Hand edits | Nothing extra |
+| **kenkeep** | **Committed markdown** | **Via git pull** | **Every note is a commit** | **Node 22 and git** |
+
+Code-documentation generators answer "what is this code?". Kenkeep answers "what do we know about working here that the code does not say?". Run both if you like.
+
+Kenkeep has no memory across repos, no semantic search, and no unattended curation. Knowledge lands only when someone runs `/kk-curate` and commits.
 
 ## Quick start
 
@@ -85,23 +99,22 @@ npx kenkeep init --harnesses claude
 npx kenkeep doctor
 ```
 
-Swap `claude` for `codex`, `cursor`, `opencode`, or `copilot` to match your harness; pass a comma-separated list to install several at once.
+Swap `claude` for `codex`, `cursor`, `opencode`, or `copilot`, or pass a comma-separated list.
 
-Then code normally. When you want to turn captured material into knowledge nodes, run `/kk-curate` inside your harness session (also `/kk-add`, `/kk-bootstrap`). The skills are context-aware and walk you through conflict resolution. New nodes appear in `nodes/`; review with `git diff` and commit the ones you want to keep.
+Then code as usual. When the assistant nudges you, run `/kk-curate` in your session. New notes land under `.ai/kenkeep/nodes/`. Review them with `git diff` and commit the ones you want to keep.
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:1rem;">
 <div>
 <img src="{{ '/assets/icons/sprout.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>Seed from existing docs</h3>
-<p>If your repo already has READMEs, ADRs, or module docs, seed the knowledge base from them. Inside a harness session:</p>
+<p>If your repo already has READMEs, ADRs, or module docs, seed the knowledge base from them. Inside a session:</p>
 <pre><code>/kk-bootstrap</code></pre>
-<p>The scan walks the repo root, filtered by <code>.kkignore</code> (generated by <code>init</code>, uses <a href="https://git-scm.com/docs/gitignore">gitignore-style syntax</a>). Edit <code>.kkignore</code> to exclude directories you don't want scanned. Review the resulting nodes under <code>nodes/</code> with <code>git diff</code> and commit the ones you want to keep.</p>
+<p>The scan starts at the repo root and honors <code>.kkignore</code>, which <code>init</code> creates with <a href="https://git-scm.com/docs/gitignore">gitignore syntax</a>. Review the resulting notes with <code>git diff</code> and commit the ones you want.</p>
 </div>
 <div>
 <img src="{{ '/assets/icons/message-square-plus.svg' | relative_url }}" width="28" height="28" alt="" />
 <h3>Add knowledge manually</h3>
-<p>At any time, during your LLM conversations you can use <code>/kk-add</code> to ensure the LLM remembers your message. Just casually mention it, and you are done.</p>
-<p>Example:</p>
+<p>Mid-session, mention <code>/kk-add</code> and the assistant records the point you just made:</p>
 <pre><code>No, you got that wrong.
 
 This project aims to maximize code
@@ -111,9 +124,9 @@ this use case. Also, /kk-add this.</code></pre>
 </div>
 </div>
 
-# How it works
+## How it works
 
-kenkeep runs a loop around your AI sessions. Capture and injection happen on their own. You trigger curation, and you decide what to keep.
+Capture and recall are automatic. Curating and committing are yours.
 
 <p align="center">
   <img src="{{ '/assets/images/kenkeep-infography.png' | relative_url }}" alt="kenkeep knowledge lifecycle: capture transcripts, curate them into reviewed notes, and inject them back into every session" />
@@ -121,12 +134,9 @@ kenkeep runs a loop around your AI sessions. Capture and injection happen on the
 
 ## Read next
 
-- **[How it works](how-it-works.md)** - the 3-minute version.
-- **[Installation](installation.md)** - prerequisites and first-time setup.
-- **[Daily use](daily-use.md)** - the loop you'll run week to week.
-- **[Knowledge packs](knowledge-packs.md)** - import and publish portable knowledge bases.
-- **[Troubleshooting](troubleshooting.md)** - when something looks wrong.
-
-Curious how `ENTRY.md` actually reaches the harness on every session start? See [Internals → Hooks](internals/hooks.md#kk-session-startmjs-consume). These are the harness's own hooks (Claude Code's `SessionStart`, `Stop`, etc.) that we register into, not an extension API exposed by `kenkeep`.
-
-Contributors: see [Internals](internals/).
+- **[How it works](how-it-works.md)**, the three-minute version.
+- **[Installation](installation.md)**, per-harness setup, configuration, and CI.
+- **[Daily use](daily-use.md)**, the loop you run week to week.
+- **[Knowledge packs](knowledge-packs.md)**, import and publish portable knowledge bases.
+- **[Troubleshooting](troubleshooting.md)**, when something looks wrong.
+- **[Internals](internals/)**, for contributors.

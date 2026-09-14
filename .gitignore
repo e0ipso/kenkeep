@@ -16,3 +16,7 @@ settings.local.json
 .devcontainer/devcontainer-lock.json
 review.xml
 .claude/worktrees
+
+# Process core dumps (e.g. a crashed ImageMagick convert during diagram rendering)
+core
+core.*

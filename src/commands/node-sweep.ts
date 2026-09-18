@@ -36,12 +36,15 @@ interface SweepDeletion {
 
 /**
  * The command's stdout contract, one JSON line. `skipped` is present only when
- * the tree has no folder to file into; a normal run omits it.
+ * the tree has no folder to file into; a normal run omits it. `failed` marks a
+ * sweep whose moves landed but whose index rebuild did not, so the caller knows
+ * the tree is written but its indexes are stale.
  */
-interface SweepSummary {
+export interface SweepSummary {
   relocated: SweepRelocation[];
   deleted: SweepDeletion[];
   skipped?: 'no-folders';
+  failed?: true;
 }
 
 /**
@@ -64,6 +67,10 @@ interface SweepSummary {
  * A tree with no folders short-circuits before any write, deletion included. A
  * fresh or bootstrap-era tree has nowhere to file anything, and every leaf in
  * it would otherwise look unplaceable.
+ *
+ * `init --upgrade` runs the same sweep through `sweepRootLeaves` below, so an
+ * upgrade files or removes loose leaves without the user invoking this command.
+ * This command remains the way to sweep on demand between upgrades.
  */
 export async function runNodeSweep(): Promise<number> {
   const root = findRepoRoot();
@@ -76,13 +83,34 @@ export async function runNodeSweep(): Promise<number> {
     return 1;
   }
 
-  let tree: NodeFile[];
+  let summary: SweepSummary;
   try {
-    tree = readAllNodes(paths.nodesDir);
+    summary = await sweepRootLeaves(paths.nodesDir);
   } catch (err) {
     log.error(`node sweep: ${(err as Error).message}`);
     return 1;
   }
+
+  if (summary.failed === true) {
+    log.error('node sweep: index rebuild failed after the sweep; review with `git diff`.');
+    return 1;
+  }
+
+  writeSummary(summary);
+  return 0;
+}
+
+/**
+ * The sweep itself, decoupled from the command's stdout contract so
+ * `init --upgrade` can run the same relocation and delete rules and report them
+ * as prose instead of JSON. Takes the nodes directory rather than discovering
+ * it, because both callers have already resolved their paths.
+ *
+ * Throws when the tree cannot be read. Every other failure is reported through
+ * the returned summary so a caller can decide whether it is fatal.
+ */
+export async function sweepRootLeaves(nodesDir: string): Promise<SweepSummary> {
+  const tree: NodeFile[] = readAllNodes(nodesDir);
 
   // `readAllNodes` returns leaves sorted by relPath, so the root leaves, and
   // the summary built from them, come out in a stable order.
@@ -98,8 +126,7 @@ export async function runNodeSweep(): Promise<number> {
   for (const leaf of rootLeaves) {
     const placement = placeLeaf(leaf.frontmatter, tree, leaf.frontmatter.kk_id);
     if (placement.kind === 'no-folders') {
-      writeSummary({ relocated: [], deleted: [], skipped: 'no-folders' });
-      return 0;
+      return { relocated: [], deleted: [], skipped: 'no-folders' };
     }
     decisions.push({ leaf, placement });
   }
@@ -111,7 +138,7 @@ export async function runNodeSweep(): Promise<number> {
         // `placeLeaf` only ever names a folder that already exists in the
         // tree, so this containment check never fires today. It keeps the
         // write inside `nodes/` if that ever stops holding.
-        const destDir = resolveLeafDir(paths.nodesDir, placement.folder);
+        const destDir = resolveLeafDir(nodesDir, placement.folder);
         relocateBytes(leaf.path, join(destDir, leaf.filename));
         summary.relocated.push({
           id: leaf.frontmatter.kk_id,
@@ -129,21 +156,18 @@ export async function runNodeSweep(): Promise<number> {
       }
     }
   } catch (err) {
-    log.error(`node sweep: ${(err as Error).message}`);
     log.error('The sweep stopped partway; review the working tree with `git diff`.');
-    return 1;
+    throw err;
   }
 
   if (summary.relocated.length > 0 || summary.deleted.length > 0) {
     const rebuildCode = await runIndexRebuild();
     if (rebuildCode !== 0) {
-      log.error('node sweep: index rebuild failed after the sweep; review with `git diff`.');
-      return rebuildCode;
+      summary.failed = true;
     }
   }
 
-  writeSummary(summary);
-  return 0;
+  return summary;
 }
 
 /**

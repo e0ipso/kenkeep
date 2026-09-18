@@ -511,3 +511,31 @@ introduced by this work and rewriting the file's punctuation was out of scope.
 - **The three leaves were restored, not filed.** Actually moving them stays a separate
   human-reviewed decision, exactly as the plan's Notes require. Run `npx kenkeep node sweep` and
   commit when you want them filed.
+
+### Post-review amendment (2026-09-18)
+
+Self-review raised one comment, on the `node sweep` registration in `src/cli.ts`:
+
+> Can we have this run as part of an update process instead of declaring a full blown command that
+> is triggered manually?
+
+The user chose to run the full sweep, deletions included, inside `init --upgrade`, over the
+relocate-only variant that was offered alongside it. The change:
+
+- `sweepRootLeaves(nodesDir)` was extracted from `runNodeSweep` so both callers share one
+  implementation. `node sweep` keeps its JSON stdout contract; `init --upgrade` reports as prose.
+- `init --upgrade` calls it as its last step, gated on the same schema check `reportSchemaMismatch`
+  uses, so it never runs against a tree the node reader would refuse. A sweep failure is warned
+  about and does not fail the upgrade.
+- Four tests in `tests/upgrade.test.ts` cover filing, deleting, the no-folders guard, and that the
+  upgrade stages nothing.
+
+This supersedes the plan's "It is a standing command rather than a migration step" reasoning for
+the trigger only. The command still exists for sweeping between upgrades, and every other decision
+in the plan stands.
+
+Two consequences the plan did not anticipate. `init --upgrade` now writes to `nodes/`, so the
+invariant recorded in `reportSchemaMismatch`'s doc comment was corrected rather than preserved. And
+an upgrade can now delete a leaf, which moves the delete rule out of the explicitly-invoked command
+the plan's risk section relied on; the mitigation that remains is that the deletion lands as an
+uncommitted diff the user reviews.

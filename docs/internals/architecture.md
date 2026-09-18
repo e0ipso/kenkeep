@@ -24,6 +24,8 @@ src/
 
 **Primitives** never call an LLM: `init`, `doctor`, `status`, `lint`, `freshness`, `finddocs`, `node write`, `node sweep`, `session-log`, `curate-dedup`, `curate-persist`, `conflict prepare`, `drafts collect`, `rebalance`, `index rebuild`, `pack`, `logs prune`, `schema`, `validate`. Skills compose them. CI may call them directly.
 
+`init --upgrade` calls `node sweep`'s core as its last step, which is the only place `init` writes to `nodes/`.
+
 **Launchers** exec the host assistant against a skill. `curate`, `bootstrap`, and `node add` run `<harness> -p "/kk-<name>"` with `KENKEEP_BUILDER_INTERNAL=1` on the child. The LLM work happens in that session.
 
 The one headless subprocess kenkeep spawns on its own is the proposal-drain hook, which runs the harness driver once per captured session to extract candidates.

@@ -125,7 +125,7 @@ It runs inside the assistant you already pay for: Claude Code, Codex, Cursor, Op
 - **Review** is yours to decide. Read the notes with `git diff` and commit the ones you want.
 - **Recall** is automatic. Every new session starts with the root catalog and descends only into the notes the task needs, so the payload stays small as the base grows.
 
-A note curate can't place still doesn't get stuck: it lands at the `nodes/` root, and `npx kenkeep node sweep` files it from its own edges and tags, or removes it when it matches nothing in the tree.
+A note curate can't place still doesn't get stuck: it lands at the `nodes/` root, and the next `npx kenkeep init --upgrade` files it from its own edges and tags, or removes it when it matches nothing in the tree. `npx kenkeep node sweep` does the same on demand between upgrades. Both leave the result uncommitted, so you accept it with `git commit` and reject it with `git restore`.
 
 <p align="center">
   <img src="docs/assets/images/progressive-disclosure.png" alt="kenkeep progressive disclosure: load the root index node, select relevant branches by intent and tags, descend into those branch indexes, then open only the confirmed-relevant leaf nodes and follow their cross-edges" width="100%">

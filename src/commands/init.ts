@@ -9,6 +9,7 @@ import { detectSchemaVersion } from '../lib/migrate.js';
 import { MIGRATE_COMMAND_HINT } from '../lib/migrate-guidance.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { ensureKbignore } from '../lib/kkignore-stub.js';
+import { sweepRootLeaves } from './node-sweep.js';
 import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 import { defaultProjectConfigBody } from '../lib/settings.js';
 import { packageVersion } from '../lib/version.js';
@@ -142,13 +143,16 @@ function validateHarnesses(harnesses: string[]): void {
 }
 
 /**
- * Surfaces an out-of-date node store at init/upgrade time. `init` and
- * `init --upgrade` refresh templates and hooks but never touch `nodes/`, so a
- * knowledge base written by an older kenkeep stays stale and every command that
- * reads it would fail. We detect the on-disk schema and point the user at the
- * `kk-migrate` skill that fixes it, matching the error the node reader raises.
- * Loud but non-fatal: init did its own job; migration is a deliberate,
- * in-session follow-up the user runs next.
+ * Surfaces an out-of-date node store at init/upgrade time. Neither `init` nor
+ * `init --upgrade` migrates `nodes/`, so a knowledge base written by an older
+ * kenkeep stays stale and every command that reads it would fail. We detect the
+ * on-disk schema and point the user at the `kk-migrate` skill that fixes it,
+ * matching the error the node reader raises. Loud but non-fatal: init did its
+ * own job; migration is a deliberate, in-session follow-up the user runs next.
+ *
+ * `init --upgrade` does write to `nodes/` in one place, `sweepRootDuringUpgrade`
+ * above, which is gated on this same schema check and never runs against a tree
+ * this detector would flag.
  */
 function reportSchemaMismatch(nodesDir: string): void {
   const onDisk = detectSchemaVersion(nodesDir);
@@ -210,10 +214,67 @@ async function runUpgrade(
 
   writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.harnesses);
 
+  await sweepRootDuringUpgrade(paths);
+
   log.success(`Upgraded to ${current}.`);
   log.plain('Run `npx kenkeep doctor` to verify.');
 
   reportSchemaMismatch(paths.nodesDir);
+}
+
+/**
+ * Files the leaves sitting at the `nodes/` root as part of an upgrade, running
+ * the same sweep as `node sweep` including its delete rule: a leaf with no
+ * folder-resolving edges and no tag overlap with any folder is removed, not
+ * kept. Upgrade is the moment a repository picks up write-time placement, so it
+ * is also the moment its existing backlog of loose leaves gets cleared.
+ *
+ * This is the one part of `init` that writes to `nodes/`. It leaves an
+ * uncommitted working-tree change like every other node mutation here: accept
+ * it with `git commit`, reject it with a path-scoped `git restore`, deletions
+ * included. Nothing is staged and nothing is committed.
+ *
+ * Skipped when `nodes/` is absent or its on-disk schema predates the one this
+ * kenkeep reads, because the node reader refuses that tree; `reportSchemaMismatch`
+ * sends the user to `kk-migrate` instead. Non-fatal either way: a sweep failure
+ * is reported and the upgrade still succeeds, because the upgrade's own work is
+ * already done.
+ */
+async function sweepRootDuringUpgrade(paths: ReturnType<typeof repoPaths>): Promise<void> {
+  if (!existsSync(paths.nodesDir)) return;
+  const onDisk = detectSchemaVersion(paths.nodesDir);
+  if (onDisk === null || onDisk < NODE_SCHEMA_VERSION) return;
+
+  let summary;
+  try {
+    summary = await sweepRootLeaves(paths.nodesDir);
+  } catch (err) {
+    log.warn(`Could not sweep the nodes/ root: ${(err as Error).message}`);
+    return;
+  }
+
+  if (summary.relocated.length === 0 && summary.deleted.length === 0) return;
+
+  if (summary.relocated.length > 0) {
+    log.success(`Filed ${plural(summary.relocated.length, 'loose leaf', 'loose leaves')}:`);
+    for (const move of summary.relocated) {
+      log.plain(`  ${move.from} -> ${move.to}`);
+    }
+  }
+  if (summary.deleted.length > 0) {
+    log.warn(`Deleted ${plural(summary.deleted.length, 'leaf', 'leaves')} matching no folder:`);
+    for (const gone of summary.deleted) {
+      log.plain(`  ${gone.path} (${gone.reason})`);
+    }
+  }
+  if (summary.failed === true) {
+    log.warn('The index rebuild after the sweep failed; run `npx kenkeep index rebuild`.');
+  }
+  log.plain('Review with `git diff`, then `git restore` any path you want back.');
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 /**

@@ -403,3 +403,111 @@ showing only the regenerated kk-curate skill.
 ### Execution Summary
 - Total Phases: 3
 - Total Tasks: 4
+
+## Execution Summary
+
+**Status**: ✅ Completed Successfully
+**Completed Date**: 2026-09-18
+
+### Results
+
+Three phases, four tasks, all `completed`. Three commits on `feature/67--place-loose-notes`:
+`8fe67b4` (placement function), `b767c8b` (both callers), `dbaf30f` (documentation).
+
+- `src/lib/leaf-placement.ts`: the pure placement function. Edge tally first, tag overlap summed
+  over a folder's direct leaves second, alphabetical folder path last. Reports `no-folders`
+  separately from `unplaceable` so a fresh tree can never reach the delete rule.
+- `src/commands/curate-persist.ts`: an empty `home_folder` now derives a folder instead of
+  stranding the leaf. The summary reports `derived: <folder>` so a review can tell a derived
+  placement from one the curator chose. Write time never deletes.
+- `src/commands/node-sweep.ts` plus its `node sweep` registration: files or removes every leaf
+  already at the root, then rebuilds the indexes. `relocateBytes` moved from module-private to
+  exported in `src/lib/rebalance-move.ts` so the sweep reuses the rebalance relocation.
+- Documentation: kk-curate skill template bumped to version 12, the `ROOT_HOMELESS_EDGE_MAX` and
+  `curate-persist` comments corrected, `node sweep` added to the primitives lists in `AGENTS.md`
+  and `docs/internals/architecture.md`, and a sentence in `README.md`.
+
+Verification, run fresh by the orchestrator rather than taken from the task agents' reports:
+`npm run build` exit 0, `npx vitest run` 76 files / 638 tests passed / 0 failed, `npm run
+typecheck` exit 0, `npm run lint` exit 0 with 0 errors.
+
+All eleven Self Validation steps executed against the live knowledge base:
+
+1. Build and suite green, counts above.
+2. Pre-sweep SHA-256 recorded for the three root leaves.
+3. `node sweep` reported exactly three relocations, to `harnesses` (reason `tags`), `conventions`
+   (reason `edges`) and `config-and-prompts` (reason `alphabetical`), matching primary success
+   criterion 1.
+4. `git status` showed three `R` rename entries; all three leaf SHA-256 values were unchanged.
+5. `ENTRY.md` lost its `## Conventions (how we build)` section, leaving only `## Branches`, and
+   each of the three destination `index.md` files listed its new leaf.
+6. No `.redirects.json` exists, so no redirect was recorded.
+7. A second sweep printed `{"relocated":[],"deleted":[]}` and changed nothing.
+8. A throwaway root leaf with no edges and a unique tag was deleted, named in the summary with the
+   reason `no folder-resolving edges and no tag overlap with any folder`.
+9. `git restore` on that path recovered the file.
+10. The knowledge base was restored path-scoped; `git status .ai/kenkeep` is empty and all four
+    SHA-256 values match their pre-validation state.
+11. `npx kenkeep lint` exit 0 (`tag-near-duplicate: 3`, `orphan: 5`) and `npx kenkeep doctor`
+    exit 0 with 2 warnings. Both findings sets are pre-existing: the knowledge base is byte
+    identical to its pre-validation state and this plan changed no lint or doctor code.
+
+### Noteworthy Events
+
+**The routed model was unavailable.** Tasks 1 and 3 route to the `complex-architecture` profile,
+whose first target is `fable` on the `claude` harness. The first dispatch of task 1 terminated with
+an HTTP 429 Fable usage-limit error. The profile's remaining targets are all on external harnesses
+and `allow_external_harness_execution` is unset in `config.yaml`, so the resolver would not select
+them. The user chose to run both tasks natively on Opus instead. Tasks 2 and 4 ran on their routed
+targets unchanged.
+
+**The review gate produced no certified review.** Its JSON line, verbatim:
+
+```json
+{"kind":"skipped","reason":"no-reviewer-candidate","detail":"No reviewer candidate; review gate skipped. claude is excluded as the current harness. codex: Harness readiness check exited 1. stderr: ... ERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 12:52 PM. cursor: Harness readiness check timed out after 20000 ms. gemini: Harness executable 'gemini' was not found on PATH. copilot: Harness executable 'copilot' was not found on PATH. opencode: Harness readiness check exited 1. stderr: ... Error: {\"name\":\"UnknownError\",\"data\":{\"message\":\"Unexpected server error. Check server logs for details.\",\"ref\":\"err_7ec472a1\"}}","action":"continue","codeReview":"Failed; No reviewer performed a certified review. ..."}
+```
+
+The full untruncated line is preserved at `review/gate-result.json` in this plan directory. I
+invoked `code-review.cjs` twice: once as the gate, and once more only to redirect stdout to that
+file. Both invocations returned the identical `skipped` result, and no review ran either time, so
+no verdict was re-rolled. No
+`review.xml` or `findings.json` was written, so there were no findings to act on or ignore. This is
+not a clean review; it is an absent one. Every other harness was either out of credits, timed out,
+or is not installed.
+
+**`templates/` is gitignored, so task 4's `git diff --stat templates/` criterion was
+unverifiable as written.** The task agent substituted a SHA-256 comparison of the whole generated
+tree before and after the build, which showed exactly one changed file,
+`templates/skills/kk-curate/SKILL.md`. That is the stronger check and the acceptance criterion was
+wrong, not the work.
+
+**`tests/skills/root-discovery.test.ts` pins the kk-curate version literal.** Bumping the skill to
+version 12 broke that test until the literal was updated alongside it. The coupling was not in the
+plan.
+
+**`npm run format:check` fails repo-wide, and did so before this plan.** It reports 40 files,
+none of which this work touched; the failure reproduces on a stashed clean tree. All eleven files
+this plan changed pass Prettier individually. Not fixed, because repo-wide reformatting is outside
+this plan's scope.
+
+**The kk-curate skill template contains many pre-existing em dashes**, which
+`practice-no-em-dashes` forbids. Two of them sit on the tails of lines task 4 edited. None were
+introduced by this work and rewriting the file's punctuation was out of scope.
+
+### Necessary follow-ups
+
+- **Run the code review.** This branch has never been reviewed by a second model. Re-run
+  `code-review.cjs 67 claude` once a reviewer harness is available, or review it by hand.
+- **The bootstrap fix.** `/kk-bootstrap` writes every extracted node at the `nodes/` root, so a
+  freshly bootstrapped repository is entirely loose. The plan scoped this out deliberately; the
+  sweep is its natural companion and the fix belongs with the extracting LLM inventing folder
+  names while it drafts.
+- **Two folder resolvers now coexist.** `resolveFolder` in `src/lib/rebalance-move.ts` and
+  `resolveLeafDir` in `src/lib/nodes.ts` do the same containment check. The duplication predates
+  this plan; the sweep uses the exported one. Consolidating them is a small separate cleanup.
+- **`FOLDER_OCCUPANCY_MAX` is 12 and both `harnesses/` and `conventions/` now hold 12.** Filing the
+  two strays there pushes both past the split threshold on the next rebalance trigger. The plan
+  accepted this: the hysteresis band runs from 2 to 12, so the resulting subfolders settle.
+- **The three leaves were restored, not filed.** Actually moving them stays a separate
+  human-reviewed decision, exactly as the plan's Notes require. Run `npx kenkeep node sweep` and
+  commit when you want them filed.

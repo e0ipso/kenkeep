@@ -389,9 +389,9 @@ graph TD
 - ✔️ Task 002: Derive the home folder at write time in `curate-persist`, reporting derived placements distinguishably and never deleting (depends on: 001)
 - ✔️ Task 003: The `node sweep` command that relocates or deletes every loose root leaf and rebuilds the indexes (depends on: 001)
 
-### Phase 3: Documentation
+### ✅ Phase 3: Documentation (completed)
 **Parallel Tasks:**
-- Task 004: Correct the kk-curate skill template, the rebalance and curate-persist comments, and the command lists in AGENTS.md, the architecture doc, and README (depends on: 002, 003)
+- ✔️ Task 004: Correct the kk-curate skill template, the rebalance and curate-persist comments, and the command lists in AGENTS.md, the architecture doc, and README (depends on: 002, 003)
 
 ### Post-phase Actions
 

@@ -3,7 +3,7 @@ name: kk-curate
 description: Curate pending session logs into kenkeep nodes by reading sessions in-host, drafting curator actions, then deduping and persisting via the kenkeep primitives. Resolves any surfaced contradictions interactively with the user. Use when the user wants to process accumulated session captures, or when the SessionStart nudge reports pending session logs.
 ---
 
-<!-- Version: 11 -->
+<!-- Version: 12 -->
 
 # kk-curate
 
@@ -121,7 +121,7 @@ Signs an addition is correct:
 
 The wrapper derives the slug from the title and auto-suffixes (`-2`, `-3`, …) if it would collide on disk — but if you sense a real overlap, prefer **drop** (or, when the candidate refines the existing node, **modify**).
 
-An `add` also carries a **home branch**: the existing folder under `nodes/` where the leaf lives. You pick it in the same reasoning pass that sets `kk_relates_to` / `kk_depends_on` (see "Relate and place" below) and record it on the action's `home_folder` field. Leave `home_folder` unset/null/empty to land the leaf at the `nodes/` root (the root fallback).
+An `add` also carries a **home branch**: the existing folder under `nodes/` where the leaf lives. You pick it in the same reasoning pass that sets `kk_relates_to` / `kk_depends_on` (see "Relate and place" below) and record it on the action's `home_folder` field. Leave `home_folder` unset/null/empty and the writer derives a folder from the leaf's own edges and tags; the root (the root fallback) is reached only when that derivation also finds nothing.
 
 #### `modify` — refines an existing node
 
@@ -186,7 +186,7 @@ The knowledge base is a nested topical folder tree under `nodes/`: a root index 
 1. **Descend the tree.** Start from the root index node (`nodes/index.md`) and follow it into the branch index nodes whose summaries are relevant to the candidate. The index nodes list their child folders and leaves, so you can walk toward the nearest existing notes the same way discovery does.
 2. **Set the cross edges.** From the nearest existing leaves, set `kk_relates_to` (and `kk_depends_on` where one node genuinely depends on another) by id. Edges resolve by id and are independent of where the leaf lives. For a **map** node in particular, prefer `kk_relates_to` edges to the practice nodes that govern changing that entity — the "watch out when editing this" knowledge lives in those practices, and the edge is what lets an agent reach it from the map node. When the candidate or its session evidenced a concrete edit-time check, also keep a short optional "When changing this, verify…" clause in the map body; never invent one to fill a template.
 3. **Rank the home branch.** From the same descent, rank the existing index nodes (folders) by how well their subtree fits the candidate's topic, and pick the single best-fitting existing folder. Record it on the action as `home_folder` (a topical path relative to `nodes/`, e.g. `cli` or `knowledge-base/index`). Identity is the id and never depends on the chosen folder.
-4. **Root fallback.** If no existing folder clears your relevance bar, leave `home_folder` unset/null/empty. The writer then places the leaf at the `nodes/` root. This is a deliberate, visible outcome, not an error; a later rebalance pass relocates it. Never force a weak fit just to avoid the root.
+4. **Root fallback.** If no existing folder clears your relevance bar, leave `home_folder` unset/null/empty. Leaving it empty is still correct here; it does not mean the leaf stays loose. The writer then derives a folder from the candidate's own `kk_relates_to`, `kk_depends_on`, and tags, and only falls back to the `nodes/` root when that derivation also finds nothing. No rebalance pass relocates a root leaf. Never force a weak fit just to avoid the root: it matters more now, because a weak explicit choice would override a better derived one.
 
 `modify`, `contradict`, and `drop` never set `home_folder`. A `modify` (dedupe-update) rewrites the existing leaf in place at its current path by id, with no folder argument and no relocation.
 
@@ -195,7 +195,7 @@ The knowledge base is a nested topical folder tree under `nodes/`: a root index 
 - **Never cross the practice/map boundary.** A practice candidate never becomes a map node, and vice versa.
 - **Never overwrite an unrelated node.** `modify` must target a node whose scope genuinely matches the candidate; otherwise prefer `add` (with `kk_relates_to`) or `contradict`.
 - **Be conservative.** When uncertain between add and modify, prefer modify (less duplication). When uncertain between modify and drop, prefer drop (less noise).
-- **Never change tree structure during curation.** The curation step (drafting and persisting leaves, Steps 2 to 6) places a leaf into an existing folder; it never creates, splits, or merges folders or branches. The only structural outcome curation may produce is the root fallback (a leaf at the `nodes/` root). Structural changes happen only in the final rebalance phase (Step 6b), and only when the deterministic trigger fires.
+- **Never change tree structure during curation.** The curation step (drafting and persisting leaves, Steps 2 to 6) places a leaf into an existing folder; it never creates, splits, or merges folders or branches. The only structural outcome curation may produce is the root fallback (a leaf at the `nodes/` root), and that now happens only when the writer's own edge-and-tag derivation also finds nothing. Structural changes happen only in the final rebalance phase (Step 6b), and only when the deterministic trigger fires.
 
 ### Action object schema
 
@@ -253,9 +253,9 @@ Persist `$SURVIVORS` in one pass with the deterministic primitive — the same p
 npx --yes kenkeep@latest curate-persist --input "$SURVIVORS"
 ```
 
-`curate-persist` validates the survivors against the curator-output contract, then for each action writes `add`/`modify` via the shared node writer (an `add` lands in its `home_folder`, or the `nodes/` root fallback when none was chosen; a `modify` rewrites in place at the target's current path by id and never relocates), skips `drop`, and rejects `contradict` (conflicts belong to `curate-dedup`). It prints one JSON summary on stdout (`written`, `dropped`, `failed`, and per-action `results` with the resolved id and placement) and exits non-zero only when the input is malformed or at least one valid action failed — successful writes are preserved either way.
+`curate-persist` validates the survivors against the curator-output contract, then for each action writes `add`/`modify` via the shared node writer (an `add` lands in its `home_folder` when you chose one, or a folder the writer derives from the leaf's own `kk_relates_to`, `kk_depends_on`, and tags when you left it empty, or the `nodes/` root only when that derivation also finds nothing; a `modify` rewrites in place at the target's current path by id and never relocates), skips `drop`, and rejects `contradict` (conflicts belong to `curate-dedup`). It prints one JSON summary on stdout (`written`, `dropped`, `failed`, and per-action `results` with the resolved id and placement) and exits non-zero only when the input is malformed or at least one valid action failed — successful writes are preserved either way.
 
-Capture the summary: you report the per-leaf placement (`home_folder`, or `root fallback`) and any per-action failures in Step 7. A `modify` whose `target_node_id` was missing on disk surfaces as a failed action in the results — call it out so the user knows the update did not land.
+Capture the summary: you report the per-leaf placement (the folder you chose, `derived: <folder>` when the writer derived it, or `root fallback`) and any per-action failures in Step 7. A `modify` whose `target_node_id` was missing on disk surfaces as a failed action in the results — call it out so the user knows the update did not land.
 
 {{> index-rebuild-section heading="## 6. Rebuild the indices" lead="After all writes:"}}
 
@@ -317,7 +317,7 @@ Capture it. Do not commit, add, or restore anything: the structural moves and th
 
 ## 7. Report the summary, then handle conflicts
 
-Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, and the count of drops. Also list the **placement decision per written leaf**: for each `add` you persisted, report its id and the folder it landed in (the chosen `home_folder`, or `root fallback` when none was chosen); for each `modify`, note it was updated in place at its current path. This lets the human review placement alongside content.
+Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, and the count of drops. Also list the **placement decision per written leaf**, reading the `placement` value `curate-persist` reported: for each `add` you persisted, report its id and where it landed, a folder you chose, `derived: <folder>` when the writer derived it from the leaf's own edges and tags, or `root fallback` when neither found one; for each `modify`, `placement` reads `in place`. This distinguishes your choice from the writer's derivation so the human can review both alongside content.
 
 **No-op is a correct outcome.** When `nodes_written == 0` (every candidate was dropped), the knowledge base was already current — say so plainly ("no changes; the knowledge base is current") rather than apologising for an empty write set. An empty write set is the preferred result when nothing proposed real new information.
 

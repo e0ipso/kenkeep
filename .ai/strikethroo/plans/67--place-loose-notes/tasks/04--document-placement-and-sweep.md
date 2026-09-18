@@ -2,7 +2,7 @@
 id: 4
 group: "loose-leaf-placement"
 dependencies: [2, 3]
-status: "pending"
+status: "completed"
 created: 2026-09-18
 skills:
   - technical-writing

@@ -106,6 +106,9 @@ function failure(action: CuratorAction, index: number, reason: string): PersistR
  * Deterministic survivor persistence primitive. It consumes the non-conflict
  * survivor array from `curate-dedup`, writes every add/modify via the shared
  * node writer helpers, skips drops, and continues after per-action failures.
+ * An `add` lands in the curator's chosen `home_folder`, or, when the curator
+ * left it empty, in a folder derived from the candidate's own edges and tags;
+ * it writes at the `nodes/` root only when neither found one.
  *
  * Partial-failure contract:
  *   - malformed input: exit 1, no writes, error on stderr;

@@ -22,7 +22,7 @@ src/
 
 ## Two kinds of command
 
-**Primitives** never call an LLM: `init`, `doctor`, `status`, `lint`, `freshness`, `finddocs`, `node write`, `session-log`, `curate-dedup`, `curate-persist`, `conflict prepare`, `drafts collect`, `rebalance`, `index rebuild`, `pack`, `logs prune`, `schema`, `validate`. Skills compose them. CI may call them directly.
+**Primitives** never call an LLM: `init`, `doctor`, `status`, `lint`, `freshness`, `finddocs`, `node write`, `node sweep`, `session-log`, `curate-dedup`, `curate-persist`, `conflict prepare`, `drafts collect`, `rebalance`, `index rebuild`, `pack`, `logs prune`, `schema`, `validate`. Skills compose them. CI may call them directly.
 
 **Launchers** exec the host assistant against a skill. `curate`, `bootstrap`, and `node add` run `<harness> -p "/kk-<name>"` with `KENKEEP_BUILDER_INTERNAL=1` on the child. The LLM work happens in that session.
 

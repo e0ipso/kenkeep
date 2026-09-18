@@ -49,16 +49,19 @@ export const LEAF_SIZE_SPLIT_THRESHOLD = 1500;
 export const LEAF_CONCEPT_MIN = 3;
 
 /**
- * Create-branch signal: a leaf sitting at the `nodes/` root (no home folder)
- * with no graph edges to any other node is a homeless, novel top-level topic.
+ * Create-branch signal: a leaf sitting at the `nodes/` root with no graph
+ * edges to any other node is a homeless, novel top-level topic.
  *
  * Plan 1 exposes no dedicated "novel topic" metric. The trigger keys
  * deterministically on the root-fallback signal the curate skill already
- * produces: an `add` whose relate-ranking cleared no existing folder lands the
- * leaf at the `nodes/` root (documented in kk-curate "Relate and place" /
- * "Root fallback"). A root leaf with zero `relates_to` and `depends_on` graph
- * edges is therefore a top-level topic with no existing home, which is exactly
- * what `create-branch` addresses.
+ * produces. The writer now derives a folder from a leaf's own edges and tags
+ * before it ever reaches the root (documented in kk-curate "Relate and
+ * place" / "Root fallback"), so a leaf still sitting at the root is one that
+ * derivation also could not place: it is either brand new, with no edges and
+ * no tag overlap against any folder yet, or genuinely disconnected from the
+ * rest of the tree. A root leaf with zero `relates_to` and `depends_on` graph
+ * edges is therefore a top-level topic with no existing home, which is
+ * exactly what `create-branch` addresses.
  */
 export const ROOT_HOMELESS_EDGE_MAX = 0;
 

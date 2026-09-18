@@ -38,6 +38,26 @@ function sandbox(): string {
   return root;
 }
 
+function writeLeaf(root: string, relDir: string, id: string, tags: string[]): void {
+  const dir = join(root, '.ai/kenkeep/nodes', relDir);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, `${id}.md`),
+    matter.stringify(`Body of ${id}.\n`, {
+      kk_schema_version: 3,
+      kk_id: id,
+      title: id,
+      type: 'practice',
+      tags,
+      kk_derived_from: ['seed:practice:0'],
+      kk_relates_to: [],
+      kk_depends_on: [],
+      kk_confidence: 'medium',
+      description: `summary for ${id}`,
+    })
+  );
+}
+
 async function captureStdout(fn: () => Promise<number>): Promise<{ code: number; stdout: string }> {
   let stdout = '';
   const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
@@ -142,6 +162,7 @@ describe('curate-persist primitive', () => {
       'dropped',
       'failed',
     ]);
+    expect(summary.results[0].placement).toBe('topic');
     expect(summary.results[1].placement).toBe('in place');
 
     const added = matter(
@@ -245,5 +266,135 @@ describe('curate-persist primitive', () => {
     expect(summary.results[2].reason).toMatch(/does not exist/);
     // No traversal write landed outside nodes/.
     expect(existsSync(join(cwd, '.ai/kenkeep/escape/practice-traversal.md'))).toBe(false);
+  });
+
+  it('derives the home folder for an add the curator left unplaced', async () => {
+    writeLeaf(cwd, 'harnesses', 'practice-claude-adapter', ['harness']);
+    writeLeaf(cwd, 'harnesses', 'practice-hook-registration', ['harness']);
+
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        {
+          action: 'add',
+          candidate_origin: 's1:practice:0',
+          target_node_id: null,
+          home_folder: '',
+          proposed_node: {
+            title: 'Edge Placed',
+            type: 'practice',
+            tags: ['unshared'],
+            description: 'placed by its edges',
+            body: 'Edge body.',
+            kk_confidence: 'high',
+            kk_relates_to: ['practice-claude-adapter'],
+          },
+          rationale: 'curator left the folder empty',
+        },
+        {
+          action: 'add',
+          candidate_origin: 's2:practice:0',
+          target_node_id: null,
+          home_folder: null,
+          proposed_node: {
+            title: 'Tag Placed',
+            type: 'practice',
+            tags: ['harness'],
+            description: 'placed by its tags',
+            body: 'Tag body.',
+            kk_confidence: 'high',
+            kk_relates_to: [],
+          },
+          rationale: 'curator left the folder null',
+        },
+      ])
+    );
+
+    const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(0);
+    const summary = JSON.parse(stdout);
+    expect(summary.written).toBe(2);
+    expect(summary.results.map((r: { path: string }) => r.path)).toEqual([
+      'harnesses/practice-edge-placed.md',
+      'harnesses/practice-tag-placed.md',
+    ]);
+    expect(summary.results.map((r: { placement: string }) => r.placement)).toEqual([
+      'derived: harnesses',
+      'derived: harnesses',
+    ]);
+    expect(existsSync(join(cwd, '.ai/kenkeep/nodes/harnesses/practice-edge-placed.md'))).toBe(true);
+    expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-edge-placed.md'))).toBe(false);
+  });
+
+  it('writes an unplaceable add at the root and removes nothing', async () => {
+    const existing = join(cwd, '.ai/kenkeep/nodes/topic/practice-existing.md');
+    const before = readFileSync(existing, 'utf8');
+
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        {
+          action: 'add',
+          candidate_origin: 's1:practice:0',
+          target_node_id: null,
+          proposed_node: {
+            title: 'No Neighbours',
+            type: 'practice',
+            tags: ['unshared'],
+            description: 'matches no folder',
+            body: 'Lonely body.',
+            kk_confidence: 'high',
+            kk_relates_to: [],
+          },
+          rationale: 'genuinely novel topic',
+        },
+      ])
+    );
+
+    const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(0);
+    const summary = JSON.parse(stdout);
+    expect(summary.written).toBe(1);
+    expect(summary.results[0].path).toBe('practice-no-neighbours.md');
+    expect(summary.results[0].placement).toBe('root fallback');
+    expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-no-neighbours.md'))).toBe(true);
+    expect(readFileSync(existing, 'utf8')).toBe(before);
+  });
+
+  it('writes at the root when the tree has no folders', async () => {
+    rmSync(join(cwd, '.ai/kenkeep/nodes/topic'), { recursive: true, force: true });
+    writeLeaf(cwd, '', 'practice-root-resident', ['harness']);
+
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        {
+          action: 'add',
+          candidate_origin: 's1:practice:0',
+          target_node_id: null,
+          home_folder: '',
+          proposed_node: {
+            title: 'Fresh Tree',
+            type: 'practice',
+            tags: ['harness'],
+            description: 'nothing to file into yet',
+            body: 'Fresh body.',
+            kk_confidence: 'high',
+            kk_relates_to: ['practice-root-resident'],
+          },
+          rationale: 'no folder exists yet',
+        },
+      ])
+    );
+
+    const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(0);
+    const summary = JSON.parse(stdout);
+    expect(summary.results[0].path).toBe('practice-fresh-tree.md');
+    expect(summary.results[0].placement).toBe('root fallback');
+    expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-root-resident.md'))).toBe(true);
   });
 });

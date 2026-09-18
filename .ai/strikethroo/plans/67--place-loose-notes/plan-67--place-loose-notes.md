@@ -380,14 +380,14 @@ graph TD
     003 --> 004
 ```
 
-### Phase 1: Placement rule
+### ✅ Phase 1: Placement rule (completed)
 **Parallel Tasks:**
-- Task 001: Pure leaf placement function in `src/lib/leaf-placement.ts`, edges then tag overlap then alphabetical, with the no-folders guard and its test table
+- ✔️ Task 001: Pure leaf placement function in `src/lib/leaf-placement.ts`, edges then tag overlap then alphabetical, with the no-folders guard and its test table
 
-### Phase 2: Callers
+### ✅ Phase 2: Callers (completed)
 **Parallel Tasks:**
-- Task 002: Derive the home folder at write time in `curate-persist`, reporting derived placements distinguishably and never deleting (depends on: 001)
-- Task 003: The `node sweep` command that relocates or deletes every loose root leaf and rebuilds the indexes (depends on: 001)
+- ✔️ Task 002: Derive the home folder at write time in `curate-persist`, reporting derived placements distinguishably and never deleting (depends on: 001)
+- ✔️ Task 003: The `node sweep` command that relocates or deletes every loose root leaf and rebuilds the indexes (depends on: 001)
 
 ### Phase 3: Documentation
 **Parallel Tasks:**

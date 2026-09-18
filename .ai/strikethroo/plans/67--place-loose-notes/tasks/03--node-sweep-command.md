@@ -2,7 +2,7 @@
 id: 3
 group: "loose-leaf-placement"
 dependencies: [1]
-status: "pending"
+status: "completed"
 created: 2026-09-18
 skills:
   - typescript

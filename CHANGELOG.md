@@ -1,3 +1,9 @@
+## [1.18.0](https://github.com/e0ipso/kenkeep/compare/v1.17.0...v1.18.0) (2026-09-18)
+
+### Features
+
+* place loose notes from their own edges and tags ([#124](https://github.com/e0ipso/kenkeep/issues/124)) ([730ded1](https://github.com/e0ipso/kenkeep/commit/730ded17830133d159029691e53a712c78cf8d98))
+
 ## [1.17.0](https://github.com/e0ipso/kenkeep/compare/v1.16.4...v1.17.0) (2026-08-05)
 
 ### Features

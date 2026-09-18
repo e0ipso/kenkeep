@@ -1,41 +1,29 @@
 {
-  "version": 1,
-  "harnesses": {
-    "claude": {
+  "version": 2,
+  "entries": [
+    {
+      "key": "a898da768ccef44261f9026c6b096c05f307f57f0a76559afb205bd4af3a59ca",
+      "harness": "codex",
       "available": false,
-      "observedAt": 1784276597382,
-      "expiresAt": 1784276897382,
-      "reason": "⚠ Claude 3.5 Haiku was retired on February 19, 2026. Consider switching to a newer model."
+      "observedAt": 1789739162568,
+      "expiresAt": 1789739462568,
+      "reason": "Harness readiness check exited 1. stderr: 2026-09-18T13:46:03.845349Z ERROR codex_core::session::session: failed to load skill /home/node/.agents/skills/canvas/SKILL.md: missing field `description`\nOpenAI Codex v0.155.0\n--------\nworkdir: /tmp/strikethroo-harness-probe-K0sxX4\nmodel: gpt-6-astra\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR]\nreasoning effort: none\nreasoning summaries: none\nsession id: 01a0b4c4-60b1-7f92-a35d-11bfd9778f9b\n--------\nuser\nRun a shell command that creates strikethroo-readiness.txt in the current workspace with the exact UTF-8 content \"strikethroo-readiness:a319a830-c5b4-4aa8-951a-b53e3fc41602\\n\". Do not use a file editing tool.\nSTRIKETHROO_READINESS={\"file\":\"strikethroo-readiness.txt\",\"content\":\"strikethroo-readiness:a319a830-c5b4-4aa8-951a-b53e3fc41602\\n\"}\n\nERROR: You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 12:52 PM.\nERROR: You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 12:52 PM."
     },
-    "codex": {
-      "available": true,
-      "observedAt": 1785966961348,
-      "expiresAt": 1785968761348,
-      "reason": "Harness probe succeeded."
-    },
-    "cursor": {
+    {
+      "key": "7337ef9655f27b9912c99b988a4f61a2dca659d7eb6fa7d99d867d6dcb0ddb31",
+      "harness": "opencode",
       "available": false,
-      "observedAt": 1785967784689,
-      "expiresAt": 1785968084689,
-      "reason": "⚠ Workspace Trust Required   Cursor Agent can execute code and access files in this directory.   Do you trust the contents of this directory?     /workspace   To proceed, you can either:     • Run 'ag"
+      "observedAt": 1789739162598,
+      "expiresAt": 1789739462598,
+      "reason": "Harness readiness check exited 1. stderr: 📖 kenkeep Index: Loading knowledge base…\n🔄 kenkeep Proposals: Draining queue…\nkenkeep: workspace on kenkeep-dev. Action needed: Run npx kenkeep lint --verbose.\n🧠 kenkeep Index: Knowledge base loaded.\n\u001b[91m\u001b[1mError: \u001b[0m{\n  \"name\": \"UnknownError\",\n  \"data\": {\n    \"message\": \"Unexpected server error. Check server logs for details.\",\n    \"ref\": \"err_7ec472a1\"\n  }\n}\n📸 kenkeep Capture: Saving session transcript…\n💾 kenkeep Capture: Session transcript saved.\n[kenkeep] proposal drain: 4 session(s) failed; see _logs/proposal/\n📬 kenkeep Proposals: Queue drained."
     },
-    "gemini": {
+    {
+      "key": "6281843b4717fddb2effbebb867305b006ecb22d08ab54cb9ac7a97ee27b0783",
+      "harness": "cursor",
       "available": false,
-      "observedAt": 1785967784695,
-      "expiresAt": 1785968084695,
-      "reason": "spawn gemini ENOENT"
-    },
-    "copilot": {
-      "available": false,
-      "observedAt": 1785967784698,
-      "expiresAt": 1785968084698,
-      "reason": "spawn copilot ENOENT"
-    },
-    "opencode": {
-      "available": false,
-      "observedAt": 1785967784699,
-      "expiresAt": 1785968084699,
-      "reason": "📖 kenkeep Index: Loading knowledge base… 🔄 kenkeep Proposals: Draining queue… 📬 kenkeep Proposals: Queue drained. kenkeep: workspace on kenkeep-dev. Action needed: Run npx kenkeep lint --verbose. \ud83e"
+      "observedAt": 1789739162588,
+      "expiresAt": 1789739462588,
+      "reason": "Harness readiness check timed out after 20000 ms."
     }
-  }
+  ]
 }

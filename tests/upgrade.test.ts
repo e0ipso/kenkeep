@@ -1,12 +1,42 @@
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
+import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
 const exec = promisify(execFile);
+
+/**
+ * Writes one leaf into the sandbox knowledge base. `relDir` is a POSIX folder
+ * relative to `nodes/`; the empty string writes a loose leaf at the root.
+ */
+function writeLeaf(
+  sandbox: string,
+  relDir: string,
+  id: string,
+  opts: { tags?: string[]; relates_to?: string[] } = {}
+): void {
+  const nodes = join(sandbox, '.ai/kenkeep/nodes');
+  const dir = relDir === '' ? nodes : join(nodes, relDir);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, `${id}.md`),
+    matter.stringify('Body.', {
+      kk_schema_version: 3,
+      kk_id: id,
+      title: id,
+      type: 'practice',
+      description: 's',
+      tags: opts.tags ?? [],
+      kk_derived_from: [],
+      kk_relates_to: opts.relates_to ?? [],
+      kk_confidence: 'high',
+    })
+  );
+}
 
 describe('init --upgrade', () => {
   let sandbox: string;
@@ -296,5 +326,64 @@ describe('doctor: installed-version currency', () => {
     expect(combined).toMatch(/installed-version/);
     expect(combined).toMatch(/installed 0\.0\.0-test-old/);
     expect(combined).toMatch(/init --upgrade/);
+  });
+  it('files a loose root leaf into the folder its edges name', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    writeLeaf(sandbox, 'harnesses', 'practice-anchor', { tags: ['harness'] });
+    writeLeaf(sandbox, '', 'practice-loose', {
+      tags: ['harness'],
+      relates_to: ['practice-anchor'],
+    });
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+
+    expect(result.exitCode).toBe(0);
+    const nodes = join(sandbox, '.ai/kenkeep/nodes');
+    expect(existsSync(join(nodes, 'practice-loose.md'))).toBe(false);
+    expect(existsSync(join(nodes, 'harnesses/practice-loose.md'))).toBe(true);
+    expect(result.stdout + result.stderr).toMatch(/Filed 1 loose leaf/);
+  });
+
+  it('deletes a root leaf that matches no folder and says so', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    writeLeaf(sandbox, 'harnesses', 'practice-anchor', { tags: ['harness'] });
+    writeLeaf(sandbox, '', 'practice-orphan', { tags: ['matches-nothing-anywhere'] });
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/practice-orphan.md'))).toBe(false);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toMatch(/Deleted 1 leaf matching no folder/);
+    expect(combined).toMatch(/practice-orphan\.md/);
+  });
+
+  it('leaves a tree with no folders untouched, deleting nothing', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    writeLeaf(sandbox, '', 'practice-only-leaf', { tags: ['alone'] });
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/practice-only-leaf.md'))).toBe(true);
+    expect(result.stdout + result.stderr).not.toMatch(/Deleted/);
+  });
+
+  it('stages nothing when it sweeps', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    writeLeaf(sandbox, 'harnesses', 'practice-anchor', { tags: ['harness'] });
+    await exec('git', ['add', '-A'], { cwd: sandbox });
+    await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base'], {
+      cwd: sandbox,
+    });
+    writeLeaf(sandbox, '', 'practice-loose', {
+      tags: ['harness'],
+      relates_to: ['practice-anchor'],
+    });
+
+    await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+
+    const staged = await exec('git', ['diff', '--cached', '--name-only'], { cwd: sandbox });
+    expect(staged.stdout.trim()).toBe('');
   });
 });

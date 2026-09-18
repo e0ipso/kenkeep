@@ -141,15 +141,21 @@ function resolveFolder(nodesDir: string, relDir: string): string {
  * exact bytes to the destination via an atomic tmp+rename, then remove the
  * source. The bytes are never parsed or reserialized, so git records a rename
  * (an `R` entry) rather than a delete plus add, and the byte-stability
- * invariant holds. The destination must stay within `nodes/`.
+ * invariant holds. The destination must stay within `nodes/`; callers resolve
+ * it through a containment check (`resolveFolder` here, `resolveLeafDir` for
+ * outside callers) before calling.
+ *
+ * Exported because `node sweep` relocates loose root leaves with the same
+ * guarantees. One relocation path, so byte stability can never drift between
+ * the two callers.
  */
-function relocateBytes(srcPath: string, destPath: string): void {
+export function relocateBytes(srcPath: string, destPath: string): void {
   if (!existsSync(srcPath)) {
-    throw new Error(`rebalance: source leaf not found at ${srcPath}`);
+    throw new Error(`relocate: source leaf not found at ${srcPath}`);
   }
   if (destPath === srcPath) return;
   if (existsSync(destPath)) {
-    throw new Error(`rebalance: refusing to overwrite existing file at ${destPath}`);
+    throw new Error(`relocate: refusing to overwrite existing file at ${destPath}`);
   }
   const bytes = readFileSync(srcPath); // Buffer: verbatim bytes, no decode.
   mkdirSync(dirname(destPath), { recursive: true });

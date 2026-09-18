@@ -7,6 +7,7 @@ import {
   readAllNodes,
   writeNodeFile,
 } from '../lib/nodes.js';
+import { placeLeaf } from '../lib/leaf-placement.js';
 import { log } from '../lib/log.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { readStdin } from '../lib/stdin.js';
@@ -75,6 +76,22 @@ function isExistingFolder(nodesDir: string, relDir: string): boolean {
   }
 }
 
+/**
+ * How a written leaf's folder was chosen, for the run summary. A `modify`
+ * rewrites the target at its current path. An `add` reports the folder the
+ * curator chose, the folder derived from the leaf's edges and tags, or the
+ * root fallback when neither produced one.
+ */
+function describePlacement(
+  action: CuratorAction['action'],
+  relDir: string,
+  derived: boolean
+): string {
+  if (action === 'modify') return 'in place';
+  if (relDir === '') return 'root fallback';
+  return derived ? `derived: ${relDir}` : relDir;
+}
+
 function failure(action: CuratorAction, index: number, reason: string): PersistResult {
   return {
     index,
@@ -89,6 +106,9 @@ function failure(action: CuratorAction, index: number, reason: string): PersistR
  * Deterministic survivor persistence primitive. It consumes the non-conflict
  * survivor array from `curate-dedup`, writes every add/modify via the shared
  * node writer helpers, skips drops, and continues after per-action failures.
+ * An `add` lands in the curator's chosen `home_folder`, or, when the curator
+ * left it empty, in a folder derived from the candidate's own edges and tags;
+ * it writes at the `nodes/` root only when neither found one.
  *
  * Partial-failure contract:
  *   - malformed input: exit 1, no writes, error on stderr;
@@ -168,6 +188,7 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
       const node = action.proposed_node;
       let frontmatter: NodeFrontmatter;
       let relDir = '';
+      let derivedHome = false;
 
       if (action.action === 'add') {
         if (action.target_node_id !== null) {
@@ -175,12 +196,37 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
           continue;
         }
         const home = (action.home_folder ?? '').trim();
-        if (!isExistingFolder(paths.nodesDir, home)) {
-          results.push(failure(action, index, `home_folder "${home}" does not exist under nodes/`));
-          continue;
+        if (home !== '') {
+          // A folder the curator named must already exist. A wrong one stays a
+          // failed action; placement does not rescue it.
+          if (!isExistingFolder(paths.nodesDir, home)) {
+            results.push(
+              failure(action, index, `home_folder "${home}" does not exist under nodes/`)
+            );
+            continue;
+          }
+          relDir = home;
+        } else {
+          // The curator declined to choose, so derive the folder from the
+          // leaf's own edges and tags against the pre-loop tree snapshot. An
+          // unplaceable leaf, or a tree with no folders, keeps the root
+          // fallback: a novel note whose topic has no neighbours yet is still
+          // knowledge, and dropping it would lose it with no diff to review.
+          // Deletion belongs to the sweep, where the human reviews it.
+          const placement = placeLeaf(
+            {
+              tags: node.tags,
+              kk_relates_to: node.kk_relates_to,
+              kk_depends_on: node.kk_depends_on,
+            },
+            existingNodes
+          );
+          if (placement.kind === 'placed' && isExistingFolder(paths.nodesDir, placement.folder)) {
+            relDir = placement.folder;
+            derivedHome = true;
+          }
         }
         const id = ensureUniqueId(existingIds, deriveNodeId(node.type, node.title));
-        relDir = home;
         frontmatter = {
           type: node.type,
           title: node.title,
@@ -255,8 +301,7 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
         status: 'written',
         id: checked.data.kk_id,
         path: relPath(paths.nodesDir, filePath),
-        placement:
-          action.action === 'modify' ? 'in place' : relDir === '' ? 'root fallback' : relDir,
+        placement: describePlacement(action.action, relDir, derivedHome),
       });
     } catch (err) {
       results.push(failure(action, index, (err as Error).message));

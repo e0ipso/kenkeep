@@ -17,6 +17,7 @@ import { runSessionLogUpdateProposalsCommand } from './commands/session-log-upda
 import { runMigrateOkfV3 } from './commands/migrate-okf-v3.js';
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
+import { runNodeSweep } from './commands/node-sweep.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
 import { runPackExportCommand } from './commands/pack-export.js';
 import { runPackImportCommand } from './commands/pack-import.js';
@@ -461,6 +462,16 @@ async function main(): Promise<void> {
         process.exit(code);
       }
     );
+  nodeGroup
+    .command('sweep')
+    .description(
+      'Deterministic, LLM-free sweep of the nodes/ root: relocates every loose leaf into the folder its own edges and tags name (byte-stable, id-stable git renames), deletes the ones that match no folder, then rebuilds the indexes. A tree with no folders is left untouched. Writes files only; never stages or commits. Prints a JSON summary.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runNodeSweep();
+      process.exit(code);
+    });
 
   const indexGroup = program.command('index').description('Manage ENTRY.md and GRAPH.md.');
   indexGroup

@@ -1,6 +1,5 @@
 import { relative, sep } from 'node:path';
 import { log } from '../lib/log.js';
-import { InvalidNodeFrontmatterError, OldLayoutError } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { refreshRenderedLinks } from '../lib/rendered-links.js';
 import { runIndexRebuild } from './index-rebuild.js';
@@ -19,7 +18,9 @@ export async function runNodeRefreshLinks(): Promise<number> {
   try {
     written = refreshRenderedLinks(paths.nodesDir);
   } catch (err) {
-    if (err instanceof InvalidNodeFrontmatterError || err instanceof OldLayoutError) {
+    // Invalid frontmatter, the old layout and a refused symlinked leaf are all
+    // reported the same way; no leaf has been written when any of them throws.
+    if (err instanceof Error) {
       log.error(`node refresh-links: ${err.message}`);
       return 1;
     }

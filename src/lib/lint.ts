@@ -109,7 +109,7 @@ export function runLint(opts: LintOptions): LintResult {
   }
 
   // Owned folder indexes: exactly the bundle root plus every folder with a
-  // leaf beneath it carries a generated index.md — the same owned set `index
+  // leaf beneath it carries a generated index.md, the same owned set `index
   // rebuild` renders and reconciles. A missing one is an error; an index.md
   // anywhere else is a stale owned artifact (a branch whose last leaf left, a
   // hand-written or imported navigation file) that the rebuild would remove.

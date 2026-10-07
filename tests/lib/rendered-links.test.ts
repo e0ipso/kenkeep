@@ -193,6 +193,68 @@ describe('rendered Related/Citations link base', () => {
     expect(readFileSync(leaf, 'utf8')).toBe(written);
   });
 
+  // A marker layout that is not exactly one start line followed by one end
+  // line is ambiguous: which prose is generated cannot be told. The renderer
+  // leaves it untouched, lint reports it, and the explicit repair refuses it.
+  it.each([
+    [
+      'stray start before a real section',
+      ['<!-- kk:related:start -->', 'DURABLE_FACT', '', '<!-- kk:related:start -->'],
+    ],
+    ['nested start', ['<!-- kk:related:start -->', '<!-- kk:related:start -->', 'DURABLE_FACT']],
+    ['orphan start', ['<!-- kk:related:start -->', 'DURABLE_FACT']],
+    ['orphan end', ['DURABLE_FACT', '<!-- kk:related:end -->']],
+    ['reversed markers', ['<!-- kk:related:end -->', 'DURABLE_FACT', '<!-- kk:related:start -->']],
+    [
+      'duplicate sections',
+      [
+        '<!-- kk:related:start -->',
+        'DURABLE_FACT',
+        '<!-- kk:related:end -->',
+        '',
+        '<!-- kk:related:start -->',
+      ],
+    ],
+  ])('leaves a leaf with %s untouched and reports it', (_label, lines) => {
+    writeNodeFile({ nodesDir, frontmatter: fm('map-x'), body: '# X', relDir: 'refs' });
+    const tail =
+      lines.at(-1) === '<!-- kk:related:start -->'
+        ? ['# Related', '', '- Related: [map-x](/refs/map-x.md)', '<!-- kk:related:end -->']
+        : [];
+    const body = ['# Durable prose', ...lines, ...tail].join('\n');
+    const file = join(nodesDir, 'topic', 'practice-malformed.md');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      '---\nkk_schema_version: 3\nkk_id: practice-malformed\ntitle: m\ntype: practice\n' +
+        'description: m\ntags: []\nkk_derived_from: []\nkk_relates_to: [map-x]\n' +
+        `kk_confidence: high\n---\n${body}\n`
+    );
+    const bytes = readFileSync(file, 'utf8');
+
+    const drift = findRenderedLinkDrift(readAllNodes(nodesDir));
+    expect(drift.map(d => d.node.relPath)).toEqual(['topic/practice-malformed.md']);
+    expect(drift[0]!.message).toMatch(/malformed section markers/);
+    expect(refreshRenderedLinks(nodesDir)).toEqual([]);
+    expect(readFileSync(file, 'utf8')).toBe(bytes);
+    expect(() => refreshRenderedLinks(nodesDir, undefined, { refuseMalformed: true })).toThrow(
+      /practice-malformed\.md.*malformed section markers/s
+    );
+    expect(readFileSync(file, 'utf8')).toBe(bytes);
+
+    const rewritten = readFileSync(
+      writeNodeFile({
+        nodesDir,
+        frontmatter: fm('practice-rewrite', { kk_relates_to: ['map-x'] }),
+        body,
+        relDir: 'topic',
+      }),
+      'utf8'
+    );
+    expect(rewritten).toContain(`${body}\n`);
+    expect(rewritten).toContain('DURABLE_FACT');
+  });
+
   // The refresh writes through the same containment boundary as every other
   // leaf write: a symlinked leaf is refused before any leaf is rewritten.
   it('refuses a symlinked drifted leaf before rewriting any leaf', () => {

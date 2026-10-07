@@ -116,7 +116,7 @@ Run the primitive reported by dispatch:
 npx --yes kenkeep@latest migrate okf-v3
 ```
 
-It refuses unless the detected on-disk version is exactly `2`. On success it mechanically:
+It refuses unless the detected on-disk version is exactly `2`, or every leaf is already `3` but a v2 `index.md` remains or `ENTRY.md` is not yet `3` (an earlier run failed after its last leaf conversion). On success it mechanically:
 
 - renames leaf frontmatter `kind` -> `type` and `summary` -> `description`;
 - moves kenkeep-owned fields to `kk_` extension keys (`kk_schema_version`, `kk_id`, `kk_relates_to`, `kk_depends_on`, `kk_derived_from`, `kk_confidence`);
@@ -132,7 +132,7 @@ The primitive validates the complete tree in memory first (every leaf readable, 
 
 If `collisions` is non-empty, surface it clearly: those leaves already had an unmarked `# Related` or `# Citations` heading before the generated sections were appended. Do not try to merge the headings yourself; the user reviews the body diff.
 
-If the primitive fails part-way (a permission or disk error), it exits non-zero with the cause on stderr. The run is resumable: fix the cause and re-run the same command. It recognizes the leaves it already rewrote (`already_converted` counts them) and converts only the remaining v2 leaves, preserving every id, edge and `kk_derived_from`. Report the failure to the user before re-running; do not repair files yourself.
+If the primitive fails part-way (a permission or disk error), it exits non-zero with the cause on stderr. The run is resumable: fix the cause and re-run the same command. It recognizes the leaves it already rewrote (`already_converted` counts them) and converts only the remaining v2 leaves, preserving every id, edge and `kk_derived_from`. If the failure came after the last leaf was converted, the re-run converts nothing and only regenerates the indexes, `GRAPH.md` and `ENTRY.md`; `migrate status` reports no pending step meanwhile, so re-run the command directly. Report the failure to the user before re-running; do not repair files yourself.
 
 ### 2. Verify and hand off
 

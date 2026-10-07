@@ -1,10 +1,20 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { atomicWriteFile } from '../../src/lib/fs-atomic.js';
+import { atomicWriteFile, copyMissingEntries } from '../../src/lib/fs-atomic.js';
 
 const execFileAsync = promisify(execFile);
 const FS_ATOMIC_SRC = resolve(__dirname, '../../src/lib/fs-atomic.ts');
@@ -73,5 +83,44 @@ describe('atomicWriteFile (unique temp, always cleaned up)', () => {
 
     expect(readdirSync(dir)).toEqual(['blocked']);
     expect(readFileSync(join(dest, 'keep.txt'), 'utf8')).toBe('untouched');
+  });
+});
+
+describe('copyMissingEntries (never overwrites)', () => {
+  let dir: string;
+  let src: string;
+  let dest: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'kk-fs-copy-'));
+    src = join(dir, 'src');
+    dest = join(dir, 'dest');
+    mkdirSync(src);
+    writeFileSync(join(src, 'a'), 'template');
+    mkdirSync(join(src, 'sub'));
+    writeFileSync(join(src, 'sub', 'b'), 'template b');
+  });
+
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('copies missing files and directories', () => {
+    expect(copyMissingEntries(src, dest).sort()).toEqual(['a', 'sub']);
+    expect(readFileSync(join(dest, 'a'), 'utf8')).toBe('template');
+    expect(readFileSync(join(dest, 'sub', 'b'), 'utf8')).toBe('template b');
+  });
+
+  it('keeps an existing dangling symlink instead of replacing it', () => {
+    // existsSync follows links, so a link whose target is absent looks missing.
+    mkdirSync(dest);
+    const target = join(dir, 'user-owned');
+    symlinkSync(target, join(dest, 'a'));
+    symlinkSync(join(dir, 'user-owned-dir'), join(dest, 'sub'));
+
+    expect(copyMissingEntries(src, dest)).toEqual([]);
+
+    expect(lstatSync(join(dest, 'a')).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(dest, 'a'))).toBe(target);
+    expect(lstatSync(join(dest, 'sub')).isSymbolicLink()).toBe(true);
+    expect(readdirSync(dir).sort()).toEqual(['dest', 'src']);
   });
 });

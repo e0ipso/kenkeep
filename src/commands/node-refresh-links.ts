@@ -1,8 +1,9 @@
+import { existsSync } from 'node:fs';
 import { relative, sep } from 'node:path';
 import { log } from '../lib/log.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { refreshRenderedLinks } from '../lib/rendered-links.js';
-import { runIndexRebuild } from './index-rebuild.js';
+import { preflightIndexRebuild, runIndexRebuild } from './index-rebuild.js';
 
 /**
  * Explicit repair for the `stale-rendered-link` lint finding: re-render the
@@ -11,15 +12,29 @@ import { runIndexRebuild } from './index-rebuild.js';
  * catalogs from the final tree because the refreshed leaves' hashes changed.
  * A tree with no drift is left byte-identical and is not rebuilt. Writes files
  * only; never stages or commits.
+ *
+ * The rebuild's known refusals (an uninitialized repo, a malformed project
+ * config or AGENTS.md pointer block) are checked before any leaf is written,
+ * and a leaf with ambiguous section markers refuses the whole refresh, so a
+ * refusal never arrives after leaves already changed.
  */
 export async function runNodeRefreshLinks(): Promise<number> {
-  const paths = repoPaths(findRepoRoot());
+  const root = findRepoRoot();
+  const paths = repoPaths(root);
+  if (!existsSync(paths.installedVersionFile)) {
+    log.error(
+      'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
+    );
+    return 1;
+  }
   let written: string[];
   try {
-    written = refreshRenderedLinks(paths.nodesDir);
+    preflightIndexRebuild(root);
+    written = refreshRenderedLinks(paths.nodesDir, undefined, { refuseMalformed: true });
   } catch (err) {
-    // Invalid frontmatter, the old layout and a refused symlinked leaf are all
-    // reported the same way; no leaf has been written when any of them throws.
+    // A rebuild preflight refusal, invalid frontmatter, the old layout,
+    // ambiguous section markers and a refused symlinked leaf are all reported
+    // the same way; no leaf has been written when any of them throws.
     if (err instanceof Error) {
       log.error(`node refresh-links: ${err.message}`);
       return 1;

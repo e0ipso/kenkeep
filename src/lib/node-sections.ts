@@ -175,7 +175,8 @@ export interface SectionDrift {
  * Compare the generated sections a leaf body CARRIES with what a fresh render
  * from the current tree would produce. A section the body does not carry is
  * not drift (there is no stale link in it); a carried section that would now
- * render differently, or render to nothing, is.
+ * render differently, or render to nothing, is. A section with malformed
+ * markers is reported too: no render touches it, so it needs a hand repair.
  */
 export function detectSectionDrift(
   body: string,
@@ -191,8 +192,13 @@ export function detectSectionDrift(
       renderCitationsSection(frontmatter, ctx.leafRelPath),
     ],
   ];
-  const out: SectionDrift[] = [];
+  const out: SectionDrift[] = findMalformedSections(body).map(({ section, detail }) => ({
+    section,
+    detail: `malformed section markers: ${detail}; repair them by hand`,
+  }));
+  const malformed = new Set(out.map(d => d.section));
   for (const [section, start, end, expected] of checks) {
+    if (malformed.has(section)) continue;
     const actual = extractDelimitedSection(body, start, end);
     if (actual === null || actual === expected) continue;
     const actualLines = new Set(actual.split('\n'));
@@ -210,22 +216,37 @@ export function detectSectionDrift(
   return out;
 }
 
+/** How a generated section's markers sit in a leaf body. */
+type SectionLocation =
+  | { kind: 'absent' }
+  | { kind: 'present'; from: number; to: number }
+  | { kind: 'malformed'; detail: string };
+
 /**
  * Where a generated section sits in `body`: from the start of its start-marker
  * line to the end of its end marker. A marker counts only on its own line
  * (trailing whitespace allowed) and outside a fenced code block, so a marker
  * quoted inline in prose or shown in a fenced example never delimits a
- * section. Detection and replacement both use this, so a body the drift check
- * leaves alone is one the refresh leaves alone.
+ * section.
+ *
+ * Exactly one start line followed by one end line, with no other generated
+ * marker between them, is a section. Any other layout (a second start before
+ * the end, an end with no start, a start with no end, two sections) is
+ * malformed: which prose is generated cannot be told, so nothing guesses.
+ * Detection and replacement both use this, so a body the drift check leaves
+ * alone is one the refresh leaves alone, and a malformed body is reported and
+ * never rewritten.
  */
 function locateDelimitedSection(
   body: string,
   startMarker: string,
   endMarker: string
-): { from: number; to: number } | null {
+): SectionLocation {
+  const malformed = (detail: string): SectionLocation => ({ kind: 'malformed', detail });
   let offset = 0;
   let fence: string | null = null;
   let from: number | null = null;
+  let found: SectionLocation | null = null;
   for (const line of body.split('\n')) {
     const lineStart = offset;
     offset += line.length + 1;
@@ -241,13 +262,46 @@ function locateDelimitedSection(
     }
     if (fence !== null) continue;
     const text = line.trimEnd();
-    if (from === null) {
-      if (text === startMarker) from = lineStart;
+    if (text === startMarker) {
+      if (from !== null) return malformed(`a second ${startMarker} before ${endMarker}`);
+      if (found !== null) return malformed(`more than one ${startMarker} section`);
+      from = lineStart;
     } else if (text === endMarker) {
-      return { from, to: lineStart + endMarker.length };
+      if (from === null) return malformed(`${endMarker} without a preceding ${startMarker}`);
+      found = { kind: 'present', from, to: lineStart + endMarker.length };
+      from = null;
+    } else if (from !== null && GENERATED_MARKERS.has(text)) {
+      return malformed(`${text} inside the ${startMarker} section`);
     }
   }
-  return null;
+  if (from !== null) return malformed(`${startMarker} without a following ${endMarker}`);
+  return found ?? { kind: 'absent' };
+}
+
+const GENERATED_MARKERS: ReadonlySet<string> = new Set([
+  RELATED_SECTION_START,
+  RELATED_SECTION_END,
+  CITATIONS_SECTION_START,
+  CITATIONS_SECTION_END,
+]);
+
+const SECTION_MARKERS: ReadonlyArray<[SectionDrift['section'], string, string]> = [
+  ['Related', RELATED_SECTION_START, RELATED_SECTION_END],
+  ['Citations', CITATIONS_SECTION_START, CITATIONS_SECTION_END],
+];
+
+/**
+ * Every generated section whose marker layout in `body` is malformed (see
+ * `locateDelimitedSection`). Such a leaf is never rewritten by a render; it
+ * needs its markers repaired by hand.
+ */
+export function findMalformedSections(body: string): SectionDrift[] {
+  const out: SectionDrift[] = [];
+  for (const [section, start, end] of SECTION_MARKERS) {
+    const location = locateDelimitedSection(body, start, end);
+    if (location.kind === 'malformed') out.push({ section, detail: location.detail });
+  }
+  return out;
 }
 
 function extractDelimitedSection(
@@ -255,8 +309,8 @@ function extractDelimitedSection(
   startMarker: string,
   endMarker: string
 ): string | null {
-  const span = locateDelimitedSection(body, startMarker, endMarker);
-  return span === null ? null : body.slice(span.from, span.to);
+  const location = locateDelimitedSection(body, startMarker, endMarker);
+  return location.kind === 'present' ? body.slice(location.from, location.to) : null;
 }
 
 function spliceDelimitedSection(
@@ -265,12 +319,15 @@ function spliceDelimitedSection(
   endMarker: string,
   rendered: string
 ): string {
-  const span = locateDelimitedSection(body, startMarker, endMarker);
-  if (span !== null) {
+  const location = locateDelimitedSection(body, startMarker, endMarker);
+  // A malformed layout is left exactly as it is: no splice, no appended
+  // section (an appended pair after an orphan start would pair with it later).
+  if (location.kind === 'malformed') return body.trimEnd();
+  if (location.kind === 'present') {
     // The section takes its surrounding blank lines with it, so the splice
     // leaves exactly one blank line on each side.
-    let from = span.from;
-    let to = span.to;
+    let from = location.from;
+    let to = location.to;
     while (from > 0 && body[from - 1] === '\n') from -= 1;
     while (to < body.length && body[to] === '\n') to += 1;
     const replacement = rendered === '' ? '\n' : `\n\n${rendered}\n`;

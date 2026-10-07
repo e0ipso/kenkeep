@@ -1,7 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import {
+  constants,
+  copyFileSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -62,6 +65,10 @@ export function copyTree(src: string, dest: string): void {
  * Copies each top-level entry of `src` (only `names`, when given) into `dest`
  * when `dest` lacks it. Never overwrites, so local edits survive; a name `src`
  * does not ship is skipped. Returns the names it copied.
+ *
+ * A destination entry counts as present even when it is a dangling symlink,
+ * and the top-level create is exclusive, so an entry that appears between the
+ * check and the copy is left alone too.
  */
 export function copyMissingEntries(src: string, dest: string, names?: readonly string[]): string[] {
   if (!existsSync(src)) return [];
@@ -69,10 +76,39 @@ export function copyMissingEntries(src: string, dest: string, names?: readonly s
   for (const name of names ?? readdirSync(src)) {
     const from = join(src, name);
     const to = join(dest, name);
-    if (!existsSync(from) || existsSync(to)) continue;
+    if (!existsSync(from) || pathEntryExists(to)) continue;
     mkdirSync(dest, { recursive: true });
-    cpSync(from, to, { recursive: true });
-    copied.push(name);
+    if (copyEntryExclusive(from, to)) copied.push(name);
   }
   return copied;
+}
+
+function pathEntryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+/** Creates `to` from `from` without replacing anything; false when `to` already exists. */
+function copyEntryExclusive(from: string, to: string): boolean {
+  try {
+    const stat = lstatSync(from);
+    if (stat.isDirectory()) {
+      mkdirSync(to);
+      cpSync(from, to, { recursive: true, force: false, errorOnExist: true });
+    } else if (stat.isFile()) {
+      copyFileSync(from, to, constants.COPYFILE_EXCL);
+    } else {
+      cpSync(from, to, { force: false, errorOnExist: true });
+    }
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'EEXIST' || code === 'ERR_FS_CP_EEXIST') return false;
+    throw error;
+  }
 }

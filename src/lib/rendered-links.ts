@@ -8,6 +8,7 @@ import {
   type RenderLinkContext,
 } from './node-sections.js';
 import { readAllNodes, type NodeFile } from './nodes.js';
+import { assertContained } from './path-safety.js';
 import { readRedirectsLedger, resolveRedirect, type RedirectsLedger } from './redirects.js';
 
 /** One leaf whose carried Related/Citations links no longer match the tree. */
@@ -72,6 +73,9 @@ export function findRenderedLinkDrift(
  * current section, or a dangling edge at its fallback) is not touched
  * (idempotent).
  *
+ * A planned write through a symlinked leaf or folder is refused (throws)
+ * before any leaf is written, the same boundary `writeNodeFile` applies.
+ *
  * Returns the rewritten paths in tree order. Callers must rebuild the
  * generated catalogs afterwards: a refreshed leaf's hash changed.
  */
@@ -88,7 +92,7 @@ export function refreshRenderedLinks(nodesDir: string, scope?: ReadonlySet<strin
     scope === undefined ||
     scope.has(node.frontmatter.kk_id) ||
     [...node.frontmatter.kk_relates_to, ...node.frontmatter.kk_depends_on].some(edgeInScope);
-  const written: string[] = [];
+  const planned: Array<{ node: NodeFile; body: string }> = [];
   for (const { node } of findRenderedLinkDrift(nodes, ledger)) {
     if (!inScope(node)) continue;
     const body =
@@ -98,10 +102,14 @@ export function refreshRenderedLinks(nodesDir: string, scope?: ReadonlySet<strin
         contextFor(node, pathsById, ledger)
       ).trimEnd() + '\n';
     if (body === node.body.trimEnd() + '\n') continue;
-    atomicWriteFile(node.path, withBody(node, body));
-    written.push(node.path);
+    planned.push({ node, body });
   }
-  return written;
+  // The read follows symlinks, but a write must not: check the whole planned
+  // set against the shared containment boundary first, so a refused leaf
+  // leaves every other leaf untouched too.
+  for (const { node } of planned) assertContained(nodesDir, node.path);
+  for (const { node, body } of planned) atomicWriteFile(node.path, withBody(node, body));
+  return planned.map(({ node }) => node.path);
 }
 
 /**

@@ -104,7 +104,7 @@ describe('legacy layout detection', () => {
     );
 
     // The move writes map/map-alpha.md with no index.md, then drives the
-    // index rebuild itself — the exact window the old folder-name check broke.
+    // index rebuild itself: the exact window the old folder-name check broke.
     const move = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
     expect(move.exitCode, move.stdout + move.stderr).toBe(0);
     expect(move.stderr).not.toMatch(/legacy|kk-migrate/);

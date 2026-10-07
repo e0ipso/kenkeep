@@ -132,7 +132,7 @@ export function snapshotTree(nodesDir: string): TreeSnapshot {
 
 /**
  * The owned folder set: every directory that must carry a generated
- * `index.md` — the bundle root, every leaf's directory, and every ancestor
+ * `index.md`: the bundle root, every leaf's directory, and every ancestor
  * between them (POSIX relDir, `''` = root). Derived purely from the leaf set,
  * so a branch whose last leaf left is no longer owned. Shared by the generator
  * (which renders exactly this set), the rebuild (which removes any owned file

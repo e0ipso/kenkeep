@@ -212,8 +212,8 @@ export const NodeFrontmatterSchema = z
     /**
      * Canonical `<type>-<slug>` id (the lint naming rule), refined below. The
      * id names the leaf file, so a non-canonical id (uppercase, `..`, `/`) is
-     * rejected by the reader as a diagnostic — before any writer could join it
-     * into a path — rather than silently normalized or migrated.
+     * rejected by the reader as a diagnostic, before any writer could join it
+     * into a path, rather than silently normalized or migrated.
      */
     kk_id: z.string(),
     kk_derived_from: z.array(z.string()),

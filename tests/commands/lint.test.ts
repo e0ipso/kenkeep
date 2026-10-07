@@ -329,6 +329,50 @@ describe('lint command', () => {
     expect(after.stdout + after.stderr).toContain('stale-rendered-link: 0');
   });
 
+  it('refuses node refresh-links on a known index-rebuild refusal before changing any leaf', async () => {
+    const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
+    const base: Omit<NodeFrontmatter, 'kk_id' | 'title' | 'type'> = {
+      kk_schema_version: 3,
+      description: 's',
+      tags: [],
+      kk_derived_from: [],
+      kk_relates_to: [],
+      kk_depends_on: [],
+      kk_confidence: 'high',
+    };
+    writeNodeFile({
+      nodesDir,
+      frontmatter: { ...base, kk_id: 'map-x', title: 'x', type: 'map' },
+      body: '# X',
+      relDir: 'c',
+    });
+    const leaf = writeNodeFile({
+      nodesDir,
+      frontmatter: {
+        ...base,
+        kk_id: 'practice-leaf',
+        title: 'leaf',
+        type: 'practice',
+        kk_relates_to: ['map-x'],
+      },
+      body: '# Leaf',
+      relDir: 'a',
+    });
+    expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
+    writeFileSync(leaf, readFileSync(leaf, 'utf8').replace('(../c/map-x.md)', '(/c/map-x.md)'));
+    const agents = join(sandbox, 'AGENTS.md');
+    writeFileSync(agents, '# Repo instructions\n<!-- >>> kenkeep:kk-index >>> -->\n');
+    const generated = ['ENTRY.md', 'GRAPH.md', 'nodes/index.md', 'nodes/a/index.md'].map(f =>
+      join(sandbox, '.ai/kenkeep', f)
+    );
+    const before = [leaf, agents, ...generated].map(f => readFileSync(f, 'utf8'));
+
+    const refresh = await runCli(sandbox, ['node', 'refresh-links']);
+    expect(refresh.exitCode).toBe(1);
+    expect(refresh.stdout + refresh.stderr).not.toContain('refreshed a/practice-leaf.md');
+    expect([leaf, agents, ...generated].map(f => readFileSync(f, 'utf8'))).toEqual(before);
+  });
+
   it('reports tag-whitespace and empty-summary findings without changing exit code', async () => {
     writeNode(sandbox, 'practice', 'practice-tag-space', {
       kk_id: 'practice-tag-space',

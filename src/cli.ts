@@ -285,7 +285,10 @@ async function main(): Promise<void> {
     .option('--version <version>', 'pack version')
     .option('--summary <text>', 'one-line pack summary')
     .option('--homepage <url>', 'optional homepage URL')
-    .option('--out <dir>', 'output directory (default: dist)')
+    .option(
+      '--out <dir>',
+      'output directory (default: dist); must be new, empty, or a previous pack export, and only the pack files in it are replaced'
+    )
     .allowExcessArguments(true)
     .action(
       async (opts: {

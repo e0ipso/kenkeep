@@ -5,6 +5,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -280,13 +281,10 @@ describe('pack export command', () => {
     };
     expect((await capture(() => runPackExportCommand(opts))).code).toBe(0);
     const first = snapshotTree(join(sandbox, 'dist'));
-    writeFileSync(join(sandbox, 'dist/extra.txt'), 'stale\n');
 
     expect((await capture(() => runPackExportCommand(opts))).code).toBe(0);
-    const second = snapshotTree(join(sandbox, 'dist'));
 
-    expect(second).toEqual(first);
-    expect(existsSync(join(sandbox, 'dist/extra.txt'))).toBe(false);
+    expect(snapshotTree(join(sandbox, 'dist'))).toEqual(first);
   });
 
   it('errors clearly when there is no knowledge base', async () => {
@@ -302,5 +300,97 @@ describe('pack export command', () => {
 
     expect(result.code).toBe(1);
     expect(result.stderr).toContain('nodes/ directory does not exist');
+  });
+});
+
+describe('pack export output directory', () => {
+  const PACK = { name: 'drupal', version: '1.2.0', summary: 'Drupal project conventions.' };
+  let original: string;
+  let sandbox: string;
+
+  beforeEach(() => {
+    original = process.cwd();
+    sandbox = mkdtempSync(join(tmpdir(), 'kk-pack-export-out-'));
+    process.chdir(sandbox);
+    seedKnowledgeBase(sandbox);
+    mkdirSync(join(sandbox, '.git'), { recursive: true });
+    writeFileSync(join(sandbox, '.git/HEAD'), 'ref: refs/heads/main\n');
+    mkdirSync(join(sandbox, 'src'), { recursive: true });
+    writeFileSync(join(sandbox, 'src/app.ts'), 'export const app = 1;\n');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.chdir(original);
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('re-exports into a pack repository without touching its other files', async () => {
+    expect((await capture(() => runPackExportCommand(PACK))).code).toBe(0);
+    mkdirSync(join(sandbox, 'dist/.git'), { recursive: true });
+    writeFileSync(join(sandbox, 'dist/.git/HEAD'), 'ref: refs/heads/main\n');
+    writeFileSync(join(sandbox, 'dist/LICENSE'), 'MIT\n');
+    writeFileSync(join(sandbox, 'dist/knowledge/stale.md'), 'removed since the last export\n');
+
+    const result = await capture(() => runPackExportCommand({ ...PACK, version: '1.3.0' }));
+
+    expect(result.code).toBe(0);
+    expect(readFileSync(join(sandbox, 'dist/.git/HEAD'), 'utf8')).toBe('ref: refs/heads/main\n');
+    expect(readFileSync(join(sandbox, 'dist/LICENSE'), 'utf8')).toBe('MIT\n');
+    expect(existsSync(join(sandbox, 'dist/knowledge/stale.md'))).toBe(false);
+    const manifest = yaml.load(
+      readFileSync(join(sandbox, 'dist/kenkeep-pack.yaml'), 'utf8')
+    ) as PackManifest;
+    expect(manifest.version).toBe('1.3.0');
+    expect(validatePack(join(sandbox, 'dist')).ok).toBe(true);
+    expect(readdirSync(sandbox).filter(entry => entry.startsWith('.dist-tmp-'))).toEqual([]);
+  });
+
+  it('exports into an existing empty directory', async () => {
+    mkdirSync(join(sandbox, 'dist'), { recursive: true });
+
+    const result = await capture(() => runPackExportCommand(PACK));
+
+    expect(result.code).toBe(0);
+    expect(validatePack(join(sandbox, 'dist')).ok).toBe(true);
+  });
+
+  it.each([
+    ['the repository root', '.', null],
+    ['an ancestor of the repository', '..', null],
+    ['the filesystem root', '/', null],
+    ['the git directory', '.git', null],
+    ['an application build directory', 'dist', 'app.js'],
+    ['a directory with a broken manifest', 'dist', 'kenkeep-pack.yaml'],
+    ['an output inside the knowledge base', '.ai/kenkeep/pack', null],
+  ])('refuses %s and changes nothing', async (_label, out, seeded) => {
+    if (seeded !== null) {
+      mkdirSync(join(sandbox, out), { recursive: true });
+      writeFileSync(join(sandbox, out, seeded), 'not: [a manifest\n');
+    }
+    const before = snapshotTree(sandbox);
+
+    const result = await capture(() => runPackExportCommand({ ...PACK, out }));
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('refusing to write to');
+    expect(snapshotTree(sandbox)).toEqual(before);
+    expect(readdirSync(sandbox).filter(entry => entry.includes('-tmp-'))).toEqual([]);
+  });
+
+  it('refuses a symlinked output instead of following it', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'kk-pack-export-target-'));
+    try {
+      writeFileSync(join(outside, 'keep.txt'), 'keep\n');
+      symlinkSync(outside, join(sandbox, 'dist'));
+
+      const result = await capture(() => runPackExportCommand(PACK));
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('symlink');
+      expect(readdirSync(outside)).toEqual(['keep.txt']);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 });

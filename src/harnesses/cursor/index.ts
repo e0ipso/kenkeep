@@ -4,7 +4,7 @@ import { cursorDoctorChecks } from './doctor.js';
 import { runHeadlessCursor } from './headless.js';
 import { cursorHookSpecs } from './hook-spec.js';
 import { cursorPaths, installCursor } from './install.js';
-import { buildCursorHarnessOpts } from './opts.js';
+import { buildCursorHarnessOpts, cursorLaunchModelArgs } from './opts.js';
 import { parseCursorTranscript, renderCursorTranscript } from './transcript.js';
 
 /**
@@ -34,10 +34,10 @@ export const cursorAdapter: HarnessAdapter = {
   upgrade: opts => installCursor(opts),
   parseTranscript: parseCursorTranscript,
   renderTranscript: renderCursorTranscript,
-  runHeadless: (promptBody, stdin, schema, opts) =>
-    runHeadlessCursor(promptBody, stdin, schema, opts ?? {}),
+  runHeadless: (promptBody, schema, opts) => runHeadlessCursor(promptBody, schema, opts ?? {}),
   buildHarnessOpts: (settings: EffectiveSettings, role: ModelChoiceRole) =>
     buildCursorHarnessOpts(settings, role),
+  launchModelArgs: cursorLaunchModelArgs,
   doctorChecks: paths => cursorDoctorChecks(paths),
   detectFromEnv: detectCursorFromEnv,
   listMemoryFiles: async () => [],

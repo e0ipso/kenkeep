@@ -4,7 +4,7 @@ import { copilotDoctorChecks } from './doctor.js';
 import { runHeadlessCopilot } from './headless.js';
 import { copilotHookSpecs } from './hook-spec.js';
 import { copilotPaths, installCopilot } from './install.js';
-import { buildCopilotHarnessOpts } from './opts.js';
+import { buildCopilotHarnessOpts, copilotLaunchModelArgs } from './opts.js';
 import { parseCopilotTranscript, renderCopilotTranscript } from './transcript.js';
 
 /**
@@ -32,10 +32,10 @@ export const copilotAdapter: HarnessAdapter = {
   upgrade: opts => installCopilot(opts),
   parseTranscript: parseCopilotTranscript,
   renderTranscript: renderCopilotTranscript,
-  runHeadless: (promptBody, stdin, schema, opts) =>
-    runHeadlessCopilot(promptBody, stdin, schema, opts ?? {}),
+  runHeadless: (promptBody, schema, opts) => runHeadlessCopilot(promptBody, schema, opts ?? {}),
   buildHarnessOpts: (settings: EffectiveSettings, role: ModelChoiceRole) =>
     buildCopilotHarnessOpts(settings, role),
+  launchModelArgs: copilotLaunchModelArgs,
   doctorChecks: paths => copilotDoctorChecks(paths),
   // Copilot CLI has no native auto-memory feature today; return [] without
   // spawning a child. The interface stays uniform across adapters.

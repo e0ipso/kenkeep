@@ -13,12 +13,21 @@ import { join } from 'node:path';
 import lockfile from 'proper-lockfile';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { repoPaths, type RepoPaths } from '../../src/lib/paths.js';
+import type { ProposalOutput } from '../../src/lib/schemas.js';
 import { renderSessionLog } from '../../src/lib/session-log.js';
 import {
+  buildProposalPrompt,
   drainProposalQueue,
   PROPOSAL_DRAIN_LOCK_OPTIONS,
+  TRANSCRIPT_PLACEHOLDER,
   type ProposalRunner,
 } from '../../src/lib/proposal-drain.js';
+
+// JavaScript's String.prototype.replace expands these tokens in a string
+// replacement: `$$` -> `$`, `$&` -> the match, `$'` -> the suffix and the
+// dollar-backtick token -> the prefix. Common shell text in a transcript
+// must survive substitution byte for byte.
+const REPLACEMENT_TOKEN_TRANSCRIPT = "echo $$ and $& and $' and $`";
 
 // The proposal-drain engine is custom business logic with no integration-level
 // coverage: the spawned `kk-proposal-drain` hook returns early in every
@@ -57,7 +66,6 @@ function seedSession(harness: Harness, sessionId: string, transcript: string): s
       capturedBy: 'stop',
       capturedAt: '2026-05-11T10:00:00Z',
       transcriptHash: `sha256:${sessionId}`,
-      secretScanStatus: 'clean',
       body: transcript,
     })
   );
@@ -81,29 +89,34 @@ function seedSessionWithStatus(
 const PROMPT_TEMPLATE =
   'Extract knowledge from the following transcript.\n\n[TRANSCRIPT PLACEHOLDER, substituted at runtime]';
 
+// A schema-valid extraction result. The stub runner parses it with the
+// schema the engine passes, exactly as the real headless runners do, so a
+// fixture that drifts from ProposalOutputSchema fails instead of passing.
+const SUCCESS_OUTPUT: ProposalOutput = {
+  practice: [
+    {
+      type: 'practice',
+      tags: ['di'],
+      title: 'Use DI',
+      description: 'Inject services in constructors',
+      body: 'Constructor injection is the convention.',
+      kk_confidence: 'high',
+    },
+  ],
+  map: [
+    {
+      type: 'map',
+      tags: ['module'],
+      title: 'rm_discover module',
+      description: 'Personalized section module',
+      body: 'Lives at modules/custom/rm_discover.',
+      kk_confidence: 'high',
+    },
+  ],
+};
+
 function successRunner(): ProposalRunner {
-  return async () => ({
-    practice: [
-      {
-        kind: 'practice',
-        tags: ['di'],
-        title: 'Use DI',
-        summary: 'Inject services in constructors',
-        body: 'Constructor injection is the convention.',
-        confidence: 'high',
-      },
-    ],
-    map: [
-      {
-        kind: 'map',
-        tags: ['module'],
-        title: 'rm_discover module',
-        summary: 'Personalized section module',
-        body: 'Lives at modules/custom/rm_discover.',
-        confidence: 'high',
-      },
-    ],
-  });
+  return async (_prompt, schema) => schema.parse(SUCCESS_OUTPUT);
 }
 
 describe('drainProposalQueue', () => {
@@ -116,9 +129,9 @@ describe('drainProposalQueue', () => {
   it('processes a pending log on success, substitutes the transcript, and updates frontmatter', async () => {
     const file = seedSession(harness, 's1', 'TRANSCRIPT-BODY-MARKER');
     let receivedPrompt = '';
-    const runner: ProposalRunner = async (prompt, _stdin, _schema, _opts) => {
+    const runner: ProposalRunner = async (prompt, _schema, _opts) => {
       receivedPrompt = prompt;
-      return successRunner()(prompt, _stdin, _schema, _opts);
+      return successRunner()(prompt, _schema, _opts);
     };
 
     const summary = await drainProposalQueue({
@@ -140,6 +153,25 @@ describe('drainProposalQueue', () => {
     const proposals = after.data['proposals'] as { practice: unknown[]; map: unknown[] };
     expect(proposals.practice).toHaveLength(1);
     expect(proposals.map).toHaveLength(1);
+  });
+
+  it('substitutes the transcript literally, preserving replacement-token syntax', async () => {
+    seedSession(harness, 's-literal', REPLACEMENT_TOKEN_TRANSCRIPT);
+    let receivedPrompt = '';
+    const runner: ProposalRunner = async (prompt, schema, opts) => {
+      receivedPrompt = prompt;
+      return successRunner()(prompt, schema, opts);
+    };
+
+    const summary = await drainProposalQueue({
+      paths: harness.paths,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner,
+    });
+
+    expect(summary.processed[0]?.status).toBe('done');
+    const [prefix, suffix] = PROMPT_TEMPLATE.split(TRANSCRIPT_PLACEHOLDER);
+    expect(receivedPrompt).toBe(`${prefix}${REPLACEMENT_TOKEN_TRANSCRIPT}${suffix}`);
   });
 
   it('processes only pending logs, ignoring done/failed entries', async () => {
@@ -241,5 +273,120 @@ describe('drainProposalQueue', () => {
     });
     expect(summary.processed).toHaveLength(2);
     expect(summary.remaining).toBe(2);
+  });
+});
+
+describe('buildProposalPrompt', () => {
+  it('round-trips replacement-token text byte for byte', () => {
+    const template = `before\n${TRANSCRIPT_PLACEHOLDER}\nafter`;
+    expect(buildProposalPrompt(template, REPLACEMENT_TOKEN_TRANSCRIPT)).toBe(
+      `before\n${REPLACEMENT_TOKEN_TRANSCRIPT}\nafter`
+    );
+  });
+});
+
+describe('drainProposalQueue transcript-version binding', () => {
+  let harness: Harness;
+  beforeEach(() => {
+    harness = makeHarness();
+  });
+  afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
+
+  function writeLog(filename: string, log: string): string {
+    const path = join(harness.sessionsDir, filename);
+    writeFileSync(path, log);
+    return path;
+  }
+
+  it('leaves a newer capture pending instead of overwriting it with a stale extraction', async () => {
+    const path = writeLog(
+      'session-overlap.md',
+      renderSessionLog({
+        sessionId: 'overlap',
+        capturedBy: 'stop',
+        capturedAt: '2026-05-11T10:00:00Z',
+        transcriptHash: 'sha256:v1',
+        body: '[USER]: version one',
+      })
+    );
+    const newerLog = renderSessionLog({
+      sessionId: 'overlap',
+      capturedBy: 'stop',
+      capturedAt: '2026-05-11T10:01:00Z',
+      transcriptHash: 'sha256:v2',
+      body: '[USER]: version one\n\n[USER]: NEWER-TURN',
+    });
+
+    // The runner pauses mid-extraction; a newer capture lands while it waits.
+    let resume: (() => void) | undefined;
+    const paused = new Promise<void>(res => {
+      resume = res;
+    });
+    let extractedFrom = '';
+    const runner: ProposalRunner = async (prompt, schema, opts) => {
+      extractedFrom = prompt;
+      writeFileSync(path, newerLog);
+      await paused;
+      return successRunner()(prompt, schema, opts);
+    };
+
+    const drain = drainProposalQueue({
+      paths: harness.paths,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner,
+    });
+    // Before write-back: the file holds the newer body and is still pending.
+    await new Promise(res => setTimeout(res, 20));
+    expect(readFileSync(path, 'utf8')).toBe(newerLog);
+    resume!();
+    const summary = await drain;
+
+    expect(extractedFrom).toContain('version one');
+    expect(extractedFrom).not.toContain('NEWER-TURN');
+    expect(summary.processed).toEqual([{ sessionId: 'overlap', status: 'stale' }]);
+    // The stale result never touched the newer version; it stays pending for the next drain.
+    expect(readFileSync(path, 'utf8')).toBe(newerLog);
+    const after = matter(readFileSync(path, 'utf8'));
+    expect(after.data['proposal_status']).toBe('pending');
+    expect(after.data['transcript_hash']).toBe('sha256:v2');
+    expect(after.data['proposals']).toEqual({ practice: [], map: [] });
+    expect(summary.remaining).toBe(1);
+  });
+
+  it('extracts only the uncurated delta of a log that grew after curation', async () => {
+    const full = '[USER]: curated turn\n\n[AGENT]: curated answer\n\n[USER]: NEW-TURN';
+    const prefixChars = '[USER]: curated turn\n\n[AGENT]: curated answer'.length;
+    writeLog(
+      'session-delta.md',
+      renderSessionLog({
+        sessionId: 'delta',
+        capturedBy: 'stop',
+        capturedAt: '2026-05-11T10:00:00Z',
+        transcriptHash: 'sha256:v2',
+        body: full,
+        curatedPrefixChars: prefixChars,
+        curatorProcessedAt: '2026-05-11T09:00:00Z',
+        curatorRunId: 'run-1',
+        curatedTranscriptHash: 'sha256:v1',
+        curatedTranscriptChars: prefixChars,
+      })
+    );
+    let received = '';
+    const runner: ProposalRunner = async (prompt, schema, opts) => {
+      received = prompt;
+      return successRunner()(prompt, schema, opts);
+    };
+    const summary = await drainProposalQueue({
+      paths: harness.paths,
+      promptTemplate: PROMPT_TEMPLATE,
+      runner,
+    });
+    expect(summary.processed[0]?.status).toBe('done');
+    expect(received).toContain('NEW-TURN');
+    expect(received).not.toContain('curated turn');
+    const after = matter(readFileSync(join(harness.sessionsDir, 'session-delta.md'), 'utf8'));
+    expect(after.data['proposal_status']).toBe('done');
+    expect(after.data['curated_transcript_hash']).toBe('sha256:v1');
+    expect(after.content).toContain('## Curated prefix');
   });
 });

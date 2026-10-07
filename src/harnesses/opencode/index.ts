@@ -4,7 +4,7 @@ import { openCodeDoctorChecks } from './doctor.js';
 import { runHeadlessOpenCode } from './headless.js';
 import { openCodeHookSpecs } from './hook-spec.js';
 import { installOpenCode, openCodePaths } from './install.js';
-import { buildOpenCodeHarnessOpts } from './opts.js';
+import { buildOpenCodeHarnessOpts, openCodeLaunchModelArgs } from './opts.js';
 import { parseOpenCodeTranscriptText, renderOpenCodeTranscript } from './transcript.js';
 
 /**
@@ -29,10 +29,10 @@ export const openCodeAdapter: HarnessAdapter = {
   upgrade: opts => installOpenCode(opts),
   parseTranscript: parseOpenCodeTranscriptText,
   renderTranscript: renderOpenCodeTranscript,
-  runHeadless: (promptBody, stdin, schema, opts) =>
-    runHeadlessOpenCode(promptBody, stdin, schema, opts ?? {}),
+  runHeadless: (promptBody, schema, opts) => runHeadlessOpenCode(promptBody, schema, opts ?? {}),
   buildHarnessOpts: (settings: EffectiveSettings, role: ModelChoiceRole) =>
     buildOpenCodeHarnessOpts(settings, role),
+  launchModelArgs: openCodeLaunchModelArgs,
   doctorChecks: paths => openCodeDoctorChecks(paths),
   // OpenCode has no native auto-memory feature today; return [] without
   // spawning a child. The interface stays uniform across adapters.

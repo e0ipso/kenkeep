@@ -34,7 +34,6 @@ export const PROPOSAL_DRAIN_LOCK_OPTIONS = { stale: 60_000, realpath: false } as
 
 export type ProposalRunner = <T>(
   promptBody: string,
-  stdin: string,
   schema: ZodSchema<T>,
   opts: {
     timeoutMs: number;
@@ -242,7 +241,7 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
   let patch: FrontmatterPatch;
   let outcome: DrainEntryResult;
   try {
-    const out = await runner(prompt, '', ProposalOutputSchema, {
+    const out = await runner(prompt, ProposalOutputSchema, {
       timeoutMs,
       logFile,
       role: 'proposal',
@@ -299,7 +298,9 @@ export function buildProposalPrompt(template: string, transcript: string): strin
       `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
     );
   }
-  return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
+  // Callback form: a string replacement expands `$$`, `$&`, `$'` and the
+  // dollar-backtick token, which would rewrite shell text in the transcript.
+  return template.replace(TRANSCRIPT_PLACEHOLDER, () => transcript);
 }
 
 export function proposalLogPath(logsDir: string, sessionId: string, when: Date): string {

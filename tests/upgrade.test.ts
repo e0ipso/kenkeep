@@ -344,18 +344,52 @@ describe('doctor: installed-version currency', () => {
     expect(result.stdout + result.stderr).toMatch(/Filed 1 loose leaf/);
   });
 
-  it('deletes a root leaf that matches no folder and says so', async () => {
+  it('deletes a tracked root leaf that matches no folder and prints its git restore', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     writeLeaf(sandbox, 'harnesses', 'practice-anchor', { tags: ['harness'] });
     writeLeaf(sandbox, '', 'practice-orphan', { tags: ['matches-nothing-anywhere'] });
+    await exec('git', ['add', '-A'], { cwd: sandbox });
+    await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base'], {
+      cwd: sandbox,
+    });
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
 
     expect(result.exitCode).toBe(0);
-    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/practice-orphan.md'))).toBe(false);
+    const orphan = join(sandbox, '.ai/kenkeep/nodes/practice-orphan.md');
+    expect(existsSync(orphan)).toBe(false);
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/Deleted 1 leaf matching no folder/);
-    expect(combined).toMatch(/practice-orphan\.md/);
+    expect(combined).toMatch(/restore: git restore -- \.ai\/kenkeep\/nodes\/practice-orphan\.md/);
+    await exec('git', ['restore', '--', '.ai/kenkeep/nodes/practice-orphan.md'], { cwd: sandbox });
+    expect(existsSync(orphan)).toBe(true);
+  });
+
+  // Upgrade runs the same protected sweep as `node sweep`.
+  it('keeps an untracked unplaceable leaf and a referenced one at the root', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    writeLeaf(sandbox, 'harnesses', 'practice-anchor', {
+      tags: ['harness'],
+      relates_to: ['practice-referenced'],
+    });
+    writeLeaf(sandbox, '', 'practice-referenced', { tags: ['matches-nothing-anywhere'] });
+    writeLeaf(sandbox, '', 'practice-novel', { tags: ['matches-nothing-anywhere'] });
+    const novel = join(sandbox, '.ai/kenkeep/nodes/practice-novel.md');
+    const novelBytes = readFileSync(novel, 'utf8');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+
+    expect(result.exitCode).toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).not.toMatch(/Deleted/);
+    expect(combined).toMatch(/Kept 2 leaves matching no folder/);
+    expect(combined).toMatch(/practice-novel\.md \(.*git cannot restore/);
+    expect(combined).toMatch(/practice-referenced\.md \(.*other nodes reference it/);
+    expect(readFileSync(novel, 'utf8')).toBe(novelBytes);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/practice-referenced.md'))).toBe(true);
+
+    const lint = await runCli(sandbox, ['lint']);
+    expect(lint.stdout + lint.stderr).toMatch(/^dangling-edge: 0$/m);
   });
 
   it('leaves a tree with no folders untouched, deleting nothing', async () => {

@@ -1,4 +1,5 @@
 import type { NodeFile } from './nodes.js';
+import { resolveRedirect, type RedirectsLedger } from './redirects.js';
 
 /**
  * Deterministic home-folder placement for a loose leaf.
@@ -15,9 +16,10 @@ import type { NodeFile } from './nodes.js';
  *
  * Resolution runs in order and stops at the first single winner:
  *
- *   1. Tally every edge target by the folder it currently occupies. Targets
- *      that dangle, that sit at the root, or that are the leaf itself
- *      contribute nothing. `kk_relates_to` and `kk_depends_on` carry equal
+ *   1. Tally every edge target by the folder it currently occupies. An edge
+ *      naming a retired id counts for each live successor the redirect ledger
+ *      resolves it to. Targets that dangle, that sit at the root, or that are
+ *      the leaf itself contribute nothing. `kk_relates_to` and `kk_depends_on` carry equal
  *      weight; that is a starting point to revisit if evidence appears, not a
  *      measured conclusion.
  *   2. On a tie, score each tied folder by how many of the leaf's tags appear
@@ -81,21 +83,33 @@ function groupByFolder(tree: NodeFile[]): Map<string, NodeFile[]> {
 }
 
 /**
+ * The live ids an edge lands on: the id itself when live, else every live
+ * successor the ledger resolves it to (an edge naming a retired id is a valid
+ * edge; lint calls it redirected, not dangling). Empty when it dangles.
+ */
+function edgeTargets(id: string, live: ReadonlySet<string>, ledger: RedirectsLedger): string[] {
+  return live.has(id) ? [id] : resolveRedirect(ledger, live, id);
+}
+
+/**
  * Folders holding the highest edge tally, alphabetically ordered. Empty when no
  * target resolves to a folder.
  */
 function topByEdgeCount(
   leaf: PlacementInput,
   tree: NodeFile[],
-  selfId: string | undefined
+  selfId: string | undefined,
+  ledger: RedirectsLedger
 ): string[] {
   const folderById = new Map(tree.map(node => [node.frontmatter.kk_id, node.relDir]));
+  const live = new Set(folderById.keys());
   const counts = new Map<string, number>();
   for (const id of [...leaf.kk_relates_to, ...(leaf.kk_depends_on ?? [])]) {
-    if (id === selfId) continue;
-    const folder = folderById.get(id);
-    if (folder === undefined || folder === '') continue;
-    counts.set(folder, (counts.get(folder) ?? 0) + 1);
+    for (const target of edgeTargets(id, live, ledger)) {
+      const folder = folderById.get(target);
+      if (target === selfId || folder === undefined || folder === '') continue;
+      counts.set(folder, (counts.get(folder) ?? 0) + 1);
+    }
   }
   let best = 0;
   for (const count of counts.values()) if (count > best) best = count;
@@ -149,12 +163,15 @@ function placeByOverlap(top: string[]): PlacementResult {
 /**
  * Resolves a leaf's home folder from its own edges and tags against the given
  * tree. `selfId` is the leaf's id when it is already part of `tree`, so it
- * neither votes for its own folder nor scores against itself.
+ * neither votes for its own folder nor scores against itself. `ledger` is the
+ * redirects ledger, so an edge naming a retired id votes for the folder(s) of
+ * its live successor(s) instead of dangling.
  */
 export function placeLeaf(
   leaf: PlacementInput,
   tree: NodeFile[],
-  selfId?: string
+  selfId?: string,
+  ledger: RedirectsLedger = {}
 ): PlacementResult {
   const byFolder = groupByFolder(tree);
   // Root leaves belong to no folder: they are neither a destination nor tag
@@ -164,7 +181,7 @@ export function placeLeaf(
   if (folders.length === 0) return { kind: 'no-folders' };
 
   const tags = new Set(leaf.tags);
-  const edgeCandidates = topByEdgeCount(leaf, tree, selfId);
+  const edgeCandidates = topByEdgeCount(leaf, tree, selfId, ledger);
   if (edgeCandidates.length === 1) {
     return { kind: 'placed', folder: edgeCandidates[0]!, reason: 'edges' };
   }
@@ -175,4 +192,24 @@ export function placeLeaf(
   const wholeTree = topByTagOverlap(folders, tags, byFolder, selfId);
   if (wholeTree.score <= 0) return { kind: 'unplaceable' };
   return placeByOverlap(wholeTree.folders);
+}
+
+/**
+ * Every other node whose `kk_relates_to` or `kk_depends_on` names `id`, in tree
+ * order, directly or through the redirect `ledger` (an edge naming a retired id
+ * whose live successors include `id`). These are the edges that would dangle
+ * if the leaf were removed, the same two fields lint checks for dangling edges.
+ */
+export function incomingReferrers(
+  id: string,
+  tree: NodeFile[],
+  ledger: RedirectsLedger = {}
+): NodeFile[] {
+  const live = new Set(tree.map(node => node.frontmatter.kk_id));
+  const names = (edge: string): boolean => edgeTargets(edge, live, ledger).includes(id);
+  return tree.filter(
+    node =>
+      node.frontmatter.kk_id !== id &&
+      [...node.frontmatter.kk_relates_to, ...(node.frontmatter.kk_depends_on ?? [])].some(names)
+  );
 }

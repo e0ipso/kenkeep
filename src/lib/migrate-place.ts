@@ -1,21 +1,31 @@
 import type { Placement } from './migrate-flat-to-tree.js';
 import type { FlatLeaf } from './migrate-read.js';
+import { normalizeFolderKey } from './path-safety.js';
 
 /**
  * Maps proposed `{ id, targetFolder }` back to full placements carrying each
- * leaf's source path. Throws on an unknown id or a missing placement so a bad
- * clustering result aborts before any write.
+ * leaf's source path. Throws on an unknown id, an id placed more than once
+ * (naming both folders, so the clustering can be corrected) or a missing
+ * placement, so a bad clustering result aborts before any write: every leaf
+ * on disk is placed exactly once or nothing moves.
  */
 export function reconcilePlacements(leaves: FlatLeaf[], proposed: Placement[]): Placement[] {
   const byId = new Map(leaves.map(l => [l.id, l]));
-  const seen = new Set<string>();
+  const seen = new Map<string, string>();
   const placements: Placement[] = [];
   for (const p of proposed) {
     const leaf = byId.get(p.id);
     if (!leaf) {
       throw new Error(`clustering returned an unknown leaf id "${p.id}"`);
     }
-    seen.add(p.id);
+    const previous = seen.get(p.id);
+    if (previous !== undefined) {
+      throw new Error(
+        `clustering placed id "${p.id}" more than once (folders "${previous}" and ` +
+          `"${p.targetFolder}"); each leaf must be placed exactly once`
+      );
+    }
+    seen.set(p.id, p.targetFolder);
     placements.push({ id: p.id, sourcePath: leaf.sourcePath, targetFolder: p.targetFolder });
   }
   const missing = leaves.filter(l => !seen.has(l.id)).map(l => l.id);
@@ -44,13 +54,13 @@ export function reconcileFolderSummaries(
   const created = new Set<string>();
   for (const p of placements) {
     let acc = '';
-    for (const seg of p.targetFolder.split('/').filter(Boolean)) {
+    for (const seg of normalizeFolderKey(p.targetFolder).split('/').filter(Boolean)) {
       acc = acc === '' ? seg : `${acc}/${seg}`;
       created.add(acc);
     }
   }
   const orphaned = Object.keys(folderSummaries).filter(folder => {
-    const norm = folder.split('/').filter(Boolean).join('/');
+    const norm = normalizeFolderKey(folder);
     return norm !== '' && !created.has(norm);
   });
   if (orphaned.length > 0) {

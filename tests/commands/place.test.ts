@@ -1,5 +1,13 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
@@ -8,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detectSchemaVersion } from '../../src/lib/migrate.js';
 import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
 import { makeSandbox, cleanSandbox, cliPath, runCli } from '../helpers.js';
+import { unresolvedHrefs } from '../helpers/rendered-links.js';
 
 const exec = promisify(execFile);
 
@@ -433,4 +442,160 @@ describe('place (deterministic migration primitive)', () => {
     expect(moved.data.derived_from).toEqual(['session-a.md', 'docs/auth.md']);
     expect(detectSchemaVersion(nodesDir)).toBe(2);
   });
+
+  it('renders leaf-relative links from the placed locations once the chain reaches v3', async () => {
+    // v1/v2 leaves carry no generated sections, so `place` has nothing to
+    // refresh; the okf-v3 hop renders every section from the final paths.
+    const nodesDir = await makeFlatKb(sandbox);
+    mkdirSync(join(sandbox, 'docs'), { recursive: true });
+    writeFileSync(join(sandbox, 'docs', 'x.md'), 'x');
+    const alphaFlat = join(nodesDir, 'practice', 'practice-alpha.md');
+    const parsed = matter(readFileSync(alphaFlat, 'utf8'));
+    writeFileSync(
+      alphaFlat,
+      matter.stringify(parsed.content, { ...parsed.data, derived_from: ['docs/x.md'] })
+    );
+    const plan = {
+      placements: [
+        { id: 'practice-alpha', targetFolder: 'workflow/deep' },
+        { id: 'map-beta', targetFolder: 'workflow' },
+        { id: 'practice-gamma', targetFolder: 'storage' },
+      ],
+    };
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(planPath, JSON.stringify(plan));
+    expect((await runCli(sandbox, ['place', 'apply', '--input', planPath])).exitCode).toBe(0);
+    expect((await runCli(sandbox, ['migrate', 'okf-v3'])).exitCode).toBe(0);
+
+    const alpha = join(nodesDir, 'workflow', 'deep', 'practice-alpha.md');
+    const alphaText = readFileSync(alpha, 'utf8');
+    expect(alphaText).toContain('- Related: [map-beta](../map-beta.md)');
+    expect(alphaText).toContain('- Depends on: [practice-gamma](../../storage/practice-gamma.md)');
+    expect(alphaText).toContain('[1] [docs/x.md](../../../../../docs/x.md)');
+    for (const leaf of collectLeaves(nodesDir)) expect(unresolvedHrefs(leaf), leaf).toEqual([]);
+    const lint = await runCli(sandbox, ['lint', '--verbose']);
+    expect(lint.stdout + lint.stderr).toContain('stale-rendered-link: 0');
+  });
+
+  it('apply rejects a plan that places one id into two folders before any file moves', async () => {
+    const nodesDir = await makeFlatKb(sandbox);
+    const before = snapshotTree(nodesDir);
+
+    // The same id assigned to two targets: the preflight must name the id and
+    // both folders and abort with the sources untouched.
+    const plan = {
+      placements: [
+        { id: 'practice-alpha', targetFolder: 'workflow' },
+        { id: 'practice-alpha', targetFolder: 'storage' },
+        { id: 'map-beta', targetFolder: 'workflow' },
+        { id: 'practice-gamma', targetFolder: 'storage' },
+      ],
+      folders: [
+        { folder: 'workflow', summary: 'workflow notes' },
+        { folder: 'storage', summary: 'storage notes' },
+      ],
+    };
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(planPath, JSON.stringify(plan));
+    const res = await runCli(sandbox, ['place', 'apply', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stderr).toMatch(/practice-alpha/);
+    expect(res.stderr).toMatch(/more than once/);
+    expect(res.stderr).toMatch(/workflow/);
+    expect(res.stderr).toMatch(/storage/);
+    expect(res.stdout.trim()).toBe('');
+
+    // Zero filesystem changes: every source leaf is byte-identical and no
+    // destination folder was created.
+    expect([...snapshotTree(nodesDir).entries()].sort()).toEqual([...before.entries()].sort());
+    expect(existsSync(join(nodesDir, 'workflow'))).toBe(false);
+    expect(existsSync(join(nodesDir, 'storage'))).toBe(false);
+    expect(detectSchemaVersion(nodesDir)).toBe(1);
+  });
+
+  it('inventory and apply refuse when two flat leaves on disk share an id', async () => {
+    const nodesDir = await makeFlatKb(sandbox);
+    // A second file carrying an id that already exists: "every id placed
+    // exactly once" is undecidable, so both primitives must refuse up front.
+    writeFlatLeaf(nodesDir, { id: 'practice-alpha', kind: 'map' });
+    const before = snapshotTree(nodesDir);
+
+    const inv = await runCli(sandbox, ['place', 'inventory']);
+    expect(inv.exitCode).toBe(1);
+    expect(inv.stderr).toMatch(/practice-alpha/);
+    expect(inv.stderr).toMatch(/more than one leaf/);
+    expect(inv.stdout.trim()).toBe('');
+
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        placements: [
+          { id: 'practice-alpha', targetFolder: 'core' },
+          { id: 'map-beta', targetFolder: 'core' },
+          { id: 'practice-gamma', targetFolder: 'core' },
+        ],
+      })
+    );
+    const ap = await runCli(sandbox, ['place', 'apply', '--input', planPath]);
+    expect(ap.exitCode).toBe(1);
+    expect(ap.stderr).toMatch(/practice-alpha/);
+    expect(ap.stderr).toMatch(/more than one leaf/);
+
+    expect([...snapshotTree(nodesDir).entries()].sort()).toEqual([...before.entries()].sort());
+    expect(existsSync(join(nodesDir, 'core'))).toBe(false);
+  });
+
+  // A read-only destination folder injects a real EACCES at write time, which
+  // no preflight can rule out. Root ignores directory modes, so the probe is
+  // meaningless there.
+  it.skipIf(process.getuid?.() === 0)(
+    'apply keeps every source intact when a write fails mid-run',
+    async () => {
+      const nodesDir = await makeFlatKb(sandbox);
+      const before = snapshotTree(nodesDir);
+      // `storage` exists but is not writable: the third placement's write fails
+      // after the first two destinations were written.
+      const storageDir = join(nodesDir, 'storage');
+      mkdirSync(storageDir);
+      chmodSync(storageDir, 0o555);
+
+      const plan = {
+        placements: [
+          { id: 'practice-alpha', targetFolder: 'workflow' },
+          { id: 'map-beta', targetFolder: 'workflow' },
+          { id: 'practice-gamma', targetFolder: 'storage' },
+        ],
+        folders: [
+          { folder: 'workflow', summary: 'workflow notes' },
+          { folder: 'storage', summary: 'storage notes' },
+        ],
+      };
+      const planPath = join(sandbox, 'plan.json');
+      writeFileSync(planPath, JSON.stringify(plan));
+      let res;
+      try {
+        res = await runCli(sandbox, ['place', 'apply', '--input', planPath]);
+      } finally {
+        chmodSync(storageDir, 0o755);
+      }
+      expect(res.exitCode).toBe(1);
+      expect(res.stdout.trim()).toBe('');
+      expect(res.stderr).toMatch(/EACCES|permission denied/i);
+      expect(res.stderr).toMatch(/storage\/practice-gamma\.md/);
+
+      // Destinations are written before any source is removed, so every
+      // source leaf is byte-identical.
+      const after = snapshotTree(nodesDir);
+      for (const [rel, hash] of before) {
+        expect(after.get(rel), `source ${rel} intact`).toBe(hash);
+      }
+      // The two destinations that were written are exactly the extra files.
+      const extra = [...after.keys()].filter(k => !before.has(k)).sort();
+      expect(extra).toEqual(['workflow/map-beta.md', 'workflow/practice-alpha.md']);
+      expect(existsSync(join(storageDir, 'practice-gamma.md'))).toBe(false);
+      // Still a v1 tree (the oldest leaf decides), so the step remains pending.
+      expect(detectSchemaVersion(nodesDir)).toBe(1);
+    }
+  );
 });

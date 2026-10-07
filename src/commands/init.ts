@@ -224,15 +224,16 @@ async function runUpgrade(
 
 /**
  * Files the leaves sitting at the `nodes/` root as part of an upgrade, running
- * the same sweep as `node sweep` including its delete rule: a leaf with no
- * folder-resolving edges and no tag overlap with any folder is removed, not
- * kept. Upgrade is the moment a repository picks up write-time placement, so it
- * is also the moment its existing backlog of loose leaves gets cleared.
+ * the same sweep as `node sweep` with the same rules: a leaf its own edges or
+ * tags place is filed there; an unplaceable leaf is deleted when nothing
+ * references it and git can restore it, and kept at the root otherwise.
+ * Upgrade is the moment a repository picks up write-time placement, so it is
+ * also the moment its existing backlog of loose leaves gets cleared.
  *
  * This is the one part of `init` that writes to `nodes/`. It leaves an
  * uncommitted working-tree change like every other node mutation here: accept
- * it with `git commit`, reject it with a path-scoped `git restore`, deletions
- * included. Nothing is staged and nothing is committed.
+ * it with `git commit`, reject it with the printed `git restore` per deletion.
+ * Nothing is staged and nothing is committed.
  *
  * Skipped when `nodes/` is absent or its on-disk schema predates the one this
  * kenkeep reads, because the node reader refuses that tree; `reportSchemaMismatch`
@@ -247,30 +248,39 @@ async function sweepRootDuringUpgrade(paths: ReturnType<typeof repoPaths>): Prom
 
   let summary;
   try {
-    summary = await sweepRootLeaves(paths.nodesDir);
+    summary = await sweepRootLeaves(paths);
   } catch (err) {
     log.warn(`Could not sweep the nodes/ root: ${(err as Error).message}`);
     return;
   }
 
-  if (summary.relocated.length === 0 && summary.deleted.length === 0) return;
+  const { relocated, deleted, kept } = summary;
+  if (relocated.length + deleted.length + kept.length === 0) return;
 
-  if (summary.relocated.length > 0) {
-    log.success(`Filed ${plural(summary.relocated.length, 'loose leaf', 'loose leaves')}:`);
-    for (const move of summary.relocated) {
+  if (relocated.length > 0) {
+    log.success(`Filed ${plural(relocated.length, 'loose leaf', 'loose leaves')}:`);
+    for (const move of relocated) {
       log.plain(`  ${move.from} -> ${move.to}`);
     }
   }
-  if (summary.deleted.length > 0) {
-    log.warn(`Deleted ${plural(summary.deleted.length, 'leaf', 'leaves')} matching no folder:`);
-    for (const gone of summary.deleted) {
-      log.plain(`  ${gone.path} (${gone.reason})`);
+  if (deleted.length > 0) {
+    log.warn(`Deleted ${plural(deleted.length, 'leaf', 'leaves')} matching no folder:`);
+    for (const gone of deleted) {
+      log.plain(`  ${gone.path} (${gone.reason}); restore: ${gone.restore}`);
+    }
+  }
+  if (kept.length > 0) {
+    log.warn(
+      `Kept ${plural(kept.length, 'leaf', 'leaves')} matching no folder at the nodes/ root:`
+    );
+    for (const stay of kept) {
+      log.plain(`  ${stay.path} (${stay.reason})`);
     }
   }
   if (summary.failed === true) {
     log.warn('The index rebuild after the sweep failed; run `npx kenkeep index rebuild`.');
   }
-  log.plain('Review with `git diff`, then `git restore` any path you want back.');
+  log.plain('Review with `git diff`.');
 }
 
 function plural(count: number, one: string, many: string): string {

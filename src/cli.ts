@@ -341,7 +341,7 @@ async function main(): Promise<void> {
   rebalanceGroup
     .command('trigger')
     .description(
-      'Deterministic, LLM-free rebalance check: reads Plan 1 per-folder metrics and prints a stable JSON decision {"actions":[{"branch","operation","branches?","topic?"}]} (split-folder/split-leaf/merge/create-branch), or {"actions":[]} when nothing trips past the hysteresis margin so the LLM phase is skipped.'
+      'Deterministic, LLM-free rebalance check: reads per-folder metrics and prints a stable JSON decision {"actions":[{"branch","operation","branches?","topic?"}]} (split-folder/split-leaf/merge/create-branch), or {"actions":[]} when nothing trips past the hysteresis margin so the LLM phase is skipped.'
     )
     .allowExcessArguments(true)
     .action(async () => {
@@ -466,7 +466,7 @@ async function main(): Promise<void> {
   nodeGroup
     .command('sweep')
     .description(
-      'Deterministic, LLM-free sweep of the nodes/ root: relocates every loose leaf into the folder its own edges and tags name (byte-stable, id-stable git renames), deletes the ones that match no folder, then rebuilds the indexes. A tree with no folders is left untouched. Writes files only; never stages or commits. Prints a JSON summary.'
+      'Deterministic, LLM-free sweep of the nodes/ root: relocates every loose leaf into the folder its own edges and tags name (byte-stable, id-stable git renames); deletes an unmatched leaf only when nothing references it and git can restore it, and keeps every other one at the root; then rebuilds the indexes. A tree with no folders is left untouched. Writes files only; never stages or commits. Prints a JSON summary.'
     )
     .allowExcessArguments(true)
     .action(async () => {

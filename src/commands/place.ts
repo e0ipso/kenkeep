@@ -73,7 +73,15 @@ export async function runPlaceInventory(): Promise<number> {
   }
 
   // Migration is due: emit the flat leaves as JSON for the skill to cluster.
-  const leaves = readAllNodesFlat(paths.nodesDir);
+  // The read refuses an ambiguous tree (two leaves sharing an id): there is no
+  // inventory the skill could place exactly once.
+  let leaves;
+  try {
+    leaves = readAllNodesFlat(paths.nodesDir);
+  } catch (err) {
+    log.error(`place inventory: ${(err as Error).message}`);
+    return 1;
+  }
   // Machine-readable contract: exactly the JSON document on stdout, nothing
   // else. Use process.stdout (not `log`) so no prefix/color corrupts the JSON.
   process.stdout.write(`${JSON.stringify({ leaves })}\n`);
@@ -114,15 +122,19 @@ const PlacementInputSchema = z.object({
  * migration step. Refuses up front unless the detected on-disk schema_version
  * is exactly 1 (the step gate above). Reads a caller-supplied
  * placement-and-folders JSON document (from `--input` or stdin),
- * validates every proposed id against the leaves actually on disk and every
- * authored folder summary against the folders the placements create — both
+ * validates every proposed id against the leaves actually on disk (each placed
+ * exactly once) and every authored folder summary against the folders the
+ * placements create, then resolves the complete intended output tree — all
  * BEFORE any write — then relocates each leaf with its id and bytes preserved
- * and stamps the authored folder summaries. A bad plan (unknown/omitted id, or a
- * summary keyed to an uncreated folder) aborts with a clear message and makes
- * zero filesystem changes. It performs no clustering judgment, no LLM call, and
- * never stages, commits, or invokes git. The index rebuild is the skill's
- * subsequent step (`npx kenkeep index rebuild`), not this primitive's — matching
- * how curate drives `rebalance move` and then a separate rebuild.
+ * and stamps the authored folder summaries. A bad plan (unknown/omitted/
+ * duplicated id, a destination conflict, or a summary keyed to an uncreated
+ * folder) aborts with a clear message and makes zero filesystem changes. The
+ * relocation writes every destination before removing any source, so an I/O
+ * failure mid-run never loses a leaf. It performs no clustering judgment, no
+ * LLM call, and never stages, commits, or invokes git. The index rebuild is
+ * the skill's subsequent step (`npx kenkeep index rebuild`), not this
+ * primitive's, matching how curate drives `rebalance move` and then a
+ * separate rebuild.
  *
  * Emits a per-leaf `{"placed":[{"id","targetFolder"}, ...]}` summary on stdout
  * so the skill can surface it.
@@ -174,7 +186,8 @@ export async function runPlaceApply(opts: PlaceApplyOptions = {}): Promise<numbe
     // throws on a summary keyed to a folder no leaf is placed into.
     const placements = reconcilePlacements(leaves, proposed);
     reconcileFolderSummaries(folderSummaries, placements);
-    // First write: relocate every leaf (all-or-nothing; ids and bytes preserved).
+    // First write: relocate every leaf (destinations before sources; ids and
+    // bytes preserved).
     const results = writePlacements(paths.nodesDir, placements);
     // Author the folder summaries: stamp each into its new folder's index.md so
     // the rebuild the skill runs next self-preserves it.

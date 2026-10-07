@@ -124,13 +124,15 @@ It refuses unless the detected on-disk version is exactly `2`. On success it mec
 - migrates folder summaries out of old `nodes/**/index.md` frontmatter into `.ai/kenkeep/FOLDER_SUMMARIES.md`;
 - rebuilds `nodes/**/index.md`, `ENTRY.md`, and `GRAPH.md`.
 
-It prints one JSON line:
+The primitive validates the complete tree in memory first (every leaf readable, every id unique) and aborts with zero changes if anything is wrong. It prints one JSON line:
 
 ```json
-{"converted":2,"folder_summaries":1,"collisions":[]}
+{"converted":2,"already_converted":0,"folder_summaries":1,"collisions":[]}
 ```
 
 If `collisions` is non-empty, surface it clearly: those leaves already had an unmarked `# Related` or `# Citations` heading before the generated sections were appended. Do not try to merge the headings yourself; the user reviews the body diff.
+
+If the primitive fails part-way (a permission or disk error), it exits non-zero with the cause on stderr. The run is resumable: fix the cause and re-run the same command. It recognizes the leaves it already rewrote (`already_converted` counts them) and converts only the remaining v2 leaves, preserving every id, edge and `kk_derived_from`. Report the failure to the user before re-running; do not repair files yourself.
 
 ### 2. Verify and hand off
 

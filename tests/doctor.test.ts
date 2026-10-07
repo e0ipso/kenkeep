@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
@@ -117,6 +117,43 @@ describe('doctor', () => {
     expect(combined).toContain('skipped');
   });
 
+  // A harness absent from the marker must not pass silently while
+  // .codex/hooks.json registers scripts that do not exist.
+  it('fails --harness for a harness that is registered but not recorded in installed-version', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude,codex'], env);
+    // Reproduce the inventory damage an older scoped upgrade left behind: the
+    // marker lost codex while its registration stayed, and its capture script
+    // is gone.
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as { harnesses: string[] };
+    installed.harnesses = ['claude'];
+    writeFileSync(versionFile, `${JSON.stringify(installed, null, 2)}\n`);
+    rmSync(join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs'));
+
+    const scoped = await runCli(sandbox, ['doctor', '--harness', 'codex'], env);
+    expect(scoped.exitCode).toBe(1);
+    const scopedOut = scoped.stdout + scoped.stderr;
+    expect(scopedOut).toMatch(/codex[^\n]*not recorded/);
+    expect(scopedOut).toContain('kk-capture.cjs');
+    expect(scopedOut).not.toContain('All checks passed');
+
+    // The unscoped run surfaces the same drift instead of auditing only the marker.
+    const full = await runCli(sandbox, ['doctor'], env);
+    expect(full.exitCode).toBe(1);
+    const fullOut = full.stdout + full.stderr;
+    expect(fullOut).toMatch(/codex[^\n]*not recorded/);
+    expect(fullOut).toContain('.codex/hooks.json');
+  });
+
+  it('rejects --harness for an unknown harness id', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const result = await runCli(sandbox, ['doctor', '--harness', 'bogus']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(/bogus/);
+  });
+
   it('reports a missing kk-lint-tick.cjs as an error in the Claude hooks check', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     rmSync(join(sandbox, '.ai/kenkeep/hooks/claude/kk-lint-tick.cjs'));
@@ -162,28 +199,7 @@ describe('doctor', () => {
     expect(result.stdout + result.stderr).toContain('schema validation failed');
   });
 
-  it.each(['claude', 'codex', 'copilot', 'cursor', 'opencode'])(
-    'prints per-harness install status block [%s]',
-    async id => {
-      const stubBin = writeHarnessBinaryStubs(sandbox);
-      const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
-      if (id === 'copilot') env['COPILOT_HOME'] = join(sandbox, 'copilot-home');
-      await runCli(sandbox, ['init', '--harnesses', id], env);
-      const result = await runCli(sandbox, ['doctor', '-v'], env);
-      const combined = result.stdout + result.stderr;
-      expect(combined).toContain(`Harness ${id} install status`);
-      expect(combined).toContain('detection:');
-      if (id === 'codex' || id === 'copilot' || id === 'opencode') {
-        expect(combined).toContain('no detector (n/a)');
-      }
-      if (id === 'copilot' || id === 'opencode') {
-        expect(combined).toContain('kk-hooks');
-      }
-      expect(result.exitCode).toBe(0);
-    }
-  );
-
-  it('scopes per-harness status to --harness copilot only', async () => {
+  it('scopes the harness checks to --harness copilot only', async () => {
     const stubBin = writeHarnessBinaryStubs(sandbox);
     const env: NodeJS.ProcessEnv = {
       PATH: `${stubBin}:${process.env['PATH'] ?? ''}`,
@@ -192,15 +208,15 @@ describe('doctor', () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude,copilot'], env);
     const result = await runCli(sandbox, ['doctor', '--harness', 'copilot'], env);
     const combined = result.stdout + result.stderr;
-    expect(combined).toContain('Harness copilot install status');
-    expect(combined).not.toContain('Harness claude install status');
+    expect(combined).toContain('Copilot hooks registered');
+    expect(combined).not.toContain('Claude hooks registered');
   });
 
   // The docs use `kenkeep --harness <id> <command>`, the form above puts the
   // flag after the subcommand, and both must keep working: positional option
   // scoping (added so `pack export --version` reaches the subcommand) would
   // otherwise silently drop whichever placement is not registered.
-  it('scopes per-harness status with --harness before the subcommand', async () => {
+  it('scopes the harness checks with --harness before the subcommand', async () => {
     const stubBin = writeHarnessBinaryStubs(sandbox);
     const env: NodeJS.ProcessEnv = {
       PATH: `${stubBin}:${process.env['PATH'] ?? ''}`,
@@ -209,8 +225,8 @@ describe('doctor', () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude,copilot'], env);
     const result = await runCli(sandbox, ['--harness', 'copilot', 'doctor'], env);
     const combined = result.stdout + result.stderr;
-    expect(combined).toContain('Harness copilot install status');
-    expect(combined).not.toContain('Harness claude install status');
+    expect(combined).toContain('Copilot hooks registered');
+    expect(combined).not.toContain('Claude hooks registered');
   });
 
   it('surfaces hygiene findings from lint and reports dangling derived_from once', async () => {

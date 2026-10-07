@@ -82,6 +82,39 @@ function codexSessionStartContext(stdout: string): string {
   return parsed.hookSpecificOutput?.additionalContext ?? '';
 }
 
+/**
+ * Copilot CLI's documented sessionStart output contract is a top-level
+ * `{ "additionalContext": string }` object on stdout (hooks reference; the
+ * nested Claude-style `hookSpecificOutput` envelope is ignored by Copilot).
+ */
+function copilotSessionStartContext(stdout: string): string {
+  const parsed = JSON.parse(stdout) as Record<string, unknown>;
+  expect(Object.keys(parsed)).toEqual(['additionalContext']);
+  expect(typeof parsed['additionalContext']).toBe('string');
+  return parsed['additionalContext'] as string;
+}
+
+const GIT_IDENT = ['-c', 'user.email=t@t', '-c', 'user.name=t'];
+
+function git(cwd: string, args: string[]): Promise<string> {
+  return new Promise((resolveFn, rejectFn) => {
+    execFile('git', [...GIT_IDENT, ...args], { cwd }, (err, stdout) => {
+      if (err) rejectFn(err);
+      else resolveFn(stdout.toString());
+    });
+  });
+}
+
+async function gitCommitAll(root: string): Promise<void> {
+  await git(root, ['init', '-q']);
+  await git(root, ['add', '-A']);
+  await git(root, ['commit', '-q', '-m', 'fixture']);
+}
+
+async function gitStatusPorcelain(root: string): Promise<string> {
+  return (await git(root, ['status', '--porcelain'])).trim();
+}
+
 async function waitForFileLines(file: string, expected: number): Promise<string[]> {
   const deadline = Date.now() + 2_000;
   while (Date.now() < deadline) {
@@ -274,15 +307,36 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(body).not.toContain('practice-deep-leaf');
   });
 
-  it('Copilot writes the root index node plus directive into copilot-instructions.md', async () => {
+  it('Copilot injects the payload via its native top-level additionalContext and dirties no tracked file', async () => {
+    // Commit the whole fixture (including the tracked
+    // .github/copilot-instructions.md the installer wrote), then start a
+    // session. The shared-builder output (catalog, directive, hostname,
+    // queue counts) must travel through Copilot's documented sessionStart
+    // stdout channel `{ "additionalContext": string }` and never land in a
+    // tracked file.
+    await gitCommitAll(sb.root);
+    const target = join(sb.root, '.github', 'copilot-instructions.md');
+    const trackedBefore = readFileSync(target, 'utf8');
+
     const res = await runHook(hookPath('copilot'), sb.root, { cwd: sb.root });
     expect(res.exitCode).toBe(0);
-    const target = join(sb.root, '.github', 'copilot-instructions.md');
-    expect(existsSync(target)).toBe(true);
-    const body = readFileSync(target, 'utf8');
-    expect(body).toContain('# kenkeep');
-    expect(body).toContain(DESCENT_PHRASE);
-    expect(body).not.toContain(GREP_RECIPE);
+    const ctx = copilotSessionStartContext(res.stdout);
+    expect(ctx).toContain('# kenkeep');
+    expect(ctx).toContain('## Branches');
+    expect(ctx).toContain(DESCENT_PHRASE);
+    expect(ctx.split(DESCENT_PHRASE).length - 1).toBe(1);
+    expect(ctx).not.toContain(GREP_RECIPE);
+    expect(ctx).toContain(`kenkeep: ${sb.root.split('/').pop()} on ${osHostname()}`);
+    expect(res.stderr).toContain('Knowledge base loaded');
+
+    expect(await gitStatusPorcelain(sb.root)).toBe('');
+    const trackedAfter = readFileSync(target, 'utf8');
+    expect(trackedAfter).toBe(trackedBefore);
+    // The tracked file carries only the static shared pointer: no catalog body,
+    // no hostname, no queue counts.
+    expect(trackedAfter).not.toContain('## Branches');
+    expect(trackedAfter).not.toContain(osHostname());
+    expect(trackedAfter).not.toContain('Curation queue');
   });
 
   it('keeps the injected payload bounded as deep leaves are added', async () => {
@@ -375,9 +429,8 @@ describe('per-harness SessionStart injection (tree descent)', () => {
       {
         harness: 'copilot',
         input: { cwd: sb.root },
-        assertOutput: () => {
-          const body = readFileSync(join(sb.root, '.github', 'copilot-instructions.md'), 'utf8');
-          expect(body).toContain(
+        assertOutput: (res: SpawnResult) => {
+          expect(copilotSessionStartContext(res.stdout)).toContain(
             'Issue: ENTRY.md is stale because nodes changed since the last index rebuild.'
           );
         },

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -59,6 +59,65 @@ describe('init --upgrade', () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
     expect(result.exitCode).toBe(0);
     expect(result.stdout + result.stderr).toMatch(/Upgraded to/);
+  });
+
+  // A scoped upgrade merges into the recorded inventory, so a Claude-only
+  // repair never drops Codex while its registrations stay in place. Nothing is
+  // removed implicitly.
+  it('keeps every recorded harness in the inventory when the upgrade names only one', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    const codexHooks = readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(result.exitCode).toBe(0);
+
+    const installed = JSON.parse(
+      readFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), 'utf8')
+    ) as { harnesses: string[] };
+    expect(installed.harnesses).toEqual(['claude', 'codex']);
+    expect(readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8')).toBe(codexHooks);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.agents/skills/kk-curate/SKILL.md'))).toBe(true);
+  });
+
+  it('fails and keeps the recorded version when a recorded harness config is malformed', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const recorded = readFileSync(versionFile, 'utf8');
+    // Codex stays in the inventory, so its config is rewritten even when the
+    // upgrade names only claude; its writer refuses the malformed file.
+    writeFileSync(join(sandbox, '.codex/hooks.json'), '{"hooks": 5}\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('.codex/hooks.json');
+    expect(readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8')).toBe('{"hooks": 5}\n');
+    expect(readFileSync(versionFile, 'utf8')).toBe(recorded);
+  });
+
+  it('honors a committed session-retention opt-in instead of re-ignoring _sessions/ on upgrade', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const kkGitignore = join(sandbox, '.ai/kenkeep/.gitignore');
+    const shipped = readFileSync(kkGitignore, 'utf8');
+    expect(shipped).toContain('/_sessions/\n');
+    // The supported opt-in: replace the ignore rule with its negation.
+    writeFileSync(kkGitignore, shipped.replace('/_sessions/\n', '!/_sessions/\n'));
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(result.exitCode).toBe(0);
+
+    const lines = readFileSync(kkGitignore, 'utf8').split('\n');
+    expect(lines).toContain('!/_sessions/');
+    expect(lines).not.toContain('/_sessions/');
+    expect(lines).toContain('/_logs/');
+    expect(lines).toContain('/hooks/');
+
+    // git agrees: a session log is trackable after the upgrade.
+    const logRel = '.ai/kenkeep/_sessions/20260101-0000-retained.md';
+    mkdirSync(join(sandbox, '.ai/kenkeep/_sessions'), { recursive: true });
+    writeFileSync(join(sandbox, logRel), '---\nschema_version: 1\n---\n');
+    const check = spawnSync('git', ['check-ignore', '-q', logRel], { cwd: sandbox });
+    expect(check.status).toBe(1);
   });
 
   it('refreshes hooks but preserves a customized config.yaml', async () => {
@@ -124,24 +183,6 @@ describe('init --upgrade', () => {
     expect(migrateSkill).toContain('node .ai/kenkeep/scripts/kk-detect-root.mjs');
     expect(migrateSkill).toContain('place apply');
     expect(migrateSkill).not.toContain('stale');
-  });
-
-  it('re-copies the shared detector helper when missing on upgrade', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-
-    const helper = join(sandbox, '.ai/kenkeep/scripts/kk-detect-harness.mjs');
-    expect(existsSync(helper)).toBe(true);
-    rmSync(helper);
-
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
-    installed.version = '0.0.0-test-old';
-    writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
-
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    expect(result.exitCode).toBe(0);
-    expect(existsSync(helper)).toBe(true);
-    expect(readFileSync(helper, 'utf8')).toContain('kk-detect-harness');
   });
 
   it('re-copies the notification icon when missing on upgrade', async () => {
@@ -223,23 +264,6 @@ describe('init --upgrade', () => {
     expect(lines).not.toContain('_logs/');
     // User-owned entries are preserved.
     expect(lines).toContain('custom/');
-  });
-
-  it('does not overwrite a user-edited detector helper on upgrade', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-
-    const helper = join(sandbox, '.ai/kenkeep/scripts/kk-detect-harness.mjs');
-    const customized = '// user edit\n';
-    writeFileSync(helper, customized);
-
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const installed = JSON.parse(readFileSync(versionFile, 'utf8'));
-    installed.version = '0.0.0-test-old';
-    writeFileSync(versionFile, JSON.stringify(installed, null, 2) + '\n');
-
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    expect(result.exitCode).toBe(0);
-    expect(readFileSync(helper, 'utf8')).toBe(customized);
   });
 
   it('re-copies a missing prompt during upgrade', async () => {

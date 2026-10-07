@@ -1,11 +1,9 @@
-import { join } from 'node:path';
-import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
-import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
+import type { HarnessAdapter, ModelChoiceRole } from '../types.js';
 import { openCodeDoctorChecks } from './doctor.js';
 import { runHeadlessOpenCode } from './headless.js';
 import { openCodeHookSpecs } from './hook-spec.js';
-import { installOpenCode } from './install.js';
+import { installOpenCode, openCodePaths } from './install.js';
 import { buildOpenCodeHarnessOpts } from './opts.js';
 import { parseOpenCodeTranscriptText, renderOpenCodeTranscript } from './transcript.js';
 
@@ -21,16 +19,6 @@ import { parseOpenCodeTranscriptText, renderOpenCodeTranscript } from './transcr
  * via `--harness opencode` (CLI), `--hint opencode` (skill helper), or
  * `cliDefaultHarness: opencode` in `config.yaml`.
  */
-function openCodePaths(root: string): HarnessPaths {
-  const dir = join(root, '.opencode');
-  return {
-    dir,
-    pluginsDir: join(dir, 'plugins'),
-    skillsDir: join(dir, 'skills'),
-    hooksDir: sharedHarnessHooksDirForRoot(root, 'opencode'),
-  };
-}
-
 export const openCodeAdapter: HarnessAdapter = {
   id: 'opencode',
   launchBinary: 'opencode',

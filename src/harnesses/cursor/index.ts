@@ -1,11 +1,9 @@
-import { join } from 'node:path';
-import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
-import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
+import type { HarnessAdapter, ModelChoiceRole } from '../types.js';
 import { cursorDoctorChecks } from './doctor.js';
 import { runHeadlessCursor } from './headless.js';
 import { cursorHookSpecs } from './hook-spec.js';
-import { installCursor } from './install.js';
+import { cursorPaths, installCursor } from './install.js';
 import { buildCursorHarnessOpts } from './opts.js';
 import { parseCursorTranscript, renderCursorTranscript } from './transcript.js';
 
@@ -24,16 +22,6 @@ function detectCursorFromEnv(env: NodeJS.ProcessEnv): boolean {
   if (env['CURSOR_AGENT'] === '1') return true;
   const version = env['CURSOR_VERSION'];
   return typeof version === 'string' && version.length > 0;
-}
-
-function cursorPaths(root: string): HarnessPaths {
-  const dir = join(root, '.cursor');
-  return {
-    dir,
-    skillsDir: join(dir, 'skills'),
-    hooksDir: sharedHarnessHooksDirForRoot(root, 'cursor'),
-    settingsFile: join(dir, 'hooks.json'),
-  };
 }
 
 export const cursorAdapter: HarnessAdapter = {

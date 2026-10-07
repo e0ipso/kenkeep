@@ -1,10 +1,9 @@
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
-import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
-import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
+import { sharedSkillsDoctorCheck } from '../../lib/install-skills.js';
+import { hookRegistrationDoctorCheck, sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import { errCheck, ok, type NamedDoctorCheck, type DoctorCheckResult } from '../types.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
 import { claudePaths } from './install.js';
@@ -19,7 +18,10 @@ export async function claudeDoctorChecks(paths: RepoPaths): Promise<NamedDoctorC
       name: 'Claude hooks registered',
       result: checkClaudeHooks(locs.settingsFile, locs.hooksDir),
     },
-    { name: 'Claude skills installed', result: checkClaudeSkills(locs.skillsDir) },
+    {
+      name: 'Claude skills installed',
+      result: sharedSkillsDoctorCheck(locs.skillsDir, '.claude/skills/', 'claude'),
+    },
   ];
 }
 
@@ -46,34 +48,12 @@ function checkClaudeHooks(settingsFile: string, hooksDir: string): DoctorCheckRe
   }
   const hooks = settings.hooks ?? {};
   const missingRegs: string[] = [];
-  const missingFiles = new Set<string>();
   for (const spec of CLAUDE_HOOK_SPECS) {
     const expectedScriptPath = sharedHookScriptPath('claude', spec.scriptPath);
     const cmds = (hooks[spec.event] ?? []).flatMap(e => (e.hooks ?? []).map(h => h.command ?? ''));
     if (!cmds.some(c => c.includes(expectedScriptPath))) {
       missingRegs.push(`${spec.event} -> ${expectedScriptPath}`);
     }
-    if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);
   }
-  if (missingRegs.length === 0 && missingFiles.size === 0) {
-    return ok('all expected hook entries and scripts present');
-  }
-  const parts: string[] = [];
-  if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
-  if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return errCheck(`${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses claude --upgrade\`.`);
-}
-
-function checkClaudeSkills(skillsDir: string): DoctorCheckResult {
-  if (!existsSync(skillsDir)) {
-    return errCheck(
-      'no .claude/skills/ directory. Re-run `npx kenkeep init --harnesses claude --upgrade`.'
-    );
-  }
-  const missing = EXPECTED_SKILLS.filter(name => !existsSync(join(skillsDir, name, 'SKILL.md')));
-  return missing.length === 0
-    ? ok(EXPECTED_SKILLS.join(', '))
-    : errCheck(
-        `missing SKILL.md for: ${missing.join(', ')}. Re-run \`npx kenkeep init --upgrade\`.`
-      );
+  return hookRegistrationDoctorCheck(missingRegs, hooksDir, CLAUDE_HOOK_SPECS, 'claude');
 }

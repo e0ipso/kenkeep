@@ -1,11 +1,9 @@
-import { join } from 'node:path';
-import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
-import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
+import type { HarnessAdapter, ModelChoiceRole } from '../types.js';
 import { codexDoctorChecks } from './doctor.js';
 import { runHeadlessCodex } from './headless.js';
 import { codexHookSpecs } from './hook-spec.js';
-import { installCodex } from './install.js';
+import { codexPaths, installCodex } from './install.js';
 import { buildCodexHarnessOpts } from './opts.js';
 import { parseCodexTranscript, renderCodexTranscript } from './transcript.js';
 
@@ -17,16 +15,6 @@ import { parseCodexTranscript, renderCodexTranscript } from './transcript.js';
  * via the explicit `--harness codex` CLI flag or via `cliDefaultHarness`
  * in `config.yaml`.
  */
-function codexPaths(root: string): HarnessPaths {
-  const dir = join(root, '.codex');
-  return {
-    dir,
-    skillsDir: join(root, '.agents/skills'),
-    hooksDir: sharedHarnessHooksDirForRoot(root, 'codex'),
-    settingsFile: join(dir, 'hooks.json'),
-  };
-}
-
 export const codexAdapter: HarnessAdapter = {
   id: 'codex',
   launchBinary: 'codex',

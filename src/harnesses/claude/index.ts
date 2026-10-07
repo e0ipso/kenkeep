@@ -1,13 +1,11 @@
-import { join } from 'node:path';
-import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
 import { log } from '../../lib/log.js';
 import { HARNESS_MEMORY_DISCOVERY_PROMPT, MemoryIriListSchema } from '../../lib/memory-files.js';
-import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
+import type { HarnessAdapter, ModelChoiceRole } from '../types.js';
 import { claudeDoctorChecks } from './doctor.js';
 import { runHeadlessClaude, runHeadlessClaudeRaw } from './headless.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
-import { installClaude } from './install.js';
+import { claudePaths, installClaude } from './install.js';
 import { buildClaudeHarnessOpts } from './opts.js';
 import { renderRoleTagged } from '../../lib/transcript-render.js';
 import { parseTranscriptJsonl } from './transcript.js';
@@ -27,17 +25,6 @@ import { parseTranscriptJsonl } from './transcript.js';
  */
 function detectClaudeFromEnv(env: NodeJS.ProcessEnv): boolean {
   return env['CLAUDECODE'] === '1';
-}
-
-function claudePaths(root: string): HarnessPaths {
-  const dir = join(root, '.claude');
-  return {
-    dir,
-    commandsDir: join(dir, 'commands'),
-    skillsDir: join(dir, 'skills'),
-    hooksDir: sharedHarnessHooksDirForRoot(root, 'claude'),
-    settingsFile: join(dir, 'settings.json'),
-  };
 }
 
 async function claudeListMemoryFiles(opts: { timeoutMs?: number } = {}): Promise<string[]> {

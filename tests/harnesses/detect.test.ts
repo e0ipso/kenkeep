@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  detectHarnessFromEnv,
-  resolveActiveHarness,
-  resolveWithHint,
-} from '../../src/harnesses/detect.js';
+import { detectHarnessFromEnv, resolveActiveHarness } from '../../src/harnesses/detect.js';
 import { claudeAdapter } from '../../src/harnesses/claude/index.js';
 import { cursorAdapter } from '../../src/harnesses/cursor/index.js';
 
@@ -46,19 +42,5 @@ describe('resolveActiveHarness', () => {
 
   it('falls back to the first registered harness when nothing else matches', () => {
     expect(resolveActiveHarness({ env: {} }).id).toBe('claude');
-  });
-});
-
-describe('resolveWithHint', () => {
-  it('resolves in precedence order: hint, then env, then configDefault', () => {
-    expect(resolveWithHint({ CLAUDECODE: '1' }, 'codex').id).toBe('codex');
-    expect(resolveWithHint({ CLAUDECODE: '1' }).id).toBe('claude');
-    expect(resolveWithHint({}, undefined, 'codex').id).toBe('codex');
-  });
-
-  it('a bogus hint falls through to env, and otherwise throws naming --hint and cliDefaultHarness', () => {
-    expect(resolveWithHint({ CLAUDECODE: '1' }, 'definitely-not-registered').id).toBe('claude');
-    expect(() => resolveWithHint({})).toThrow(/--hint <id>/);
-    expect(() => resolveWithHint({})).toThrow(/cliDefaultHarness/);
   });
 });

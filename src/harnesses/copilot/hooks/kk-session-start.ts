@@ -1,13 +1,18 @@
 /**
- * SessionStart hook for the GitHub Copilot CLI adapter.
+ * SessionStart hook (sync) for the GitHub Copilot CLI adapter.
  *
- * Copilot does not document a stdout context-injection channel on
- * `sessionStart` (unlike Claude's `additionalContext`). The v1 strategy is
- * to write the current entry-catalog content into `<root>/.github/copilot-instructions.md`
- * under a `<!-- kk:start --> ... <!-- kk:end -->` sentinel block, which
- * Copilot reads on session start. The rewrite is idempotent and preserves
- * any user-authored content outside the block. Errors go to stderr only and
- * the script always exits 0 so a stalled write never blocks the session.
+ * Emits the shared-builder output (entry catalog, descent directive,
+ * staleness/curation attention block, nudge directive) through Copilot's
+ * documented private session channel: a top-level
+ * `{ "additionalContext": string }` JSON object on stdout. Copilot CLI
+ * injects it into the conversation (hooks reference; shipped in CLI 1.0.11,
+ * multiple sessionStart contributions are concatenated in execution order).
+ *
+ * Nothing is written to `.github/copilot-instructions.md` here: that
+ * tracked, team-shared file carries only the static pointer block the
+ * installer writes, so hostname, queue counts and the nudge directive never
+ * dirty a committed file. Status lines go to stderr only; the script always
+ * exits 0 so a failure never blocks the session.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,7 +25,6 @@ import {
   buildSessionStartContext,
   sendSessionStartNotifications,
 } from '../../../lib/session-start.js';
-import { writeCopilotInstructionsSentinelWithContent } from '../hooks-config.js';
 
 const PACKAGE_TAG = '[kenkeep]';
 
@@ -37,7 +41,7 @@ runHookEntry({
     if (!existsSync(paths.installedVersionFile)) return;
 
     try {
-      process.stderr.write('📖 kenkeep Index: Refreshing Copilot instructions…\n');
+      process.stderr.write('📖 kenkeep Index: Loading knowledge base…\n');
       const { settings } = resolveSettings({ projectFile: paths.projectConfigFile });
       const result = buildSessionStartContext({
         kkDir: paths.kkDir,
@@ -49,14 +53,7 @@ runHookEntry({
       });
       sendSessionStartNotifications(settings, result, paths.kkDir);
       const { statusLine, content } = buildNudgeContent(result);
-      await writeCopilotInstructionsSentinelWithContent(
-        {
-          dir: join(root, '.copilot'),
-          hooksDir: join(root, '.copilot', 'hooks'),
-          skillsDir: join(root, '.github', 'skills'),
-        },
-        content
-      );
+      process.stdout.write(`${JSON.stringify({ additionalContext: content })}\n`);
       process.stderr.write(`${statusLine}\n`);
       process.stderr.write('🧠 kenkeep Index: Knowledge base loaded.\n');
     } catch (err) {

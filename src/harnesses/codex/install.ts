@@ -1,10 +1,14 @@
 import { join } from 'node:path';
 import { installSharedSkills } from '../../lib/install-skills.js';
 import { log } from '../../lib/log.js';
-import { copySharedHookScripts, sharedHookScriptPath } from '../../lib/shared-hooks.js';
-import type { HarnessInstallOptions } from '../types.js';
+import {
+  copySharedHookScripts,
+  sharedHarnessHooksDirForRoot,
+  sharedHookScriptPath,
+} from '../../lib/shared-hooks.js';
+import type { HarnessInstallOptions, HarnessPaths } from '../types.js';
 import { codexHookSpecs } from './hook-spec.js';
-import { writeCodexHooks } from './hooks-config.js';
+import { codexHookConfigPaths, writeCodexHooks } from './hooks-config.js';
 
 /**
  * Where the Codex adapter's template tree lives under the package
@@ -14,15 +18,29 @@ import { writeCodexHooks } from './hooks-config.js';
  */
 export const CODEX_TEMPLATE_SUBDIR = 'codex';
 
-export function codexPaths(root: string) {
-  const dir = join(root, '.codex');
+export interface CodexPaths extends HarnessPaths {
+  hooksDir: string;
+  settingsFile: string;
+  /** Alias of `settingsFile`: `.codex/hooks.json`. */
+  hooksFile: string;
+  /** `.codex/config.toml`, which may declare a competing `[hooks]` table. */
+  configToml: string;
+}
+
+/**
+ * On-disk locations the Codex adapter owns. The one source for the adapter's
+ * `paths()`, its installer and its doctor checks; the registration file
+ * locations come from the writer so the two cannot drift.
+ */
+export function codexPaths(root: string): CodexPaths {
+  const config = codexHookConfigPaths(root);
   return {
-    dir,
-    hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'codex'),
-    skillsDir: join(root, '.agents/skills'),
-    settingsFile: join(dir, 'hooks.json'),
-    hooksFile: join(dir, 'hooks.json'),
-    configToml: join(dir, 'config.toml'),
+    dir: config.dir,
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'codex'),
+    skillsDir: join(root, '.agents', 'skills'),
+    settingsFile: config.settingsFile,
+    hooksFile: config.settingsFile,
+    configToml: config.configToml,
   };
 }
 
@@ -35,8 +53,8 @@ export function codexPaths(root: string) {
  */
 export async function installCodex(opts: HarnessInstallOptions): Promise<void> {
   const paths = codexPaths(opts.root);
-  copySharedHookScripts(opts.templatesDir, opts.paths, 'codex', CODEX_TEMPLATE_SUBDIR);
-  installSharedSkills(opts.templatesDir, paths.skillsDir);
+  // Register first: the writer refuses a malformed user config before any
+  // other file of this adapter lands.
   await writeCodexHooks(
     opts.root,
     codexHookSpecs.map(spec => ({
@@ -46,6 +64,8 @@ export async function installCodex(opts: HarnessInstallOptions): Promise<void> {
       ...(spec.matcher ? { matcher: spec.matcher } : {}),
     }))
   );
+  copySharedHookScripts(opts.templatesDir, opts.paths, 'codex');
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
   // Codex refuses to execute non-managed hooks until the user reviews and
   // trusts them; without this step the whole pipeline is silently inert.
   log.info(

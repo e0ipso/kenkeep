@@ -9,11 +9,11 @@ const here = resolve(fileURLToPath(import.meta.url), '..');
 const skillsDir = join(here, '../../templates/skills');
 
 const skills = [
-  ['kk-add', '7'],
-  ['kk-bootstrap', '6'],
-  ['kk-curate', '12'],
-  ['kk-migrate', '7'],
-  ['kk-session-extract', '6'],
+  ['kk-add', '8'],
+  ['kk-bootstrap', '7'],
+  ['kk-curate', '13'],
+  ['kk-migrate', '8'],
+  ['kk-session-extract', '7'],
 ] as const;
 
 describe('shipped kk skills root discovery', () => {

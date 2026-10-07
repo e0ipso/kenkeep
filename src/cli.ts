@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { runBootstrapLauncher } from './commands/bootstrap.js';
+import { runBootstrapCompleteDocCommand } from './commands/bootstrap-complete-doc.js';
 import { runCurateLauncher } from './commands/curate.js';
 import { runCurateDedupCommand } from './commands/curate-dedup.js';
 import { runCuratePersistCommand } from './commands/curate-persist.js';
@@ -191,7 +192,7 @@ async function main(): Promise<void> {
       process.exit(code);
     });
 
-  program
+  const bootstrapCommand = program
     .command('bootstrap')
     .description(
       'Launch the kk-bootstrap skill in the active harness (execs `<harness> -p "/kk-bootstrap …"`). Scope is controlled by .kkignore plus an optional --from <scope>.'
@@ -206,6 +207,17 @@ async function main(): Promise<void> {
       const harnessFlag = getHarnessFlag();
       if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
       runBootstrapLauncher(launchOpts);
+    });
+  bootstrapCommand
+    .command('complete-doc')
+    .description(
+      'Headless primitive: mark one source document fully handled at its content hash (including a zero-node result) in bootstrap-state.json, so discovery skips it until it changes. `node write --source-doc` never completes a document; run this after every node for the document is written. Prints one JSON document.'
+    )
+    .argument('<relpath>', 'repo-relative document path, as printed by finddocs')
+    .requiredOption('--hash <sha256>', 'sha256 hex digest printed by finddocs --with-hashes')
+    .action(async (doc: string, opts: { hash: string }) => {
+      const code = await runBootstrapCompleteDocCommand({ doc, hash: opts.hash });
+      process.exit(code);
     });
 
   // Deprecation alias for one release. Same behavior as `bootstrap`, but
@@ -417,7 +429,7 @@ async function main(): Promise<void> {
   nodeGroup
     .command('write')
     .description(
-      'Headless primitive: atomically write a single node to nodes/<folder>/<id>.md (or nodes/<id>.md at the root when --folder is omitted) with Zod-validated frontmatter and slug-collision resolution. The folder is presentation only; the id is folder-independent. Body read from stdin (default) or --from <path>. Prints the resolved id to stdout. When both --source-doc and --source-hash are passed, also updates bootstrap-state.json per-file hash map.'
+      'Headless primitive: atomically write a single node to nodes/<folder>/<id>.md (or nodes/<id>.md at the root when --folder is omitted) with Zod-validated frontmatter and slug-collision resolution. The folder is presentation only; the id is folder-independent. Body read from stdin (default) or --from <path>. Prints the resolved id to stdout. When both --source-doc and --source-hash are passed, records the doc in kk_derived_from and the write under the unfinished attempt for that doc in bootstrap-state.json (a same-draft retry writes nothing and prints the first id); the doc is completed only by `bootstrap complete-doc`.'
     )
     .argument('<kind>', 'node kind: practice or map')
     .argument('<slug>', 'proposed id base (kind prefix added automatically when missing)')
@@ -432,7 +444,10 @@ async function main(): Promise<void> {
       '--folder <relpath>',
       'existing home folder under nodes/ (POSIX-style); omitted/empty lands the leaf at the nodes/ root'
     )
-    .option('--source-doc <relpath>', 'source markdown doc (repo-relative); requires --source-hash')
+    .option(
+      '--source-doc <relpath>',
+      'source markdown doc (repo-relative, as printed by finddocs; recorded in kk_derived_from); requires --source-hash'
+    )
     .option('--source-hash <sha256>', 'sha256 hex digest of --source-doc; requires --source-doc')
     .action(
       async (

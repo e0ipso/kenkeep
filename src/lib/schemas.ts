@@ -389,11 +389,32 @@ export const SettingsSchema = z
   .strict();
 export type SettingsFile = z.infer<typeof SettingsSchema>;
 
+/**
+ * An unfinished bootstrap attempt at one document content hash. `node write
+ * --source-doc` records each node it writes here; only `bootstrap
+ * complete-doc` moves the document into `docs`. `written` maps the id a draft
+ * derives (`deriveNodeId(kind, slug)`) to the id actually written, so a retry
+ * of the same draft is recognized instead of landing a `-2` duplicate.
+ */
+export const BootstrapInProgressEntrySchema = z.object({
+  content_sha256: z.string(),
+  last_written_at: z.string(),
+  written: z.record(z.string()),
+});
+export type BootstrapInProgressEntry = z.infer<typeof BootstrapInProgressEntrySchema>;
+
+/**
+ * `docs` holds only fully handled documents (zero-node results included),
+ * keyed by repo-relative path; a matching `content_sha256` means "skip".
+ * `in_progress` is optional and additive (no schema bump): an absent key is
+ * an empty map, and the meaning of `docs` is unchanged.
+ */
 export const BootstrapStateSchema = z.object({
   schema_version: z.literal(1),
   last_full_bootstrap_at: z.string().nullable().optional(),
   last_incremental_at: z.string().nullable().optional(),
   docs: z.record(BootstrapDocEntrySchema),
+  in_progress: z.record(BootstrapInProgressEntrySchema).optional(),
 });
 export type BootstrapState = z.infer<typeof BootstrapStateSchema>;
 

@@ -455,6 +455,30 @@ describe('index rebuild --stage regenerates and stages the complete owned set', 
     expect(staged.get('.ai/kenkeep/nodes/gone/index.md')).toBe('D');
     expect(staged.get('.ai/kenkeep/ENTRY.md')).toBe('M');
   });
+
+  it('stages a stale index deletion an earlier plain rebuild already made on disk', async () => {
+    writeNodeIn(sandbox, 'gone', 'map', 'map-gone');
+    expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
+    await commitAll(sandbox, 'add gone');
+    rmSync(join(nodesDir, 'gone', 'map-gone.md'));
+    // The skill's plain rebuild removes the stale index from disk only.
+    expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
+    expect(existsSync(join(nodesDir, 'gone', 'index.md'))).toBe(false);
+    expect((await runCli(sandbox, ['index', 'rebuild', '--stage'])).exitCode).toBe(0);
+    const staged = await stagedStatus(sandbox);
+    expect(staged.get('.ai/kenkeep/nodes/gone/index.md')).toBe('D');
+    // The removed leaf is the user's to stage, not an owned artifact.
+    expect(staged.has('.ai/kenkeep/nodes/gone/map-gone.md')).toBe(false);
+  });
+
+  it('stages a legacy INDEX.md removal an earlier plain rebuild already made on disk', async () => {
+    writeFileSync(join(sandbox, '.ai/kenkeep/INDEX.md'), '# legacy\n');
+    await commitAll(sandbox, 'legacy index');
+    expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/INDEX.md'))).toBe(false);
+    expect((await runCli(sandbox, ['index', 'rebuild', '--stage'])).exitCode).toBe(0);
+    expect((await stagedStatus(sandbox)).get('.ai/kenkeep/INDEX.md')).toBe('D');
+  });
 });
 
 describe('doctor: stale ENTRY detection', () => {

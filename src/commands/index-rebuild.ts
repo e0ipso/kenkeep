@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, rmdirSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { assertAgentsKkBlockWritable, ensureAgentsKkBlock } from '../lib/agents-block.js';
 import { folderSummariesFileForNodesDir, renderFolderSummaries } from '../lib/folder-summaries.js';
 import { atomicWriteFile } from '../lib/fs-atomic.js';
@@ -48,12 +48,12 @@ interface OwnedFile {
  *
  *   1. reads the tree once (parse + hash) and generates every owned file;
  *   2. writes the ones whose bytes changed;
- *   3. removes owned files the tree no longer justifies — an `index.md` in a
+ *   3. removes owned files the tree no longer justifies: an `index.md` in a
  *      branch whose last leaf left (the emptied folder goes with it), a sidecar
  *      entry for such a branch, the pre-rename `INDEX.md`;
  *   4. with `--stage`, stages the WHOLE owned set plus every removal, so the
  *      pre-commit step (lint-staged runs `index rebuild --stage`) lands exactly
- *      the generated state in the commit — including sidecar-only edits,
+ *      the generated state in the commit, including sidecar-only edits,
  *      recreated artifacts and files an earlier plain rebuild already
  *      regenerated. The leaf hash is deliberately not used as a short-circuit:
  *      it does not cover any of those cases.
@@ -82,7 +82,7 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
 
   // One tree snapshot per run: the leaves are parsed and hashed exactly once,
   // and both generators consume that snapshot. This is also the strict
-  // validation gate — a malformed leaf (or the old flat layout) aborts here,
+  // validation gate: a malformed leaf (or the old flat layout) aborts here,
   // before any owned file is touched, so a broken tree never produces an
   // empty-looking catalog.
   let snapshot: TreeSnapshot;
@@ -135,10 +135,11 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   pruneEmptiedFolders(paths.nodesDir, staleIndexes);
 
   // Keep the AGENTS.md pointer block tracking the current directive wording;
-  // a no-op when the bytes already match, so it stages only on real change.
-  // AGENTS.md is user-owned, not a generated artifact, so it is never staged
-  // wholesale. A malformed block was refused by the preflight above, before
-  // any owned file was touched.
+  // a no-op when the bytes already match. AGENTS.md is user-owned, not a
+  // generated artifact, so `--stage` adds it only when this run rewrote the
+  // pointer block; when it does, `git add` stages the whole file, including
+  // any unrelated unstaged edits the user made to it. A malformed block was
+  // refused by the preflight above, before any owned file was touched.
   const agentsFile = join(root, 'AGENTS.md');
   const toStage = owned.map(o => o.file);
   if (ensureAgentsKkBlock(agentsFile)) {
@@ -173,7 +174,11 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   }
 
   if (opts.stage) {
-    stageOwnedSet(root, toStage, removals, changed, log);
+    stageOwnedSet(root, toStage, removals, changed, log, {
+      nodesDir: paths.nodesDir,
+      ownedDirs: new Set(index.folders.keys()),
+      legacyIndexFile,
+    });
   }
 
   return 0;
@@ -228,24 +233,40 @@ function posixRelative(from: string, to: string): string {
   return relative(from, to).split('\\').join('/') || '.';
 }
 
+/** What the git index is reconciled against when staging removals. */
+interface OwnedLayout {
+  nodesDir: string;
+  /** POSIX folder keys under `nodes/` that own an `index.md` in this tree. */
+  ownedDirs: ReadonlySet<string>;
+  legacyIndexFile: string;
+}
+
 /**
  * Stage the complete owned set: `git add` every owned file (a no-op for the
  * ones whose bytes already match the index) and `git rm --cached` every
  * removal. `--ignore-unmatch` tolerates a removed file that was never
  * tracked; plain `git add` would reject that pathspec.
+ *
+ * The removals come from the disk AND the git index: an earlier plain rebuild
+ * may already have deleted a stale `index.md` or the legacy `INDEX.md` from
+ * disk while git still tracks it, so every tracked owned artifact the tree no
+ * longer justifies is staged for removal too. Only owned artifacts are
+ * matched; a deleted leaf is left for the user to stage.
  */
 function stageOwnedSet(
   root: string,
   files: string[],
-  removals: string[],
+  diskRemovals: string[],
   changed: number,
-  log: Logger
+  log: Logger,
+  layout: OwnedLayout
 ): void {
   if (!isInsideGitRepo(root)) {
     log.plain('--stage: not inside a git repo, skipping `git add`.');
     return;
   }
   try {
+    const removals = [...new Set([...diskRemovals, ...trackedStaleOwned(root, layout)])];
     if (files.length > 0) {
       execFileSync('git', ['add', '--', ...files], { cwd: root, stdio: 'pipe' });
     }
@@ -263,6 +284,40 @@ function stageOwnedSet(
     const message = err instanceof Error ? err.message : String(err);
     log.warn(`--stage: staging the owned set failed: ${message}`);
   }
+}
+
+/**
+ * Tracked owned artifacts the current tree does not justify: a folder
+ * `index.md` outside the owned folders, and the legacy `INDEX.md`. Read from
+ * the git index, so it includes files already gone from disk.
+ */
+function trackedStaleOwned(root: string, layout: OwnedLayout): string[] {
+  // Without `--full-name`, ls-files prints paths relative to `cwd`, so they
+  // join back onto `root` in the same spelling as the owned paths.
+  const listed = execFileSync(
+    'git',
+    [
+      'ls-files',
+      '-z',
+      '--',
+      relative(root, layout.nodesDir),
+      relative(root, layout.legacyIndexFile),
+    ],
+    { cwd: root, stdio: 'pipe', encoding: 'utf8' }
+  );
+  const stale: string[] = [];
+  for (const entry of listed.split('\0')) {
+    if (entry === '') continue;
+    const file = join(root, entry);
+    if (file === layout.legacyIndexFile) {
+      stale.push(file);
+      continue;
+    }
+    if (basename(file) !== INDEX_FILENAME) continue;
+    const relDir = relative(layout.nodesDir, dirname(file)).split(sep).join('/');
+    if (!layout.ownedDirs.has(relDir)) stale.push(file);
+  }
+  return stale;
 }
 
 function reportInvalidFrontmatter(err: InvalidNodeFrontmatterError, log: Logger): void {

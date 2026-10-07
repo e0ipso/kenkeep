@@ -210,16 +210,53 @@ export function detectSectionDrift(
   return out;
 }
 
+/**
+ * Where a generated section sits in `body`: from the start of its start-marker
+ * line to the end of its end marker. A marker counts only on its own line
+ * (trailing whitespace allowed) and outside a fenced code block, so a marker
+ * quoted inline in prose or shown in a fenced example never delimits a
+ * section. Detection and replacement both use this, so a body the drift check
+ * leaves alone is one the refresh leaves alone.
+ */
+function locateDelimitedSection(
+  body: string,
+  startMarker: string,
+  endMarker: string
+): { from: number; to: number } | null {
+  let offset = 0;
+  let fence: string | null = null;
+  let from: number | null = null;
+  for (const line of body.split('\n')) {
+    const lineStart = offset;
+    offset += line.length + 1;
+    const fenceMatch = /^ {0,3}(`{3,}|~{3,})/u.exec(line);
+    if (fenceMatch !== null) {
+      const run = fenceMatch[1]!;
+      if (fence === null) {
+        fence = run;
+      } else if (run[0] === fence[0] && run.length >= fence.length && line.trim() === run) {
+        fence = null;
+      }
+      continue;
+    }
+    if (fence !== null) continue;
+    const text = line.trimEnd();
+    if (from === null) {
+      if (text === startMarker) from = lineStart;
+    } else if (text === endMarker) {
+      return { from, to: lineStart + endMarker.length };
+    }
+  }
+  return null;
+}
+
 function extractDelimitedSection(
   body: string,
   startMarker: string,
   endMarker: string
 ): string | null {
-  const match = new RegExp(
-    `${escapeRegExp(startMarker)}[\\s\\S]*?${escapeRegExp(endMarker)}`,
-    'u'
-  ).exec(body);
-  return match === null ? null : match[0];
+  const span = locateDelimitedSection(body, startMarker, endMarker);
+  return span === null ? null : body.slice(span.from, span.to);
 }
 
 function spliceDelimitedSection(
@@ -228,17 +265,17 @@ function spliceDelimitedSection(
   endMarker: string,
   rendered: string
 ): string {
-  const escapedStart = escapeRegExp(startMarker);
-  const escapedEnd = escapeRegExp(endMarker);
-  const sectionPattern = new RegExp(`\\n*${escapedStart}[\\s\\S]*?${escapedEnd}\\n*`, 'u');
-  const replacement = rendered === '' ? '\n' : `\n\n${rendered}\n`;
-  if (sectionPattern.test(body)) {
-    return body.replace(sectionPattern, () => replacement).trimEnd();
+  const span = locateDelimitedSection(body, startMarker, endMarker);
+  if (span !== null) {
+    // The section takes its surrounding blank lines with it, so the splice
+    // leaves exactly one blank line on each side.
+    let from = span.from;
+    let to = span.to;
+    while (from > 0 && body[from - 1] === '\n') from -= 1;
+    while (to < body.length && body[to] === '\n') to += 1;
+    const replacement = rendered === '' ? '\n' : `\n\n${rendered}\n`;
+    return (body.slice(0, from) + replacement + body.slice(to)).trimEnd();
   }
   if (rendered === '') return body.trimEnd();
   return `${body.trimEnd()}\n\n${rendered}`;
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

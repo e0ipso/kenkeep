@@ -66,6 +66,13 @@ describe('checkAgentsKkBlock', () => {
     expect(checkAgentsKkBlock(root, kkDir, 0)).toHaveLength(0);
   });
 
+  it('reports an orphaned start marker as malformed instead of a present block', () => {
+    writeFileSync(join(root, 'AGENTS.md'), `# Repo\n${AGENTS_BLOCK_START}\nnotes\n`);
+    const issues = checkAgentsKkBlock(root, kkDir, 0);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.message).toContain('malformed kenkeep pointer block');
+  });
+
   it('flags a populated tree whose ENTRY.md target is missing, but not an empty one', () => {
     ensureAgentsKkBlock(join(root, 'AGENTS.md'));
     // Empty tree: no catalog yet is the normal fresh-init state.

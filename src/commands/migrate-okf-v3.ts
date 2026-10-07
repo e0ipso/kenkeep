@@ -7,9 +7,10 @@ import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summari
 import { generateGraph, generateIndex, writeGraph, writeIndex } from '../lib/index-gen.js';
 import { log } from '../lib/log.js';
 import { detectSchemaVersion } from '../lib/migrate.js';
-import { renderGeneratedNodeSections } from '../lib/node-sections.js';
+import { linkTargetResolver, renderGeneratedNodeSections } from '../lib/node-sections.js';
 import { INDEX_FILENAME } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { readRedirectsLedger } from '../lib/redirects.js';
 import {
   ConfidenceSchema,
   NODE_SCHEMA_VERSION,
@@ -69,6 +70,7 @@ export function migrateNodesTreeToV3(
   const folderSummaries = migrateFolderSummaries(nodesDir);
   const idToRelPath = new Map(leaves.map(leaf => [leaf.frontmatter.id, leaf.relPath]));
   const collisions: MigrationSummary['collisions'] = [];
+  const resolveTargets = linkTargetResolver(idToRelPath, readRedirectsLedger(nodesDir));
 
   for (const leaf of leaves) {
     const frontmatter = v2ToV3Frontmatter(leaf.frontmatter);
@@ -76,11 +78,10 @@ export function migrateNodesTreeToV3(
     if (headings.length > 0) {
       collisions.push({ id: frontmatter.kk_id, path: leaf.relPath, headings });
     }
-    const body = renderGeneratedNodeSections(
-      leaf.body,
-      frontmatter,
-      id => idToRelPath.get(id) ?? null
-    );
+    const body = renderGeneratedNodeSections(leaf.body, frontmatter, {
+      leafRelPath: leaf.relPath,
+      resolveTargets,
+    });
     atomicWriteFile(leaf.path, matter.stringify(body.trimEnd() + '\n', frontmatter));
   }
 

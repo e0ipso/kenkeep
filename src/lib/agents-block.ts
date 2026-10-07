@@ -1,6 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWriteFile } from './fs-atomic.js';
+import {
+  MalformedManagedBlockError,
+  splitManagedBlock,
+  upsertManagedBlock,
+} from './managed-block.js';
 import { KK_NAVIGATION_DIRECTIVE } from './session-start.js';
 
 /**
@@ -25,9 +30,7 @@ export const AGENTS_POINTER = [
   KK_NAVIGATION_DIRECTIVE,
 ].join('\n');
 
-function ensureTrailingNewline(s: string): string {
-  return s.endsWith('\n') ? s : `${s}\n`;
-}
+const AGENTS_MARKERS = { start: AGENTS_BLOCK_START, end: AGENTS_BLOCK_END };
 
 /**
  * Idempotently writes the kenkeep pointer block into `file` (the repo's
@@ -36,28 +39,30 @@ function ensureTrailingNewline(s: string): string {
  * outside the markers. Returns true when the file's bytes changed. Called
  * by `init`, `init --upgrade`, and `index rebuild` so the block tracks the
  * current directive wording without any manual step.
+ *
+ * Follows the shared malformed-sentinel policy (`managed-block.ts`): an
+ * orphaned, duplicated or reversed marker throws a
+ * `MalformedManagedBlockError` naming the file and leaves it untouched.
  */
 export function ensureAgentsKkBlock(file: string): boolean {
-  const block = `${AGENTS_BLOCK_START}\n${AGENTS_POINTER}\n${AGENTS_BLOCK_END}`;
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
-
-  let next: string;
-  if (existing.includes(AGENTS_BLOCK_START)) {
-    const before = existing.slice(0, existing.indexOf(AGENTS_BLOCK_START));
-    const afterStart = existing.indexOf(AGENTS_BLOCK_END);
-    const afterRaw = afterStart >= 0 ? existing.slice(afterStart + AGENTS_BLOCK_END.length) : '';
-    const after = afterRaw.startsWith('\n') ? afterRaw.slice(1) : afterRaw;
-    next = ensureTrailingNewline(`${before}${block}\n${after}`);
-  } else if (existing.length === 0) {
-    next = `${block}\n`;
-  } else {
-    const sep = existing.endsWith('\n') ? '' : '\n';
-    next = `${existing}${sep}\n${block}\n`;
-  }
-
+  const next = upsertManagedBlock(existing, AGENTS_MARKERS, AGENTS_POINTER, file);
   if (next === existing) return false;
   atomicWriteFile(file, next);
   return true;
+}
+
+/**
+ * Throws the `MalformedManagedBlockError` that `ensureAgentsKkBlock(file)`
+ * would throw, without writing anything. An absent file or an absent block is
+ * fine (both are writable). `index rebuild` checks this before its first owned
+ * write, and a caller whose own writes land before its nested rebuild (pack
+ * import) checks it before those writes, so the refusal never arrives after
+ * the files it should have prevented.
+ */
+export function assertAgentsKkBlockWritable(file: string): void {
+  if (!existsSync(file)) return;
+  splitManagedBlock(readFileSync(file, 'utf8'), AGENTS_MARKERS, file);
 }
 
 export interface AgentsBlockIssue {
@@ -70,7 +75,8 @@ export interface AgentsBlockIssue {
  * Deterministic drift check for the AGENTS.md pointer block, consumed by
  * `lint` as warn-level findings (never errors — a missing lobby degrades
  * discoverability, it does not corrupt the knowledge base):
- *   - AGENTS.md absent or missing the sentinel block;
+ *   - AGENTS.md absent, missing the sentinel block, or carrying a malformed one
+ *     (orphaned, duplicated or reversed markers per `managed-block.ts`);
  *   - the block's pointer target (.ai/kenkeep/ENTRY.md) absent while the
  *     tree has leaves (an empty, just-initialized KB legitimately has no
  *     catalog yet).
@@ -93,11 +99,20 @@ export function checkAgentsKkBlock(
     return issues;
   }
   const body = readFileSync(agentsFile, 'utf8');
-  if (!body.includes(AGENTS_BLOCK_START) || !body.includes(AGENTS_BLOCK_END)) {
+  try {
+    if (!splitManagedBlock(body, AGENTS_MARKERS, agentsFile).found) {
+      issues.push({
+        file: 'AGENTS.md',
+        message: 'AGENTS.md is missing the kenkeep pointer block',
+        action: 'run `npx kenkeep index rebuild` (or `init --upgrade`) to restore it',
+      });
+    }
+  } catch (err) {
+    if (!(err instanceof MalformedManagedBlockError)) throw err;
     issues.push({
       file: 'AGENTS.md',
-      message: 'AGENTS.md is missing the kenkeep pointer block',
-      action: 'run `npx kenkeep index rebuild` (or `init --upgrade`) to restore it',
+      message: 'AGENTS.md has a malformed kenkeep pointer block (orphaned or duplicated markers)',
+      action: `keep exactly one "${AGENTS_BLOCK_START}" line before one "${AGENTS_BLOCK_END}" line (or delete both), then run \`npx kenkeep index rebuild\``,
     });
   }
   if (nodeCount > 0 && !existsSync(join(kkDir, 'ENTRY.md'))) {

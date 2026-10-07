@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PACK_NAME_PATTERN, validateNodeId } from './path-safety.js';
 
 /**
  * Schema version for node artifacts. Version 3 stores leaves as OKF v0.1
@@ -183,7 +184,7 @@ export type NodeKind = z.infer<typeof NodeKindSchema>;
 
 export const PackManifestSchema = z
   .object({
-    name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+    name: z.string().regex(PACK_NAME_PATTERN),
     version: z.string().min(1),
     schema_version: z.literal(NODE_SCHEMA_VERSION),
     summary: z.string().min(1),
@@ -192,30 +193,42 @@ export const PackManifestSchema = z
   .strict();
 export type PackManifest = z.infer<typeof PackManifestSchema>;
 
-export const NodeFrontmatterSchema = z.object({
-  type: NodeKindSchema,
-  title: z.string(),
-  description: z.string(),
-  tags: z.array(z.string()),
-  kk_schema_version: z.literal(NODE_SCHEMA_VERSION),
-  kk_id: z.string(),
-  kk_derived_from: z.array(z.string()),
-  kk_relates_to: z.array(z.string()),
-  // Cross-tree edges resolved by id. `relates_to` is a loose association;
-  // `depends_on` records that this node genuinely depends on another. Both are
-  // rendered in GRAPH.md and dangling-checked by lint. Defaulted so nodes
-  // written before the field existed still parse.
-  kk_depends_on: z.array(z.string()).default([]),
-  kk_confidence: ConfidenceSchema,
-});
+export const NodeFrontmatterSchema = z
+  .object({
+    type: NodeKindSchema,
+    title: z.string(),
+    description: z.string(),
+    tags: z.array(z.string()),
+    kk_schema_version: z.literal(NODE_SCHEMA_VERSION),
+    /**
+     * Canonical `<type>-<slug>` id (the lint naming rule), refined below. The
+     * id names the leaf file, so a non-canonical id (uppercase, `..`, `/`) is
+     * rejected by the reader as a diagnostic — before any writer could join it
+     * into a path — rather than silently normalized or migrated.
+     */
+    kk_id: z.string(),
+    kk_derived_from: z.array(z.string()),
+    kk_relates_to: z.array(z.string()),
+    // Cross-tree edges resolved by id. `relates_to` is a loose association;
+    // `depends_on` records that this node genuinely depends on another. Both are
+    // rendered in GRAPH.md and dangling-checked by lint. Defaulted so nodes
+    // written before the field existed still parse.
+    kk_depends_on: z.array(z.string()).default([]),
+    kk_confidence: ConfidenceSchema,
+  })
+  .superRefine((fm, ctx) => {
+    const problem = validateNodeId(fm.kk_id, fm.type);
+    if (problem !== null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['kk_id'], message: problem });
+    }
+  });
 export type NodeFrontmatter = z.infer<typeof NodeFrontmatterSchema>;
 
 /**
- * Curator output schema: one entry per proposal candidate. Drops and
- * contradicts may omit `proposed_node`; add/modify include it. The wrapper
- * stamps `id` from `deriveNodeId`/`target_node_id` and synthesizes
- * `derived_from` from `candidate_origin`, so the LLM does not author either.
- * `.strict()` rejects any reintroduction.
+ * Node content an LLM drafts inside a curator action. The wrapper stamps `id`
+ * from `deriveNodeId`/`target_node_id` and synthesizes `derived_from` from
+ * `candidate_origin`, so the LLM does not author either. `.strict()` rejects
+ * any reintroduction.
  */
 export const CuratorProposedNodeSchema = z
   .object({

@@ -8,10 +8,9 @@ import { MIGRATION_STEPS, planMigration, type MigrationStep } from '../../src/li
 describe('planMigration', () => {
   it('resolves the real registry to the single flat-to-tree step', () => {
     const chain = planMigration(MIGRATION_STEPS, 1, 2);
-    expect(chain).toHaveLength(1);
-    expect(chain[0].id).toBe('flat-to-tree');
-    expect(chain[0].from).toBe(1);
-    expect(chain[0].to).toBe(2);
+    expect(chain.map(({ id, from, to }) => ({ id, from, to }))).toEqual([
+      { id: 'flat-to-tree', from: 1, to: 2 },
+    ]);
   });
 
   it('chains multiple synthetic steps in from-order', () => {

@@ -236,8 +236,29 @@ describe('doctor', () => {
         'body',
       ].join('\n')
     );
+    // topic/ must hold a leaf to be an owned folder; an index.md in a leafless
+    // folder is a stale-folder-index lint error, not the empty-summary finding
+    // this test surfaces through doctor.
     const topicDir = join(nodesDir, 'topic');
     mkdirSync(topicDir, { recursive: true });
+    writeFileSync(
+      join(topicDir, 'practice-topic-leaf.md'),
+      [
+        '---',
+        'kk_schema_version: 3',
+        'kk_id: practice-topic-leaf',
+        'title: "topic leaf"',
+        'type: practice',
+        'description: s',
+        'tags: []',
+        'kk_derived_from: []',
+        'kk_relates_to: []',
+        'kk_confidence: high',
+        '---',
+        '',
+        'body',
+      ].join('\n')
+    );
     writeFileSync(join(topicDir, 'index.md'), '# Topic\n');
     writeFileSync(
       join(sandbox, '.ai/kenkeep/FOLDER_SUMMARIES.md'),

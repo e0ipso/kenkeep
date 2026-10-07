@@ -3,8 +3,10 @@ import { join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import { checkAgentsKkBlock } from './agents-block.js';
 import { folderSummariesFileForNodesDir, FolderSummaryRegistrySchema } from './folder-summaries.js';
+import { computeOwnedFolderDirs, findStaleFolderIndexes } from './index-gen.js';
 import { INDEX_FILENAME, readAllNodes, validateNodeNaming, type NodeFile } from './nodes.js';
 import { readRedirectsLedger, resolveRedirect } from './redirects.js';
+import { findRenderedLinkDrift } from './rendered-links.js';
 
 export type LintRule =
   | 'dangling-edge'
@@ -15,10 +17,10 @@ export type LintRule =
   | 'empty-summary'
   | 'orphan'
   | 'missing-folder-index'
+  | 'stale-folder-index'
   | 'okf-conformance'
+  | 'stale-rendered-link'
   | 'agents-kb-block';
-
-const LEGACY_COMPATIBILITY_DIRS = new Set(['map', 'practice']);
 
 export interface LintEntry {
   rule: LintRule;
@@ -106,21 +108,14 @@ export function runLint(opts: LintOptions): LintResult {
     }
   }
 
-  // Every folder under nodes/ must carry a generated index.md (the table of
-  // contents for that folder). Directory placement is topical and independent
-  // of kind. Stale legacy kind buckets that contain only dotfiles, such as a
-  // retained .gitkeep, are not node folders and do not need an index.
-  for (const dir of foldersUnder(opts.nodesDir)) {
-    if (isEmptyLegacyCompatibilityFolder(opts.nodesDir, dir)) continue;
-    if (!existsSync(join(dir, INDEX_FILENAME))) {
-      errors.push({
-        rule: 'missing-folder-index',
-        file: dir,
-        message: `folder ${posix.normalize(relative(opts.nodesDir, dir).split(sep).join(posix.sep)) || '.'} has no index.md`,
-        action: 'Run `npx kenkeep index rebuild` to regenerate the per-folder index nodes.',
-      });
-    }
-  }
+  // Owned folder indexes: exactly the bundle root plus every folder with a
+  // leaf beneath it carries a generated index.md — the same owned set `index
+  // rebuild` renders and reconciles. A missing one is an error; an index.md
+  // anywhere else is a stale owned artifact (a branch whose last leaf left, a
+  // hand-written or imported navigation file) that the rebuild would remove.
+  // Directory placement is topical and independent of kind; a leafless folder
+  // holding only dotfiles (a retained .gitkeep) owns nothing and needs no index.
+  errors.push(...checkOwnedFolderIndexes(opts.nodesDir, nodes));
 
   const clusters = new Map<string, { original: Set<string>; nodeIds: Set<string> }>();
   for (const node of nodes) {
@@ -163,6 +158,21 @@ export function runLint(opts: LintOptions): LintResult {
   }
 
   findings.push(...checkEmptyFolderSummaries(opts.nodesDir));
+
+  // Rendered Related/Citations links are a leaf-relative navigation view of
+  // the id graph. A carried section that a fresh render would change (a moved
+  // target or leaf, a retired target the ledger now resolves elsewhere, a hand
+  // edit) is reported, never silently rewritten: index rebuild does not touch
+  // leaves, so the fix is an explicit refresh.
+  for (const drift of findRenderedLinkDrift(nodes, ledger)) {
+    findings.push({
+      rule: 'stale-rendered-link',
+      file: drift.node.path,
+      message: drift.message,
+      action:
+        'Run `npx kenkeep node refresh-links` to re-render the generated Related/Citations sections from the current tree.',
+    });
+  }
 
   for (const node of nodes) {
     const outgoing = edgeRefs(node).length;
@@ -298,31 +308,35 @@ function checkSlugId(node: NodeFile): string | null {
 }
 
 /**
- * Every directory under `nodesDir`, inclusive of `nodesDir` itself, that is
- * expected to carry an `index.md`. Returns absolute paths.
+ * The owned-index invariant, both directions: every owned folder (root plus
+ * every folder with a leaf beneath it) carries an `index.md`, and no other
+ * folder does. Returns absolute file paths for both rule kinds.
  */
-function foldersUnder(nodesDir: string): string[] {
+function checkOwnedFolderIndexes(nodesDir: string, nodes: NodeFile[]): LintEntry[] {
   if (!existsSync(nodesDir)) return [];
-  const out: string[] = [];
-  const walk = (dir: string): void => {
-    out.push(dir);
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) walk(join(dir, entry.name));
-    }
-  };
-  walk(nodesDir);
-  return out;
-}
-
-function isEmptyLegacyCompatibilityFolder(nodesDir: string, dir: string): boolean {
-  const rel = relative(nodesDir, dir).split(sep).join(posix.sep);
-  if (!LEGACY_COMPATIBILITY_DIRS.has(rel)) return false;
-  const entries = readdirSync(dir, { withFileTypes: true });
-  return (
-    entries.length > 0 &&
-    entries.every(entry => entry.name.startsWith('.')) &&
-    entries.every(entry => !entry.name.endsWith('.md'))
-  );
+  const errors: LintEntry[] = [];
+  const ownedDirs = computeOwnedFolderDirs(nodes);
+  for (const rel of [...ownedDirs].sort()) {
+    const dir = rel === '' ? nodesDir : join(nodesDir, ...rel.split('/'));
+    if (existsSync(join(dir, INDEX_FILENAME))) continue;
+    errors.push({
+      rule: 'missing-folder-index',
+      file: dir,
+      message: `folder ${rel || '.'} has no index.md`,
+      action: 'Run `npx kenkeep index rebuild` to regenerate the per-folder index nodes.',
+    });
+  }
+  for (const file of findStaleFolderIndexes(nodesDir, ownedDirs)) {
+    const rel = posix.dirname(relative(nodesDir, file).split(sep).join(posix.sep));
+    errors.push({
+      rule: 'stale-folder-index',
+      file,
+      message: `folder ${rel} holds no leaves but still carries an index.md`,
+      action:
+        'Run `npx kenkeep index rebuild` to remove stale owned index files (or move leaves back into the folder).',
+    });
+  }
+  return errors;
 }
 
 function normalizeTag(tag: string): string {

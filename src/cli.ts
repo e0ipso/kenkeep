@@ -17,6 +17,7 @@ import { runSessionLogUpdateProposalsCommand } from './commands/session-log-upda
 import { runMigrateOkfV3 } from './commands/migrate-okf-v3.js';
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
+import { runNodeRefreshLinks } from './commands/node-refresh-links.js';
 import { runNodeSweep } from './commands/node-sweep.js';
 import { runNodeWriteCommand } from './commands/node-write.js';
 import { runPackExportCommand } from './commands/pack-export.js';
@@ -470,6 +471,16 @@ async function main(): Promise<void> {
     .allowExcessArguments(true)
     .action(async () => {
       const code = await runNodeSweep();
+      process.exit(code);
+    });
+  nodeGroup
+    .command('refresh-links')
+    .description(
+      'Deterministic, LLM-free repair for the `stale-rendered-link` lint finding: re-render the generated Related/Citations sections (leaf-relative links) of every leaf whose links no longer match the tree, preserving frontmatter bytes, then rebuild the indexes. Writes files only; never stages or commits.'
+    )
+    .allowExcessArguments(true)
+    .action(async () => {
+      const code = await runNodeRefreshLinks();
       process.exit(code);
     });
 

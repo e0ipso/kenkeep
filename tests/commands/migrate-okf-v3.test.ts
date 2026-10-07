@@ -116,9 +116,9 @@ describe('migrate okf-v3', () => {
     expect(parsed.data.kind).toBeUndefined();
     expect(parsed.data.summary).toBeUndefined();
     expect(parsed.content).toContain('Body prose.');
-    expect(parsed.content).toContain('- Related: [map-target](/workflow/map-target.md)');
-    expect(parsed.content).toContain('- Depends on: [map-target](/workflow/map-target.md)');
-    expect(parsed.content).toContain('[1] [session-1.md](session-1.md)');
+    expect(parsed.content).toContain('- Related: [map-target](map-target.md)');
+    expect(parsed.content).toContain('- Depends on: [map-target](map-target.md)');
+    expect(parsed.content).toContain('[1] [session-1.md](../../../../session-1.md)');
 
     const summaries = readFolderSummaries(nodesDir(sandbox));
     expect(summaries.get('')).toBe('root legacy summary');

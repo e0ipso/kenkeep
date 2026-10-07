@@ -199,6 +199,7 @@ describe('nodes helpers', () => {
       tags: ['x'],
       kk_derived_from: ['session-1.md'],
       kk_relates_to: [],
+      kk_depends_on: [],
       kk_confidence: 'high',
     };
     // Default placement: nodes/ root (no kind bucket).
@@ -236,6 +237,7 @@ describe('nodes helpers', () => {
       tags: [],
       kk_derived_from: [],
       kk_relates_to: [],
+      kk_depends_on: [],
       kk_confidence: 'high',
     };
     // Initial placement into an existing folder.
@@ -274,6 +276,7 @@ describe('nodes helpers', () => {
       tags: [],
       kk_derived_from: [],
       kk_relates_to: [],
+      kk_depends_on: [],
       kk_confidence: 'high',
     };
     writeNodeFile({
@@ -310,10 +313,10 @@ describe('nodes helpers', () => {
     const first = readFileSync(sourcePath, 'utf8');
     expect(first).toContain('Hand prose.');
     expect(first).toContain('# Related');
-    expect(first).toContain('- Related: [map-target](/refs/map-target.md)');
-    expect(first).toContain('- Depends on: [map-dependency](/refs/map-dependency.md)');
+    expect(first).toContain('- Related: [map-target](../refs/map-target.md)');
+    expect(first).toContain('- Depends on: [map-dependency](../refs/map-dependency.md)');
     expect(first).toContain('# Citations');
-    expect(first).toContain('[1] [session-1.md](session-1.md)');
+    expect(first).toContain('[1] [session-1.md](../../../../session-1.md)');
 
     const parsed = readAllNodes(root).find(n => n.frontmatter.kk_id === 'practice-source')!;
     writeNodeFile({
@@ -330,8 +333,8 @@ describe('nodes helpers', () => {
     const second = readFileSync(sourcePath, 'utf8');
     expect(second).toContain('Hand prose.');
     expect(second).not.toContain('Related: [map-target]');
-    expect(second).toContain('- Depends on: [map-target](/refs/map-target.md)');
-    expect(second).toContain('[1] [docs/source.md](docs/source.md)');
+    expect(second).toContain('- Depends on: [map-target](../refs/map-target.md)');
+    expect(second).toContain('[1] [docs/source.md](../../../../docs/source.md)');
 
     const reparsed = readAllNodes(root).find(n => n.frontmatter.kk_id === 'practice-source')!;
     writeNodeFile({

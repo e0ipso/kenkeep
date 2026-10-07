@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
+import { writeNodeFile } from '../../src/lib/nodes.js';
 import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 
 const exec = promisify(execFile);
@@ -183,9 +184,11 @@ describe('lint command', () => {
     expect(combined).toContain('map-loner.md');
   });
 
-  it('exits 1 on a slug-id-mismatch error and names the offending file under --verbose', async () => {
-    // id is not a canonical slug (uppercase); the filename matches the id so
-    // the file still loads, but the slug-id-mismatch rule must fire as an error.
+  it('exits 1 and names the offending file when a stored id is not canonical', async () => {
+    // id is not a canonical slug (uppercase). The id names the leaf file, so
+    // the node reader itself rejects it as a frontmatter diagnostic:
+    // lint surfaces that diagnostic instead of loading the leaf and letting a
+    // later writer join the id into a path.
     writeNode(sandbox, 'practice', 'practice-NotASlug', {
       kk_id: 'practice-NotASlug',
       kk_relates_to: ['practice-anchor'],
@@ -197,8 +200,39 @@ describe('lint command', () => {
     const result = await runCli(sandbox, ['lint', '--verbose']);
     expect(result.exitCode).toBe(1);
     const combined = result.stdout + result.stderr;
-    expect(combined).toContain('slug-id-mismatch');
     expect(combined).toContain('practice-NotASlug.md');
+    expect(combined).toMatch(/kk_id: id practice-NotASlug is not canonical/);
+  });
+
+  it('exits 1 on a slug-id-mismatch error when the filename disagrees with a canonical id', async () => {
+    // The id is canonical (so the reader loads the leaf) but the file is named
+    // differently: that is the filename half of the naming rule, lint's to report.
+    const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
+    mkdirSync(nodesDir, { recursive: true });
+    writeFileSync(
+      join(nodesDir, 'practice-wrong-name.md'),
+      matter.stringify('# Body.', {
+        kk_schema_version: 3,
+        kk_id: 'practice-right-id',
+        title: 'Right id',
+        type: 'practice',
+        description: 's',
+        tags: [],
+        kk_derived_from: [],
+        kk_relates_to: ['practice-anchor'],
+        kk_depends_on: [],
+        kk_confidence: 'high',
+      })
+    );
+    writeNode(sandbox, 'practice', 'practice-anchor', {
+      kk_id: 'practice-anchor',
+      kk_relates_to: ['practice-right-id'],
+    });
+    const result = await runCli(sandbox, ['lint', '--verbose']);
+    expect(result.exitCode).toBe(1);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('slug-id-mismatch');
+    expect(combined).toContain('practice-wrong-name.md');
   });
 
   it('treats a dangling depends_on edge as an error, like relates_to', async () => {
@@ -240,13 +274,71 @@ describe('lint command', () => {
     expect(combined).not.toContain('references unknown node practice-retired');
   });
 
+  it('reports a hand-introduced stale rendered link as a finding; node refresh-links repairs it', async () => {
+    const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
+    mkdirSync(join(sandbox, 'docs'), { recursive: true });
+    writeFileSync(join(sandbox, 'docs/x.md'), '# x\n');
+    const base: Omit<NodeFrontmatter, 'kk_id' | 'title' | 'type'> = {
+      kk_schema_version: 3,
+      description: 's',
+      tags: [],
+      kk_derived_from: [],
+      kk_relates_to: [],
+      kk_depends_on: [],
+      kk_confidence: 'high',
+    };
+    writeNodeFile({
+      nodesDir,
+      frontmatter: { ...base, kk_id: 'map-x', title: 'x', type: 'map' },
+      body: '# X',
+      relDir: 'c',
+    });
+    const leaf = writeNodeFile({
+      nodesDir,
+      frontmatter: {
+        ...base,
+        kk_id: 'practice-leaf',
+        title: 'leaf',
+        type: 'practice',
+        kk_relates_to: ['map-x'],
+        kk_derived_from: ['docs/x.md'],
+      },
+      body: '# Leaf',
+      relDir: 'a/b',
+    });
+    expect((await runCli(sandbox, ['index', 'rebuild'])).exitCode).toBe(0);
+    const clean = await runCli(sandbox, ['lint', '--verbose']);
+    expect(clean.stdout + clean.stderr).not.toContain('stale-rendered-link ');
+
+    const fresh = readFileSync(leaf, 'utf8');
+    writeFileSync(leaf, fresh.replace('(../../c/map-x.md)', '(/c/map-x.md)'));
+    const stale = await runCli(sandbox, ['lint', '--verbose']);
+    expect(stale.exitCode).toBe(0);
+    const combined = stale.stdout + stale.stderr;
+    expect(combined).toContain('stale-rendered-link: 1');
+    expect(combined).toMatch(
+      /stale-rendered-link \S*practice-leaf\.md: rendered Related section is stale: expected "- Related: \[map-x\]\(\.\.\/\.\.\/c\/map-x\.md\)"/
+    );
+    expect(combined).toContain('npx kenkeep node refresh-links');
+
+    const refresh = await runCli(sandbox, ['node', 'refresh-links']);
+    expect(refresh.exitCode).toBe(0);
+    expect(refresh.stdout + refresh.stderr).toContain('a/b/practice-leaf.md');
+    expect(readFileSync(leaf, 'utf8')).toBe(fresh);
+    const after = await runCli(sandbox, ['lint', '--verbose']);
+    expect(after.stdout + after.stderr).toContain('stale-rendered-link: 0');
+  });
+
   it('reports tag-whitespace and empty-summary findings without changing exit code', async () => {
     writeNode(sandbox, 'practice', 'practice-tag-space', {
       kk_id: 'practice-tag-space',
       tags: [' hooks '],
     });
+    // topic/ must hold a leaf to be an owned folder; an index.md in a leafless
+    // folder is a stale-folder-index error, not the empty-summary finding
+    // under test.
+    writeNestedNode(sandbox, 'topic', 'practice', 'practice-topic');
     const topicDir = join(sandbox, '.ai/kenkeep/nodes/topic');
-    mkdirSync(topicDir, { recursive: true });
     writeFileSync(join(topicDir, 'index.md'), '# Topic\n');
     writeFileSync(
       join(sandbox, '.ai/kenkeep/FOLDER_SUMMARIES.md'),

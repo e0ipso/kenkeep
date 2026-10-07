@@ -1,4 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -137,5 +147,80 @@ describe('rendered Related/Citations link base', () => {
     expect(lint.findings.filter(f => f.rule === 'stale-rendered-link')).toEqual([]);
     expect(refreshRenderedLinks(nodesDir)).toEqual([]);
     expect(readFileSync(leaf, 'utf8')).toBe(bytes);
+  });
+
+  // Marker strings quoted in prose or shown in a fenced example are not a
+  // generated section. Only a marker on its own line, outside a code fence,
+  // delimits one, so the prose between quoted markers is never replaced.
+  it('treats only whole-line markers outside code fences as a generated section', () => {
+    writeNodeFile({ nodesDir, frontmatter: fm('map-x'), body: '# X', relDir: 'refs' });
+    const prose = [
+      '# Marker examples',
+      'Use `<!-- kk:related:start -->` to demonstrate the marker.',
+      'DURABLE_FACT explains the module contract.',
+      'Close the demonstration with `<!-- kk:related:end -->`.',
+      '',
+      '```markdown',
+      '<!-- kk:related:start -->',
+      'FENCED_EXAMPLE',
+      '<!-- kk:related:end -->',
+      '```',
+    ].join('\n');
+    const quotedOnly = join(nodesDir, 'topic', 'practice-quoted.md');
+    mkdirSync(dirname(quotedOnly), { recursive: true });
+    writeFileSync(
+      quotedOnly,
+      '---\nkk_schema_version: 3\nkk_id: practice-quoted\ntitle: q\ntype: practice\n' +
+        'description: q\ntags: []\nkk_derived_from: []\nkk_relates_to: [map-x]\n' +
+        `kk_confidence: high\n---\n${prose}\n`
+    );
+    const quotedBytes = readFileSync(quotedOnly, 'utf8');
+    expect(findRenderedLinkDrift(readAllNodes(nodesDir))).toEqual([]);
+    expect(refreshRenderedLinks(nodesDir)).toEqual([]);
+    expect(readFileSync(quotedOnly, 'utf8')).toBe(quotedBytes);
+
+    // A real (stale) section after the same prose is refreshed; the prose is not.
+    const leaf = writeNodeFile({
+      nodesDir,
+      frontmatter: fm('practice-real', { kk_relates_to: ['map-x'] }),
+      body: prose,
+      relDir: 'topic',
+    });
+    const written = readFileSync(leaf, 'utf8');
+    expect(written).toContain(`${prose}\n\n<!-- kk:related:start -->\n# Related`);
+    writeFileSync(leaf, written.replace('(../refs/map-x.md)', '(/refs/map-x.md)'));
+    expect(refreshRenderedLinks(nodesDir)).toEqual([leaf]);
+    expect(readFileSync(leaf, 'utf8')).toBe(written);
+  });
+
+  // The refresh writes through the same containment boundary as every other
+  // leaf write: a symlinked leaf is refused before any leaf is rewritten.
+  it('refuses a symlinked drifted leaf before rewriting any leaf', () => {
+    writeNodeFile({ nodesDir, frontmatter: fm('map-x'), body: '# X', relDir: 'refs' });
+    const first = writeNodeFile({
+      nodesDir,
+      frontmatter: fm('practice-first', { kk_relates_to: ['map-x'] }),
+      body: '# First',
+      relDir: 'a',
+    });
+    const linked = writeNodeFile({
+      nodesDir,
+      frontmatter: fm('practice-linked', { kk_relates_to: ['map-x'] }),
+      body: '# Linked',
+      relDir: 'b',
+    });
+    for (const file of [first, linked]) {
+      writeFileSync(file, readFileSync(file, 'utf8').replace('(../refs/map-x.md)', '(/x.md)'));
+    }
+    const external = join(repo, 'external.md');
+    renameSync(linked, external);
+    symlinkSync(external, linked);
+    const firstBytes = readFileSync(first, 'utf8');
+    const externalBytes = readFileSync(external, 'utf8');
+
+    expect(() => refreshRenderedLinks(nodesDir)).toThrow(/symlink/);
+    expect(lstatSync(linked).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external, 'utf8')).toBe(externalBytes);
+    expect(readFileSync(first, 'utf8')).toBe(firstBytes);
   });
 });

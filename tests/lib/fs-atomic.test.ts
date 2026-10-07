@@ -13,11 +13,26 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
+import ts from 'typescript';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { atomicWriteFile, copyMissingEntries } from '../../src/lib/fs-atomic.js';
 
 const execFileAsync = promisify(execFile);
 const FS_ATOMIC_SRC = resolve(__dirname, '../../src/lib/fs-atomic.ts');
+
+/**
+ * Writes the real helper as plain ESM under `dir` and returns its path. The
+ * writer processes run bare Node, and not every supported Node 22 release
+ * can import a `.ts` file. The helper only imports `node:` builtins at runtime.
+ */
+function emitFsAtomicModule(dir: string): string {
+  const { outputText } = ts.transpileModule(readFileSync(FS_ATOMIC_SRC, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  });
+  const file = join(dir, 'fs-atomic.mjs');
+  writeFileSync(file, outputText);
+  return file;
+}
 
 // Every state writer funnels through one unique-temp atomic writer.
 // Simultaneous hook processes (e.g. several SessionStart events) used to share
@@ -40,8 +55,9 @@ describe('atomicWriteFile (unique temp, always cleaned up)', () => {
     // and is uniquely identifiable, so a torn or interleaved file is detectable.
     const payloadFor = (i: number): string =>
       `${String(i).padStart(3, '0')}:${'x'.repeat(256 * 1024)}\n`;
+    const helper = emitFsAtomicModule(dir);
     const script = [
-      `const { atomicWriteFile } = await import(${JSON.stringify(FS_ATOMIC_SRC)});`,
+      `const { atomicWriteFile } = await import(${JSON.stringify(helper)});`,
       `const i = Number(process.argv[1]);`,
       `const body = String(i).padStart(3, '0') + ':' + 'x'.repeat(256 * 1024) + '\\n';`,
       // Half the writers pass a Buffer to exercise both accepted input types.

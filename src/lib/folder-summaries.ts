@@ -36,7 +36,7 @@ export function readFolderSummaries(nodesDir: string): Map<string, string> {
 /**
  * Reconcile a sidecar registry against the owned folder set.
  *
- * The rule: a folder summary lives exactly as long as its folder is owned —
+ * The rule: a folder summary lives exactly as long as its folder is owned:
  * the bundle root plus every folder with a leaf somewhere beneath it, which
  * is also the set of folders that carry a generated `index.md`. When the last
  * leaf leaves a branch, `index rebuild` removes the branch's stale `index.md`

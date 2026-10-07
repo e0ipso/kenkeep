@@ -9,6 +9,12 @@ export interface SessionLogUpdateProposalsOptions {
   path: string;
   status: string;
   error?: string | undefined;
+  /**
+   * The `transcript_hash` the proposals were extracted from. The write is
+   * refused when the log's current hash differs (a capture landed since), so
+   * stale proposals never attach to a newer transcript.
+   */
+  expectedHash?: string | undefined;
 }
 
 async function readStdin(): Promise<string> {
@@ -33,6 +39,13 @@ export async function runSessionLogUpdateProposalsCommand(
   const status = opts.status;
   if (status !== 'done' && status !== 'failed') {
     log.error('--status must be "done" or "failed".');
+    return 1;
+  }
+  const expectedHash = opts.expectedHash;
+  if (expectedHash === undefined || expectedHash === '') {
+    log.error(
+      '--expected-hash is required: pass the transcript_hash from the session log frontmatter you extracted from.'
+    );
     return 1;
   }
 
@@ -60,9 +73,7 @@ export async function runSessionLogUpdateProposalsCommand(
       proposal_error: opts.error ?? 'unknown error',
       proposal_log: null,
     };
-    writeSessionLogFrontmatter(filePath, parsed, patch);
-    process.stdout.write(`${sessionId}\n`);
-    return 0;
+    return commit(filePath, expectedHash, patch, sessionId);
   }
 
   const raw = await readStdin();
@@ -95,7 +106,23 @@ export async function runSessionLogUpdateProposalsCommand(
       map: validated.data.map,
     },
   };
-  writeSessionLogFrontmatter(filePath, parsed, patch);
+  return commit(filePath, expectedHash, patch, sessionId);
+}
+
+/** Writes the patch bound to `expectedHash`; a changed transcript is refused with nothing written. */
+function commit(
+  filePath: string,
+  expectedHash: string,
+  patch: FrontmatterPatch,
+  sessionId: string
+): number {
+  const written = writeSessionLogFrontmatter(filePath, expectedHash, patch);
+  if (!written.ok) {
+    log.error(
+      `transcript changed since extraction (expected ${expectedHash}, found ${written.currentHash ?? '(none)'}); nothing written, the log stays pending: re-extract from its current body.`
+    );
+    return 1;
+  }
   process.stdout.write(`${sessionId}\n`);
   return 0;
 }

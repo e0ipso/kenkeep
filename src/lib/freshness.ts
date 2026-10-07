@@ -21,11 +21,14 @@ export interface BranchRollup {
 
 /**
  * Result of a freshness computation. `available` is false when no git signal
- * could be derived (not a git work tree, a git error, or an empty knowledge
- * base); callers treat that as "unknown / no signal" and never as an error.
+ * could be derived; `reason` then says why (no nodes, unreadable nodes, or the
+ * failing git command and its first stderr line). Callers treat an unavailable
+ * report as "unknown / no signal" and never as an error.
  */
 export interface FreshnessReport {
   available: boolean;
+  /** Present exactly when `available` is false. */
+  reason?: string;
   consideredNodes: number;
   flaggedCount: number;
   flagged: FlaggedNode[];
@@ -43,6 +46,8 @@ export interface FreshnessOptions {
    * full history.
    */
   maxCommits?: number;
+  /** Epoch-ms instant after which the node walk gives up and no signal is reported. */
+  deadlineAt?: number | undefined;
 }
 
 /** Label used for leaves that sit at the `nodes/` root (no branch folder). */
@@ -50,13 +55,19 @@ export const ROOT_BRANCH_LABEL = '(root)';
 
 const KK_PATH_PREFIX = '.ai/kenkeep/';
 
-const EMPTY_REPORT: FreshnessReport = {
-  available: false,
-  consideredNodes: 0,
-  flaggedCount: 0,
-  flagged: [],
-  perBranch: [],
-};
+/** Cap on `git log` output; past it the query fails with ENOBUFS and says so. */
+const GIT_LOG_MAX_BUFFER = 64 * 1024 * 1024;
+
+function unavailableReport(reason: string): FreshnessReport {
+  return {
+    available: false,
+    reason,
+    consideredNodes: 0,
+    flaggedCount: 0,
+    flagged: [],
+    perBranch: [],
+  };
+}
 
 /**
  * Determines which leaf nodes may describe source code that changed since the
@@ -65,66 +76,71 @@ const EMPTY_REPORT: FreshnessReport = {
  * Baseline per node is derived entirely from git history: the most recent
  * commit that touched the node's own file (curation writes the node, the human
  * commits it). A node is flagged when any source path it references changed in
- * `<baseline>..HEAD`. Nothing is stamped and no state is persisted.
+ * `<baseline>..HEAD`, including being deleted or renamed away, because
+ * membership is historical (any path the log ever recorded), not the current
+ * tracked-file list. Nothing is stamped and no state is persisted.
  *
- * Bounded to a small constant number of git invocations regardless of node
- * count. Fails open: any git failure, a non-git tree, a shallow-history gap, or
- * an empty/unreadable `nodes/` tree yields an unavailable, empty report and
- * never throws.
+ * One git invocation regardless of node count. Never throws: an
+ * empty/unreadable `nodes/` tree or any git failure (no repository, no
+ * commits, output past the buffer) yields an unavailable report with a reason.
  */
 export function computeFreshness(opts: FreshnessOptions): FreshnessReport {
+  let nodes: NodeFile[];
   try {
-    let nodes: NodeFile[];
-    try {
-      nodes = readAllNodes(opts.nodesDir);
-    } catch {
-      // Malformed/old-layout tree: doctor surfaces the details; freshness is a
-      // best-effort advisory, so degrade to no signal rather than throwing.
-      return EMPTY_REPORT;
-    }
-    if (nodes.length === 0) return EMPTY_REPORT;
-
-    if (!isGitWorkTree(opts.root)) return EMPTY_REPORT;
-
-    const tracked = trackedFiles(opts.root);
-    const pathToRecency = pathRecencyIndex(opts.root, opts.maxCommits);
-    if (pathToRecency.size === 0) return EMPTY_REPORT;
-
-    const flagged: FlaggedNode[] = [];
-    for (const node of nodes) {
-      const nodeRel = toPosixRel(opts.root, node.path);
-      const baseline = pathToRecency.get(nodeRel);
-      // No commit for this node's file (brand-new / uncommitted, or outside the
-      // budgeted window): no baseline, so nothing to compare against.
-      if (baseline === undefined) continue;
-
-      const referenced = referencedSourcePaths(node, tracked, nodeRel);
-      const changed: string[] = [];
-      for (const ref of referenced) {
-        const changeIndex = pathToRecency.get(ref);
-        // Strictly newer than the node's baseline => changed after curation.
-        if (changeIndex !== undefined && changeIndex < baseline) changed.push(ref);
-      }
-      if (changed.length > 0) {
-        flagged.push({
-          id: node.frontmatter.kk_id,
-          branch: branchOf(node),
-          changedPaths: changed.sort((a, b) => a.localeCompare(b)),
-        });
-      }
-    }
-
-    flagged.sort((a, b) => a.id.localeCompare(b.id));
-    return {
-      available: true,
-      consideredNodes: nodes.length,
-      flaggedCount: flagged.length,
-      flagged,
-      perBranch: rollupByBranch(flagged),
-    };
-  } catch {
-    return EMPTY_REPORT;
+    nodes = readAllNodes(opts.nodesDir, { deadlineAt: opts.deadlineAt });
+  } catch (err) {
+    // Malformed/old-layout tree: doctor surfaces the details; freshness is a
+    // best-effort advisory, so degrade to no signal rather than throwing.
+    return unavailableReport(`could not read nodes: ${errorMessage(err)}`);
   }
+  if (nodes.length === 0) return unavailableReport('the knowledge base has no nodes');
+
+  let pathToRecency: Map<string, number>;
+  try {
+    pathToRecency = pathRecencyIndex(opts.root, opts.maxCommits);
+  } catch (err) {
+    return unavailableReport(`git log failed: ${gitFailure(err)}`);
+  }
+  return flagNodes(nodes, pathToRecency, opts.root);
+}
+
+function flagNodes(
+  nodes: NodeFile[],
+  pathToRecency: Map<string, number>,
+  root: string
+): FreshnessReport {
+  const flagged: FlaggedNode[] = [];
+  for (const node of nodes) {
+    const nodeRel = toPosixRel(root, node.path);
+    const baseline = pathToRecency.get(nodeRel);
+    // No commit for this node's file (brand-new / uncommitted, or outside the
+    // budgeted window): no baseline, so nothing to compare against.
+    if (baseline === undefined) continue;
+
+    const changed: string[] = [];
+    for (const ref of referencedSourcePaths(node, pathToRecency, nodeRel)) {
+      // Strictly newer than the node's baseline => changed after curation.
+      // A deletion or rename-away is a change recorded against the old path.
+      const changeIndex = pathToRecency.get(ref);
+      if (changeIndex !== undefined && changeIndex < baseline) changed.push(ref);
+    }
+    if (changed.length > 0) {
+      flagged.push({
+        id: node.frontmatter.kk_id,
+        branch: branchOf(node),
+        changedPaths: changed.sort((a, b) => a.localeCompare(b)),
+      });
+    }
+  }
+
+  flagged.sort((a, b) => a.id.localeCompare(b.id));
+  return {
+    available: true,
+    consideredNodes: nodes.length,
+    flaggedCount: flagged.length,
+    flagged,
+    perBranch: rollupByBranch(flagged),
+  };
 }
 
 function branchOf(node: NodeFile): string {
@@ -142,19 +158,24 @@ function rollupByBranch(flagged: FlaggedNode[]): BranchRollup[] {
 }
 
 /**
- * The set of git-tracked source paths a node references: the union of body path
- * tokens (Markdown link targets + inline-code spans) that resolve to a tracked
- * file, and `kk_derived_from` entries that resolve to a tracked file. Paths
- * under `.ai/kenkeep/` (other knowledge-base files) and the node's own file are
- * excluded — the signal is about the surrounding source code, not the KB.
+ * The set of source paths a node references that appear in the scanned git
+ * history: the union of body path tokens (Markdown link targets + inline-code
+ * spans) and `kk_derived_from` entries. Historical membership means a path that
+ * has since been deleted or renamed still counts. Paths under `.ai/kenkeep/`
+ * (other knowledge-base files) and the node's own file are excluded — the
+ * signal is about the surrounding source code, not the KB.
  */
-function referencedSourcePaths(node: NodeFile, tracked: Set<string>, nodeRel: string): Set<string> {
+function referencedSourcePaths(
+  node: NodeFile,
+  history: Map<string, number>,
+  nodeRel: string
+): Set<string> {
   const out = new Set<string>();
   const add = (candidate: string | null): void => {
     if (candidate === null) return;
     if (candidate === nodeRel) return;
     if (candidate.startsWith(KK_PATH_PREFIX)) return;
-    if (tracked.has(candidate)) out.add(candidate);
+    if (history.has(candidate)) out.add(candidate);
   };
 
   for (const token of extractBodyPathTokens(node.body)) {
@@ -185,8 +206,8 @@ function extractBodyPathTokens(body: string): string[] {
  * Normalizes a raw token to a repo-root-relative POSIX path, or null if it is
  * not a plausible in-repo path (URL, anchor-only, absolute-outside, no slash).
  * Resolution tries the token as repo-root-relative first, then relative to the
- * node's own directory (for `../`-style cross references). Tracked-membership is
- * checked by the caller.
+ * node's own directory (for `../`-style cross references). History membership
+ * is checked by the caller.
  */
 function resolveToRepoRel(raw: string, nodeRelDir: string): string | null {
   let token = raw.trim();
@@ -221,35 +242,15 @@ function toPosixRel(root: string, absPath: string): string {
   return relative(root, absPath).split(sep).join(posix.sep);
 }
 
-function isGitWorkTree(root: string): boolean {
-  try {
-    const out = execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      cwd: root,
-      stdio: 'pipe',
-    })
-      .toString()
-      .trim();
-    return out === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function trackedFiles(root: string): Set<string> {
-  const out = execFileSync('git', ['ls-files', '-z'], { cwd: root, stdio: 'pipe' }).toString();
-  const set = new Set<string>();
-  for (const p of out.split('\0')) {
-    if (p.length > 0) set.add(p);
-  }
-  return set;
-}
-
-const COMMIT_MARK = 'commit';
+/** Marker prefix for commit lines; control bytes cannot start a path line. */
+const COMMIT_MARK = '\u0001commit\u0001';
 
 /**
  * Single `git log` pass yielding, per path, the recency index of the most
- * recent commit that touched it (0 = HEAD, larger = older). One git call; the
- * first time a path appears (newest-first order) is its most recent change.
+ * recent commit that touched it (0 = HEAD, larger = older). The first time a
+ * path appears (newest-first order) is its most recent change. `--no-renames`
+ * records a rename as a deletion of the old path, so the old path stays in
+ * history.
  */
 function pathRecencyIndex(root: string, maxCommits?: number): Map<string, number> {
   const args = ['log', `--format=${COMMIT_MARK}%H`, '--name-only', '--no-renames'];
@@ -257,9 +258,10 @@ function pathRecencyIndex(root: string, maxCommits?: number): Map<string, number
   args.push('HEAD');
   const out = execFileSync('git', args, {
     cwd: root,
-    stdio: 'pipe',
-    maxBuffer: 64 * 1024 * 1024,
-  }).toString();
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: GIT_LOG_MAX_BUFFER,
+  });
 
   const map = new Map<string, number>();
   let index = -1;
@@ -272,4 +274,15 @@ function pathRecencyIndex(root: string, maxCommits?: number): Map<string, number
     if (!map.has(line)) map.set(line, index);
   }
   return map;
+}
+
+/** The first stderr line of a failed git call, else the spawn error (`ENOBUFS`, `ENOENT`). */
+function gitFailure(err: unknown): string {
+  const stderr = (err as { stderr?: unknown }).stderr;
+  const firstLine = typeof stderr === 'string' ? (stderr.trim().split('\n')[0] ?? '') : '';
+  return (firstLine.length > 0 ? firstLine : errorMessage(err)).replace(/\.$/, '');
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

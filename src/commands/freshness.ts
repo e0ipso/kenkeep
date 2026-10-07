@@ -10,7 +10,7 @@ export interface FreshnessOptions {
  * Read-only, advisory freshness report: how many nodes may describe source code
  * that changed since the node was last curated. Never writes to `nodes/`, never
  * calls the LLM, and always exits 0 — flagged nodes are informational, not an
- * error. Degrades to a clean "no signal" line when git history is unavailable.
+ * error. Degrades to a "no signal" line that names the reason.
  */
 export async function runFreshness(opts: FreshnessOptions = {}): Promise<number> {
   const root = findRepoRoot();
@@ -23,9 +23,7 @@ export async function runFreshness(opts: FreshnessOptions = {}): Promise<number>
 /** Deterministic renderer for a freshness report (no timestamps, stable order). */
 export function renderFreshness(report: FreshnessReport, opts: { verbose: boolean }): void {
   if (!report.available) {
-    log.plain(
-      'kenkeep freshness: no signal (not a git repository with history, or the knowledge base is empty).'
-    );
+    log.plain(`kenkeep freshness: no signal — ${report.reason ?? 'unknown'}.`);
     return;
   }
 

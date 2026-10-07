@@ -14,10 +14,16 @@
  * (which already skips generated `index.md` files) and does NOT attempt to
  * distinguish committed accepted nodes from uncommitted curation drafts — that
  * matches every existing consume path.
+ *
+ * Time bound: the prompt-time hooks run this synchronously under a deadline
+ * that cannot interrupt synchronous work, so `deadlineAt` is checked before
+ * each leaf read and each node scored and {@link BudgetExceededError} is
+ * thrown once it has passed. The caller fails open (no context). The overrun
+ * past `deadlineAt` is at most one leaf read+parse.
  */
 import { posix, sep } from 'node:path';
 import { computeInDegree } from './index-gen.js';
-import { readAllNodes, type NodeFile } from './nodes.js';
+import { assertWithinBudget, readAllNodes, type NodeFile, type WalkBudget } from './nodes.js';
 import { readRedirectsLedger, resolveRedirect } from './redirects.js';
 
 /**
@@ -45,8 +51,9 @@ export const DEFAULT_MAX_NODES = 5;
 
 /**
  * Default rendered-character budget for the whole block. The renderer keeps
- * adding whole entries until the next one would exceed this bound, so the
- * injected context stays small regardless of knowledge-base size.
+ * adding whole entries until the next one would exceed this bound, and
+ * truncates the first entry's summary when that entry alone would, so the
+ * injected context never exceeds the budget regardless of knowledge-base size.
  */
 export const DEFAULT_MAX_CHARS = 1800;
 
@@ -98,7 +105,7 @@ export interface PromptMatch {
   score: number;
 }
 
-export interface RetrievalOptions {
+export interface RetrievalOptions extends WalkBudget {
   /** Maximum number of matches to return. Defaults to {@link DEFAULT_MAX_NODES}. */
   maxNodes?: number;
 }
@@ -159,9 +166,10 @@ function lexicalScore(node: NodeFile, promptTerms: Set<string>): number {
  * `relates_to` in-degree (centrality) DESC, then id ASC — a stable order for the
  * same prompt and node tree.
  *
- * `nodes` reads the live tree; this may throw `InvalidNodeFrontmatterError` or
- * `OldLayoutError` from `readAllNodes`. Callers on the hook hot path catch and
- * fail open; tests assert the pure-function behavior directly.
+ * Scoring checks `options.deadlineAt` once per node and throws
+ * `BudgetExceededError` when the budget is spent; without a deadline the
+ * function is pure and unbounded. Callers on the hook hot path catch and fail
+ * open; tests assert the pure-function behavior directly.
  */
 export function rankNodes(
   nodes: NodeFile[],
@@ -173,7 +181,10 @@ export function rankNodes(
   if (promptTerms.size === 0 || nodes.length === 0) return [];
 
   const lexical = new Map<string, number>();
-  for (const node of nodes) lexical.set(node.frontmatter.kk_id, lexicalScore(node, promptTerms));
+  for (const node of nodes) {
+    assertWithinBudget(options.deadlineAt, 'ranking');
+    lexical.set(node.frontmatter.kk_id, lexicalScore(node, promptTerms));
+  }
 
   // Live id set plus the redirects ledger so a graph edge pointing at a retired
   // id still resolves to its live successor(s) for the boost.
@@ -249,13 +260,42 @@ function inline(text: string): string {
 const HEADER =
   '> kenkeep prompt-time knowledge: nodes likely relevant to this request. These are routing hints — open the linked node before relying on details, and verify any named file/function/flag against the live tree.';
 
+const ELLIPSIS = '…';
+const SUMMARY_SEPARATOR = ' — ';
+
+function renderEntry(node: NodeFile, summary: string): string {
+  const fm = node.frontmatter;
+  const tagPart = fm.tags.length > 0 ? ` ${fm.tags.map(t => `#${t}`).join(' ')}` : '';
+  const summaryPart = summary ? `${SUMMARY_SEPARATOR}${summary}` : '';
+  return `- [**${inline(fm.title)}**](${renderPath(node)}) (\`${fm.kk_id}\`)${summaryPart}${tagPart}`;
+}
+
+/**
+ * Shrinks `entry` (rendered with the full `summary`) to at most `allowed`
+ * characters. Prefers cutting the summary with an ellipsis so the title, id and
+ * link survive intact; only when the summary-less entry is itself too long
+ * (a pathological title or tag list) is the line hard-cut.
+ */
+function truncateEntry(node: NodeFile, summary: string, allowed: number): string {
+  const bare = renderEntry(node, '');
+  const summaryRoom = allowed - bare.length - SUMMARY_SEPARATOR.length - ELLIPSIS.length;
+  if (summaryRoom > 0 && summary.length > 0) {
+    // Never end on a dangling escape backslash introduced by `inline`.
+    const head = summary.slice(0, summaryRoom).trimEnd().replace(/\\$/, '');
+    return renderEntry(node, `${head}${ELLIPSIS}`);
+  }
+  if (bare.length <= allowed) return bare;
+  return `${bare.slice(0, Math.max(0, allowed - ELLIPSIS.length))}${ELLIPSIS}`;
+}
+
 /**
  * Render a compact summaries-plus-links block from ranked matches, bounded by
  * `maxChars`. Each entry carries the node title, id, repo-relative markdown
- * link, summary, and tags — never the full leaf body. Always renders at least
- * the top match when any exist (a single over-budget entry is not silently
- * dropped); subsequent entries are added only while the running total stays
- * within budget. Returns the empty string for no matches.
+ * link, summary, and tags — never the full leaf body. The budget is a hard
+ * bound on the returned string (trailing newline included): the top match is
+ * always rendered, with its summary truncated if the full entry would exceed
+ * the budget; subsequent entries are added whole only while the running total
+ * stays within budget. Returns the empty string for no matches.
  */
 export function renderPromptKnowledgeContext(
   matches: PromptMatch[],
@@ -264,16 +304,19 @@ export function renderPromptKnowledgeContext(
   if (matches.length === 0) return '';
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
   const lines = [HEADER, ''];
-  let total = lines.join('\n').length;
+  // `lines.join('\n') + '\n'` is exactly HEADER + '\n\n' + Σ(entry + '\n').
+  let total = HEADER.length + 2;
   let rendered = 0;
   for (const { node } of matches) {
-    const fm = node.frontmatter;
-    const tagPart = fm.tags.length > 0 ? ` ${fm.tags.map(t => `#${t}`).join(' ')}` : '';
-    const summary = inline(fm.description);
-    const summaryPart = summary ? ` — ${summary}` : '';
-    const entry = `- [**${inline(fm.title)}**](${renderPath(node)}) (\`${fm.kk_id}\`)${summaryPart}${tagPart}`;
-    // Always keep the first entry; gate the rest on the char budget.
-    if (rendered > 0 && total + entry.length + 1 > maxChars) break;
+    const summary = inline(node.frontmatter.description);
+    let entry = renderEntry(node, summary);
+    const allowed = maxChars - total - 1;
+    if (entry.length > allowed) {
+      if (rendered > 0) break;
+      // Always keep the first entry, shrunk to fit; nothing else can follow it.
+      if (allowed <= ELLIPSIS.length) break;
+      entry = truncateEntry(node, summary, allowed);
+    }
     lines.push(entry);
     total += entry.length + 1;
     rendered += 1;
@@ -285,8 +328,9 @@ export function renderPromptKnowledgeContext(
  * One-shot convenience for the prompt-time hooks: read the live node tree, rank
  * it against the prompt, and render the bounded block. Returns the empty string
  * when the prompt is empty, the knowledge base is missing/empty, or nothing is
- * relevant. May throw from `readAllNodes` (malformed/legacy KB); the hook layer
- * catches and fails open.
+ * relevant. Throws `BudgetExceededError` once `options.deadlineAt` has passed,
+ * and the reader's errors on a malformed/legacy KB; the hook layer catches
+ * both and fails open.
  */
 export function buildPromptKnowledgeContext(
   nodesDir: string,
@@ -294,7 +338,8 @@ export function buildPromptKnowledgeContext(
   options: PromptKnowledgeOptions = {}
 ): string {
   if (prompt.trim().length === 0) return '';
-  const nodes = readAllNodes(nodesDir);
+  const nodes = readAllNodes(nodesDir, { deadlineAt: options.deadlineAt });
   const matches = rankNodes(nodes, prompt, options);
+  assertWithinBudget(options.deadlineAt, 'rendering');
   return renderPromptKnowledgeContext(matches, options);
 }

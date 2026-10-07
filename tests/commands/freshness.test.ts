@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
@@ -83,5 +83,28 @@ describe('freshness command', () => {
     const result = await runCli(sandbox, ['freshness']);
     expect(result.exitCode).toBe(0);
     expect(result.stdout + result.stderr).toContain('no signal');
+  });
+
+  it('names a git query failure instead of reporting all-fresh', async () => {
+    await commit(sandbox, 'src/foo.ts', 'v1', 'foo v1');
+    await commit(
+      sandbox,
+      '.ai/kenkeep/nodes/topic/practice-c.md',
+      nodeMarkdown('practice-c', 'Describes `src/foo.ts`.'),
+      'add node'
+    );
+    await commit(sandbox, 'src/foo.ts', 'v2', 'foo v2');
+    // Corrupt history: drop the loose root tree of the first commit.
+    const { stdout } = (await exec('git', ['rev-parse', 'HEAD~2^{tree}'], { cwd: sandbox })) as {
+      stdout: string;
+    };
+    const tree = stdout.trim();
+    unlinkSync(join(sandbox, '.git', 'objects', tree.slice(0, 2), tree.slice(2)));
+
+    const result = await runCli(sandbox, ['freshness']);
+    const output = result.stdout + result.stderr;
+    expect(result.exitCode).toBe(0);
+    expect(output).toMatch(/kenkeep freshness: no signal — git log failed: \S/);
+    expect(output).not.toContain('appear fresh');
   });
 });

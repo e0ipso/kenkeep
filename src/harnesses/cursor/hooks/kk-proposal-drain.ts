@@ -25,7 +25,7 @@ runHookEntry({
     await runProposalDrain({
       binaryName: 'agent',
       startCwd,
-      runner: async (prompt, stdin, schema, opts) => runHeadlessCursor(prompt, stdin, schema, opts),
+      runner: async (prompt, schema, opts) => runHeadlessCursor(prompt, schema, opts),
       buildHarnessOpts: settings => buildCursorHarnessOpts(settings, 'proposal'),
       harnessTag: 'cursor:kk-proposal-drain',
     });

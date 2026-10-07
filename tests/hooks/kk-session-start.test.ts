@@ -7,6 +7,7 @@ import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateIndex, writeIndex } from '../../src/lib/index-gen.js';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
+import { writeSlowFsPreload } from '../helpers/slow-fs.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../..');
@@ -26,12 +27,13 @@ function runHook(
   hookPath: string,
   cwd: string,
   hookInput: Record<string, unknown> | null,
-  env: NodeJS.ProcessEnv = {}
+  env: NodeJS.ProcessEnv = {},
+  nodeArgs: string[] = []
 ): Promise<SpawnResult> {
   return new Promise(resolveFn => {
     const proc = execFile(
       'node',
-      [hookPath],
+      [...nodeArgs, hookPath],
       { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
       (err, stdout, stderr) => {
         const code =
@@ -235,6 +237,16 @@ function hookPath(harness: string): string {
   return join(repoRoot, 'dist', 'hooks', harness, 'kk-session-start.cjs');
 }
 
+function diagnosticPhases(kkDir: string): string[] {
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const logFile = join(kkDir, '_logs', `hook-errors-${dateStr}.log`);
+  if (!existsSync(logFile)) return [];
+  return readFileSync(logFile, 'utf8')
+    .split('\n')
+    .filter(l => l.length > 0)
+    .map(l => (JSON.parse(l) as { phase: string }).phase);
+}
+
 describe('per-harness SessionStart injection (tree descent)', () => {
   let sb: Sandbox;
   beforeEach(async () => (sb = await initTreeKb()));
@@ -252,13 +264,15 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     expect(ctx).toContain('# kenkeep');
     expect(ctx).toContain('## Branches');
     expect(ctx).toContain(DESCENT_PHRASE);
-    // Success Criterion 8: the directive is embedded in the ENTRY.md body, so the
-    // hook must not append it again — exactly one occurrence reaches the channel.
+    // The directive is embedded in the ENTRY.md body, so the hook must not
+    // append it again: exactly one occurrence reaches the channel.
     expect(ctx.split(DESCENT_PHRASE).length - 1).toBe(1);
     expect(ctx).not.toContain(GREP_RECIPE);
     // Entry catalog lists the deep branch by rollup, not the deep leaf body.
     expect(ctx).toContain('storage/');
     expect(ctx).not.toContain('practice-deep-leaf');
+    // The hook's budgeted hash agrees with the hash the rebuild stamped.
+    expect(ctx).not.toContain('ENTRY.md is stale');
   });
 
   it('Codex injects the same payload via its hookSpecificOutput channel', async () => {
@@ -524,4 +538,65 @@ describe('per-harness SessionStart injection (tree descent)', () => {
     await settleNotifications();
     expect(existsSync(fake.logFile)).toBe(false);
   });
+});
+
+// The 1 s deadline cannot interrupt synchronous work, so the staleness hash
+// and the freshness probe check the budget between leaves. Each of the 12
+// leaf reads stalls 200 ms (2.4 s of unbudgeted work). The entry catalog and
+// the curation nudge (scanned before the hash) are still injected; the stale
+// check is dropped. Margin = one stalled leaf (200 ms) + 600 ms of process
+// start/teardown.
+describe('SessionStart budget on a slow filesystem', () => {
+  let sb: Sandbox;
+  beforeEach(async () => (sb = await initTreeKb()));
+  afterEach(() => cleanSandbox(sb.root));
+
+  const SLOW_MS = 200;
+  const BUDGET_MS = 1_000;
+  const MARGIN_MS = SLOW_MS + 600;
+
+  const readers: Record<string, (res: SpawnResult, root: string) => string> = {
+    claude: res =>
+      (JSON.parse(res.stdout) as { hookSpecificOutput: { additionalContext: string } })
+        .hookSpecificOutput.additionalContext,
+    codex: res => codexSessionStartContext(res.stdout),
+    cursor: res => (JSON.parse(res.stdout) as { additional_context: string }).additional_context,
+    copilot: res => copilotSessionStartContext(res.stdout),
+    opencode: (_res, root) => readFileSync(join(root, '.opencode', 'AGENTS.md'), 'utf8'),
+  };
+
+  it.each(['claude', 'codex', 'cursor', 'copilot', 'opencode'])(
+    '%s still injects the catalog and nudge and drops the stale check',
+    async harness => {
+      // Drift after the rebuild: an unbudgeted run would report ENTRY.md stale.
+      for (let i = 0; i < 12; i += 1) {
+        seedLeaf(sb.nodesDir, `slow-${i}`, `practice-slow-${i}`, 'practice');
+      }
+      seedPendingSession(sb.kkDir, 'budget-session');
+      writeFileSync(join(sb.kkDir, 'config.yaml'), 'schema_version: 1\ncurationThreshold: 1\n');
+      const preload = writeSlowFsPreload(sb.root);
+      const input = harness === 'cursor' ? { workspace_roots: [sb.root] } : { cwd: sb.root };
+
+      const started = performance.now();
+      const res = await runHook(
+        hookPath(harness),
+        sb.root,
+        input,
+        { KK_SLOW_FS_DIR: sb.nodesDir, KK_SLOW_FS_MS: String(SLOW_MS) },
+        ['--require', preload]
+      );
+      const elapsed = performance.now() - started;
+
+      expect(res.exitCode).toBe(0);
+      expect(elapsed).toBeLessThan(BUDGET_MS + MARGIN_MS);
+      const ctx = readers[harness]!(res, sb.root);
+      expect(ctx).toContain('# kenkeep');
+      expect(ctx).toContain('## Branches');
+      expect(ctx).toContain(DESCENT_PHRASE);
+      expect(ctx).toContain('Action: Run /kk-curate.');
+      expect(ctx).not.toContain('ENTRY.md is stale');
+      // Completed work never logs a late 'deadline' diagnostic.
+      expect(diagnosticPhases(sb.kkDir)).toEqual([]);
+    }
+  );
 });

@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   captureSession,
@@ -68,96 +69,86 @@ describe('captureSession private-span integration', () => {
   });
 });
 
-describe('captureSession curated-state preservation', () => {
+describe('captureSession transcript-version binding', () => {
   let dir: string;
+  let sessionsDir: string;
+  let transcriptFile: string;
   const fixedNow = () => new Date('2026-06-20T12:00:00.000Z');
+  const parser: TranscriptParser = text => JSON.parse(text) as RoleTaggedTranscript;
+  const turnsV1: RoleTaggedTranscript['interleaved'] = [
+    { role: 'user', text: `${FILLER} first question` },
+    { role: 'agent', text: `first answer. ${FILLER}${FILLER}` },
+  ];
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'kk-capture-curated-'));
+    dir = mkdtempSync(join(tmpdir(), 'kk-capture-version-'));
+    sessionsDir = join(dir, '_sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    transcriptFile = join(dir, 't.json');
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it('preserves curator stamps and terminal proposal state on same-session rewrite', async () => {
-    const sessionsDir = join(dir, '_sessions');
-    mkdirSync(sessionsDir, { recursive: true });
-    const existingBody = renderSessionLog({
-      sessionId: SESSION_ID,
-      capturedBy: 'manual',
-      capturedAt: '2026-06-20T10:00:00.000Z',
-      transcriptHash: 'sha256:old',
-      body: 'old transcript',
-      proposalStatus: 'done',
-      proposalCompletedAt: '2026-06-20T10:05:00.000Z',
-      proposals: {
-        practice: [
-          {
-            kind: 'practice',
-            tags: ['a'],
-            title: 'Kept',
-            summary: 'kept summary',
-            body: 'kept body',
-            confidence: 'high',
-          },
-        ],
-        map: [],
-      },
-      curatorProcessedAt: '2026-06-20T11:00:00.000Z',
-      curatorRunId: 'run-abc',
-    });
-    writeFileSync(join(sessionsDir, `20260620-1000-${SESSION_ID}.md`), existingBody);
-
-    const transcript: RoleTaggedTranscript = {
-      interleaved: [
-        { role: 'user', text: `${FILLER} updated question` },
-        { role: 'agent', text: `updated answer. ${FILLER}${FILLER}` },
-      ],
-    };
-    const transcriptFile = join(dir, 't.json');
-    writeFileSync(transcriptFile, JSON.stringify(transcript));
-    const parser: TranscriptParser = text => JSON.parse(text) as RoleTaggedTranscript;
-
-    const result = await captureSession(
+  async function capture(turns: RoleTaggedTranscript['interleaved']) {
+    writeFileSync(transcriptFile, JSON.stringify({ interleaved: turns }));
+    return captureSession(
       { session_id: SESSION_ID, transcript_path: transcriptFile },
       { sessionsDir, parseTranscript: parser, now: fixedNow }
     );
-    expect(result.status).toBe('written');
+  }
 
-    const log = readFileSync(result.sessionLogPath as string, 'utf8');
-    expect(log).toContain('updated question');
-    expect(log).toMatch(/curator_processed_at:\s*'?2026-06-20T11:00:00.000Z'?/);
-    expect(log).toMatch(/curator_run_id:\s*run-abc/);
-    expect(log).toMatch(/proposal_status:\s*done/);
-    expect(log).toContain('Kept');
+  function readLog(path: string) {
+    const raw = readFileSync(path, 'utf8');
+    return { raw, ...matter(raw) };
+  }
+
+  /** Simulates the drain finishing extraction for the current version. */
+  function markDone(path: string): void {
+    const parsed = matter(readFileSync(path, 'utf8'));
+    const data = { ...(parsed.data as Record<string, unknown>) };
+    data['proposal_status'] = 'done';
+    data['proposal_completed_at'] = '2026-06-20T10:05:00.000Z';
+    data['proposals'] = { practice: [{ title: 'Kept' }], map: [] };
+    writeFileSync(path, matter.stringify(parsed.content, data));
+  }
+
+  it('recapturing identical content leaves a done log and its proposals untouched', async () => {
+    const first = await capture(turnsV1);
+    const path = first.sessionLogPath as string;
+    markDone(path);
+    const before = readFileSync(path, 'utf8');
+
+    // Duplicate Stop/SessionEnd for the same transcript: same hash, no new version.
+    const again = await capture(turnsV1);
+    expect(again.status).toBe('unchanged');
+    expect(again.sessionLogPath).toBe(path);
+    expect(readFileSync(path, 'utf8')).toBe(before);
+    const log = readLog(path);
+    expect(log.data['proposal_status']).toBe('done');
+    expect((log.data['proposals'] as { practice: unknown[] }).practice).toHaveLength(1);
   });
 
-  it('does not preserve proposal state when curator_processed_at is absent', async () => {
-    const sessionsDir = join(dir, '_sessions');
-    mkdirSync(sessionsDir, { recursive: true });
-    const existingBody = renderSessionLog({
+  it('a changed capture over an unversioned (pre-binding) stamp starts a fresh lifecycle', async () => {
+    const legacy = renderSessionLog({
       sessionId: SESSION_ID,
       capturedBy: 'stop',
       capturedAt: '2026-06-20T10:00:00.000Z',
       transcriptHash: 'sha256:old',
       body: 'old transcript',
-      proposalStatus: 'pending',
+      proposalStatus: 'done',
+      proposalCompletedAt: '2026-06-20T10:05:00.000Z',
+      proposals: { practice: [{ title: 'Old' }], map: [] },
+      curatorProcessedAt: '2026-06-20T11:00:00.000Z',
+      curatorRunId: 'run-legacy',
     });
-    writeFileSync(join(sessionsDir, `20260620-1000-${SESSION_ID}.md`), existingBody);
+    const path = join(sessionsDir, `20260620-1000-${SESSION_ID}.md`);
+    writeFileSync(path, legacy);
 
-    const transcript: RoleTaggedTranscript = {
-      interleaved: [{ role: 'user', text: 'hi' }],
-    };
-    const transcriptFile = join(dir, 't-short.json');
-    writeFileSync(transcriptFile, JSON.stringify(transcript));
-    const parser: TranscriptParser = text => JSON.parse(text) as RoleTaggedTranscript;
-
-    const result = await captureSession(
-      { session_id: SESSION_ID, transcript_path: transcriptFile },
-      { sessionsDir, parseTranscript: parser, now: fixedNow }
-    );
+    const result = await capture(turnsV1);
     expect(result.status).toBe('written');
-
-    const log = readFileSync(result.sessionLogPath as string, 'utf8');
-    expect(log).toMatch(/proposal_status:\s*skipped/);
-    expect(log).not.toMatch(/curator_processed_at:/);
+    const log = readLog(path);
+    expect(log.data['proposal_status']).toBe('pending');
+    expect(log.data['curator_processed_at']).toBeUndefined();
+    expect(log.data['curator_run_id']).toBeUndefined();
+    expect(log.data['proposals']).toEqual({ practice: [], map: [] });
   });
 });

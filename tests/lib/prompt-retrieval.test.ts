@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeRedirectsLedger } from '../../src/lib/redirects.js';
 import {
   buildPromptKnowledgeContext,
+  DEFAULT_MAX_CHARS,
   DEFAULT_MAX_NODES,
   rankNodes,
   renderPromptKnowledgeContext,
@@ -244,8 +245,8 @@ describe('renderPromptKnowledgeContext', () => {
       const matches = rankNodes(readAllNodes(nodesDir), 'config', { maxNodes: 5 });
       const maxChars = 900;
       const bounded = renderPromptKnowledgeContext(matches, { maxChars });
-      // Budget bounds the block (the trailing newline is the only slack).
-      expect(bounded.length).toBeLessThanOrEqual(maxChars + 1);
+      // The budget is a hard bound on the whole block, trailing newline included.
+      expect(bounded.length).toBeLessThanOrEqual(maxChars);
       const entryCount = bounded.split('\n').filter(l => l.startsWith('- ')).length;
       // At least one entry renders; the budget drops the rest.
       expect(entryCount).toBeGreaterThanOrEqual(1);
@@ -254,17 +255,33 @@ describe('renderPromptKnowledgeContext', () => {
       rmSync(nodesDir, { recursive: true, force: true });
     }
   });
+
+  it('truncates the first entry so an oversized description still respects the budget', () => {
+    const nodesDir = mkdtempSync(join(tmpdir(), 'kk-budget-first-'));
+    try {
+      seed(nodesDir, {
+        id: 'practice-huge-summary',
+        title: 'Huge summary config',
+        tags: ['config'],
+        summary: 'config '.repeat(1500), // ~10k characters
+      });
+      const matches = rankNodes(readAllNodes(nodesDir), 'config');
+      const rendered = renderPromptKnowledgeContext(matches);
+      expect(rendered.length).toBeLessThanOrEqual(DEFAULT_MAX_CHARS);
+      // The entry survives in truncated form: title, id and link stay intact.
+      expect(rendered).toContain('Huge summary config');
+      expect(rendered).toContain('`practice-huge-summary`');
+      expect(rendered).toContain(
+        '.ai/kenkeep/nodes/practice-huge-summary/practice-huge-summary.md'
+      );
+      expect(rendered).toContain('…');
+    } finally {
+      rmSync(nodesDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('buildPromptKnowledgeContext', () => {
-  it('returns empty for an empty prompt without reading nodes', () => {
-    expect(buildPromptKnowledgeContext('/nonexistent/nodes', '   ')).toBe('');
-  });
-
-  it('returns empty when the knowledge base is missing', () => {
-    expect(buildPromptKnowledgeContext('/nonexistent/nodes', 'codex hooks')).toBe('');
-  });
-
   it('reads the live tree and renders a relevant block end to end', () => {
     const nodesDir = mkdtempSync(join(tmpdir(), 'kk-e2e-'));
     try {

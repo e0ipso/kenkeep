@@ -20,6 +20,8 @@ export const SessionLogFrontmatterSchema = z.object({
   captured_by: CaptureTriggerSchema,
   captured_at: z.string(),
   transcript_hash: z.string(),
+  /** Length of the rendered transcript `transcript_hash` covers; absent on logs written before it was recorded. */
+  transcript_chars: z.number().int().nonnegative().optional(),
   proposal_status: ProposalStatusSchema,
   proposal_completed_at: z.string().nullable(),
   proposal_error: z.string().nullable(),
@@ -28,6 +30,13 @@ export const SessionLogFrontmatterSchema = z.object({
     practice: z.array(z.unknown()),
     map: z.array(z.unknown()),
   }),
+  // Curator stamp. `curated_transcript_*` bind it to the transcript version a
+  // run consumed (see `curationState` in session-log.ts). All optional and
+  // additive, so `schema_version` stays 1.
+  curator_processed_at: z.string().optional(),
+  curator_run_id: z.string().optional(),
+  curated_transcript_hash: z.string().optional(),
+  curated_transcript_chars: z.number().int().nonnegative().optional(),
 });
 
 export type SessionLogFrontmatter = z.infer<typeof SessionLogFrontmatterSchema>;

@@ -522,14 +522,21 @@ async function main(): Promise<void> {
     .argument('<path>', 'path to the session log file')
     .requiredOption('--status <status>', 'proposal status: done or failed')
     .option('--error <message>', 'error message (used with --status failed)')
-    .action(async (path: string, opts: { status: string; error?: string }) => {
-      const code = await runSessionLogUpdateProposalsCommand({
-        path,
-        status: opts.status,
-        error: opts.error,
-      });
-      process.exit(code);
-    });
+    .requiredOption(
+      '--expected-hash <hash>',
+      'the transcript_hash the proposals were extracted from; refused if the log changed since'
+    )
+    .action(
+      async (path: string, opts: { status: string; error?: string; expectedHash: string }) => {
+        const code = await runSessionLogUpdateProposalsCommand({
+          path,
+          status: opts.status,
+          error: opts.error,
+          expectedHash: opts.expectedHash,
+        });
+        process.exit(code);
+      }
+    );
   sessionLogGroup
     .command('stage-live')
     .description(

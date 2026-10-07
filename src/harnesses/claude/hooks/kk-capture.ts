@@ -5,6 +5,7 @@
  * write session log, append to queue.
  */
 import { captureSession, type HookInput } from '../../../lib/capture.js';
+import { CAPTURE_SAVED_MESSAGE, captureOutcomeMessage } from '../../../lib/capture-report.js';
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
@@ -50,7 +51,7 @@ runHookEntry({
         ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
       };
       process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-      await captureSession(input, {
+      const result = await captureSession(input, {
         sessionsDir: paths.sessionsDir,
         parseTranscript: parseTranscriptJsonl,
         usage: {
@@ -60,9 +61,13 @@ runHookEntry({
           extractReads: extractClaudeReads,
         },
       });
-      process.stdout.write(
-        `${JSON.stringify({ systemMessage: '💾 kenkeep Capture: Session transcript saved.' })}\n`
-      );
+      // Only a written log earns the in-session system message; a skip is a
+      // stderr note so the host never shows "saved" for nothing.
+      if (result.status === 'written') {
+        process.stdout.write(`${JSON.stringify({ systemMessage: CAPTURE_SAVED_MESSAGE })}\n`);
+      } else {
+        process.stderr.write(`${captureOutcomeMessage(result)}\n`);
+      }
     } catch (err) {
       process.stderr.write(
         `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

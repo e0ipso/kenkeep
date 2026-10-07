@@ -3,6 +3,7 @@ import matter from 'gray-matter';
 import { atomicWriteFile } from './fs-atomic.js';
 import {
   detectSectionDrift,
+  findMalformedSections,
   linkTargetResolver,
   renderGeneratedNodeSections,
   type RenderLinkContext,
@@ -76,10 +77,19 @@ export function findRenderedLinkDrift(
  * A planned write through a symlinked leaf or folder is refused (throws)
  * before any leaf is written, the same boundary `writeNodeFile` applies.
  *
+ * A section with malformed markers is never rewritten (see
+ * `findMalformedSections`); lint keeps reporting it. With `refuseMalformed`,
+ * an in-scope leaf carrying one refuses the whole refresh (throws) before any
+ * leaf is written, so the explicit repair never reports success over it.
+ *
  * Returns the rewritten paths in tree order. Callers must rebuild the
  * generated catalogs afterwards: a refreshed leaf's hash changed.
  */
-export function refreshRenderedLinks(nodesDir: string, scope?: ReadonlySet<string>): string[] {
+export function refreshRenderedLinks(
+  nodesDir: string,
+  scope?: ReadonlySet<string>,
+  opts: { refuseMalformed?: boolean } = {}
+): string[] {
   const nodes = readAllNodes(nodesDir);
   const pathsById = pathIndex(nodes);
   const ledger = readRedirectsLedger(nodesDir);
@@ -93,8 +103,12 @@ export function refreshRenderedLinks(nodesDir: string, scope?: ReadonlySet<strin
     scope.has(node.frontmatter.kk_id) ||
     [...node.frontmatter.kk_relates_to, ...node.frontmatter.kk_depends_on].some(edgeInScope);
   const planned: Array<{ node: NodeFile; body: string }> = [];
+  const malformed: string[] = [];
   for (const { node } of findRenderedLinkDrift(nodes, ledger)) {
     if (!inScope(node)) continue;
+    for (const { section, detail } of findMalformedSections(node.body)) {
+      malformed.push(`${node.relPath}: ${section} has malformed section markers: ${detail}`);
+    }
     const body =
       renderGeneratedNodeSections(
         node.body,
@@ -103,6 +117,12 @@ export function refreshRenderedLinks(nodesDir: string, scope?: ReadonlySet<strin
       ).trimEnd() + '\n';
     if (body === node.body.trimEnd() + '\n') continue;
     planned.push({ node, body });
+  }
+  if (opts.refuseMalformed === true && malformed.length > 0) {
+    throw new Error(
+      `refusing to refresh while generated section markers are ambiguous; repair them by hand:\n` +
+        malformed.map(line => `  ${line}`).join('\n')
+    );
   }
   // The read follows symlinks, but a write must not: check the whole planned
   // set against the shared containment boundary first, so a refused leaf

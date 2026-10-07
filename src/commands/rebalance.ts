@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { openConflictTargetIds } from '../lib/conflicts.js';
 import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { evaluateRebalance } from '../lib/rebalance.js';
@@ -35,7 +36,11 @@ export async function runRebalanceTrigger(): Promise<number> {
     return 1;
   }
 
-  const decision = evaluateRebalance(paths.nodesDir);
+  // Targets of open human conflicts are held stable until the human decides
+  // (`conflict resolve`): they never become split-leaf/create-branch candidates.
+  const decision = evaluateRebalance(paths.nodesDir, {
+    protectedLeafIds: openConflictTargetIds(paths.conflictsDir),
+  });
   // Machine output: exactly the JSON decision on stdout, nothing else.
   writeJsonDocument(decision);
   return 0;

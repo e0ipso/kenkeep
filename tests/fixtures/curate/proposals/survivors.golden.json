@@ -39,8 +39,6 @@
   {
     "action": "drop",
     "candidate_origin": "s1:practice:1",
-    "target_node_id": null,
-    "proposed_node": null,
     "rationale": "not useful"
   }
 ]

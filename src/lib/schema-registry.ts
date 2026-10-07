@@ -1,6 +1,8 @@
 import type { ZodTypeAny } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { CuratorDraftSchema } from './curate-manifest.js';
 import {
+  ConflictFrontmatterSchema,
   CuratorOutputSchema,
   CuratorProposedNodeSchema,
   NodeFrontmatterSchema,
@@ -12,9 +14,8 @@ import {
  * Single source mapping stable, skill-facing names to the Zod schema that
  * already validates the corresponding JSON in `src/commands/`. The skills
  * reference these names via `kk schema <name>` (print the JSON Schema) and
- * `kk validate <name> [file]` (validate an artifact); `kk drafts collect`
- * resolves its `--schema` through the same map. Zod stays authoritative — the
- * JSON Schema is always derived here, never hand-authored.
+ * `kk validate <name> [file]` (validate an artifact). Zod stays
+ * authoritative — the JSON Schema is always derived here, never hand-authored.
  *
  * Keep this minimal (YAGNI): add a name only when a skill or primitive needs
  * to reference that exact contract.
@@ -24,12 +25,16 @@ export const SCHEMA_REGISTRY: Readonly<Record<string, ZodTypeAny>> = {
   'proposal-output': ProposalOutputSchema,
   // Array of curator actions an LLM drafts before `curate-dedup`/`curate-persist`.
   'curator-output': CuratorOutputSchema,
+  // One curate batch draft: the sessions it read plus its curator actions.
+  'curator-draft': CuratorDraftSchema,
   // The node content an LLM drafts inside an add/modify action (kk-add/bootstrap).
   'proposed-node': CuratorProposedNodeSchema,
   // The persisted node frontmatter contract.
   node: NodeFrontmatterSchema,
   // The publishable knowledge-pack manifest.
   'pack-manifest': PackManifestSchema,
+  // The frontmatter of a persisted conflict file (`conflicts/<run-id>-<n>.md`).
+  conflict: ConflictFrontmatterSchema,
 };
 
 /** Sorted list of registered schema names, for help/error messages. */

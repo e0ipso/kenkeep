@@ -1,32 +1,20 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import matter from 'gray-matter';
-import { log } from '../lib/log.js';
+import { existsSync } from 'node:fs';
+import {
+  computeConflictDefault,
+  readOpenConflicts,
+  writeConflictFile,
+  type ConflictRecord,
+} from '../lib/conflicts.js';
+import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
 import { findNodeById } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import type { ConflictFrontmatter } from '../lib/schemas.js';
 
 export interface ConflictPrepareOptions {
   /** Override the conflicts directory. Defaults to repoPaths(...).conflictsDir. */
   conflictsDir?: string | undefined;
   /** Override the nodes directory. Defaults to repoPaths(...).nodesDir. */
   nodesDir?: string | undefined;
-}
-
-interface ConflictFrontmatter {
-  id: string;
-  status: string;
-  detected_at: string;
-  run_id: string;
-  candidate_origin: string;
-  target_node_id: string | null;
-  proposed_kind: string;
-  proposed_title: string;
-  proposed_confidence: string;
-}
-
-interface PendingConflict extends ConflictFrontmatter {
-  rationale: string;
-  proposed_body: string;
 }
 
 interface RenderedExisting {
@@ -37,81 +25,18 @@ interface RenderedExisting {
   body: string;
 }
 
-interface PreparedConflict extends PendingConflict {
+interface PreparedConflict extends ConflictFrontmatter {
+  /** False when there is nothing to accept: the human only decides the target's fate. */
+  has_proposal: boolean;
   group_id: number;
   first_in_group: boolean;
+  /** The target as it is on disk, rendered once per group; `null` when missing. */
   existing: RenderedExisting | null;
   lines_changed: number;
   total_lines: number;
   ratio: number;
-  default: 'y' | 'n' | 's';
-}
-
-/**
- * Splits a conflict-file body into its `## Rationale` and `## Proposed node`
- * sections. Mirrors the producer shape in `curate-dedup.ts`
- * (`## Rationale\n\n<rationale>\n\n## Proposed node\n\n<body>\n`); a missing
- * section yields an empty string rather than throwing.
- */
-function splitConflictBody(content: string): { rationale: string; proposedBody: string } {
-  const proposedMarker = '## Proposed node';
-  const rationaleMarker = '## Rationale';
-  const proposedIdx = content.indexOf(proposedMarker);
-  let rationale = '';
-  let proposedBody = '';
-  if (proposedIdx >= 0) {
-    proposedBody = content
-      .slice(proposedIdx + proposedMarker.length)
-      .replace(/^\s+/, '')
-      .trimEnd();
-    const head = content.slice(0, proposedIdx);
-    const rIdx = head.indexOf(rationaleMarker);
-    if (rIdx >= 0) {
-      rationale = head
-        .slice(rIdx + rationaleMarker.length)
-        .replace(/^\s+/, '')
-        .trimEnd();
-    }
-  } else {
-    const rIdx = content.indexOf(rationaleMarker);
-    if (rIdx >= 0) {
-      rationale = content
-        .slice(rIdx + rationaleMarker.length)
-        .replace(/^\s+/, '')
-        .trimEnd();
-    }
-  }
-  return { rationale, proposedBody };
-}
-
-function bodyLines(body: string): string[] {
-  const trimmed = body.replace(/\n+$/, '');
-  if (trimmed === '') return [];
-  return trimmed.split('\n');
-}
-
-/**
- * Counts lines that differ between two bodies at line granularity using an LCS
- * (longest common subsequence) diff: `lines_changed = (a − lcs) + (b − lcs)`,
- * i.e. deletions plus insertions. Deterministic and dependency-free. Identical
- * bodies yield 0; a one-line edit in an otherwise-shared body yields 2.
- */
-function lineDiffCount(a: string[], b: string[]): number {
-  const n = a.length;
-  const m = b.length;
-  // Rolling two-row LCS. Typed-array indexing returns `number` (not
-  // `number | undefined`), which keeps this clean under noUncheckedIndexedAccess.
-  let prev = new Array<number>(m + 1).fill(0);
-  for (let i = n - 1; i >= 0; i--) {
-    const curr = new Array<number>(m + 1).fill(0);
-    const ai = a[i];
-    for (let j = m - 1; j >= 0; j--) {
-      curr[j] = ai === b[j] ? (prev[j + 1] ?? 0) + 1 : Math.max(prev[j] ?? 0, curr[j + 1] ?? 0);
-    }
-    prev = curr;
-  }
-  const lcs = prev[0] ?? 0;
-  return n - lcs + (m - lcs);
+  /** The displayed default; identical to the `default_decision` stamped on the file. */
+  default: 'accept' | 'reject' | 'skip';
 }
 
 /** Stable string comparison (code-point) returning -1/0/1. */
@@ -122,55 +47,29 @@ function cmp(a: string, b: string): number {
 }
 
 /**
- * Sort comparator for pending conflicts: `target_node_id` alphabetic with
- * `null` grouped last, then `proposed_kind`, then `detected_at`. Ports the
- * `kk-curate` Step 7a ordering verbatim.
+ * Presentation order: `target_node_id`, then the proposal's kind, then
+ * `detected_at`. Consecutive conflicts sharing a target form a group so the
+ * skill renders the existing node once.
  */
-function conflictOrder(a: PendingConflict, b: PendingConflict): number {
-  const at = a.target_node_id;
-  const bt = b.target_node_id;
-  if (at === null && bt !== null) return 1;
-  if (at !== null && bt === null) return -1;
-  if (at !== null && bt !== null) {
-    const c = cmp(at, bt);
-    if (c !== 0) return c;
-  }
-  const k = cmp(a.proposed_kind, b.proposed_kind);
+function conflictOrder(a: ConflictRecord, b: ConflictRecord): number {
+  const t = cmp(a.frontmatter.target_node_id, b.frontmatter.target_node_id);
+  if (t !== 0) return t;
+  const k = cmp(a.frontmatter.proposal?.type ?? '', b.frontmatter.proposal?.type ?? '');
   if (k !== 0) return k;
-  return cmp(a.detected_at, b.detected_at);
+  return cmp(a.frontmatter.detected_at, b.frontmatter.detected_at);
 }
 
 /**
- * Computes the default reply for a conflict. Ports `kk-curate` Step 7c rules in
- * order, first match wins; a missing existing body (no target, or target node
- * absent on disk) defaults to `s`.
- */
-function computeDefault(
-  existing: { body: string } | null,
-  proposedBody: string,
-  proposedConfidence: string
-): { lines_changed: number; total_lines: number; ratio: number; default: 'y' | 'n' | 's' } {
-  if (existing === null) {
-    return { lines_changed: 0, total_lines: 0, ratio: 0, default: 's' };
-  }
-  const proposed = bodyLines(proposedBody);
-  const current = bodyLines(existing.body);
-  const linesChanged = lineDiffCount(proposed, current);
-  const totalLines = Math.max(proposed.length, current.length);
-  const ratio = totalLines === 0 ? 0 : linesChanged / totalLines;
-  let def: 'y' | 'n' | 's';
-  if (linesChanged < 5 && proposedConfidence === 'high') def = 'y';
-  else if (ratio > 0.5) def = 'n';
-  else def = 's';
-  return { lines_changed: linesChanged, total_lines: totalLines, ratio, default: def };
-}
-
-/**
- * Deterministic conflict-preparation primitive. Reads pending conflict files,
- * computes each conflict's default reply (the diff-ratio rules) and the
- * sort/group order, and emits JSON the kk-curate skill renders before asking
- * the user. Read-only: it never mutates conflict files or asks the user; the
- * skill still owns the y/n/s/k interaction and the existing resolve flow.
+ * Deterministic conflict-preparation primitive. Reads every open conflict
+ * (`pending` or `skipped`), computes each one's default reply with the
+ * diff-ratio rules against the target as it is on disk, stamps that default
+ * on the conflict file (`default_decision`) so an empty reply later applies
+ * exactly what was displayed, and prints the sorted/grouped JSON document the
+ * kk-curate skill renders. It never asks the user and never decides: the
+ * only write is the default stamp, and only when it changed.
+ *
+ * Exit 1 with every problem on stderr and nothing on stdout when any open
+ * conflict file is unparseable, invalid or in the legacy unversioned shape.
  */
 export async function runConflictPrepareCommand(
   opts: ConflictPrepareOptions = {}
@@ -188,69 +87,32 @@ export async function runConflictPrepareCommand(
   const conflictsDir = opts.conflictsDir ?? paths.conflictsDir;
   const nodesDir = opts.nodesDir ?? paths.nodesDir;
 
-  const pending: PendingConflict[] = [];
-  if (existsSync(conflictsDir)) {
-    let names: string[];
-    try {
-      names = readdirSync(conflictsDir).filter(n => n.endsWith('.md'));
-    } catch (err) {
-      log.error(`conflict prepare: cannot read conflicts directory: ${(err as Error).message}`);
-      return 1;
-    }
-    for (const name of names) {
-      const filePath = join(conflictsDir, name);
-      let parsed;
-      try {
-        parsed = matter(readFileSync(filePath, 'utf8'));
-      } catch (err) {
-        log.error(`conflict prepare: cannot parse ${name}: ${(err as Error).message}`);
-        return 1;
-      }
-      const fm = parsed.data as Partial<ConflictFrontmatter>;
-      if (fm.status !== 'pending') continue;
-      const { rationale, proposedBody } = splitConflictBody(parsed.content);
-      pending.push({
-        id: String(fm.id ?? name.replace(/\.md$/, '')),
-        status: 'pending',
-        detected_at: String(fm.detected_at ?? ''),
-        run_id: String(fm.run_id ?? ''),
-        candidate_origin: String(fm.candidate_origin ?? ''),
-        target_node_id: fm.target_node_id ?? null,
-        proposed_kind: String(fm.proposed_kind ?? ''),
-        proposed_title: String(fm.proposed_title ?? ''),
-        proposed_confidence: String(fm.proposed_confidence ?? ''),
-        rationale,
-        proposed_body: proposedBody,
-      });
-    }
+  let open;
+  try {
+    open = readOpenConflicts(conflictsDir);
+  } catch (err) {
+    log.error(`conflict prepare: cannot read conflicts directory: ${(err as Error).message}`);
+    return 1;
+  }
+  if (open.problems.length > 0) {
+    for (const p of open.problems) log.error(`conflict prepare: ${p.reason}`);
+    return 1;
   }
 
-  pending.sort(conflictOrder);
-
+  const sorted = [...open.conflicts].sort(conflictOrder);
   const prepared: PreparedConflict[] = [];
   let groupId = 0;
   let prevTarget: string | null = null;
-  let started = false;
 
-  for (const c of pending) {
-    const target = c.target_node_id;
-    let firstInGroup: boolean;
-    if (target === null) {
-      firstInGroup = true;
-      groupId += 1;
-    } else if (!started || target !== prevTarget) {
-      firstInGroup = true;
-      groupId += 1;
-    } else {
-      firstInGroup = false;
-    }
-    prevTarget = target;
-    started = true;
+  for (const record of sorted) {
+    const fm = record.frontmatter;
+    const firstInGroup = fm.target_node_id !== prevTarget;
+    if (firstInGroup) groupId += 1;
+    prevTarget = fm.target_node_id;
 
-    // Resolve the existing node body for the diff (shared across a group).
     let existing: RenderedExisting | null = null;
-    if (target !== null) {
-      const node = findNodeById(nodesDir, target);
+    try {
+      const node = findNodeById(nodesDir, fm.target_node_id);
       if (node) {
         existing = {
           id: node.frontmatter.kk_id,
@@ -260,16 +122,28 @@ export async function runConflictPrepareCommand(
           body: node.body,
         };
       }
+    } catch (err) {
+      log.error(`conflict prepare: cannot read nodes: ${(err as Error).message}`);
+      return 1;
     }
 
-    const def = computeDefault(
-      existing ? { body: existing.body } : null,
-      c.proposed_body,
-      c.proposed_confidence
-    );
+    const def = computeConflictDefault(existing ? existing.body : null, fm);
+
+    // Record the displayed default so `conflict resolve` with no decision
+    // applies this exact value. Idempotent: rewrite only on change.
+    const stamped: ConflictFrontmatter = { ...fm, default_decision: def.default };
+    if (fm.default_decision !== def.default) {
+      try {
+        writeConflictFile(record.file, stamped);
+      } catch (err) {
+        log.error(`conflict prepare: cannot stamp ${record.file}: ${(err as Error).message}`);
+        return 1;
+      }
+    }
 
     prepared.push({
-      ...c,
+      ...stamped,
+      has_proposal: fm.proposal !== null,
       group_id: groupId,
       first_in_group: firstInGroup,
       // Render the existing node only once per group (the first conflict).
@@ -281,6 +155,6 @@ export async function runConflictPrepareCommand(
     });
   }
 
-  process.stdout.write(`${JSON.stringify({ count: prepared.length, conflicts: prepared })}\n`);
+  writeJsonDocument({ count: prepared.length, conflicts: prepared });
   return 0;
 }

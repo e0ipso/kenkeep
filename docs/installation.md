@@ -37,6 +37,23 @@ Hook scripts under `.ai/kenkeep/hooks/` are gitignored. Commit everything else, 
 {% endcapture %}
 {% include callout.html variant="note" content=per_clone %}
 
+Before it writes anything, `init` checks every config file it will edit: the harness settings or hooks file, and the fenced block in `AGENTS.md`. If one is malformed, `init` stops with a message naming the file and changes nothing.
+
+If `.ai/kenkeep/nodes/` is at an older schema, `init` still finishes, leaves `nodes/` alone, and prints an error. Every command that reads `nodes/` then fails until you run `/kk-migrate`. See [Troubleshooting](troubleshooting.md#init-reports-an-older-schema).
+
+## Teammates and fresh clones
+
+A clone has the committed host configs but none of the hook scripts they point at. Each teammate runs this once:
+
+```sh
+npx kenkeep init --harnesses <id>
+npx kenkeep --harness <id> doctor
+```
+
+On a repo that is already initialized, `init` restores the missing hook scripts for every harness the repo records, not only `<id>`. They are the one install output `.ai/kenkeep/.gitignore` keeps out of commits; skills, plugins and prompts arrive with the clone. It rewrites no file that exists, so `config.yaml`, prompt overrides, and host configs stay as committed and `git status` stays clean. Naming a harness the repo does not record yet installs it and adds it to the record in `.ai/kenkeep/.state/installed-version`.
+
+`doctor --harness <id>` fails when `<id>` is unknown or not in that record, and says which scripts are missing. Plain `doctor` also checks the record: a harness registered in the repo but not recorded is an error when its scripts are missing, and a warning otherwise.
+
 ## Per-harness notes
 
 | Harness | Capture fires on | Prompt-time injection | Registration and skills |
@@ -71,7 +88,7 @@ Pairs: `Stop` with `kk-capture.cjs` and `kk-lint-tick.cjs`, `PreCompact` with `k
 
 **OpenCode** has no context channel, so the session-start hook writes the catalog to `.opencode/AGENTS.md` and `init` registers it under `instructions`. That file is regenerated every session and `init` gitignores it.
 
-**Copilot CLI** means the `@github/copilot` binary, not `gh copilot`. Install it, run `copilot` once, and complete `/login`. The catalog is written into `.github/copilot-instructions.md` between `<!-- kk:start -->` and `<!-- kk:end -->`. Leave that block in place and write your own instructions around it. An older `init` wrote `~/.copilot/hooks/kk.json`; delete it, or every hook fires twice.
+**Copilot CLI** means the `@github/copilot` binary, not `gh copilot`. Install it, run `copilot` once, and complete `/login`. `init` writes a short static pointer block into `.github/copilot-instructions.md` between `<!-- kk:start -->` and `<!-- kk:end -->`; leave that block in place and write your own instructions around it. The live catalog and curation status reach each session through the `sessionStart` hook's `additionalContext` (Copilot CLI 1.0.11+), so the committed file never changes at session start. An older `init` wrote `~/.copilot/hooks/kk.json`; delete it, or every hook fires twice.
 
 ## Configuration
 
@@ -88,7 +105,7 @@ notifications:
 cliDefaultHarness: codex   # harness to assume in a plain shell
 ```
 
-Model choice is optional and keyed by harness. `proposalModel` covers background extraction on Codex, Cursor, OpenCode, and Copilot. `curatorModel` and `bootstrapModel` cover the `npx kenkeep curate` and `npx kenkeep bootstrap` launchers. Skills you run inside a session use that session's model.
+Model choice is optional and keyed by harness. `proposalModel` covers background extraction on Codex, Cursor, OpenCode, and Copilot. `curatorModel` covers the `npx kenkeep curate` and `npx kenkeep node add` launchers, and `bootstrapModel` covers `npx kenkeep bootstrap`. The launcher passes the host's own flags: `--model` on every harness, plus `--effort` on Claude, `-c model_reasoning_effort=<level>` on Codex, and `--agent` on OpenCode when set. If the setting names a different harness than the one launching, the launcher warns on stderr and uses the host default. Skills you run inside a session use that session's model.
 
 ```yaml
 proposalModel: { harness: claude, name: sonnet, effort: medium }
@@ -96,6 +113,22 @@ proposalModel: { harness: codex, model: gpt-5-codex, reasoningEffort: low }
 ```
 
 {% include callout.html variant="tip" title="Model cost" content="Curate and bootstrap are classification tasks with a human review behind them. A mid-tier model at moderate effort is enough. Bootstrap can go lower still because its input is structured docs, not transcripts." %}
+
+## Commit session logs (optional)
+
+Session logs are gitignored, so provenance links to them only resolve for the person who captured them. If reviewers need them, replace this line in `.ai/kenkeep/.gitignore`:
+
+```
+/_sessions/
+```
+
+with its negation:
+
+```
+!/_sessions/
+```
+
+`init --upgrade` keeps the negation and does not add the ignore rule back. Logs hold raw transcripts and are never scanned, so read what you commit.
 
 ## Seed from existing docs
 
@@ -117,7 +150,7 @@ curl -fsSL https://raw.githubusercontent.com/e0ipso/kenkeep/main/examples/kenkee
   -o .github/workflows/kenkeep-check.yml
 ```
 
-On every PR that touches `.ai/kenkeep/`, it runs `lint`, `doctor`, `freshness`, and an index drift check, then posts one PR comment. It never runs an LLM, writes to `nodes/`, or commits. Keep `fetch-depth: 0`, because `freshness` reads git history and reports nothing on a shallow clone. Drop `cache: 'npm'` if your repo has no lockfile. Expect `doctor` to warn that no harness is installed on the runner.
+On every PR that touches `.ai/kenkeep/`, it runs `lint`, `doctor`, `freshness`, and an index drift check, then posts one PR comment. It never runs an LLM, writes to `nodes/`, or commits. Keep `fetch-depth: 0`, because `freshness` reads git history and a shallow clone makes every note look fresh. Drop `cache: 'npm'` if your repo has no lockfile. Expect `doctor` to warn that no harness is installed on the runner.
 
 ## Commit-time hardening (optional)
 
@@ -147,4 +180,6 @@ npx kenkeep init --harnesses <id> --upgrade
 npx kenkeep --harness <id> doctor
 ```
 
-`--upgrade` refreshes hooks, skills, and bundled prompts. It keeps your `config.yaml` and prompt overrides.
+`--upgrade` refreshes hooks, skills, and bundled prompts for every harness the repo records, plus any you name. It never drops a recorded harness. To retire one, delete its host registration and edit `.ai/kenkeep/.state/installed-version` yourself. It keeps your `config.yaml`, prompt overrides, and a `!/_sessions/` line in `.ai/kenkeep/.gitignore`.
+
+Upgrade ends by sweeping loose notes at the root of `nodes/`. A note is filed into the folder its own edges and tags name. A note nothing fits is deleted only when no other note links to it and git can restore it, and the output prints the `git restore` command. Every other note nothing fits stays at the root, and the output says why. Nothing is staged or committed, so review with `git status` and `git diff`.

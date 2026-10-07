@@ -22,6 +22,6 @@ The `npx kenkeep --harness <id> migrate` command is the correct tool for migrati
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-node-frontmatter](../node-schema/map-node-frontmatter.md)
 <!-- kk:related:end -->

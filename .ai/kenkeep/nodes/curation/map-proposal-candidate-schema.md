@@ -47,12 +47,12 @@ The bootstrap variant (`BootstrapCandidateSchema`) is a superset that adds `deri
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
-- Related: [map-curator-action](/curation/map-curator-action.md)
+- Related: [map-proposal-drain-hook](../hooks/map-proposal-drain-hook.md)
+- Related: [map-curator-action](map-curator-action.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

@@ -27,11 +27,11 @@ The Mermaid charts in the internals pages stay as Mermaid rather than being redr
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-kenkeep-docs-site-custom-domain](/overview/map-kenkeep-docs-site-custom-domain.md)
+- Related: [map-kenkeep-docs-site-custom-domain](map-kenkeep-docs-site-custom-domain.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:3](7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:3)
+[1] 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:3
 <!-- kk:citations:end -->

@@ -63,14 +63,14 @@ Resolution (three-way, git-driven, walked by the `/kk-curate` skill):
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-curator-never-auto-resolves-contradictions](/curation/practice-curator-never-auto-resolves-contradictions.md)
-- Related: [map-curator-action](/curation/map-curator-action.md)
+- Related: [practice-curator-never-auto-resolves-contradictions](practice-curator-never-auto-resolves-contradictions.md)
+- Related: [map-curator-action](map-curator-action.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/schemas.md](docs/internals/schemas.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
-[3] [docs/troubleshooting.md](docs/troubleshooting.md)
+[1] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[3] [docs/troubleshooting.md](../../../../docs/troubleshooting.md)
 <!-- kk:citations:end -->

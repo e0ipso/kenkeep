@@ -60,12 +60,12 @@ A malformed file is treated as missing. Validated by `BootstrapStateSchema`.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+- Related: [map-bootstrap-incremental-command](map-bootstrap-incremental-command.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/schemas.md](docs/internals/schemas.md)
-[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+[1] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
+[2] [docs/troubleshooting.md](../../../../docs/troubleshooting.md)
 <!-- kk:citations:end -->

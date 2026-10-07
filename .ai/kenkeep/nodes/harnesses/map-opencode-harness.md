@@ -43,13 +43,13 @@ OpenCode exports no in-session env var; pass `--harness opencode` or set `cliDef
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
-[3] [README.md](README.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[3] [README.md](../../../../README.md)
 <!-- kk:citations:end -->

@@ -46,13 +46,13 @@ Manual recovery (rare): remove the `.ai/kenkeep/.state/state.json.lock` director
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-bootstrap-state-file](/bootstrap/map-bootstrap-state-file.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+- Related: [map-bootstrap-state-file](../bootstrap/map-bootstrap-state-file.md)
+- Related: [map-proposal-drain-hook](../hooks/map-proposal-drain-hook.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/architecture.md](docs/internals/architecture.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

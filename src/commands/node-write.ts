@@ -4,6 +4,7 @@ import {
   assertContentHash,
   assertSourceDoc,
   bootstrapStateFile,
+  liveNodeIds,
   recordWrittenNode,
   updateBootstrapStateLocked,
   writtenInAttempt,
@@ -79,7 +80,9 @@ export interface NodeWriteArgs {
  * unfinished (safe: the next run reprocesses it). A retry of the same draft
  * (same derived id) in the same unfinished attempt writes nothing and prints
  * the id written the first time, so resuming an interrupted document never
- * lands a `-2` duplicate. Outside that case collisions still suffix (`-2`).
+ * lands a `-2` duplicate. That holds only while the recorded leaf is still in
+ * the tree; once it is gone (deleted or retired) the draft is written again.
+ * Outside that case collisions still suffix (`-2`).
  */
 export async function runNodeWriteCommand(
   args: NodeWriteArgs,
@@ -176,10 +179,18 @@ export async function runNodeWriteCommand(
       id = await updateBootstrapStateLocked(bootstrapStateFile(paths.stateDir), state => {
         const already = writtenInAttempt(state, source.doc, source.hash, baseId);
         if (already !== undefined) {
+          // The record only says the leaf was written once. Replay only while
+          // it is still in the tree, so a reported id always exists and later
+          // edits to the leaf are kept.
+          if (liveNodeIds(paths.nodesDir).has(already)) {
+            stderrLog.info(
+              `${baseId} was already written as ${already} for ${source.doc} in this unfinished attempt; nothing written.`
+            );
+            return { next: null, result: already };
+          }
           stderrLog.info(
-            `${baseId} was already written as ${already} for ${source.doc} in this unfinished attempt; nothing written.`
+            `${already} was written for ${source.doc} in this unfinished attempt but is no longer in the tree; writing ${baseId} again.`
           );
-          return { next: null, result: already };
         }
         const written = writeLeaf();
         const next = recordWrittenNode(state, {

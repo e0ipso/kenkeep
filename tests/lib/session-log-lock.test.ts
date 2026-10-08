@@ -1,10 +1,14 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { buildSync } from 'esbuild';
+import { fileURLToPath } from 'node:url';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import lockfile from 'proper-lockfile';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { captureSession, type TranscriptParser } from '../../src/lib/capture.js';
+import { withSessionLogLock } from '../../src/lib/session-log.js';
 import { writeSessionLogFrontmatter } from '../../src/lib/proposal-drain.js';
 import type { RoleTaggedTranscript } from '../../src/harnesses/types.js';
 
@@ -87,5 +91,146 @@ describe('session log lock between capture and proposal write-back', () => {
     expect(await pending).toEqual({ ok: false, currentHash: 'sha256:newer' });
     expect(hashOf(path)).toBe('sha256:newer');
     expect(readFileSync(path, 'utf8')).toContain('NEWER-DURABLE-FACT');
+  });
+});
+
+describe('session log ownership during a stalled writer', () => {
+  it('recovers a killed local writer without waiting for a stale heartbeat', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kk-dead-log-owner-'));
+    const log = join(dir, 'session.md');
+    const ready = join(dir, 'ready');
+    const modulePath = join(dir, 'session-log.cjs');
+    buildSync({
+      entryPoints: [fileURLToPath(new URL('../../src/lib/session-log.ts', import.meta.url))],
+      outfile: modulePath,
+      platform: 'node',
+      format: 'cjs',
+      bundle: true,
+      logLevel: 'silent',
+    });
+    const child = spawn(
+      process.execPath,
+      [
+        '-e',
+        `
+      const fs = require('node:fs');
+      const { withSessionLogLock } = require(process.argv[1]);
+      withSessionLogLock(process.argv[2], () => {
+        fs.writeFileSync(process.argv[3], 'ready');
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60000);
+      }).catch(() => process.exitCode = 1);
+    `,
+        modulePath,
+        log,
+        ready,
+      ],
+      { stdio: 'ignore' }
+    );
+    const finished = new Promise(resolve => child.once('exit', resolve));
+    try {
+      const until = Date.now() + 3000;
+      while (!existsSync(ready) && Date.now() < until) await sleep(10);
+      expect(existsSync(ready)).toBe(true);
+      child.kill('SIGKILL');
+      await finished;
+      const started = Date.now();
+      await withSessionLogLock(log, () => writeFileSync(log, 'recovered capture'));
+      expect(Date.now() - started).toBeLessThan(800);
+      expect(readFileSync(log, 'utf8')).toBe('recovered capture');
+      expect(existsSync(`${log}.lock`)).toBe(false);
+    } finally {
+      child.kill('SIGKILL');
+      await finished;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves foreign and malformed owner records without entering the write section', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kk-unknown-log-owner-'));
+    const log = join(dir, 'session.md');
+    const lockDir = `${log}.lock`;
+    const ownerPath = join(lockDir, 'owner-fixture.json');
+    try {
+      mkdirSync(lockDir);
+      writeFileSync(log, 'existing capture');
+      for (const record of [
+        JSON.stringify({ schema_version: 1, pid: process.pid, host: `${hostname()}-other` }),
+        '{broken',
+        'null',
+      ]) {
+        writeFileSync(ownerPath, record);
+        await expect(
+          withSessionLogLock(log, () => writeFileSync(log, 'unexpected write'))
+        ).rejects.toMatchObject({ code: 'ELOCKED' });
+        expect(readFileSync(ownerPath, 'utf8')).toBe(record);
+        expect(readFileSync(log, 'utf8')).toBe('existing capture');
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not reclaim a lock from a live writer after its heartbeat expires', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kk-live-log-owner-'));
+    const log = join(dir, 'session.md');
+    const ready = join(dir, 'ready');
+    const release = join(dir, 'release');
+    const modulePath = join(dir, 'session-log.cjs');
+    writeFileSync(log, 'old version');
+    buildSync({
+      entryPoints: [fileURLToPath(new URL('../../src/lib/session-log.ts', import.meta.url))],
+      outfile: modulePath,
+      platform: 'node',
+      format: 'cjs',
+      bundle: true,
+      logLevel: 'silent',
+    });
+    const child = spawn(
+      process.execPath,
+      [
+        '-e',
+        `
+      const fs = require('node:fs');
+      const { withSessionLogLock } = require(process.argv[1]);
+      withSessionLogLock(process.argv[2], () => {
+        fs.writeFileSync(process.argv[3], 'ready');
+        while (!fs.existsSync(process.argv[4])) {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+        }
+        fs.writeFileSync(process.argv[2], 'write-back finished');
+      }).catch(() => process.exitCode = 1);
+    `,
+        modulePath,
+        log,
+        ready,
+        release,
+      ],
+      { stdio: 'ignore' }
+    );
+    const finished = new Promise<number | null>(resolve => child.once('exit', resolve));
+    try {
+      const until = Date.now() + 3000;
+      while (!existsSync(ready) && Date.now() < until) await sleep(10);
+      expect(existsSync(ready)).toBe(true);
+      await sleep(5200);
+      let acquired = false;
+      try {
+        await withSessionLogLock(log, () => {
+          acquired = true;
+          writeFileSync(log, 'newer capture');
+        });
+      } catch (err) {
+        expect((err as NodeJS.ErrnoException).code).toBe('ELOCKED');
+      }
+      expect(acquired).toBe(false);
+      writeFileSync(release, 'go');
+      expect(await finished).toBe(0);
+      await withSessionLogLock(log, () => writeFileSync(log, 'newer capture retry'));
+      expect(readFileSync(log, 'utf8')).toBe('newer capture retry');
+    } finally {
+      child.kill('SIGKILL');
+      await finished;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

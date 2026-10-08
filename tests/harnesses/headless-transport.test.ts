@@ -54,10 +54,21 @@ const hosts: Array<{ id: string; binary: string; body: string }> = [
   {
     id: 'opencode',
     binary: 'opencode',
+    // Native `opencode run --format json` stdout: one `emit` record per
+    // completed text part (run.ts, v1.18.34).
     body: `${JSON.stringify({
-      type: 'message.part.updated',
-      properties: { messageID: 'm', part: { type: 'text', text: '{"ok":true,"n":1}' } },
-    })}\n${JSON.stringify({ type: 'session.idle' })}\n`,
+      type: 'text',
+      timestamp: 1,
+      sessionID: 'ses_1',
+      part: {
+        id: 'prt_1',
+        sessionID: 'ses_1',
+        messageID: 'msg_1',
+        type: 'text',
+        text: '{"ok":true,"n":1}',
+        time: { start: 1, end: 2 },
+      },
+    })}\n`,
   },
 ];
 

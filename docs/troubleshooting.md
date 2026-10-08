@@ -82,7 +82,7 @@ A note's generated Related or Citations links no longer match where its targets 
 
 ## A note disappeared after `init --upgrade`
 
-The upgrade sweeps loose notes at the root of `nodes/`. A note nothing links to and no folder fits is deleted when git can restore it, and the output printed the `git restore -- <path>` command. Run it to get the note back. A note git cannot restore (untracked, or with unstaged edits) is never deleted; it stays at the root.
+The upgrade sweeps loose notes at the root of `nodes/`. A note nothing links to and no folder fits is deleted when git can restore it, and the output printed the `git restore -- <path>` command. Run it to get the note back. A note git cannot restore byte for byte (untracked, edited since it was staged or committed, or flagged `assume-unchanged` or `skip-worktree`) is never deleted; it stays at the root.
 
 ## `init` reports an older schema
 

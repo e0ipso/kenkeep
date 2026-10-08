@@ -22,7 +22,7 @@ npm install
 npm run build
 ```
 
-`npm install` runs `prepare`, which builds templates and the CLI. After build, `node dist/cli.js --help` should work from the repo root.
+`npm install` runs `prepare`, which only installs the husky git hooks. `npm run build` builds the CLI (`build:cli`) and copies the templates (`build:templates`); `npm test` and `prepublishOnly` run it first. After build, `node dist/cli.js --help` should work from the repo root.
 
 ## Project layout
 
@@ -67,13 +67,13 @@ Both type gates inherit the strict flags in `tsconfig.json`, including `exactOpt
 
 Before a significant release (schema bump, capture/curate/consume behavior change, pinned Claude Code CLI bump), run these checks and record the results in the release PR. They cover what automation cannot: real sessions, other operating systems, and judgment about capture quality.
 
-Sandbox: `git init` an empty directory, `npm pack` the candidate build, run `npx ./e0ipso-kenkeep-<v>.tgz init --harnesses claude`, then `npx kenkeep doctor` (exit 0, warnings allowed).
+Sandbox: `npm pack` the candidate build, which writes `kenkeep-<v>.tgz`. In an empty directory run `git init`, `npm init -y` and `npm install --no-save <path>/kenkeep-<v>.tgz`, then `npx --no-install kenkeep init --harnesses claude` and `npx --no-install kenkeep doctor` (exit 0, warnings allowed). Use `npx --no-install kenkeep` for every later check so it runs the candidate, never the published package.
 
 1. **Platform smoke.** On macOS, Linux, WSL2, and native Windows: one `Stop` capture produces one `_sessions/` log with `proposal_status: pending`. On Windows, hook scripts must be LF and commands must use forward slashes.
 2. **PreCompact timing.** Drive a session past auto-compact. Capture adds under 1 s, and the log holds the full transcript slice, not a summary. `time node .ai/kenkeep/hooks/claude/kk-capture.cjs < /dev/null` should stay under 200 ms cold.
 3. **End-to-end.** Ten to fifteen substantive messages, end the session, open a new one, run `/kk-curate`. Expect one to four nodes, and judge whether they are the right facts (target 80 percent acceptance). Commit some, `git restore` the rest, run `index rebuild`, then ask the assistant what it knows about the project.
 4. **`init --upgrade`.** From the last published version with an edited `proposal-extract.md` and a custom `config.yaml` key: the edit and the key survive, hook scripts and `installed-version` show the new version, `doctor` exits 0.
-5. **`logs prune`.** Backdate one JSONL with `touch -d "60 days ago"`. Prune deletes it and nothing newer. `logsRetentionDays: 0` deletes everything; a second run reports zero.
+5. **`logs prune`.** Backdate one JSONL with `touch -d "60 days ago"`. With the default `logsRetentionDays: 30`, prune deletes it and keeps a fresh JSONL, and a second run reports `pruned 0 files`. `logsRetentionDays: 0` is refused with a validation error naming the key and deletes nothing.
 6. **`/kk-bootstrap`.** On a small public repo, nodes land in topical folders, the summary lists skipped collisions, and no node carries a secret or a stale TODO. Re-running skips every unchanged doc by hash and reprocesses only an edited one.
 7. **Concurrency.** Two parallel `curate` launchers both finish without a lock error, `state.json` and every session log still parse, and unstamped sessions reprocess on the next run. Two rapid `SessionStart` drains: the second skips while the first holds the lock, and a killed drain's lock is reclaimed within about a minute.
 8. **Settings.** No `config.yaml` uses the defaults. `curationThreshold: 3` is honored. An unknown key fails with an error naming the file.
@@ -93,7 +93,7 @@ It runs one headless call per fixture in `tests/fixtures/prompt-eval/` through t
 
 ## Schema-version bump policy
 
-Every frontmatter and JSON state file in the system carries a `schema_version`. Nodes, `ENTRY.md` and `GRAPH.md` are at 3, conflict files at 2, and session logs, `config.yaml` and the other JSON state files at 1. The policy is **strict**: any breaking change to the on-disk shape gets a clean break - no compatibility shims and no legacy code paths in the readers. The reader rejects the old shape and users on it re-initialize.
+Every frontmatter and JSON state file in the system carries a `schema_version`. Nodes, `ENTRY.md` and `GRAPH.md` are at 3, conflict files at 2, and session logs, `config.yaml` and the other JSON state files at 1. The policy is **strict**: any breaking change to the on-disk shape gets a clean break - no compatibility shims and no legacy code paths in the readers. The reader rejects the old shape, and users on it run the migration for that bump (`/kk-migrate`). Re-running `init` does not migrate existing data.
 
 Concretely:
 

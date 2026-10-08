@@ -37,7 +37,7 @@ Hook scripts under `.ai/kenkeep/hooks/` are gitignored. Commit everything else, 
 {% endcapture %}
 {% include callout.html variant="note" content=per_clone %}
 
-Before it writes anything, `init` checks every config file it will edit: the harness settings or hooks file, and the fenced block in `AGENTS.md`. If one is malformed, `init` stops with a message naming the file and changes nothing.
+`init` does not check every file up front. Each harness checks its own settings or hooks file as it installs, and the fenced block in `AGENTS.md` is checked when `init` gets to it. If one is malformed, `init` stops with a message naming the file. Files written before that point stay: the `.ai/kenkeep/` skeleton and any harness installed earlier in the run. `.ai/kenkeep/.state/installed-version` is not written. Fix the file and run the same `init` again.
 
 If `.ai/kenkeep/nodes/` is at an older schema, `init` still finishes, leaves `nodes/` alone, and prints an error. Every command that reads `nodes/` then fails until you run `/kk-migrate`. See [Troubleshooting](troubleshooting.md#init-reports-an-older-schema).
 

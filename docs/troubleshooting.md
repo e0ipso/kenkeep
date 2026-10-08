@@ -23,7 +23,7 @@ Hooks always exit 0. Their failures go to `.ai/kenkeep/_logs/hook-errors-YYYY-MM
 
 On Codex, Cursor, OpenCode, and Copilot, extraction runs in the background at the start of the next session. Open one. The assistant binary must be on PATH for the shell that runs the hook.
 
-A session whose transcript grew after you curated it goes back to `pending`, and only its new turns are extracted again. A log whose extraction finished against an older transcript is left pending, not overwritten: the capture that landed during extraction wins.
+A session whose transcript grew after you curated it goes back to `pending`, and usually only its new turns are extracted again. If a capture landed while a curate run was stamping that log, the next extraction also sees the turns already curated, and the curator reconciles them against existing nodes. See [Hooks internals](internals/hooks.md#transcript-versions). A log whose extraction finished against an older transcript is left pending, not overwritten: the capture that landed during extraction wins.
 
 A drain killed mid-run leaves a lock that clears itself after a minute. To clear it now, delete the `.ai/kenkeep/.state/state.json.lock` directory.
 

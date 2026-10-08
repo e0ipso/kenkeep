@@ -18,11 +18,11 @@ src/
 └── templates-source/    # skills and prompts copied into consumer repos
 ```
 
-`tsup` builds `dist/cli.js`. The `prepare` script copies `templates-source/` to `templates/` and drops the compiled hooks in. Never hand-edit `templates/`.
+`npm run build` runs `build:cli`, where `tsup` builds `dist/cli.js`, and `build:templates`, which copies `templates-source/` to `templates/` and drops the compiled hooks in. `pretest` and `prepublishOnly` run it; `prepare` only installs the husky git hooks. Never hand-edit `templates/`.
 
 ## Two kinds of command
 
-**Primitives** never call an LLM: `init`, `doctor`, `status`, `lint`, `freshness`, `finddocs`, `node write`, `node sweep`, `node refresh-links`, `session-log`, `drafts collect`, `curate-dedup`, `curate-persist`, `conflict prepare`, `conflict resolve`, `memory mark`, `bootstrap complete-doc`, `place`, `rebalance`, `migrate`, `index rebuild`, `pack`, `logs prune`, `schema`, `validate`. Skills compose them. `memory list` is a primitive too but is not LLM-free: on Claude Code it finds the harness memory files with one headless `claude -p` call. CI may call them directly.
+**Primitives** never call an LLM: `init`, `doctor`, `status`, `lint`, `freshness`, `finddocs`, `node write`, `node sweep`, `node refresh-links`, `session-log`, `drafts collect`, `curate-dedup`, `curate-persist`, `conflict prepare`, `conflict resolve`, `memory mark`, `bootstrap complete-doc`, `place`, `rebalance`, `migrate`, `index rebuild`, `pack`, `logs prune`, `schema`, `validate`. Skills compose them. `memory list` is a primitive too but is not LLM-free: on Claude Code it finds the harness memory files with one headless `claude -p` call. CI may call the LLM-free primitives directly.
 
 A primitive that reports a result writes one JSON document to stdout and every diagnostic to stderr, including the output of a command it drives (`stderrLog` and `writeJsonDocument` in `src/lib/log.ts`; the logger is passed down, never global). Skills and tests parse stdout whole. The no-op paths of `migrate status` and `place inventory` print a plain `nothing to do` line instead.
 
@@ -30,7 +30,7 @@ A primitive that reports a result writes one JSON document to stdout and every d
 
 **Launchers** exec the host assistant against a skill. `curate`, `bootstrap`, and `node add` run `<harness> -p "/kk-<name>"` with `KENKEEP_BUILDER_INTERNAL=1` on the child, plus the native model flags for `curatorModel` or `bootstrapModel` when configured (`launchModelArgs` on the adapter). The LLM work happens in that session.
 
-The one headless subprocess kenkeep spawns on its own is the proposal-drain hook, which runs the harness driver once per captured session to extract candidates. Every headless call, including `npm run prompt-eval`, goes through `src/lib/headless-runner.ts`. It sends the prompt as an argument up to 64 KiB and through the host's stdin channel above that, and sets the recursion guard on the child. Each adapter keeps only its argv and result parsing.
+kenkeep spawns headless subprocesses in two places. The proposal-drain hook runs automatically and calls the harness driver once per captured session to extract candidates. `memory list` on Claude Code runs one discovery call each time it is invoked (see above). Every headless call, including `npm run prompt-eval`, goes through `src/lib/headless-runner.ts`. It sends the prompt as an argument up to 64 KiB and through the host's stdin channel above that, and sets the recursion guard on the child. Each adapter keeps only its argv and result parsing.
 
 {% include callout.html variant="warning" content="The Claude adapter's drain hook is a deliberate no-op. A headless subprocess would bill the user's Claude plan twice, so extraction runs inline in `/kk-curate`. Do not \"fix\" it." %}
 

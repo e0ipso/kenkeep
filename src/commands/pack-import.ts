@@ -389,7 +389,7 @@ function applyGraft(plan: GraftPlan, nodesDir: string): void {
  * Refuses unless git can undo the import: the kenkeep root must sit in a git
  * work tree, and `.ai/kenkeep/` and the `AGENTS.md` the rebuild maintains must
  * have no uncommitted or untracked changes (git cannot restore an untracked
- * file). Returns the commands that put both back to `HEAD`. Pathspecs are
+ * file) and no path flagged assume-unchanged or skip-worktree. Returns the commands that put both back to `HEAD`. Pathspecs are
  * relative to the git top level, so a kenkeep root nested in a monorepo works.
  */
 function requireRestorableTree(root: string, kkDir: string): string[] {
@@ -425,6 +425,21 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
     throw new Error(
       `uncommitted changes in ${dirty.join(', ')}. Commit or stash them first, so a failed ` +
         'import can be undone with git.'
+    );
+  }
+  // Status is not trusted alone: it hides edits to a path flagged
+  // assume-unchanged or skip-worktree, `git restore` overwrites the first and
+  // skips the second. `-v` tags a plain tracked entry `H`; lowercase is
+  // assume-unchanged, `S`/`s` skip-worktree. Read-only: no flag is cleared.
+  const flagged = git(top, ['ls-files', '-v', '-z', '--', kkSpec, agentsSpec])
+    .split('\0')
+    .filter(entry => entry !== '' && !entry.startsWith('H '))
+    .map(entry => entry.slice(2));
+  if (flagged.length > 0) {
+    throw new Error(
+      `${flagged.join(', ')} flagged assume-unchanged or skip-worktree, so git can neither ` +
+        'report nor undo changes to them. Clear the flag (`git update-index ' +
+        '--no-assume-unchanged --no-skip-worktree -- <path>`) and commit first.'
     );
   }
   let agentsInHead: boolean;

@@ -999,6 +999,45 @@ describe('pack import command', () => {
     expect(noGit.stderr).toContain('not inside a git work tree');
   });
 
+  // `git status` hides edits to a path flagged assume-unchanged or
+  // skip-worktree, and the printed `git restore` either overwrites such an
+  // edit or skips the path. Import refuses any flagged path it may write.
+  it.each(['--assume-unchanged', '--skip-worktree'])(
+    'refuses to start when a protected path is flagged %s',
+    async flag => {
+      writeProjectNode(sandbox, 'base', 'practice', 'practice-consumer-base');
+      await commitAll(sandbox);
+      const kkDir = join(sandbox, '.ai/kenkeep');
+      const agents = join(sandbox, 'AGENTS.md');
+      const leaf = join(kkDir, 'nodes/base/practice-consumer-base.md');
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      for (const [file, gitPath] of [
+        [agents, 'AGENTS.md'],
+        [leaf, '.ai/kenkeep/nodes/base/practice-consumer-base.md'],
+      ] as const) {
+        await git(sandbox, ['update-index', flag, '--', gitPath]);
+        const edited = `${readFileSync(file, 'utf8')}UNCOMMITTED_FACT\n`;
+        writeFileSync(file, edited);
+        expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+        const flags = await git(sandbox, ['ls-files', '-v']);
+
+        const result = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain(gitPath);
+        expect(result.stderr).toContain('assume-unchanged or skip-worktree');
+        expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(false);
+        expect(readFileSync(file, 'utf8')).toBe(edited);
+        expect(await git(sandbox, ['ls-files', '-v'])).toBe(flags);
+        expect(await git(sandbox, ['diff', '--cached', '--name-only'])).toBe('');
+
+        await git(sandbox, ['update-index', flag.replace('--', '--no-'), '--', gitPath]);
+        await git(sandbox, ['checkout', '--', gitPath]);
+      }
+    }
+  );
+
   /**
    * A consumer with generated catalogs and a stale owned index the next
    * rebuild would remove: the state a failed nested rebuild must put back.

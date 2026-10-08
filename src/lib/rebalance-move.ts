@@ -2,7 +2,12 @@ import { existsSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync } fr
 import { join, posix } from 'node:path';
 import { z } from 'zod';
 import { atomicWriteFile } from './fs-atomic.js';
-import { assertContained, normalizeFolderKey, resolveContainedDir } from './path-safety.js';
+import {
+  assertContained,
+  isNonDirectory,
+  normalizeFolderKey,
+  resolveContainedDir,
+} from './path-safety.js';
 import {
   deriveNodeId,
   ensureUniqueId,
@@ -282,12 +287,26 @@ class SimulatedTree {
   }
 
   /**
-   * A destination is free when no simulated leaf occupies it and, unless the
-   * plan itself vacates it first, nothing already sits there on disk.
+   * A destination is free when no simulated leaf occupies it or lives below
+   * it and, unless the plan itself vacates it first, nothing already sits
+   * there on disk. Every folder above it must be able to be a folder: no
+   * simulated leaf sits at that path, and no file does on disk unless an
+   * earlier move of the plan takes it away.
    */
   assertVacant(relPath: string): void {
     if (this.byPath.has(relPath) || (!this.vacated.has(relPath) && existsSync(this.abs(relPath)))) {
       throw new Error(`rebalance: destination ${relPath} is already occupied`);
+    }
+    const prefix = `${relPath}/`;
+    if ([...this.byPath.keys()].some(path => path.startsWith(prefix))) {
+      throw new Error(`rebalance: destination ${relPath} is a folder the plan places leaves in`);
+    }
+    const segments = relPath.split(posix.sep);
+    for (let depth = 1; depth < segments.length; depth++) {
+      const dir = segments.slice(0, depth).join(posix.sep);
+      if (this.byPath.has(dir) || (!this.vacated.has(dir) && isNonDirectory(this.abs(dir)))) {
+        throw new Error(`rebalance: destination ${relPath} needs folder ${dir}, which is a file`);
+      }
     }
   }
 
@@ -391,7 +410,6 @@ function resolveSplitLeaf(
     const id = sim.mint(old.frontmatter.type, child.title);
     return { id, relPath: joinRel(folder, nodeFilename(id)) };
   });
-  sim.retire(op.leafId);
   const children: ResolvedChild[] = op.children.map((child, i) => {
     const { id, relPath } = minted[i]!;
     const frontmatter = NodeFrontmatterSchema.parse({
@@ -416,6 +434,9 @@ function resolveSplitLeaf(
     });
     return { frontmatter, body: child.body, relPath };
   });
+  // Retired only after its children are placed: the apply writes them before
+  // it removes the old leaf, so the old path cannot be one of their folders.
+  sim.retire(op.leafId);
   const cited = new Set(op.children.flatMap(c => [...c.relates_to, ...c.depends_on]));
   const unassignedEdges: UnassignedEdges = {
     relates_to: old.frontmatter.kk_relates_to.filter(t => !cited.has(t)),

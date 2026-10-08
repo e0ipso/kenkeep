@@ -17,6 +17,7 @@ import {
   readAllNodes,
 } from '../lib/nodes.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { readRedirectsLedger, resolveRedirect } from '../lib/redirects.js';
 import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
 import { packageVersion } from '../lib/version.js';
 
@@ -160,13 +161,15 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
 }
 
 /**
- * Collects every `derived_from` entry whose target does not exist on disk.
+ * Collects every `derived_from` entry whose source cannot be resolved.
  * A reference resolves if any of these match:
  *   - It is a URL (provenance pointing at external docs — bootstrap and
  *     curation legitimately record web sources; never an on-disk target).
  *   - It is a bare filename and exists under `_sessions/`.
  *   - It is a repo-relative path and exists when resolved against `root`.
  *   - It is an absolute path and exists as-is.
+ *   - It is a legacy retired id whose redirect chain
+ *     reaches at least one live node. Preserve these citations as recorded.
  */
 export function collectDanglingDerivedFrom(
   root: string,
@@ -174,10 +177,15 @@ export function collectDanglingDerivedFrom(
   sessionsDir: string
 ): DanglingRef[] {
   if (!existsSync(nodesDir)) return [];
+  const nodes = readAllNodes(nodesDir);
+  const liveIds = new Set(nodes.map(node => node.frontmatter.kk_id));
+  const redirects = readRedirectsLedger(nodesDir);
   const out: DanglingRef[] = [];
-  for (const node of readAllNodes(nodesDir)) {
+  for (const node of nodes) {
     for (const ref of node.frontmatter.kk_derived_from) {
       if (resolvesOnDisk(ref, root, sessionsDir)) continue;
+      if (Object.hasOwn(redirects, ref) && resolveRedirect(redirects, liveIds, ref).length > 0)
+        continue;
       out.push({ nodeId: node.frontmatter.kk_id, reference: ref });
     }
   }

@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from '../helpers.js';
 import { FOLDER_OCCUPANCY_MAX } from '../../src/lib/rebalance.js';
 import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
 import { writeNodeFile } from '../../src/lib/nodes.js';
@@ -167,6 +167,8 @@ describe('rebalance trigger and move (integration)', () => {
   });
 
   it('split-leaf becomes a folder of new leaves with a redirect, kept provenance and reported unassigned edges', async () => {
+    mkdirSync(join(sandbox, 'docs'), { recursive: true });
+    writeFileSync(join(sandbox, 'docs/a.md'), '# Source documentation\n');
     writeLeaf(sandbox, 'home', 'practice-x');
     writeLeaf(sandbox, 'home', 'practice-y');
     writeLeaf(sandbox, 'home', 'practice-big', {
@@ -229,6 +231,12 @@ describe('rebalance trigger and move (integration)', () => {
     expect(first.content).not.toContain('../../practice-second-half.md');
     const ledger = JSON.parse(readFileSync(join(nodesDir(sandbox), '.redirects.json'), 'utf8'));
     expect(ledger['practice-big']).toEqual(['practice-first-half', 'practice-second-half']);
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const doctor = await runCli(sandbox, ['doctor', '--verbose'], {
+      PATH: `${stubBin}:${process.env['PATH'] ?? ''}`,
+    });
+    expect(doctor.exitCode).toBe(0);
+    expect(doctor.stdout + doctor.stderr).toContain('derived_from references resolve: no dangling');
   });
 
   it('applies a multi-operation plan against the live tree (no stale snapshot)', async () => {

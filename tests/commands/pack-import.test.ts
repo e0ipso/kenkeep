@@ -1091,6 +1091,68 @@ describe('pack import command', () => {
     expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
   });
 
+  // AGENTS.md is the one rebuild output outside .ai/kenkeep/. When the rebuild
+  // would rewrite its pointer block, a symlink there (live or dangling) is
+  // refused before the graft, so the link and its target survive and a later
+  // import without the link goes through.
+  it.each(['live', 'dangling'])(
+    'refuses to graft when AGENTS.md is a %s symlink the rebuild would rewrite',
+    async kind => {
+      const kkDir = join(sandbox, '.ai/kenkeep');
+      const agents = join(sandbox, 'AGENTS.md');
+      const external = join(sandbox, 'user-owned', 'AGENTS.md');
+      mkdirSync(dirname(external), { recursive: true });
+      if (kind === 'live') writeFileSync(external, '# User instructions\n');
+      rmSync(agents);
+      symlinkSync(external, agents);
+      const target = kind === 'live' ? readFileSync(external) : null;
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      const result = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('nothing was imported');
+      expect(result.stderr).toContain(agents);
+      expect(lstatSync(agents).isSymbolicLink()).toBe(true);
+      if (target === null) expect(existsSync(external)).toBe(false);
+      else expect(readFileSync(external)).toEqual(target);
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(false);
+      expect(await git(sandbox, ['status', '--porcelain', '--untracked-files=all'])).toBe('');
+
+      rmSync(agents);
+      writeFileSync(agents, '# Test repo\n');
+      const retry = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
+      expect(lstatSync(agents).isFile()).toBe(true);
+      expect(readFileSync(agents, 'utf8')).toContain('kenkeep:kk-index');
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(true);
+    }
+  );
+
+  // A symlinked AGENTS.md that already carries the current pointer block is
+  // left alone by the rebuild, so it does not block the import.
+  it('grafts through a symlinked AGENTS.md the rebuild leaves untouched', async () => {
+    const agents = join(sandbox, 'AGENTS.md');
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    const external = join(sandbox, 'user-owned', 'AGENTS.md');
+    mkdirSync(dirname(external), { recursive: true });
+    writeFileSync(external, readFileSync(agents));
+    rmSync(agents);
+    symlinkSync(external, agents);
+    const target = readFileSync(external);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(lstatSync(agents).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external)).toEqual(target);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(true);
+  });
+
   /**
    * A consumer with generated catalogs and a stale owned index the next
    * rebuild would remove: the state a failed nested rebuild must put back.

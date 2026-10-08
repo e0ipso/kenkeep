@@ -17,6 +17,7 @@ import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { preflightIndexRebuild, rebuildOutputFiles, runIndexRebuild } from './index-rebuild.js';
 import { LEGACY_NODE_SCHEMA_VERSION, migrateNodesTreeToV3 } from './migrate-okf-v3.js';
+import { agentsKkBlockNeedsWrite } from '../lib/agents-block.js';
 import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
 import { atomicWriteFile, copyTree } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
@@ -390,8 +391,9 @@ function planGraft(args: {
 /**
  * Runs every file the graft and its rebuild would write through the
  * containment boundary: the merged ledger, the consumer leaves the
- * rendered-link refresh will rewrite (planned over the grafted tree), and the
- * rebuild's catalogs, indexes and sidecar. A symlink at any of them would be
+ * rendered-link refresh will rewrite (planned over the grafted tree), the
+ * rebuild's catalogs, indexes and sidecar, and `AGENTS.md` under the repo root
+ * when its pointer block needs rewriting. A symlink at any of them would be
  * replaced by a regular file, so all refusals are aggregated and thrown.
  * Leaf destinations were checked when the plan was minted.
  */
@@ -418,6 +420,8 @@ function refuseUnsafeOutputs(
   };
   for (const file of nodeWrites) check(nodesDir, file, 'nodes/');
   for (const file of rebuildOutputFiles(root, tree)) check(kkDir, file, '.ai/kenkeep/');
+  const agentsFile = join(root, 'AGENTS.md');
+  if (agentsKkBlockNeedsWrite(agentsFile)) check(root, agentsFile, 'the repository root');
   if (failures.length > 0) {
     throw new Error(`refusing to replace a symlink:\n${[...new Set(failures)].join('\n')}`);
   }

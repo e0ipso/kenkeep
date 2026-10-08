@@ -571,6 +571,32 @@ describe('curate-persist primitive', () => {
       expect(JSON.parse(stdout).results[0].status).toBe('written');
       expect(matter(readFileSync(leafPath, 'utf8')).content).toContain('Newer body.');
     });
+
+    it('treats generated-section markers quoted in the body as authored text', async () => {
+      const input = join(cwd, 'survivors.json');
+      const run = async (action: unknown) => {
+        writeFileSync(input, JSON.stringify([action]));
+        const res = await captureStdout(() => runCuratePersistCommand({ input }));
+        return { code: res.code, summary: JSON.parse(res.stdout) };
+      };
+      const quoted = (fact: string): string =>
+        `Quoted \`<!-- kk:related:start -->\` ${fact} \`<!-- kk:related:end -->\` ending.\n\n` +
+        '```md\n<!-- kk:citations:start -->\nFENCED\n<!-- kk:citations:end -->\n```\n';
+      const added = await run(
+        addAction('s:practice:0', 'topic', { title: 'Q', body: quoted('A') })
+      );
+      expect(added.summary.results[0].status).toBe('written');
+      const leafPath = join(cwd, '.ai/kenkeep/nodes', added.summary.results[0].path);
+
+      const change = modifyAction('s:practice:0', 'practice-q', { title: 'Q', body: quoted('B') });
+      const modified = await run(change);
+      expect(modified.code).toBe(0);
+      expect(modified.summary.results[0].status).toBe('written');
+      expect(readFileSync(leafPath, 'utf8')).toContain(' B `');
+
+      const replayed = await run(change);
+      expect(replayed.summary.results[0].status).toBe('already-applied');
+    });
   });
 
   it('renders same-batch links to the real path of a leaf written later in the batch', async () => {

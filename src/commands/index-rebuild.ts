@@ -20,7 +20,7 @@ import {
   OldLayoutError,
   type NodeFile,
 } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
 
 export interface IndexRebuildOptions {
@@ -74,8 +74,8 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
     return 1;
   }
 
-  mkdirSync(paths.kkDir, { recursive: true });
   preflightIndexRebuild(root);
+  mkdirSync(paths.kkDir, { recursive: true });
 
   const { indexFile, graphFile, sidecarFile } = catalogFiles(root);
   const legacyIndexFile = join(paths.kkDir, 'INDEX.md');
@@ -185,14 +185,16 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
 }
 
 /**
- * The rebuild refusals known before any owned file is touched: a malformed
- * project config (throws from `resolveSettings`) and a malformed AGENTS.md
- * pointer block (`MalformedManagedBlockError`). `runIndexRebuild` runs this
+ * The rebuild refusals known before any owned file is touched: a linked
+ * `.ai/kenkeep/nodes/` route (`assertDefaultNodesRoot`), a malformed project
+ * config (throws from `resolveSettings`) and a malformed AGENTS.md pointer
+ * block (`MalformedManagedBlockError`). `runIndexRebuild` runs this
  * first; pack import runs it before its own writes, so the refusal never
  * arrives after a graft it should have prevented.
  */
 export function preflightIndexRebuild(root: string): void {
   const paths = repoPaths(root);
+  assertDefaultNodesRoot(paths);
   resolveSettings({ projectFile: paths.projectConfigFile });
   assertAgentsKkBlockWritable(join(root, 'AGENTS.md'));
 }

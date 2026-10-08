@@ -14,7 +14,7 @@ import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
 import { modifyNodeInPlace } from '../lib/node-modify.js';
 import { stripGeneratedSections } from '../lib/node-sections.js';
 import { resolveContainedDir, tryNormalizeFolderKey } from '../lib/path-safety.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { readStdin } from '../lib/stdin.js';
 import {
   CuratorOutputSchema,
@@ -342,6 +342,7 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
 
   let existingNodes: NodeFile[];
   try {
+    assertDefaultNodesRoot(paths);
     existingNodes = readAllNodes(paths.nodesDir);
   } catch (err) {
     log.error(`curate persist: ${(err as Error).message}`);

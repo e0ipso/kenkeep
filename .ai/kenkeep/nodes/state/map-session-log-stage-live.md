@@ -27,12 +27,12 @@ Use it when the current visible session already produced durable teaching moment
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-session-log](/state/map-session-log.md)
-- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-session-log](map-session-log.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [4c12545c-3224-4602-8b5a-14c752d26975:map:0](4c12545c-3224-4602-8b5a-14c752d26975:map:0)
+[1] 4c12545c-3224-4602-8b5a-14c752d26975:map:0
 <!-- kk:citations:end -->

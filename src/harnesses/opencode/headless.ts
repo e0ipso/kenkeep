@@ -1,32 +1,32 @@
-import { execa } from 'execa';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import type { Readable } from 'node:stream';
-import split2 from 'split2';
 import type { ZodSchema } from 'zod';
 import type { HeadlessRunOptions, HeadlessStreamMessage } from '../types.js';
-import { extractJsonPayload } from '../../lib/json-extract.js';
+import {
+  parseJsonLine,
+  prepareHeadlessPrompt,
+  spawnHeadless,
+  validateHeadlessJson,
+} from '../../lib/headless-runner.js';
 import { OpenCodeHarnessOptsSchema } from './opts.js';
 
-export const DEFAULT_TIMEOUT_MS = 60_000;
-
 /**
- * OpenCode event-stream record shape. The runtime emits a newline-
- * delimited JSON stream when invoked with `opencode run --format json`.
- * Event types include `session.created`, `message.part.updated`, and
- * `session.idle`; the runner only needs `message.part.updated` (which
- * carries text deltas for the active assistant message) and
- * `session.idle` (which marks the end of the stream).
+ * One stdout record of `opencode run --format json`. The CLI subscribes to
+ * the SDK event bus internally and writes its own records through `emit`
+ * (`packages/opencode/src/cli/cmd/run.ts`, v1.18.34): `type`, `timestamp`
+ * and `sessionID`, then the payload. A completed text part is written once,
+ * whole, as `{ type: 'text', part }`; a session error as
+ * `{ type: 'error', error }`, after which the CLI exits non-zero. SDK
+ * envelopes such as `message.part.updated` never reach stdout.
  */
-interface OpenCodeEvent extends HeadlessStreamMessage {
+interface OpenCodeRecord extends HeadlessStreamMessage {
   type?: string;
-  properties?: {
+  part?: {
+    type?: string;
     messageID?: string;
-    part?: {
-      type?: string;
-      text?: string;
-    };
-    [key: string]: unknown;
+    text?: string;
+  };
+  error?: {
+    name?: unknown;
+    data?: { message?: unknown };
   };
 }
 
@@ -43,153 +43,79 @@ export interface OpenCodeHeadlessOptions extends HeadlessRunOptions {
  * Invokes `opencode run --format json` and validates the final assistant
  * message as structured JSON against `schema`.
  *
- * The runner accumulates `properties.part.text` deltas (the part stream
- * for the most-recent assistant message id), parses the accumulated
- * string as JSON after `session.idle` (or stream end), then runs it
- * through the caller-supplied Zod schema.
+ * The runner keeps the completed text parts of the most recent assistant
+ * message (a tool step starts a new message), joins them, and runs the
+ * result through the caller-supplied Zod schema. An `error` record is
+ * carried into the thrown error so a failed run names its cause.
  *
- * The recursion guard env var `KENKEEP_BUILDER_INTERNAL=1` is always set on
- * the child so the spawned opencode's plugin shim no-ops.
+ * Transport: a prompt within `PROMPT_STDIN_THRESHOLD` is the positional
+ * message; a larger one is piped to stdin with no positional. `opencode run`
+ * reads piped stdin (`process.stdin.isTTY ? undefined : await
+ * Bun.stdin.text()`) and uses it as the message when no positional is given
+ * (`packages/opencode/src/cli/cmd/run.ts`, `resolveRunInput`, present at
+ * v1.18.34). The docs page only lists the positional form.
  */
 export async function runHeadlessOpenCode<T>(
   promptBody: string,
-  stdin: string,
   schema: ZodSchema<T>,
   opts: OpenCodeHeadlessOptions = {}
 ): Promise<T> {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const harnessOpts = OpenCodeHarnessOptsSchema.parse(opts.harnessOpts ?? {});
   const cli = opts.opencodeCli ?? 'opencode';
+  const prompt = prepareHeadlessPrompt(promptBody);
 
   const args: string[] = ['run', '--format', 'json'];
   if (harnessOpts.model) args.push('--model', harnessOpts.model);
   if (harnessOpts.agent) args.push('--agent', harnessOpts.agent);
-  // The prompt is positional. OpenCode does not document a `-` stdin
-  // alternative, so we always pass it as argv.
-  args.push(promptBody);
+  args.push(...prompt.positional);
 
-  const env: NodeJS.ProcessEnv = {
-    ...(opts.env ?? process.env),
-    KENKEEP_BUILDER_INTERNAL: '1',
-  };
-
-  let logStream: ReturnType<typeof createWriteStream> | null = null;
-  if (opts.logFile) {
-    mkdirSync(dirname(opts.logFile), { recursive: true });
-    logStream = createWriteStream(opts.logFile, { encoding: 'utf8', flags: 'a' });
-  }
-
-  let currentAssistantMessageId: string | undefined;
-  let accumulatedText = '';
-  const stderrChunks: string[] = [];
-  const proc = execa(cli, args, {
-    input: stdin,
-    env,
-    timeout: timeoutMs,
-    stdin: 'pipe',
-    stdout: 'pipe',
-    stderr: 'pipe',
-    reject: false,
-    ...(opts.cwd ? { cwd: opts.cwd } : {}),
-  });
-  const stdout = proc.stdout as Readable;
-  const stderr = proc.stderr as Readable | null;
-  if (stderr) {
-    stderr.setEncoding('utf8');
-    stderr.on('data', (chunk: string) => {
-      stderrChunks.push(chunk);
-    });
-  }
-
-  const resultPromise = proc.then(r => ({
-    exitCode: typeof r.exitCode === 'number' ? r.exitCode : undefined,
-    failed: r.failed === true,
-    timedOut: r.timedOut === true,
-  }));
-
-  const splitter = stdout.pipe(split2());
-  splitter.on('data', (line: string) => {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) return;
-    if (logStream) logStream.write(`${trimmed}\n`);
-    let parsed: OpenCodeEvent;
-    try {
-      parsed = JSON.parse(trimmed) as OpenCodeEvent;
-    } catch {
-      return;
-    }
-    if (parsed.type === 'session.created') {
-      currentAssistantMessageId = undefined;
-      accumulatedText = '';
-    }
-    if (parsed.type === 'message.part.updated') {
-      const messageId = parsed.properties?.messageID;
-      const part = parsed.properties?.part;
-      if (messageId && part && part.type === 'text' && typeof part.text === 'string') {
-        if (messageId !== currentAssistantMessageId) {
-          currentAssistantMessageId = messageId;
-          accumulatedText = '';
-        }
-        accumulatedText += part.text;
-      }
-    }
-    if (opts.onMessage) opts.onMessage(parsed);
-  });
-  const streamDone = new Promise<void>((resolve, reject) => {
-    splitter.once('end', () => resolve());
-    splitter.once('error', err => reject(err));
-  });
-
-  let runResult;
+  let lastMessageId: string | undefined;
+  let lastMessageParts: string[] = [];
+  const reportedErrors: string[] = [];
   try {
-    const [r] = await Promise.all([resultPromise, streamDone]);
-    runResult = r;
-  } finally {
-    if (logStream) {
-      await new Promise<void>(resolve => logStream!.end(resolve));
+    await spawnHeadless(
+      {
+        command: cli,
+        args,
+        input: prompt.input,
+        label: 'opencode',
+        onLine: line => {
+          const parsed = parseJsonLine<OpenCodeRecord>(line);
+          if (!parsed) return;
+          if (parsed.type === 'text') {
+            const part = parsed.part;
+            if (part?.type === 'text' && typeof part.text === 'string') {
+              if (part.messageID !== lastMessageId) {
+                lastMessageId = part.messageID;
+                lastMessageParts = [];
+              }
+              lastMessageParts.push(part.text);
+            }
+          }
+          if (parsed.type === 'error') reportedErrors.push(describeError(parsed.error));
+          if (opts.onMessage) opts.onMessage(parsed);
+        },
+      },
+      opts
+    );
+  } catch (err) {
+    if (reportedErrors.length === 0 || !(err instanceof Error)) throw err;
+    throw new Error(`${err.message}; opencode reported: ${reportedErrors.join('; ')}`);
+  }
+
+  const text = lastMessageParts.join('\n');
+  if (text.trim().length === 0) {
+    if (reportedErrors.length > 0) {
+      throw new Error(`opencode reported an error: ${reportedErrors.join('; ')}`);
     }
-  }
-
-  if (runResult.timedOut) {
-    throw new Error(
-      `opencode subprocess timed out after ${timeoutMs}ms; accumulated text: ${truncate(accumulatedText, 200)}`
-    );
-  }
-  if (runResult.failed || (runResult.exitCode !== undefined && runResult.exitCode !== 0)) {
-    const stderrTail = tail(stderrChunks.join(''), 2000);
-    const suffix = stderrTail ? `: ${stderrTail}` : '';
-    throw new Error(
-      `opencode subprocess failed (exit code ${String(runResult.exitCode ?? 'unknown')})${suffix}`
-    );
-  }
-
-  if (accumulatedText.length === 0) {
     throw new Error('opencode subprocess produced no assistant text');
   }
-
-  const role = opts.role ?? 'headless';
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(extractJsonPayload(accumulatedText));
-  } catch (parseError) {
-    throw new Error(
-      `${role} output was not valid JSON: ${truncate(accumulatedText, 200)} (${parseError instanceof Error ? parseError.message : String(parseError)})`
-    );
-  }
-
-  const validated = schema.safeParse(parsedJson);
-  if (!validated.success) {
-    throw new Error(`${role} output did not match schema: ${validated.error.message}`);
-  }
-  return validated.data;
+  return validateHeadlessJson(text, schema, opts);
 }
 
-function tail(s: string, maxChars: number): string {
-  if (s.length <= maxChars) return s.trim();
-  return s.slice(s.length - maxChars).trim();
-}
-
-function truncate(s: string, maxChars: number): string {
-  if (s.length <= maxChars) return s;
-  return `${s.slice(0, maxChars)}...`;
+/** Mirrors the CLI's own rendering: `data.message` when present, else `name`. */
+function describeError(error: OpenCodeRecord['error']): string {
+  const message = error?.data?.message;
+  if (typeof message === 'string' && message.length > 0) return message;
+  return typeof error?.name === 'string' ? error.name : 'unknown error';
 }

@@ -41,14 +41,14 @@ For re-runs after editing docs, use the headless `bootstrap-incremental` CLI ins
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
-- Related: [practice-bootstrap-never-overwrites-existing-nodes](/bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
-- Related: [practice-bootstrap-is-supervised-and-judgmental](/bootstrap/practice-bootstrap-is-supervised-and-judgmental.md)
+- Related: [map-bootstrap-incremental-command](map-bootstrap-incremental-command.md)
+- Related: [practice-bootstrap-never-overwrites-existing-nodes](practice-bootstrap-never-overwrites-existing-nodes.md)
+- Related: [practice-bootstrap-is-supervised-and-judgmental](practice-bootstrap-is-supervised-and-judgmental.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/daily-use.md](docs/daily-use.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/daily-use.md](../../../../docs/daily-use.md)
 <!-- kk:citations:end -->

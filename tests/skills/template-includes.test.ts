@@ -80,7 +80,7 @@ describe('Handlebars prompt template rendering', () => {
       'utf8'
     );
     expect(rendered).toContain(
-      `## 6. Rebuild the indices\n\n\`\`\`bash\n${indexRebuildCommand}\n\`\`\``
+      `## 7. Rebuild the indices\n\nAfter the content writes and any accepted conflict:\n\n\`\`\`bash\n${indexRebuildCommand}\n\`\`\``
     );
   });
 
@@ -90,7 +90,10 @@ describe('Handlebars prompt template rendering', () => {
         '### 7. Refresh ENTRY.md and GRAPH.md',
         'After all writes, rebuild the indices so the reviewer sees them in sync with the new nodes:',
       ],
-      'kk-curate': ['## 6. Rebuild the indices', 'After all writes:'],
+      'kk-curate': [
+        '## 7. Rebuild the indices',
+        'After every content write of this run, including any conflict you accepted in Step 6 (skip Steps 7 and 7b entirely when nothing was written and nothing was accepted):',
+      ],
       'kk-migrate': [
         '### 4. Rebuild the indices',
         'Regenerate `ENTRY.md`, `GRAPH.md`, and every folder `index.md` from the relocated tree:',

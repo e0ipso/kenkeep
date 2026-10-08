@@ -45,11 +45,26 @@ const AGENTS_MARKERS = { start: AGENTS_BLOCK_START, end: AGENTS_BLOCK_END };
  * `MalformedManagedBlockError` naming the file and leaves it untouched.
  */
 export function ensureAgentsKkBlock(file: string): boolean {
-  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
-  const next = upsertManagedBlock(existing, AGENTS_MARKERS, AGENTS_POINTER, file);
-  if (next === existing) return false;
+  const next = plannedAgentsKkBlock(file);
+  if (next === null) return false;
   atomicWriteFile(file, next);
   return true;
+}
+
+/**
+ * True when `ensureAgentsKkBlock(file)` would write, without writing. A
+ * caller that must not replace a symlink at `file` checks this first: an
+ * up-to-date block is never rewritten, so a link carrying one is safe.
+ */
+export function agentsKkBlockNeedsWrite(file: string): boolean {
+  return plannedAgentsKkBlock(file) !== null;
+}
+
+/** The bytes `ensureAgentsKkBlock` would write, or null when they already match. */
+function plannedAgentsKkBlock(file: string): string | null {
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const next = upsertManagedBlock(existing, AGENTS_MARKERS, AGENTS_POINTER, file);
+  return next === existing ? null : next;
 }
 
 /**

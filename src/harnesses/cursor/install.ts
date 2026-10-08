@@ -1,20 +1,36 @@
 import { join } from 'node:path';
 import { installSharedSkills } from '../../lib/install-skills.js';
-import { copySharedHookScripts, sharedHookScriptPath } from '../../lib/shared-hooks.js';
-import type { HarnessInstallOptions } from '../types.js';
+import {
+  copySharedHookScripts,
+  sharedHarnessHooksDirForRoot,
+  sharedHookScriptPath,
+} from '../../lib/shared-hooks.js';
+import type { HarnessInstallOptions, HarnessPaths } from '../types.js';
 import { cursorHookSpecs } from './hook-spec.js';
-import { writeCursorHooksConfig } from './hooks-config.js';
+import { cursorHookConfigPaths, writeCursorHooksConfig } from './hooks-config.js';
 
 export const CURSOR_TEMPLATE_SUBDIR = 'cursor';
 
-export function cursorPaths(root: string) {
-  const dir = join(root, '.cursor');
+export interface CursorPaths extends HarnessPaths {
+  hooksDir: string;
+  settingsFile: string;
+  /** Alias of `settingsFile`: `.cursor/hooks.json`. */
+  hooksFile: string;
+}
+
+/**
+ * On-disk locations the Cursor adapter owns. The one source for the
+ * adapter's `paths()`, its installer and its doctor checks; the registration
+ * file location comes from the writer so the two cannot drift.
+ */
+export function cursorPaths(root: string): CursorPaths {
+  const config = cursorHookConfigPaths(root);
   return {
-    dir,
-    hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'cursor'),
-    skillsDir: join(dir, 'skills'),
-    settingsFile: join(dir, 'hooks.json'),
-    hooksFile: join(dir, 'hooks.json'),
+    dir: config.dir,
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'cursor'),
+    skillsDir: join(config.dir, 'skills'),
+    settingsFile: config.settingsFile,
+    hooksFile: config.settingsFile,
   };
 }
 
@@ -25,8 +41,8 @@ export function cursorPaths(root: string) {
  */
 export async function installCursor(opts: HarnessInstallOptions): Promise<void> {
   const paths = cursorPaths(opts.root);
-  copySharedHookScripts(opts.templatesDir, opts.paths, 'cursor', CURSOR_TEMPLATE_SUBDIR);
-  installSharedSkills(opts.templatesDir, paths.skillsDir);
+  // Register first: the writer refuses a malformed user config before any
+  // other file of this adapter lands.
   await writeCursorHooksConfig(
     opts.root,
     cursorHookSpecs.map(spec => ({
@@ -36,4 +52,6 @@ export async function installCursor(opts: HarnessInstallOptions): Promise<void> 
       ...(spec.matcher ? { matcher: spec.matcher } : {}),
     }))
   );
+  copySharedHookScripts(opts.templatesDir, opts.paths, 'cursor');
+  installSharedSkills(opts.templatesDir, paths.skillsDir);
 }

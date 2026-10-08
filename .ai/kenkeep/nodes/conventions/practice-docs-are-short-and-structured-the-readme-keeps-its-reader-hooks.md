@@ -27,12 +27,12 @@ Rationale: the hooks are what keep a reader moving through the README. A shorter
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-no-em-dashes](/conventions/practice-no-em-dashes.md)
-- Related: [map-kenkeep-docs-site-custom-domain](/overview/map-kenkeep-docs-site-custom-domain.md)
+- Related: [practice-no-em-dashes](practice-no-em-dashes.md)
+- Related: [map-kenkeep-docs-site-custom-domain](../overview/map-kenkeep-docs-site-custom-domain.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [7cada090-ddc5-4bba-88c8-2a97aae5bdbd:practice:0](7cada090-ddc5-4bba-88c8-2a97aae5bdbd:practice:0)
+[1] 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:practice:0
 <!-- kk:citations:end -->

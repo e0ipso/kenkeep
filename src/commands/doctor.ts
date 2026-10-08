@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
-import { getHarness, hasHarness } from '../harnesses/registry.js';
+import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { computeFreshness } from '../lib/freshness.js';
-import { EXPECTED_SKILLS } from '../lib/install-skills.js';
+import { missingRuntimeScripts, registrationEvidence } from '../lib/harness-install-status.js';
+import { readInstalledVersion, type InstalledVersion } from '../lib/installed-version.js';
 import { runLint } from '../lib/lint.js';
 import { log } from '../lib/log.js';
 import {
@@ -15,13 +16,11 @@ import {
   OldLayoutError,
   readAllNodes,
 } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import { sharedHarnessHooksDirForRoot, sharedHookScriptPath } from '../lib/shared-hooks.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
 import { packageVersion } from '../lib/version.js';
 
 const EXPECTED_PROMPTS = ['proposal-extract.md'];
-const KK_HOOKS_TEMPLATE_IDS = new Set(['copilot', 'opencode']);
 const HYGIENE_LINT_RULES = new Set(['tag-whitespace', 'empty-summary']);
 
 export interface DoctorOptions {
@@ -68,12 +67,11 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
           }`
         );
 
-  const harnessChecks: NamedCheck[] = [];
+  const templatesDir = packageTemplatesDir();
   const installed = installedHarnessIds(paths.installedVersionFile);
-  const scoped = opts.harness ? [opts.harness] : installed;
+  const { scoped, inventoryChecks } = scopeHarnesses(opts, root, templatesDir, installed);
+  const harnessChecks: NamedCheck[] = [];
   for (const id of scoped) {
-    if (!hasHarness(id)) continue;
-    if (opts.harness && !installed.includes(id)) continue;
     const adapter = getHarness(id);
     const checks = await adapter.doctorChecks(paths);
     for (const c of checks) harnessChecks.push({ name: c.name, result: c.result });
@@ -85,6 +83,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
       name: '.ai/kenkeep/.state/installed-version',
       result: checkInstalled(paths.installedVersionFile),
     },
+    ...inventoryChecks,
     {
       name: '.gitignore lists kenkeep paths',
       result: checkGitignore(paths.kkGitignoreFile),
@@ -122,14 +121,6 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
       log.error(`${c.name}: ${c.result.detail}`);
       failures += 1;
     }
-  }
-
-  for (const id of scoped) {
-    if (!hasHarness(id)) continue;
-    if (opts.harness && !installed.includes(id)) continue;
-    renderHarnessInstallStatus(root, id, warningsRef => {
-      warnings += warningsRef;
-    });
   }
 
   if (frontmatterCheck.canEnumerate) {
@@ -205,12 +196,11 @@ function resolvesOnDisk(ref: string, root: string, sessionsDir: string): boolean
 /**
  * Advisory freshness signal: how many nodes may describe source code that
  * changed since they were last curated. Always a warn (never a failure) so it
- * cannot flip doctor's exit code, and reports "no signal" when git history is
- * unavailable rather than warning on a tree it could not analyze.
+ * cannot flip doctor's exit code. An unavailable report names its reason.
  */
 function checkFreshness(root: string, nodesDir: string): CheckResult {
   const report = computeFreshness({ root, nodesDir });
-  if (!report.available) return ok('no signal (needs a git repository with history).');
+  if (!report.available) return ok(`no signal: ${report.reason ?? 'unknown'}.`);
   if (report.flaggedCount === 0) return ok('no nodes appear to describe changed code');
   return warn(
     `${report.flaggedCount} node(s) may describe code changed since curation; run \`npx kenkeep freshness --verbose\`.`
@@ -253,39 +243,101 @@ function checkNodeVersion(): CheckResult {
 }
 
 /**
- * Reads the harness ids recorded in the `installed-version` marker so
- * doctor only audits adapters the user actually installed. A missing or
- * unreadable file yields an empty list; that case is surfaced by the
- * separate `installed-version` check.
+ * Reads the harness ids recorded in the `installed-version` marker (the
+ * team's harness inventory). A missing or unreadable file yields an empty
+ * list; that case is surfaced by the separate `installed-version` check.
  */
 function installedHarnessIds(file: string): string[] {
-  if (!existsSync(file)) return [];
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as { harnesses?: unknown };
-    return Array.isArray(parsed.harnesses)
-      ? parsed.harnesses.filter((h): h is string => typeof h === 'string')
-      : [];
+    return readInstalledVersion(file)?.harnesses ?? [];
   } catch {
     return [];
   }
 }
 
+/**
+ * Decides which adapters this run audits and reports inventory drift as
+ * checks of its own, so `doctor` can never pass by silently skipping a
+ * harness:
+ *   - `--harness X` audits X even when the marker lacks it, and that absence
+ *     is an error naming X.
+ *   - An unscoped run audits every recorded harness and flags any adapter
+ *     whose committed registration exists without being recorded. That is an
+ *     error when its runtime scripts are missing (the hooks it registers would
+ *     fail), otherwise a warning about the stale inventory.
+ */
+function scopeHarnesses(
+  opts: DoctorOptions,
+  root: string,
+  templatesDir: string,
+  installed: string[]
+): { scoped: string[]; inventoryChecks: NamedCheck[] } {
+  const inventoryChecks: NamedCheck[] = [];
+  if (opts.harness) {
+    const id = opts.harness;
+    if (!hasHarness(id)) {
+      inventoryChecks.push({
+        name: 'harness inventory',
+        result: err(`unknown harness '${id}'. Supported: ${listHarnessIds().join(', ')}.`),
+      });
+      return { scoped: [], inventoryChecks };
+    }
+    if (!installed.includes(id)) {
+      inventoryChecks.push({
+        name: 'harness inventory',
+        result: err(
+          `${id} is not recorded in .ai/kenkeep/.state/installed-version (recorded: ${
+            installed.join(', ') || 'none'
+          }). Run \`npx kenkeep init --harnesses ${id}\` to install or repair it and record it.`
+        ),
+      });
+    }
+    return { scoped: [id], inventoryChecks };
+  }
+
+  const scoped = installed.filter(hasHarness);
+  const unrecorded = listHarnessIds().filter(id => !installed.includes(id));
+  const drift: string[] = [];
+  let broken = false;
+  for (const id of unrecorded) {
+    const adapter = getHarness(id);
+    const evidence = registrationEvidence(root, templatesDir, adapter);
+    if (!evidence) continue;
+    const missingScripts = missingRuntimeScripts(root, adapter);
+    const where = relative(root, evidence).split(sep).join('/');
+    drift.push(
+      `${id} is registered in ${where} but not recorded` +
+        (missingScripts.length > 0
+          ? ` and its runtime scripts are missing (${missingScripts.join(', ')})`
+          : '')
+    );
+    if (missingScripts.length > 0) broken = true;
+  }
+  const detail =
+    drift.length === 0
+      ? `recorded: ${installed.join(', ') || 'none'}`
+      : `${drift.join('; ')}. Run \`npx kenkeep init --harnesses <id>\` for each to repair it and record it.`;
+  inventoryChecks.push({
+    name: 'harness inventory',
+    result: drift.length === 0 ? ok(detail) : broken ? err(detail) : warn(detail),
+  });
+  return { scoped, inventoryChecks };
+}
+
 function checkInstalled(file: string): CheckResult {
-  if (!existsSync(file)) {
+  let installed: InstalledVersion | null;
+  try {
+    installed = readInstalledVersion(file);
+  } catch (e) {
+    return err((e as Error).message);
+  }
+  if (installed === null) {
     return err('missing. Run `npx kenkeep init --harnesses <id[,id,...]>` from the repo root.');
   }
-  let parsed: { version?: string };
-  try {
-    parsed = JSON.parse(readFileSync(file, 'utf8')) as { version?: string };
-  } catch (e) {
-    return err(`unreadable: ${(e as Error).message}`);
-  }
-  const installed = typeof parsed.version === 'string' ? parsed.version : null;
   const current = packageVersion();
-  if (installed === null) return warn('installed-version has no `version` field.');
-  if (installed === current) return ok(current);
+  if (installed.version === current) return ok(current);
   return warn(
-    `installed ${installed}, package ${current}. Run \`npx kenkeep init --upgrade\` to refresh templates.`
+    `installed ${installed.version}, package ${current}. Run \`npx kenkeep init --upgrade\` to refresh templates.`
   );
 }
 
@@ -398,72 +450,4 @@ function checkKbignore(file: string): CheckResult {
     return trimmed.length > 0 && !trimmed.startsWith('#');
   });
   return hasPattern ? ok('present with pattern(s)') : warn(KKIGNORE_WARNING);
-}
-
-function renderHarnessInstallStatus(
-  root: string,
-  harnessId: string,
-  onWarn: (n: number) => void
-): void {
-  const adapter = getHarness(harnessId);
-  const locs = adapter.paths(root);
-  const hooksDir = locs.hooksDir ?? sharedHarnessHooksDirForRoot(root, harnessId);
-
-  log.plain('');
-  log.info(`Harness ${harnessId} install status`);
-
-  const missingScripts: string[] = [];
-  const presentScripts: string[] = [];
-  for (const spec of adapter.hooks) {
-    const expected = sharedHookScriptPath(harnessId, spec.scriptPath);
-    if (existsSync(join(hooksDir, spec.scriptPath))) {
-      presentScripts.push(`${spec.scriptPath} (${expected})`);
-    } else {
-      missingScripts.push(`${spec.scriptPath} (${expected})`);
-    }
-  }
-  if (missingScripts.length === 0) {
-    log.success(`hooks: all ${presentScripts.length} script(s) present`);
-    for (const line of presentScripts) log.plain(`    ${line}`);
-  } else {
-    log.warn(`hooks: missing ${missingScripts.length} script(s)`);
-    for (const line of missingScripts) log.plain(`    ${line}`);
-    onWarn(1);
-  }
-
-  const skillsDir = locs.skillsDir;
-  if (!existsSync(skillsDir)) {
-    log.warn(`skills: missing directory ${skillsDir}`);
-    onWarn(1);
-  } else {
-    const missingSkills = EXPECTED_SKILLS.filter(
-      name => !existsSync(join(skillsDir, name, 'SKILL.md'))
-    );
-    if (missingSkills.length === 0) {
-      log.success(`skills: all expected skills present (${EXPECTED_SKILLS.join(', ')})`);
-    } else {
-      log.warn(`skills: missing ${missingSkills.join(', ')}`);
-      onWarn(1);
-    }
-  }
-
-  if (!adapter.detectFromEnv) {
-    log.info('detection: no detector (n/a)');
-  } else {
-    const fires = adapter.detectFromEnv(process.env);
-    log.info(fires ? 'detection: would fire' : 'detection: would not fire here');
-  }
-
-  const dest = sharedHarnessHooksDirForRoot(root, harnessId);
-  const expectedScripts = [...new Set(adapter.hooks.map(spec => spec.scriptPath))];
-  const missingAtDest = expectedScripts.filter(name => !existsSync(join(dest, name)));
-  const templateNote = KK_HOOKS_TEMPLATE_IDS.has(harnessId)
-    ? ' (shipped from kk-hooks template)'
-    : '';
-  if (missingAtDest.length === 0) {
-    log.success(`hook placement: scripts at ${dest}${templateNote}`);
-  } else {
-    log.warn(`hook placement: missing at ${dest}: ${missingAtDest.join(', ')}${templateNote}`);
-    onWarn(1);
-  }
 }

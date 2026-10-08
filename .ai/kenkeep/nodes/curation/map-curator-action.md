@@ -47,13 +47,13 @@ Failures (`add_collision`, `modify_missing_target`) are returned in `runCurate`'
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-conflict-files](/curation/map-conflict-files.md)
+- Related: [map-curate-command](map-curate-command.md)
+- Related: [map-conflict-files](map-conflict-files.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/schemas.md](docs/internals/schemas.md)
-[2] [docs/internals/prompts.md](docs/internals/prompts.md)
+[1] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
+[2] [docs/internals/prompts.md](../../../../docs/internals/prompts.md)
 <!-- kk:citations:end -->

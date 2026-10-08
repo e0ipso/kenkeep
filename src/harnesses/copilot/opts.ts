@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   pickModelChoice,
   type EffectiveSettings,
+  type ModelChoice,
   type ModelChoiceRole,
 } from '../../lib/settings.js';
 
@@ -37,4 +38,18 @@ export function buildCopilotHarnessOpts(
   const choice = pickModelChoice(settings, role);
   if (!choice || choice.harness !== 'copilot') return {};
   return { model: choice.model };
+}
+
+/**
+ * Launcher argv for a Copilot model choice. `@github/copilot 1.0.91 --help`
+ * lists `--model <model>` ("Set the AI model to use") next to
+ * `-p, --prompt <text>`; the docs page
+ * https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically
+ * documents the same flag for scripted runs.
+ */
+export function copilotLaunchModelArgs(choice: ModelChoice): string[] {
+  if (choice.harness !== 'copilot') {
+    throw new Error(`copilot adapter received a model choice for harness '${choice.harness}'`);
+  }
+  return ['--model', choice.model];
 }

@@ -21,7 +21,8 @@ const HARNESSES = [
   { id: 'claude', binary: 'claude' },
   { id: 'codex', binary: 'codex' },
   { id: 'copilot', binary: 'copilot' },
-  { id: 'cursor', binary: 'cursor-agent' },
+  // Cursor's headless runtime is the `agent` binary (src/harnesses/cursor/headless.ts).
+  { id: 'cursor', binary: 'agent' },
   { id: 'opencode', binary: 'opencode' },
 ];
 

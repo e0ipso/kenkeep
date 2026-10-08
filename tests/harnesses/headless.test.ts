@@ -11,6 +11,30 @@ vi.mock('execa', () => ({ execa: vi.fn() }));
 const Schema = z.object({ ok: z.boolean(), n: z.number() });
 
 /**
+ * `opencode run --format json` writes one record per line from its `emit`
+ * helper (`packages/opencode/src/cli/cmd/run.ts`, v1.18.34): `type`,
+ * `timestamp`, `sessionID`, then the payload. A completed assistant text part
+ * arrives once, whole, as a `text` record; a session error as an `error`
+ * record. The SDK `message.part.updated` envelopes never reach stdout.
+ */
+function openCodeRecord(type: string, data: Record<string, unknown>): string {
+  return JSON.stringify({ type, timestamp: 1, sessionID: 'ses_1', ...data });
+}
+
+function openCodeText(messageID: string, partID: string, text: string): string {
+  return openCodeRecord('text', {
+    part: {
+      id: partID,
+      sessionID: 'ses_1',
+      messageID,
+      type: 'text',
+      text,
+      time: { start: 1, end: 2 },
+    },
+  });
+}
+
+/**
  * The execa-backed adapters share a uniform contract: they spawn a child,
  * parse a terminal event into JSON, validate it against the caller's Zod
  * schema, force the recursion-guard env var, and throw when the child
@@ -60,13 +84,11 @@ const execaHeadlessCases: Array<{
   {
     id: 'opencode',
     success: payload => [
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm', part: { type: 'text', text: JSON.stringify(payload) } },
-      }),
-      JSON.stringify({ type: 'session.idle' }),
+      openCodeRecord('step_start', { part: { type: 'step-start', messageID: 'msg_1' } }),
+      openCodeText('msg_1', 'prt_1', JSON.stringify(payload)),
+      openCodeRecord('step_finish', { part: { type: 'step-finish', messageID: 'msg_1' } }),
     ],
-    noResult: [JSON.stringify({ type: 'session.idle' })],
+    noResult: [openCodeRecord('step_start', { part: { type: 'step-start', messageID: 'msg_1' } })],
   },
 ];
 
@@ -79,13 +101,13 @@ describe('adapter.runHeadless (parametrized over execa-backed harnesses)', () =>
     '$id parses the terminal result, validates the schema, forces the recursion guard, and throws on no result',
     async ({ id, success, noResult }) => {
       const { captured } = mockExecaOnce(success({ ok: true, n: 42 }));
-      const out = await getHarness(id).runHeadless('prompt body', '', Schema);
+      const out = await getHarness(id).runHeadless('prompt body', Schema);
       expect(out).toEqual({ ok: true, n: 42 });
       const env = captured.options?.['env'] as NodeJS.ProcessEnv;
       expect(env['KENKEEP_BUILDER_INTERNAL']).toBe('1');
 
       mockExecaOnce(noResult);
-      await expect(getHarness(id).runHeadless('prompt body', '', Schema)).rejects.toThrow();
+      await expect(getHarness(id).runHeadless('prompt body', Schema)).rejects.toThrow();
     }
   );
 });
@@ -98,9 +120,9 @@ describe('claude headless option mapping and error handling', () => {
     return JSON.stringify({ type: 'result', is_error: false, result: JSON.stringify(payload) });
   }
 
-  it('passes -p argv, allowedTools, model/effort, stdin input, and merges extra env', async () => {
+  it('passes -p argv, allowedTools, model/effort, and merges extra env', async () => {
     const { captured } = mockExecaOnce([resultLine({ ok: true, n: 1 })]);
-    await claude.runHeadless('hello prompt', 'stdin', Schema, {
+    await claude.runHeadless('hello prompt', Schema, {
       harnessOpts: { allowedTools: ['Read'], model: 'haiku', effort: 'low' },
       env: { FOO: 'bar' },
     });
@@ -120,26 +142,35 @@ describe('claude headless option mapping and error handling', () => {
       '--effort',
       'low',
     ]);
-    expect(captured.options?.['input']).toBe('stdin');
+    expect(captured.options?.['input']).toBe('');
 
     const neither = mockExecaOnce([resultLine({ ok: true, n: 1 })]);
-    await claude.runHeadless('p', '', Schema);
+    await claude.runHeadless('p', Schema);
     expect(neither.captured.args).not.toContain('--model');
     expect(neither.captured.args).not.toContain('--effort');
   });
 
+  it('moves an oversized prompt to stdin and drops the positional argument', async () => {
+    const prompt = 'y'.repeat(65 * 1024);
+    const { captured } = mockExecaOnce([resultLine({ ok: true, n: 1 })]);
+    await claude.runHeadless(prompt, Schema);
+    expect(captured.args?.[0]).toBe('-p');
+    expect(captured.args?.[1]).toBe('--allowedTools');
+    expect(captured.options?.['input']).toBe(prompt);
+  });
+
   it('throws on non-zero exit, timeout, error-flagged result, and role-tagged schema mismatch', async () => {
     mockExecaOnce([], { exitCode: 1 });
-    await expect(claude.runHeadless('p', '', Schema)).rejects.toThrow(/exit code/);
+    await expect(claude.runHeadless('p', Schema)).rejects.toThrow(/exit code/);
 
     mockExecaOnce([], { timedOut: true });
-    await expect(claude.runHeadless('p', '', Schema)).rejects.toThrow(/timed out/);
+    await expect(claude.runHeadless('p', Schema)).rejects.toThrow(/timed out/);
 
     mockExecaOnce([JSON.stringify({ type: 'result', is_error: true, result: 'oops' })]);
-    await expect(claude.runHeadless('p', '', Schema)).rejects.toThrow();
+    await expect(claude.runHeadless('p', Schema)).rejects.toThrow();
 
     mockExecaOnce([resultLine({ ok: 'yes please' })]);
-    await expect(claude.runHeadless('p', '', Schema, { role: 'proposal' })).rejects.toThrow(
+    await expect(claude.runHeadless('p', Schema, { role: 'proposal' })).rejects.toThrow(
       /^proposal output did not match schema:/
     );
   });
@@ -154,7 +185,7 @@ describe('claude headless option mapping and error handling', () => {
       ]);
       const seen: Array<string | undefined> = [];
       const logFile = join(dir, 'logs', 'proposal', 'a.jsonl');
-      await claude.runHeadless('p', '', Schema, { onMessage: msg => seen.push(msg.type), logFile });
+      await claude.runHeadless('p', Schema, { onMessage: msg => seen.push(msg.type), logFile });
       expect(seen).toEqual(['system', 'assistant', 'result']);
       const lines = readFileSync(logFile, 'utf8').trim().split('\n');
       expect(lines).toHaveLength(3);
@@ -180,7 +211,7 @@ describe('codex headless option mapping and error handling', () => {
 
   it('maps argv, stdin, model/reasoningEffort, and merges extra env', async () => {
     const shortRun = mockExecaOnce(agentMessage({ ok: true, n: 1 }));
-    await codex.runHeadless('hello', '', Schema, {
+    await codex.runHeadless('hello', Schema, {
       harnessOpts: { model: 'gpt-5-codex', reasoningEffort: 'high' },
       env: { FOO: 'bar' },
     });
@@ -195,23 +226,26 @@ describe('codex headless option mapping and error handling', () => {
     expect(args).toContain('--model');
     expect(args).toContain('gpt-5-codex');
     expect(args).toContain('-c');
-    expect(args).toContain('reasoning.effort=high');
+    // Documented Codex config key; `reasoning.effort` is not a key Codex reads.
+    expect(args).toContain('model_reasoning_effort=high');
+    expect(args).not.toContain('reasoning.effort=high');
     expect((shortRun.captured.options?.['env'] as NodeJS.ProcessEnv)['FOO']).toBe('bar');
 
-    const stdinRun = mockExecaOnce(agentMessage({ ok: true, n: 2 }));
-    await codex.runHeadless('hello', 'extra stdin payload', Schema);
-    expect(stdinRun.captured.args).toContain('-');
-    expect(stdinRun.captured.options?.['input']).toBe('extra stdin payload');
+    const largeRun = mockExecaOnce(agentMessage({ ok: true, n: 3 }));
+    const prompt = 'z'.repeat(65 * 1024);
+    await codex.runHeadless(prompt, Schema);
+    expect(largeRun.captured.args?.at(-1)).toBe('-');
+    expect(largeRun.captured.options?.['input']).toBe(prompt);
   });
 
   it('throws on non-zero exit (with stderr tail) and missing agent_message', async () => {
     mockExecaOnce([], { exitCode: 1, stderr: 'codex: something went wrong' });
-    await expect(codex.runHeadless('p', '', Schema)).rejects.toThrow(
+    await expect(codex.runHeadless('p', Schema)).rejects.toThrow(
       /exit code 1.*codex: something went wrong/s
     );
 
     mockExecaOnce([JSON.stringify({ type: 'thread.started' })]);
-    await expect(codex.runHeadless('p', '', Schema)).rejects.toThrow(/no agent_message/);
+    await expect(codex.runHeadless('p', Schema)).rejects.toThrow(/no agent_message/);
   });
 });
 
@@ -219,23 +253,14 @@ describe('opencode headless option mapping and error handling', () => {
   const opencode = getHarness('opencode');
   afterEach(() => vi.clearAllMocks());
 
-  it('passes --model and --agent in canonical order and accumulates text deltas', async () => {
+  it('passes --model and --agent in canonical order and returns the last message text', async () => {
     const { captured } = mockExecaOnce([
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm1', part: { type: 'text', text: 'stale' } },
-      }),
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm2', part: { type: 'text', text: '{"ok":' } },
-      }),
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm2', part: { type: 'text', text: 'true,"n":42}' } },
-      }),
-      JSON.stringify({ type: 'session.idle' }),
+      openCodeText('msg_1', 'prt_1', 'stale'),
+      openCodeRecord('tool_use', { part: { type: 'tool', messageID: 'msg_1' } }),
+      openCodeText('msg_2', 'prt_2', 'Result:'),
+      openCodeText('msg_2', 'prt_3', '{"ok":true,"n":42}'),
     ]);
-    const out = await opencode.runHeadless('hello', '', Schema, {
+    const out = await opencode.runHeadless('hello', Schema, {
       harnessOpts: { model: 'anthropic/claude-sonnet-4', agent: 'build' },
     });
     expect(out).toEqual({ ok: true, n: 42 });
@@ -252,10 +277,34 @@ describe('opencode headless option mapping and error handling', () => {
     ]);
   });
 
-  it('throws on non-zero exit', async () => {
-    mockExecaOnce([JSON.stringify({ type: 'session.idle' })], { exitCode: 1, stderr: 'boom' });
-    await expect(opencode.runHeadless('hello', '', Schema)).rejects.toThrow(
-      /opencode subprocess failed/
+  it('ignores SDK event envelopes, which the CLI never writes to stdout', async () => {
+    mockExecaOnce([
+      JSON.stringify({
+        type: 'message.part.updated',
+        properties: { messageID: 'm', part: { type: 'text', text: '{"ok":true,"n":1}' } },
+      }),
+    ]);
+    await expect(opencode.runHeadless('hello', Schema)).rejects.toThrow(/no assistant text/);
+  });
+
+  it('throws on non-zero exit and names the error record opencode reported', async () => {
+    mockExecaOnce(
+      [
+        openCodeRecord('error', {
+          error: { name: 'ProviderModelNotFoundError', data: { message: 'model not found' } },
+        }),
+      ],
+      { exitCode: 1, stderr: 'boom' }
+    );
+    await expect(opencode.runHeadless('hello', Schema)).rejects.toThrow(
+      /opencode subprocess failed.*model not found/s
+    );
+  });
+
+  it('reports a streamed error instead of a missing result when the exit code is zero', async () => {
+    mockExecaOnce([openCodeRecord('error', { error: { name: 'UnknownError' } })]);
+    await expect(opencode.runHeadless('hello', Schema)).rejects.toThrow(
+      /opencode reported an error: UnknownError/
     );
   });
 });
@@ -272,11 +321,28 @@ describe('cursor headless option mapping', () => {
         result: JSON.stringify({ ok: true, n: 1 }),
       }),
     ]);
-    await cursor.runHeadless('prompt', '', Schema, {
+    await cursor.runHeadless('prompt', Schema, {
       harnessOpts: { agentCli: '/tmp/fake-agent' },
     });
     expect(captured.command).toBe('/tmp/fake-agent');
     expect(captured.args).toContain('-p');
     expect(captured.args).toContain('--output-format');
+  });
+
+  it('pipes an oversized prompt with no positional argument, since agent reads stdin only then', async () => {
+    // Cursor agent 2026.09.28 (`src/commands/build-prompt.ts`) reads stdin
+    // only when the positional prompt is empty; a `-` placeholder would be
+    // sent to the model verbatim and the real prompt discarded.
+    const prompt = 'w'.repeat(65 * 1024);
+    const { captured } = mockExecaOnce([
+      JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        result: JSON.stringify({ ok: true, n: 1 }),
+      }),
+    ]);
+    await cursor.runHeadless(prompt, Schema);
+    expect(captured.args).toEqual(['-p', '--output-format', 'json']);
+    expect(captured.options?.['input']).toBe(prompt);
   });
 });

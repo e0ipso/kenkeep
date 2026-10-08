@@ -146,3 +146,137 @@ describe('kk validate', () => {
     expect(stderr).toContain('unknown schema');
   });
 });
+
+describe('curator-output discriminated contract', () => {
+  let cwd: string;
+  let original: string;
+
+  beforeEach(() => {
+    original = process.cwd();
+    cwd = mkdtempSync(join(tmpdir(), 'kk-validate-curator-'));
+    process.chdir(cwd);
+  });
+
+  afterEach(() => {
+    process.chdir(original);
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  const node = {
+    title: 'Use foo',
+    type: 'practice',
+    tags: ['foo'],
+    description: 'one line',
+    body: 'body text',
+    kk_confidence: 'high',
+    kk_relates_to: [],
+  };
+
+  it('schema curator-output prints a union keyed on action with per-action requirements', async () => {
+    const { code, stdout } = await capture(() => runSchemaCommand({ name: 'curator-output' }));
+    expect(code).toBe(0);
+    const parsed = JSON.parse(stdout) as Record<string, unknown>;
+    const def = (parsed['definitions'] as Record<string, Record<string, unknown>>)[
+      'curator-output'
+    ]!;
+    const items = def['items'] as Record<string, unknown>;
+    const variants = items['anyOf'] as Array<Record<string, unknown>>;
+    expect(Array.isArray(variants)).toBe(true);
+    const byAction = new Map<string, Record<string, unknown>>();
+    for (const v of variants) {
+      const props = v['properties'] as Record<string, Record<string, unknown>>;
+      byAction.set(props['action']!['const'] as string, v);
+    }
+    expect([...byAction.keys()].sort()).toEqual(['add', 'contradict', 'drop', 'modify']);
+    expect(byAction.get('modify')!['required']).toEqual(
+      expect.arrayContaining(['target_node_id', 'proposed_node'])
+    );
+    expect(byAction.get('contradict')!['required']).toEqual(
+      expect.arrayContaining(['target_node_id', 'rationale'])
+    );
+    expect(byAction.get('contradict')!['required']).not.toContain('proposed_node');
+    expect(byAction.get('add')!['required']).toContain('proposed_node');
+    expect(byAction.get('drop')!['required']).not.toContain('proposed_node');
+  });
+
+  it.each([
+    [
+      'modify without a target',
+      {
+        action: 'modify',
+        candidate_origin: 'o',
+        target_node_id: null,
+        proposed_node: node,
+        rationale: 'r',
+      },
+      'target_node_id',
+    ],
+    [
+      'modify without a proposed node',
+      {
+        action: 'modify',
+        candidate_origin: 'o',
+        target_node_id: 'practice-x',
+        proposed_node: null,
+        rationale: 'r',
+      },
+      'proposed_node',
+    ],
+    [
+      'contradict without a target',
+      {
+        action: 'contradict',
+        candidate_origin: 'o',
+        target_node_id: null,
+        proposed_node: node,
+        rationale: 'r',
+      },
+      'target_node_id',
+    ],
+    [
+      'contradict without a rationale',
+      { action: 'contradict', candidate_origin: 'o', target_node_id: 'practice-x', rationale: '' },
+      'rationale',
+    ],
+    [
+      'add with a target',
+      {
+        action: 'add',
+        candidate_origin: 'o',
+        target_node_id: 'practice-x',
+        proposed_node: node,
+        rationale: 'r',
+      },
+      'target_node_id',
+    ],
+  ])('validate curator-output rejects %s', async (_name, action, pathHint) => {
+    const file = join(cwd, 'actions.json');
+    writeFileSync(file, JSON.stringify([action]));
+    const { code, stderr } = await capture(() =>
+      runValidateCommand({ name: 'curator-output', file })
+    );
+    expect(code).toBe(1);
+    expect(stderr).toContain(pathHint);
+  });
+
+  it('validate curator-output accepts a contradiction with no proposed node and a bare drop', async () => {
+    const file = join(cwd, 'actions.json');
+    writeFileSync(
+      file,
+      JSON.stringify([
+        {
+          action: 'contradict',
+          candidate_origin: 'o1',
+          target_node_id: 'practice-x',
+          rationale: 'negated',
+        },
+        { action: 'drop', candidate_origin: 'o2', rationale: 'noise' },
+      ])
+    );
+    const { code, stdout } = await capture(() =>
+      runValidateCommand({ name: 'curator-output', file })
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain('curator-output: valid');
+  });
+});

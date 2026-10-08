@@ -39,9 +39,9 @@ appropriate.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
-- Related: [practice-bootstrap-never-overwrites-existing-nodes](/bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
-- Depends on: [practice-bootstrap-never-overwrites-existing-nodes](/bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
+- Related: [map-knowledge-pack-format](map-knowledge-pack-format.md)
+- Related: [practice-bootstrap-never-overwrites-existing-nodes](../bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
+- Depends on: [practice-bootstrap-never-overwrites-existing-nodes](../bootstrap/practice-bootstrap-never-overwrites-existing-nodes.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
@@ -49,5 +49,5 @@ appropriate.
 
 [1] [https://github.com/e0ipso/kenkeep/issues/72](https://github.com/e0ipso/kenkeep/issues/72)
 [2] [https://github.com/e0ipso/kenkeep/issues/74](https://github.com/e0ipso/kenkeep/issues/74)
-[3] [src/commands/pack-import.ts](src/commands/pack-import.ts)
+[3] [src/commands/pack-import.ts](../../../../src/commands/pack-import.ts)
 <!-- kk:citations:end -->

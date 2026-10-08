@@ -24,5 +24,5 @@ This keeps `init --upgrade` deployments portable and prevents hook failures when
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-hook-build-pipeline-ts-to-cjs](/hooks/map-hook-build-pipeline-ts-to-cjs.md)
+- Related: [map-hook-build-pipeline-ts-to-cjs](map-hook-build-pipeline-ts-to-cjs.md)
 <!-- kk:related:end -->

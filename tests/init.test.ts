@@ -1,12 +1,28 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from './helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
 const exec = promisify(execFile);
+
+async function commitAll(cwd: string, message: string): Promise<void> {
+  await exec('git', ['add', '-A'], { cwd });
+  await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', message], {
+    cwd,
+  });
+}
 
 describe('init', () => {
   let sandbox: string;
@@ -47,7 +63,6 @@ describe('init', () => {
       '.ai/kenkeep/.config/prompts/sub-agent-delegation.md',
       '.ai/kenkeep/config.yaml',
       '.ai/kenkeep/.gitignore',
-      '.ai/kenkeep/scripts/kk-detect-harness.mjs',
       '.ai/kenkeep/scripts/kk-detect-root.mjs',
       '.ai/kenkeep/assets/notification-icon.png',
     ];
@@ -101,7 +116,7 @@ describe('init', () => {
     );
 
     // Re-running init (already-initialized path) surfaces the migrate guidance,
-    // which now names the in-session kk-migrate skill, not the removed command.
+    // which names the in-session kk-migrate skill.
     const reinit = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(reinit.exitCode).toBe(0);
     const reinitOut = reinit.stdout + reinit.stderr;
@@ -163,6 +178,190 @@ describe('init', () => {
     const second = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(second.exitCode).toBe(0);
     expect(second.stdout + second.stderr).toContain('Already initialized');
+  });
+
+  // The documented teammate flow is "commit, clone, run init". The hook
+  // scripts the committed host configs point at are gitignored, so init on an
+  // initialized clone must restore them for every recorded harness (not only
+  // the one named on the command line) while leaving committed, user-edited
+  // files byte-identical.
+  it('restores gitignored runtime assets on a fresh clone without touching user config or overrides', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(first.exitCode).toBe(0);
+
+    const configRel = '.ai/kenkeep/config.yaml';
+    const promptRel = '.ai/kenkeep/.config/prompts/proposal-extract.md';
+    const customConfig = 'schema_version: 1\ncurationThreshold: 7\n';
+    writeFileSync(join(sandbox, configRel), customConfig);
+    const customPrompt = `${readFileSync(join(sandbox, promptRel), 'utf8')}\n<!-- team override -->\n`;
+    writeFileSync(join(sandbox, promptRel), customPrompt);
+    await commitAll(sandbox, 'init kenkeep');
+
+    const clone = join(sandbox, 'clone');
+    await exec('git', ['clone', '-q', sandbox, clone]);
+    // Precondition: the committed host configs reference scripts the clone lacks.
+    expect(existsSync(join(clone, '.claude/settings.json'))).toBe(true);
+    expect(existsSync(join(clone, '.codex/hooks.json'))).toBe(true);
+    expect(existsSync(join(clone, '.ai/kenkeep/hooks'))).toBe(false);
+
+    const repair = await runCli(clone, ['init', '--harnesses', 'claude']);
+    expect(repair.exitCode).toBe(0);
+    for (const rel of [
+      '.ai/kenkeep/hooks/claude/kk-capture.cjs',
+      '.ai/kenkeep/hooks/claude/kk-session-start.cjs',
+      '.ai/kenkeep/hooks/codex/kk-capture.cjs',
+      '.ai/kenkeep/hooks/codex/kk-session-start.cjs',
+    ]) {
+      expect(existsSync(join(clone, rel)), `expected ${rel}`).toBe(true);
+    }
+    expect(readFileSync(join(clone, configRel), 'utf8')).toBe(customConfig);
+    expect(readFileSync(join(clone, promptRel), 'utf8')).toBe(customPrompt);
+    // The inventory and every other tracked file are left alone.
+    const { stdout: status } = await exec('git', ['status', '--porcelain'], { cwd: clone });
+    expect(status.trim()).toBe('');
+
+    const doctor = await runCli(clone, ['doctor'], env);
+    expect(doctor.exitCode, doctor.stdout + doctor.stderr).toBe(0);
+  });
+
+  // A repair lands only the scripts that are missing. The ones already
+  // on disk stay byte-identical (PRD 9.1, docs/installation.md); replacing
+  // the whole set is `init --upgrade`'s job.
+  it('restores only the missing hook scripts and leaves the present ones byte-identical', async () => {
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(first.exitCode).toBe(0);
+    const hooksDir = join(sandbox, '.ai/kenkeep/hooks/claude');
+    const capture = join(hooksDir, 'kk-capture.cjs');
+    const edited = `${readFileSync(capture, 'utf8')}\n// locally patched\n`;
+    writeFileSync(capture, edited);
+    rmSync(join(hooksDir, 'kk-session-start.cjs'));
+
+    const repair = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(repair.exitCode).toBe(0);
+    expect(existsSync(join(hooksDir, 'kk-session-start.cjs'))).toBe(true);
+    expect(readFileSync(capture, 'utf8')).toBe(edited);
+    const output = repair.stdout + repair.stderr;
+    expect(output).toContain('Restored 1 hook script for claude:');
+    expect(output).toContain('kk-session-start.cjs');
+    expect(output).not.toContain('kk-capture.cjs');
+  });
+
+  it('installs a newly requested harness into an initialized repo and merges the inventory', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const claudeSettings = readFileSync(join(sandbox, '.claude/settings.json'), 'utf8');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'cursor']);
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(join(sandbox, '.cursor/hooks.json'))).toBe(true);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/cursor/kk-capture.cjs'))).toBe(true);
+    expect(existsSync(join(sandbox, '.cursor/skills/kk-curate/SKILL.md'))).toBe(true);
+    const installed = JSON.parse(
+      readFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), 'utf8')
+    ) as { harnesses: string[] };
+    expect(installed.harnesses).toEqual(['claude', 'cursor']);
+    expect(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')).toBe(claudeSettings);
+  });
+
+  it('fails without an install marker when a selected harness config is malformed', async () => {
+    mkdirSync(join(sandbox, '.codex'), { recursive: true });
+    writeFileSync(join(sandbox, '.codex/hooks.json'), '{"hooks": 5}\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('.codex/hooks.json');
+    // The writer refused the file untouched and the run recorded nothing, so
+    // a re-run after the fix is a fresh install.
+    expect(readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8')).toBe('{"hooks": 5}\n');
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses an unparseable OpenCode config without installing the adapter', async () => {
+    mkdirSync(join(sandbox, '.opencode'), { recursive: true });
+    const configFile = join(sandbox, '.opencode/opencode.json');
+    writeFileSync(configFile, '{broken\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('.opencode/opencode.json');
+    expect(readFileSync(configFile, 'utf8')).toBe('{broken\n');
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/opencode'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses an OpenCode config whose plugin or instructions entry is not an array', async () => {
+    mkdirSync(join(sandbox, '.opencode'), { recursive: true });
+    const configFile = join(sandbox, '.opencode/opencode.json');
+    const original = '{"plugin":"user-plugin","instructions":"user-instructions"}\n';
+    writeFileSync(configFile, original);
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toMatch(/opencode\.json[^\n]*"plugin"/);
+    expect(readFileSync(configFile, 'utf8')).toBe(original);
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses to restore hook scripts through a symlinked hooks directory', async () => {
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(first.exitCode).toBe(0);
+    const outside = makeSandbox('ai-kk-outside-');
+    try {
+      const claudeCapture = join(sandbox, '.ai/kenkeep/hooks/claude/kk-capture.cjs');
+      rmSync(claudeCapture);
+      const codexHooks = join(sandbox, '.ai/kenkeep/hooks/codex');
+      rmSync(codexHooks, { recursive: true });
+      symlinkSync(outside, codexHooks);
+      const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+      const marker = readFileSync(versionFile, 'utf8');
+
+      const repair = await runCli(sandbox, ['init', '--harnesses', 'codex']);
+      expect(repair.exitCode).not.toBe(0);
+      expect(repair.stderr + repair.stdout).toContain('symlink');
+      expect(readdirSync(outside)).toEqual([]);
+      expect(lstatSync(codexHooks).isSymbolicLink()).toBe(true);
+      expect(readFileSync(versionFile, 'utf8')).toBe(marker);
+      // The refusal is decided before any repair write, so the earlier
+      // harness's missing script is not restored either.
+      expect(existsSync(claudeCapture)).toBe(false);
+    } finally {
+      cleanSandbox(outside);
+    }
+  });
+
+  it.each([
+    ['an object of harnesses', { claude: true, codex: true }],
+    ['a non-string harness entry', ['claude', 5]],
+  ])('stops on a corrupt inventory holding %s', async (_label, harnesses) => {
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(first.exitCode).toBe(0);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
+    installed['harnesses'] = harnesses;
+    const corrupt = `${JSON.stringify(installed, null, 2)}\n`;
+    writeFileSync(versionFile, corrupt);
+    const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
+    rmSync(codexCapture);
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('installed-version');
+    expect(readFileSync(versionFile, 'utf8')).toBe(corrupt);
+    expect(existsSync(codexCapture)).toBe(false);
+  });
+
+  it('tells Copilot users to commit the .github/ artifacts it actually wrote', async () => {
+    const result = await runCli(sandbox, ['init', '--harnesses', 'copilot'], {
+      COPILOT_HOME: join(sandbox, 'copilot-home'),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('`.github/`');
+    expect(result.stdout).not.toContain('.copilot/');
+    expect(existsSync(join(sandbox, '.copilot'))).toBe(false);
+    expect(existsSync(join(sandbox, '.github/hooks/kk.json'))).toBe(true);
   });
 
   it('rejects unsupported harness ids', async () => {

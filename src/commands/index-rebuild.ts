@@ -5,6 +5,7 @@ import { assertAgentsKkBlockWritable, ensureAgentsKkBlock } from '../lib/agents-
 import { folderSummariesFileForNodesDir, renderFolderSummaries } from '../lib/folder-summaries.js';
 import { atomicWriteFile } from '../lib/fs-atomic.js';
 import {
+  computeOwnedFolderDirs,
   findStaleFolderIndexes,
   generateGraph,
   generateIndex,
@@ -17,6 +18,7 @@ import {
   INDEX_FILENAME,
   InvalidNodeFrontmatterError,
   OldLayoutError,
+  type NodeFile,
 } from '../lib/nodes.js';
 import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { resolveSettings } from '../lib/settings.js';
@@ -75,10 +77,8 @@ export async function runIndexRebuild(opts: IndexRebuildOptions = {}): Promise<n
   preflightIndexRebuild(root);
   mkdirSync(paths.kkDir, { recursive: true });
 
-  const indexFile = join(paths.kkDir, 'ENTRY.md');
+  const { indexFile, graphFile, sidecarFile } = catalogFiles(root);
   const legacyIndexFile = join(paths.kkDir, 'INDEX.md');
-  const graphFile = join(paths.kkDir, 'GRAPH.md');
-  const sidecarFile = folderSummariesFileForNodesDir(paths.nodesDir);
 
   // One tree snapshot per run: the leaves are parsed and hashed exactly once,
   // and both generators consume that snapshot. This is also the strict
@@ -197,6 +197,36 @@ export function preflightIndexRebuild(root: string): void {
   assertDefaultNodesRoot(paths);
   resolveSettings({ projectFile: paths.projectConfigFile });
   assertAgentsKkBlockWritable(join(root, 'AGENTS.md'));
+}
+
+/**
+ * Every file a rebuild of a tree holding `leaves` may write: one `index.md` per
+ * owned folder, the entry catalog, the graph and the folder-summary sidecar. A
+ * command about to write a tree it has not written yet runs these through the
+ * containment boundary first, since the rebuild replaces whatever sits there.
+ */
+export function rebuildOutputFiles(
+  root: string,
+  leaves: readonly Pick<NodeFile, 'relDir'>[]
+): string[] {
+  const { nodesDir } = repoPaths(root);
+  const { indexFile, graphFile, sidecarFile } = catalogFiles(root);
+  const folders = [...computeOwnedFolderDirs(leaves)].sort((a, b) => a.localeCompare(b));
+  return [
+    ...folders.map(relDir => folderIndexFile(nodesDir, relDir)),
+    indexFile,
+    graphFile,
+    sidecarFile,
+  ];
+}
+
+function catalogFiles(root: string): { indexFile: string; graphFile: string; sidecarFile: string } {
+  const paths = repoPaths(root);
+  return {
+    indexFile: join(paths.kkDir, 'ENTRY.md'),
+    graphFile: join(paths.kkDir, 'GRAPH.md'),
+    sidecarFile: folderSummariesFileForNodesDir(paths.nodesDir),
+  };
 }
 
 function folderIndexFile(nodesDir: string, relDir: string): string {

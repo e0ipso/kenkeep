@@ -43,13 +43,13 @@ The last step catches commits that bypassed the pre-commit hook.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-bootstrap-incremental-command](../bootstrap/map-bootstrap-incremental-command.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/daily-use.md](docs/daily-use.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/daily-use.md](../../../../docs/daily-use.md)
 <!-- kk:citations:end -->

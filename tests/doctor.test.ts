@@ -48,11 +48,13 @@ describe('doctor', () => {
   );
 
   it('names why freshness has no signal instead of a generic git-history hint', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
 
     // Empty knowledge base: the report is unavailable for a reason that has
     // nothing to do with git history, so the check must say which.
-    const result = await runCli(sandbox, ['doctor']);
+    const result = await runCli(sandbox, ['doctor'], env);
 
     expect(result.exitCode).toBe(0);
     const combined = result.stdout + result.stderr;

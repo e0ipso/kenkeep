@@ -1,14 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { incomingReferrers, placeLeaf, type PlacementReason } from '../lib/leaf-placement.js';
 import { log as humanLog, stderrLog, writeJsonDocument, type Logger } from '../lib/log.js';
 import { readAllNodes, resolveLeafDir, type NodeFile } from '../lib/nodes.js';
 import { findRepoRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
+import { assertContained } from '../lib/path-safety.js';
 import { relocateBytes } from '../lib/rebalance-move.js';
 import { readRedirectsLedger } from '../lib/redirects.js';
 import { refreshRenderedLinks } from '../lib/rendered-links.js';
-import { runIndexRebuild } from './index-rebuild.js';
+import { preflightIndexRebuild, runIndexRebuild } from './index-rebuild.js';
 
 /** Why a leaf matched nothing: the only condition `placeLeaf` reports unplaceable. */
 const UNPLACEABLE_REASON = 'no folder-resolving edges and no tag overlap with any folder';
@@ -16,8 +17,8 @@ const UNPLACEABLE_REASON = 'no folder-resolving edges and no tag overlap with an
 const REFERENCED_REASON = `${UNPLACEABLE_REASON}; kept because other nodes reference it`;
 
 const UNRESTORABLE_REASON =
-  `${UNPLACEABLE_REASON}; kept because git cannot restore it (untracked, or ` +
-  'tracked with unstaged edits)';
+  `${UNPLACEABLE_REASON}; kept because git cannot restore it (untracked, ` +
+  'flagged assume-unchanged or skip-worktree, or tracked with unstaged edits)';
 
 /** One leaf filed into the folder its own edges and tags named. */
 interface SweepRelocation {
@@ -78,9 +79,10 @@ export interface SweepSummary {
  *
  * - A leaf its own edges and tags place (`placeLeaf`) is relocated there as a
  *   byte-stable rename (id unchanged, so no redirect is recorded).
- * - An unplaceable leaf whose exact bytes git holds (tracked, no unstaged
- *   edits) and that no other node references is deleted, and the summary
- *   names its `git restore`.
+ * - An unplaceable leaf whose exact bytes `git restore` would write back
+ *   (tracked with no index flag, working copy equal to the index copy) and
+ *   that no other node references is deleted, and the summary names its
+ *   `git restore`.
  * - Every other unplaceable leaf stays at the root and is reported as kept:
  *   removing a referenced leaf would leave dangling edges, and git could not
  *   bring back an untracked or edited one.
@@ -185,40 +187,58 @@ export async function sweepRootLeaves(
     unplaced.filter(leaf => referrers.get(leaf.frontmatter.kk_id)?.length === 0)
   );
 
+  // Resolve every write before the first one: each relocation's source and
+  // destination, each deletion's path. The containment boundary refuses a
+  // symlinked leaf here, so a refusal can never follow an applied move.
+  const relocations: Array<SweepRelocation & { src: string; dest: string }> = [];
+  const deletions: Array<SweepDeletion & { src: string }> = [];
   const summary: SweepSummary = { relocated: [], deleted: [], kept: [] };
-  try {
-    for (const leaf of rootLeaves) {
-      const id = leaf.frontmatter.kk_id;
-      const placed = destination.get(id);
-      if (placed !== undefined) {
-        const destDir = resolveLeafDir(nodesDir, placed.folder);
-        relocateBytes(leaf.path, join(destDir, leaf.filename));
-        summary.relocated.push({
-          id,
-          from: leaf.relPath,
-          to: posix.join(placed.folder, leaf.filename),
-          reason: placed.reason,
-        });
-        continue;
-      }
-      const referencedBy = (referrers.get(id) ?? []).map(node => node.frontmatter.kk_id);
-      const gitPath = referencedBy.length === 0 ? restorable.get(leaf.filename) : undefined;
-      if (gitPath !== undefined) {
-        rmSync(leaf.path);
-        summary.deleted.push({
-          id,
-          path: leaf.relPath,
-          reason: UNPLACEABLE_REASON,
-          restore: `git restore -- ${gitPath}`,
-        });
-        continue;
-      }
-      summary.kept.push({
+  for (const leaf of rootLeaves) {
+    const id = leaf.frontmatter.kk_id;
+    const placed = destination.get(id);
+    if (placed !== undefined) {
+      const destDir = resolveLeafDir(nodesDir, placed.folder);
+      relocations.push({
+        id,
+        from: leaf.relPath,
+        to: posix.join(placed.folder, leaf.filename),
+        reason: placed.reason,
+        src: assertContained(nodesDir, leaf.path),
+        dest: assertContained(nodesDir, join(destDir, leaf.filename)),
+      });
+      continue;
+    }
+    const referencedBy = (referrers.get(id) ?? []).map(node => node.frontmatter.kk_id);
+    const gitPath = referencedBy.length === 0 ? restorable.get(leaf.filename) : undefined;
+    if (gitPath !== undefined) {
+      deletions.push({
         id,
         path: leaf.relPath,
-        reason: referencedBy.length > 0 ? REFERENCED_REASON : UNRESTORABLE_REASON,
-        referenced_by: referencedBy,
+        reason: UNPLACEABLE_REASON,
+        restore: `git restore -- ${gitPath}`,
+        src: assertContained(nodesDir, leaf.path),
       });
+      continue;
+    }
+    summary.kept.push({
+      id,
+      path: leaf.relPath,
+      reason: referencedBy.length > 0 ? REFERENCED_REASON : UNRESTORABLE_REASON,
+      referenced_by: referencedBy,
+    });
+  }
+  // The rebuild that follows any write refuses a malformed config or AGENTS.md
+  // block; refuse here instead, before a leaf moves.
+  if (relocations.length + deletions.length > 0) preflightIndexRebuild(paths.root);
+
+  try {
+    for (const { src, dest, ...relocation } of relocations) {
+      relocateBytes(src, dest);
+      summary.relocated.push(relocation);
+    }
+    for (const { src, ...deletion } of deletions) {
+      rmSync(src);
+      summary.deleted.push(deletion);
     }
     // Rendered links are leaf-relative: a relocated leaf and every leaf linking
     // to it render new hrefs. Refresh exactly those before the rebuild hashes
@@ -243,32 +263,46 @@ export async function sweepRootLeaves(
 
 /**
  * The root leaves whose exact bytes git can bring back with `git restore`,
- * keyed by filename, valued by their path from the repository root. That is a
- * leaf git tracks whose working copy matches the index (`git restore` restores
- * from the index). Anything else, including every leaf outside a git work tree
- * or when git itself fails, is absent: the caller must not delete it.
+ * keyed by filename, valued by their path from the repository root.
+ * `git restore` writes the index copy through the checkout filters, so a leaf
+ * qualifies only when git tracks it with no index flag and those bytes equal
+ * the working copy. Git's own change detection is not trusted:
+ * `assume-unchanged` and `skip-worktree` hide edits from `git diff`, and
+ * `git restore` skips a `skip-worktree` path. Anything else, including every
+ * leaf outside a git work tree or when git itself fails, is absent: the caller
+ * must not delete it. Read-only: nothing is staged and no index flag changes.
  */
 function restorablePaths(nodesDir: string, leaves: NodeFile[]): Map<string, string> {
   const out = new Map<string, string>();
   if (leaves.length === 0) return out;
-  const filenames = leaves.map(leaf => leaf.filename);
-  const git = (args: string[]): string | null => {
+  const git = (args: string[]): Buffer | null => {
     const result = spawnSync('git', ['--literal-pathspecs', ...args], {
       cwd: nodesDir,
-      encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return result.error === undefined && result.status === 0 ? result.stdout : null;
   };
-  const prefix = git(['rev-parse', '--show-prefix']);
-  const tracked = git(['ls-files', '-z', '--', ...filenames]);
-  const edited = git(['diff', '--name-only', '--relative', '-z', '--', ...filenames]);
-  if (prefix === null || tracked === null || edited === null) return out;
+  const prefix = git(['rev-parse', '--show-prefix'])?.toString('utf8').replace(/\n$/, '');
+  // `-v` tags each entry: `H` is a plain tracked file; lowercase `h` is
+  // assume-unchanged, `S`/`s` skip-worktree, and other letters are unmerged
+  // or otherwise not a clean index entry.
+  const tagged = git(['ls-files', '-v', '-z', '--', ...leaves.map(leaf => leaf.filename)]);
+  if (prefix === undefined || tagged === null) return out;
 
-  const editedSet = new Set(edited.split('\0'));
-  for (const name of tracked.split('\0')) {
-    if (name === '' || editedSet.has(name)) continue;
-    out.set(name, `${prefix.replace(/\n$/, '')}${name}`);
+  const plain = new Set(
+    tagged
+      .toString('utf8')
+      .split('\0')
+      .filter(entry => entry.startsWith('H '))
+      .map(entry => entry.slice(2))
+  );
+  for (const leaf of leaves) {
+    if (!plain.has(leaf.filename)) continue;
+    const gitPath = `${prefix}${leaf.filename}`;
+    const restored = git(['cat-file', '--filters', `:${gitPath}`]);
+    if (restored !== null && restored.equals(readFileSync(leaf.path))) {
+      out.set(leaf.filename, gitPath);
+    }
   }
   return out;
 }

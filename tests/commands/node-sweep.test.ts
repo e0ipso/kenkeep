@@ -1,6 +1,14 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
@@ -269,6 +277,104 @@ describe('node sweep (integration)', () => {
     expect(existsSync(join(nodesDir(sandbox), 'practice-a.md'))).toBe(true);
     expect(existsSync(join(nodesDir(sandbox), 'practice-b.md'))).toBe(true);
     // No write of any kind, including the index rebuild.
+    expect(await gitStatus(sandbox)).toBe('');
+  });
+  // `assume-unchanged` and `skip-worktree` hide an edit from `git diff`, and
+  // `git restore` skips a skip-worktree path, so neither edited leaf may go. A
+  // staged edit may: `git restore` writes back the index copy, which equals
+  // the working copy. The sweep changes no index flag and stages nothing.
+  it('deletes only a leaf whose working bytes equal what git restore writes back', async () => {
+    writeLeaf(sandbox, 'harnesses', 'practice-h1', { tags: ['harness'] });
+    writeLeaf(sandbox, 'harnesses', 'practice-h2', { tags: ['harness'] });
+    for (const id of ['practice-assumed', 'practice-skipped', 'practice-staged']) {
+      writeLeaf(sandbox, '', id, { tags: ['nowhere-else'] });
+    }
+    await runCli(sandbox, ['index', 'rebuild']);
+    await gitCommitAll(sandbox, 'baseline');
+    const nd = nodesDir(sandbox);
+    const gitPath = (id: string): string => `.ai/kenkeep/nodes/${id}.md`;
+    const git = (...args: string[]) => exec('git', args, { cwd: sandbox });
+    await git('update-index', '--assume-unchanged', '--', gitPath('practice-assumed'));
+    await git('update-index', '--skip-worktree', '--', gitPath('practice-skipped'));
+    for (const id of ['practice-assumed', 'practice-skipped', 'practice-staged']) {
+      writeLeaf(sandbox, '', id, { tags: ['nowhere-else'], body: 'Uncommitted fact.' });
+    }
+    await git('add', '--', gitPath('practice-staged'));
+    const bytes = (id: string): string => sha256(join(nd, `${id}.md`));
+    const assumed = bytes('practice-assumed');
+    const skipped = bytes('practice-skipped');
+    const staged = bytes('practice-staged');
+
+    const { exitCode, summary } = await sweep(sandbox);
+    expect(exitCode).toBe(0);
+    expect(summary.kept.map(k => k.id)).toEqual(['practice-assumed', 'practice-skipped']);
+    for (const k of summary.kept) expect(k.reason).toContain('git cannot restore');
+    expect(bytes('practice-assumed')).toBe(assumed);
+    expect(bytes('practice-skipped')).toBe(skipped);
+    expect(summary.deleted.map(d => d.id)).toEqual(['practice-staged']);
+    expect(existsSync(join(nd, 'practice-staged.md'))).toBe(false);
+
+    const { stdout: flags } = await git(
+      'ls-files',
+      '-v',
+      '--',
+      gitPath('practice-assumed'),
+      gitPath('practice-skipped')
+    );
+    expect(flags.trim().split('\n')).toEqual([
+      `h ${gitPath('practice-assumed')}`,
+      `S ${gitPath('practice-skipped')}`,
+    ]);
+    const { stdout: stagedNames } = await git('diff', '--cached', '--name-only');
+    expect(stagedNames.trim()).toBe(gitPath('practice-staged'));
+
+    const [, ...args] = summary.deleted[0]!.restore.split(' ');
+    await git(...args);
+    expect(bytes('practice-staged')).toBe(staged);
+  });
+
+  it('refuses a malformed AGENTS.md block before moving or deleting any leaf', async () => {
+    writeLeaf(sandbox, 'harnesses', 'practice-h1', { tags: ['harness'] });
+    writeLeaf(sandbox, 'harnesses', 'practice-h2', { tags: ['harness'] });
+    writeLeaf(sandbox, '', 'practice-loose', { tags: ['harness'] });
+    writeLeaf(sandbox, '', 'practice-orphan', { tags: ['nowhere-else'] });
+    await runCli(sandbox, ['index', 'rebuild']);
+    await gitCommitAll(sandbox, 'baseline');
+    writeFileSync(
+      join(sandbox, 'AGENTS.md'),
+      '# Instructions\n<!-- >>> kenkeep:kk-index >>> -->\n'
+    );
+    const before = await gitStatus(sandbox);
+
+    const res = await runCli(sandbox, ['node', 'sweep']);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('kenkeep-managed block is malformed');
+    expect(existsSync(join(nodesDir(sandbox), 'practice-loose.md'))).toBe(true);
+    expect(existsSync(join(nodesDir(sandbox), 'practice-orphan.md'))).toBe(true);
+    expect(await gitStatus(sandbox)).toBe(before);
+  });
+
+  it('refuses a symlinked root leaf before any other leaf moves', async () => {
+    writeLeaf(sandbox, 'harnesses', 'practice-h1', { tags: ['harness'] });
+    writeLeaf(sandbox, 'harnesses', 'practice-h2', { tags: ['harness'] });
+    // Sorted after practice-loose, so a per-leaf check would come too late.
+    writeLeaf(sandbox, '', 'practice-loose', { tags: ['harness'] });
+    writeLeaf(sandbox, '', 'practice-zlinked', { tags: ['harness'] });
+    const link = join(nodesDir(sandbox), 'practice-zlinked.md');
+    const outside = join(sandbox, 'outside.md');
+    writeFileSync(outside, readFileSync(link));
+    rmSync(link);
+    symlinkSync(outside, link);
+    await runCli(sandbox, ['index', 'rebuild']);
+    await gitCommitAll(sandbox, 'baseline');
+
+    const res = await runCli(sandbox, ['node', 'sweep']);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('crosses the symlink');
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(existsSync(join(nodesDir(sandbox), 'practice-loose.md'))).toBe(true);
     expect(await gitStatus(sandbox)).toBe('');
   });
 });

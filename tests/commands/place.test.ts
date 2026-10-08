@@ -2,10 +2,12 @@ import { execFile } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -598,4 +600,32 @@ describe('place (deterministic migration primitive)', () => {
       expect(detectSchemaVersion(nodesDir)).toBe(1);
     }
   );
+  it('apply refuses a symlinked source leaf before any file moves', async () => {
+    const nodesDir = await makeFlatKb(sandbox);
+    const link = join(nodesDir, 'practice', 'practice-gamma.md');
+    const outside = join(sandbox, 'outside.md');
+    writeFileSync(outside, readFileSync(link));
+    rmSync(link);
+    symlinkSync(outside, link);
+    const before = snapshotTree(nodesDir);
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        placements: [
+          { id: 'practice-alpha', targetFolder: 'core' },
+          { id: 'map-beta', targetFolder: 'core' },
+          { id: 'practice-gamma', targetFolder: 'core' },
+        ],
+      })
+    );
+
+    const res = await runCli(sandbox, ['place', 'apply', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout.trim()).toBe('');
+    expect(res.stderr).toMatch(/crosses the symlink/);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect([...snapshotTree(nodesDir).entries()].sort()).toEqual([...before.entries()].sort());
+    expect(existsSync(join(nodesDir, 'core'))).toBe(false);
+  });
 });

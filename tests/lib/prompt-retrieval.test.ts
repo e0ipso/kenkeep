@@ -279,6 +279,39 @@ describe('renderPromptKnowledgeContext', () => {
       rmSync(nodesDir, { recursive: true, force: true });
     }
   });
+
+  it('shortens an oversized title but keeps the link complete within the budget', () => {
+    const nodesDir = mkdtempSync(join(tmpdir(), 'kk-budget-title-'));
+    try {
+      seed(nodesDir, {
+        id: 'practice-one',
+        relDir: 'topic',
+        title: 'Configuration '.repeat(170),
+        tags: ['config'],
+        summary: 'Routing description',
+      });
+      const matches = rankNodes(readAllNodes(nodesDir), 'configuration');
+      const rendered = renderPromptKnowledgeContext(matches);
+      expect(rendered.length).toBeLessThanOrEqual(DEFAULT_MAX_CHARS);
+      expect(rendered).toContain('…**](.ai/kenkeep/nodes/topic/practice-one.md) (`practice-one`)');
+    } finally {
+      rmSync(nodesDir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns nothing when the header and a complete link cannot fit', () => {
+    const nodesDir = mkdtempSync(join(tmpdir(), 'kk-budget-tiny-'));
+    try {
+      seed(nodesDir, { id: 'practice-one', relDir: 'topic', title: 'Configuration' });
+      const matches = rankNodes(readAllNodes(nodesDir), 'configuration');
+      expect(matches).toHaveLength(1);
+      for (const maxChars of [0, 64, 230]) {
+        expect(renderPromptKnowledgeContext(matches, { maxChars })).toBe('');
+      }
+    } finally {
+      rmSync(nodesDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('buildPromptKnowledgeContext', () => {

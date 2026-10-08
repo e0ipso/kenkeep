@@ -263,39 +263,62 @@ const HEADER =
 const ELLIPSIS = '…';
 const SUMMARY_SEPARATOR = ' — ';
 
-function renderEntry(node: NodeFile, summary: string): string {
+interface EntryParts {
+  /** Rendered (already `inline`d) title; defaults to the node's full title. */
+  title?: string;
+  /** Whether to append the tag list. */
+  tags?: boolean;
+}
+
+function renderEntry(node: NodeFile, summary: string, parts: EntryParts = {}): string {
   const fm = node.frontmatter;
-  const tagPart = fm.tags.length > 0 ? ` ${fm.tags.map(t => `#${t}`).join(' ')}` : '';
+  const title = parts.title ?? inline(fm.title);
+  const tagPart =
+    parts.tags !== false && fm.tags.length > 0 ? ` ${fm.tags.map(t => `#${t}`).join(' ')}` : '';
   const summaryPart = summary ? `${SUMMARY_SEPARATOR}${summary}` : '';
-  return `- [**${inline(fm.title)}**](${renderPath(node)}) (\`${fm.kk_id}\`)${summaryPart}${tagPart}`;
+  return `- [**${title}**](${renderPath(node)}) (\`${fm.kk_id}\`)${summaryPart}${tagPart}`;
+}
+
+/** Cuts `text` to `room` characters plus an ellipsis, never ending on a dangling escape. */
+function shorten(text: string, room: number): string {
+  // `inline` escapes with a backslash; a cut right after one would escape the ellipsis.
+  return `${text.slice(0, room).trimEnd().replace(/\\$/, '')}${ELLIPSIS}`;
 }
 
 /**
  * Shrinks `entry` (rendered with the full `summary`) to at most `allowed`
- * characters. Prefers cutting the summary with an ellipsis so the title, id and
- * link survive intact; only when the summary-less entry is itself too long
- * (a pathological title or tag list) is the line hard-cut.
+ * characters while keeping the link target and id whole. Cuts the summary
+ * first, then drops the tags, then shortens the title. Returns null when even
+ * a one-character title cannot fit: a partial link is not a usable routing
+ * hint.
  */
-function truncateEntry(node: NodeFile, summary: string, allowed: number): string {
+function truncateEntry(node: NodeFile, summary: string, allowed: number): string | null {
   const bare = renderEntry(node, '');
   const summaryRoom = allowed - bare.length - SUMMARY_SEPARATOR.length - ELLIPSIS.length;
   if (summaryRoom > 0 && summary.length > 0) {
-    // Never end on a dangling escape backslash introduced by `inline`.
-    const head = summary.slice(0, summaryRoom).trimEnd().replace(/\\$/, '');
-    return renderEntry(node, `${head}${ELLIPSIS}`);
+    return renderEntry(node, shorten(summary, summaryRoom));
   }
   if (bare.length <= allowed) return bare;
-  return `${bare.slice(0, Math.max(0, allowed - ELLIPSIS.length))}${ELLIPSIS}`;
+  const untagged = renderEntry(node, '', { tags: false });
+  if (untagged.length <= allowed) return untagged;
+  const title = inline(node.frontmatter.title);
+  const titleRoom = title.length - (untagged.length - allowed) - ELLIPSIS.length;
+  if (titleRoom < 1) return null;
+  const shortTitle = shorten(title, titleRoom);
+  if (shortTitle === ELLIPSIS) return null;
+  return renderEntry(node, '', { tags: false, title: shortTitle });
 }
 
 /**
  * Render a compact summaries-plus-links block from ranked matches, bounded by
  * `maxChars`. Each entry carries the node title, id, repo-relative markdown
- * link, summary, and tags — never the full leaf body. The budget is a hard
+ * link, summary, and tags, never the full leaf body. The budget is a hard
  * bound on the returned string (trailing newline included): the top match is
- * always rendered, with its summary truncated if the full entry would exceed
- * the budget; subsequent entries are added whole only while the running total
- * stays within budget. Returns the empty string for no matches.
+ * always rendered, shrunk if the full entry would exceed the budget (summary,
+ * then tags, then title; the link stays complete); subsequent entries are
+ * added whole only while the running total stays within budget. Returns the
+ * empty string for no matches, and when the header plus a complete link to
+ * the top match cannot fit.
  */
 export function renderPromptKnowledgeContext(
   matches: PromptMatch[],
@@ -314,8 +337,9 @@ export function renderPromptKnowledgeContext(
     if (entry.length > allowed) {
       if (rendered > 0) break;
       // Always keep the first entry, shrunk to fit; nothing else can follow it.
-      if (allowed <= ELLIPSIS.length) break;
-      entry = truncateEntry(node, summary, allowed);
+      const shrunk = truncateEntry(node, summary, allowed);
+      if (shrunk === null) return '';
+      entry = shrunk;
     }
     lines.push(entry);
     total += entry.length + 1;

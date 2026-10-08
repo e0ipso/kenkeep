@@ -186,11 +186,22 @@ describe('registerOpenCodePlugin (config merge)', () => {
     expect(config.instructions).toEqual(['docs/style.md', '.opencode/AGENTS.md']);
   });
 
-  it('leaves an unparseable config untouched', async () => {
+  it('refuses an unparseable config and leaves it untouched', async () => {
     const file = join(dir, 'opencode.json');
     writeFileSync(file, '{ this is not json');
-    await register(file);
+    await expect(register(file)).rejects.toThrow(/Could not parse/);
     expect(readFileSync(file, 'utf8')).toBe('{ this is not json');
+  });
+
+  it.each([
+    ['a non-object config', '["./plugins/kk.mjs"]'],
+    ['a string plugin entry', '{"plugin":"user-plugin"}'],
+    ['a string instructions entry', '{"instructions":"user-instructions"}'],
+  ])('refuses %s and leaves it untouched', async (_label, original) => {
+    const file = join(dir, 'opencode.json');
+    writeFileSync(file, original);
+    await expect(register(file)).rejects.toThrow(/Malformed OpenCode config/);
+    expect(readFileSync(file, 'utf8')).toBe(original);
   });
 });
 

@@ -82,11 +82,15 @@ function listFiles(dir: string, extension: string): string[] {
 function parseSession(file: string): Session {
   const source = readFileSync(file, 'utf8');
   const match = /^---\n([\s\S]*?)\n---\n([\s\S]+)$/.exec(source);
-  if (!match) throw new Error(`${file}: frontmatter: expected YAML frontmatter and a body`);
+  const frontmatterSource = match?.[1];
+  const body = match?.[2];
+  if (frontmatterSource === undefined || body === undefined) {
+    throw new Error(`${file}: frontmatter: expected YAML frontmatter and a body`);
+  }
 
   let value: unknown;
   try {
-    value = yaml.load(match[1]);
+    value = yaml.load(frontmatterSource);
   } catch (error) {
     throw new Error(`${file}: frontmatter: ${(error as Error).message}`);
   }
@@ -112,7 +116,7 @@ function parseSession(file: string): Session {
     file,
     fixtureId: basename(file, '.md'),
     frontmatter: value,
-    body: match[2],
+    body,
   };
 }
 

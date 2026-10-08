@@ -1,8 +1,14 @@
 import { spawn } from 'node:child_process';
 import { resolveActiveHarness } from '../harnesses/detect.js';
+import type { HarnessAdapter } from '../harnesses/types.js';
 import { log } from './log.js';
 import { findKenkeepRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
-import { resolveSettings } from '../lib/settings.js';
+import {
+  pickModelChoice,
+  resolveSettings,
+  type EffectiveSettings,
+  type ModelChoiceRole,
+} from '../lib/settings.js';
 
 /**
  * Identity of one of the three kk skills the CLI launcher commands can
@@ -11,6 +17,23 @@ import { resolveSettings } from '../lib/settings.js';
  * `/kk-add`).
  */
 export type LauncherSkill = 'kk-bootstrap' | 'kk-curate' | 'kk-add';
+
+/**
+ * Settings role whose model choice each launcher honors. `kk-add` writes a
+ * curated node by hand, so it rides on the curator's model; there is no
+ * separate `addModel` setting.
+ */
+const LAUNCHER_ROLE: Record<LauncherSkill, ModelChoiceRole> = {
+  'kk-bootstrap': 'bootstrap',
+  'kk-curate': 'curator',
+  'kk-add': 'curator',
+};
+
+const ROLE_SETTING_KEY: Record<ModelChoiceRole, string> = {
+  proposal: 'proposalModel',
+  curator: 'curatorModel',
+  bootstrap: 'bootstrapModel',
+};
 
 export interface LaunchSkillOptions {
   /** Slash-command skill to invoke in the harness. */
@@ -43,19 +66,54 @@ export interface LaunchSkillOptions {
 }
 
 /**
- * Builds the full argv array for a harness launch. The prefix is the
- * harness-specific entrypoint (e.g. `['-p']`, `['exec']`, `['run']`).
- * The slash payload is the skill name plus optional trailing arguments.
- * Shared across all adapters; each harness only declares its prefix.
+ * Builds the full argv array for a harness launch: the harness-specific
+ * prefix (e.g. `['-p']`, `['exec']`, `['run']`), the adapter's native model
+ * flags (empty when no model is configured) and the slash payload, the skill
+ * name plus optional trailing arguments, as the final element.
+ *
+ * The model flags go after the prefix's last subcommand word and before any
+ * option in it. A subcommand (`exec`, `run`) scopes the flags, so they must
+ * follow it; a prompt option (`-p`) may take the payload as its value, as
+ * Copilot's `-p <prompt>` does, so nothing may sit between the two. Shared
+ * across all adapters; each harness only declares its prefix and its flags.
  */
 export function buildLaunchArgs(
   prefix: readonly string[],
   skill: string,
-  passedArgs?: string
+  passedArgs?: string,
+  modelArgs: readonly string[] = []
 ): string[] {
   const passed = passedArgs?.trim() ?? '';
   const slashPayload = passed.length > 0 ? `/${skill} ${passed}` : `/${skill}`;
-  return [...prefix, slashPayload];
+  const lastWord = prefix.findLastIndex(arg => !arg.startsWith('-'));
+  const subcommands = prefix.slice(0, lastWord + 1);
+  const options = prefix.slice(lastWord + 1);
+  return [...subcommands, ...modelArgs, ...options, slashPayload];
+}
+
+/**
+ * Resolves the native model argv for `role` on `adapter` from the settings.
+ *
+ * - No model configured for the role: `[]`, the host picks its default.
+ * - A choice whose `harness` discriminator names another adapter: `[]` plus
+ *   a stderr warning naming both harnesses, so the mismatch is visible but
+ *   the documented single-entry-per-role contract still launches.
+ */
+export function resolveLaunchModelArgs(
+  adapter: HarnessAdapter,
+  settings: EffectiveSettings,
+  role: ModelChoiceRole
+): string[] {
+  const choice = pickModelChoice(settings, role);
+  if (!choice) return [];
+  const key = ROLE_SETTING_KEY[role];
+  if (choice.harness !== adapter.id) {
+    log.warn(
+      `${key} targets harness '${choice.harness}' but the active harness is '${adapter.id}'; launching with the host default model.`
+    );
+    return [];
+  }
+  return adapter.launchModelArgs(choice);
 }
 
 /**
@@ -79,7 +137,8 @@ export function launchSkill(opts: LaunchSkillOptions): void {
   });
 
   const binary = harness.launchBinary;
-  const args = buildLaunchArgs(harness.launchArgsPrefix, opts.skill, opts.passedArgs);
+  const modelArgs = resolveLaunchModelArgs(harness, settings, LAUNCHER_ROLE[opts.skill]);
+  const args = buildLaunchArgs(harness.launchArgsPrefix, opts.skill, opts.passedArgs, modelArgs);
 
   const spawnImpl = opts.spawnFn ?? spawn;
   const exitImpl = opts.exitFn ?? ((code: number): never => process.exit(code));

@@ -66,13 +66,13 @@ proposalModel:
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-bootstrap-incremental-command](../bootstrap/map-bootstrap-incremental-command.md)
+- Related: [map-proposal-drain-hook](../hooks/map-proposal-drain-hook.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

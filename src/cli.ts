@@ -1,9 +1,11 @@
 import { Command } from 'commander';
 import { runBootstrapLauncher } from './commands/bootstrap.js';
+import { runBootstrapCompleteDocCommand } from './commands/bootstrap-complete-doc.js';
 import { runCurateLauncher } from './commands/curate.js';
 import { runCurateDedupCommand } from './commands/curate-dedup.js';
 import { runCuratePersistCommand } from './commands/curate-persist.js';
 import { runConflictPrepareCommand } from './commands/conflict-prepare.js';
+import { runConflictResolveCommand } from './commands/conflict-resolve.js';
 import { runDoctor } from './commands/doctor.js';
 import { runDraftsCollectCommand } from './commands/drafts-collect.js';
 import { runFindDocsCommand } from './commands/finddocs.js';
@@ -14,6 +16,7 @@ import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
 import { runSessionLogStageLiveCommand } from './commands/session-log-stage-live.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
+import { runMemoryListCommand, runMemoryMarkCommand } from './commands/memory.js';
 import { runMigrateOkfV3 } from './commands/migrate-okf-v3.js';
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
@@ -140,20 +143,16 @@ async function main(): Promise<void> {
   program
     .command('curate-dedup')
     .description(
-      'Deterministic curator dedup primitive: validates a proposals JSON (--input or stdin), dedups, mints conflict ids, writes conflict files and stamps consumed session logs. Pure Node — no LLM.'
+      'Deterministic curator dedup primitive: validates the dedup input document ({ actions, consumed } as printed by `drafts collect`; --input or stdin), dedups, mints conflict ids, writes conflict files and stamps exactly the consumed session logs. Pure Node, no LLM.'
     )
     .option(
       '--input <path>',
-      'path to proposals JSON (CuratorOutputSchema); reads stdin when omitted'
+      'path to the dedup input document ({ actions, consumed }); reads stdin when omitted'
     )
     .option('--output <path>', 'write deduped surviving (non-conflict) actions to this JSON file')
     .option('--run-id <id>', 'caller-supplied run id (defaults to a fresh randomUUID)')
     .option('--sessions-dir <path>', 'override the _sessions directory (defaults to repo paths)')
     .option('--conflicts-dir <path>', 'override the conflicts directory (defaults to repo paths)')
-    .option(
-      '--session-id <uuid>',
-      'stamp only the unprocessed done log matching this session id (default: all pending done logs)'
-    )
     .action(
       async (opts: {
         input?: string;
@@ -161,7 +160,6 @@ async function main(): Promise<void> {
         runId?: string;
         sessionsDir?: string;
         conflictsDir?: string;
-        sessionId?: string;
       }) => {
         const flags: Parameters<typeof runCurateDedupCommand>[0] = {};
         if (opts.input !== undefined) flags.input = opts.input;
@@ -169,7 +167,6 @@ async function main(): Promise<void> {
         if (opts.runId !== undefined) flags.runId = opts.runId;
         if (opts.sessionsDir !== undefined) flags.sessionsDir = opts.sessionsDir;
         if (opts.conflictsDir !== undefined) flags.conflictsDir = opts.conflictsDir;
-        if (opts.sessionId !== undefined) flags.sessionId = opts.sessionId;
         const code = await runCurateDedupCommand(flags);
         process.exit(code);
       }
@@ -178,7 +175,7 @@ async function main(): Promise<void> {
   program
     .command('curate-persist')
     .description(
-      'Deterministic curator persistence primitive: validates a survivors JSON from curate-dedup and persists add/modify actions in one pass while reporting per-action partial failures. Pure Node, no LLM.'
+      'Deterministic curator persistence primitive: validates a survivors JSON from curate-dedup and persists add/modify actions in one pass while reporting per-action partial failures. Idempotent: an add whose leaf already exists (its origin in kk_derived_from, same fields and body) and a modify that would change nothing are reported as already-applied, so replaying the same file writes only what has not landed. Pure Node, no LLM.'
     )
     .option(
       '--input <path>',
@@ -191,7 +188,7 @@ async function main(): Promise<void> {
       process.exit(code);
     });
 
-  program
+  const bootstrapCommand = program
     .command('bootstrap')
     .description(
       'Launch the kk-bootstrap skill in the active harness (execs `<harness> -p "/kk-bootstrap …"`). Scope is controlled by .kkignore plus an optional --from <scope>.'
@@ -206,6 +203,17 @@ async function main(): Promise<void> {
       const harnessFlag = getHarnessFlag();
       if (harnessFlag !== undefined) launchOpts.harness = harnessFlag;
       runBootstrapLauncher(launchOpts);
+    });
+  bootstrapCommand
+    .command('complete-doc')
+    .description(
+      'Headless primitive: mark one source document fully handled at its content hash (including a zero-node result) in bootstrap-state.json, so discovery skips it until it changes. `node write --source-doc` never completes a document; run this after every node for the document is written. Prints one JSON document.'
+    )
+    .argument('<relpath>', 'repo-relative document path, as printed by finddocs')
+    .requiredOption('--hash <sha256>', 'sha256 hex digest printed by finddocs --with-hashes')
+    .action(async (doc: string, opts: { hash: string }) => {
+      const code = await runBootstrapCompleteDocCommand({ doc, hash: opts.hash });
+      process.exit(code);
     });
 
   // Deprecation alias for one release. Same behavior as `bootstrap`, but
@@ -285,7 +293,10 @@ async function main(): Promise<void> {
     .option('--version <version>', 'pack version')
     .option('--summary <text>', 'one-line pack summary')
     .option('--homepage <url>', 'optional homepage URL')
-    .option('--out <dir>', 'output directory (default: dist)')
+    .option(
+      '--out <dir>',
+      'output directory (default: dist); must be new, empty, or a previous pack export, and only the pack files in it are replaced'
+    )
     .allowExcessArguments(true)
     .action(
       async (opts: {
@@ -375,6 +386,21 @@ async function main(): Promise<void> {
       const code = await runConflictPrepareCommand();
       process.exit(code);
     });
+  conflictGroup
+    .command('resolve <conflict>')
+    .description(
+      'Deterministic conflict-resolution primitive: applies one human decision to one open conflict file (id or path). accept rewrites the existing target in place via the curate-persist modify path (same id, same path, never a new node); reject/keep/skip record rejected/kept/skipped. Without --decision it applies the default_decision stamped by `conflict prepare`. Prints one JSON document. Pure Node, no LLM.'
+    )
+    .option(
+      '--decision <decision>',
+      'accept | reject | keep | skip (default: the recorded default)'
+    )
+    .action(async (conflict: string, opts: { decision?: string }) => {
+      const flags: Parameters<typeof runConflictResolveCommand>[1] = {};
+      if (opts.decision !== undefined) flags.decision = opts.decision;
+      const code = await runConflictResolveCommand(conflict, flags);
+      process.exit(code);
+    });
 
   const draftsGroup = program
     .command('drafts')
@@ -384,18 +410,12 @@ async function main(): Promise<void> {
   draftsGroup
     .command('collect')
     .description(
-      'Deterministic draft collector: reads ${RUN_ID}__*.draft.json under the curator log dir, validates each batch array against a named schema (default curator-output), concatenates survivors to stdout as one JSON array, and reports counts + invalid batches on stderr. A bad batch is skipped, never fatal. Pure Node, no LLM.'
+      'Deterministic draft collector: reads every ${RUN_ID}__<N>.draft.json ({ sessions, actions }) under the curator log dir, validates each against the curator-draft schema and its own listed sessions, and prints one JSON document ({ runId, batches, consumed, actions }) on stdout. The consumed set and actions come from valid drafts only; an invalid draft is flagged and its sessions stay pending. Diagnostics on stderr. Exits 1 only when no draft survived. Pure Node, no LLM.'
     )
-    .requiredOption('--run-id <id>', 'run id whose batch draft files are aggregated')
-    .option(
-      '--schema <name>',
-      'registered schema each batch validates against (default: curator-output)'
-    )
+    .requiredOption('--run-id <id>', 'run id whose drafts are collected')
     .allowExcessArguments(true)
-    .action(async (opts: { runId: string; schema?: string }) => {
-      const flags: Parameters<typeof runDraftsCollectCommand>[0] = { runId: opts.runId };
-      if (opts.schema !== undefined) flags.schema = opts.schema;
-      const code = await runDraftsCollectCommand(flags);
+    .action(async (opts: { runId: string }) => {
+      const code = await runDraftsCollectCommand({ runId: opts.runId });
       process.exit(code);
     });
 
@@ -414,7 +434,7 @@ async function main(): Promise<void> {
   nodeGroup
     .command('write')
     .description(
-      'Headless primitive: atomically write a single node to nodes/<folder>/<id>.md (or nodes/<id>.md at the root when --folder is omitted) with Zod-validated frontmatter and slug-collision resolution. The folder is presentation only; the id is folder-independent. Body read from stdin (default) or --from <path>. Prints the resolved id to stdout. When both --source-doc and --source-hash are passed, also updates bootstrap-state.json per-file hash map.'
+      'Headless primitive: atomically write a single node to nodes/<folder>/<id>.md (or nodes/<id>.md at the root when --folder is omitted) with Zod-validated frontmatter and slug-collision resolution. The folder is presentation only; the id is folder-independent. Body read from stdin (default) or --from <path>. Prints the resolved id to stdout. When both --source-doc and --source-hash are passed, records the doc in kk_derived_from and the write under the unfinished attempt for that doc in bootstrap-state.json (a same-draft retry writes nothing and prints the first id); the doc is completed only by `bootstrap complete-doc`.'
     )
     .argument('<kind>', 'node kind: practice or map')
     .argument('<slug>', 'proposed id base (kind prefix added automatically when missing)')
@@ -429,7 +449,10 @@ async function main(): Promise<void> {
       '--folder <relpath>',
       'existing home folder under nodes/ (POSIX-style); omitted/empty lands the leaf at the nodes/ root'
     )
-    .option('--source-doc <relpath>', 'source markdown doc (repo-relative); requires --source-hash')
+    .option(
+      '--source-doc <relpath>',
+      'source markdown doc (repo-relative, as printed by finddocs; recorded in kk_derived_from); requires --source-hash'
+    )
     .option('--source-hash <sha256>', 'sha256 hex digest of --source-doc; requires --source-doc')
     .action(
       async (
@@ -510,6 +533,36 @@ async function main(): Promise<void> {
       process.exit(code);
     });
 
+  const memoryGroup = program
+    .command('memory')
+    .description(
+      "Primitives over the active harness's auto-memory files and the per-user ledger (`.state/memory-ledger.json`) that keeps unchanged files out of bootstrap and curate. `memory mark` never calls an LLM; `memory list` asks the harness where its memory files are, which on Claude Code is one headless `claude -p` call."
+    );
+  memoryGroup
+    .command('list')
+    .description(
+      'Headless primitive: list the active harness\'s auto-memory files that are new or changed since the ledger last recorded them. On Claude Code the file locations come from one headless `claude -p` discovery call (a model call, not deterministic; a failed or timed-out call lists nothing). Adapters without native memory print an empty list and spawn nothing. Prints one JSON document ({"harness","files":[{"iri","path","sha256","bytes","session_id"}]}); never writes the ledger.'
+    )
+    .action(async () => {
+      const flags: Parameters<typeof runMemoryListCommand>[0] = {};
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) flags.harness = harnessFlag;
+      const code = await runMemoryListCommand(flags);
+      process.exit(code);
+    });
+  memoryGroup
+    .command('mark')
+    .description(
+      'Headless primitive: record one memory file as processed at the hash `memory list` printed, so it is skipped until its content changes. Run it only after the nodes or conflicts derived from the file were written; refuses (exit 1, nothing written) when the file changed since it was listed. Prints one JSON document.'
+    )
+    .argument('<iri>', 'file:// IRI as printed by `memory list`')
+    .requiredOption('--hash <sha256>', 'sha256 hex digest printed by `memory list` for this file')
+    .requiredOption('--run-id <id>', 'the bootstrap or curate run id that processed the file')
+    .action(async (iri: string, opts: { hash: string; runId: string }) => {
+      const code = await runMemoryMarkCommand({ iri, hash: opts.hash, runId: opts.runId });
+      process.exit(code);
+    });
+
   const sessionLogGroup = program.command('session-log').description('Manage session log files.');
   sessionLogGroup
     .command('update-proposals')
@@ -519,14 +572,21 @@ async function main(): Promise<void> {
     .argument('<path>', 'path to the session log file')
     .requiredOption('--status <status>', 'proposal status: done or failed')
     .option('--error <message>', 'error message (used with --status failed)')
-    .action(async (path: string, opts: { status: string; error?: string }) => {
-      const code = await runSessionLogUpdateProposalsCommand({
-        path,
-        status: opts.status,
-        error: opts.error,
-      });
-      process.exit(code);
-    });
+    .requiredOption(
+      '--expected-hash <hash>',
+      'the transcript_hash the proposals were extracted from; refused if the log changed since'
+    )
+    .action(
+      async (path: string, opts: { status: string; error?: string; expectedHash: string }) => {
+        const code = await runSessionLogUpdateProposalsCommand({
+          path,
+          status: opts.status,
+          error: opts.error,
+          expectedHash: opts.expectedHash,
+        });
+        process.exit(code);
+      }
+    );
   sessionLogGroup
     .command('stage-live')
     .description(

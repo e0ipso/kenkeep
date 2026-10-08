@@ -86,6 +86,7 @@ function writeNode(
     tags: overrides.tags ?? [],
     kk_derived_from: overrides.kk_derived_from ?? [],
     kk_relates_to: overrides.kk_relates_to ?? [],
+    kk_depends_on: overrides.kk_depends_on ?? [],
     kk_confidence: overrides.kk_confidence ?? 'high',
   };
   // Leaves live directly under nodes/ (topical tree, not keyed by kind).

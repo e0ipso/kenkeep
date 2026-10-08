@@ -20,6 +20,8 @@ export const SessionLogFrontmatterSchema = z.object({
   captured_by: CaptureTriggerSchema,
   captured_at: z.string(),
   transcript_hash: z.string(),
+  /** Length of the rendered transcript `transcript_hash` covers; absent on logs written before it was recorded. */
+  transcript_chars: z.number().int().nonnegative().optional(),
   proposal_status: ProposalStatusSchema,
   proposal_completed_at: z.string().nullable(),
   proposal_error: z.string().nullable(),
@@ -28,6 +30,13 @@ export const SessionLogFrontmatterSchema = z.object({
     practice: z.array(z.unknown()),
     map: z.array(z.unknown()),
   }),
+  // Curator stamp. `curated_transcript_*` bind it to the transcript version a
+  // run consumed (see `curationState` in session-log.ts). All optional and
+  // additive, so `schema_version` stays 1.
+  curator_processed_at: z.string().optional(),
+  curator_run_id: z.string().optional(),
+  curated_transcript_hash: z.string().optional(),
+  curated_transcript_chars: z.number().int().nonnegative().optional(),
 });
 
 export type SessionLogFrontmatter = z.infer<typeof SessionLogFrontmatterSchema>;
@@ -244,26 +253,126 @@ export const CuratorProposedNodeSchema = z
   .strict();
 export type CuratorProposedNode = z.infer<typeof CuratorProposedNodeSchema>;
 
-export const CuratorActionSchema = z.object({
-  action: z.enum(['add', 'modify', 'contradict', 'drop']),
+/**
+ * Curator output: one action per proposal candidate, discriminated on
+ * `action` so each kind carries exactly the fields it needs. Curator output is
+ * a transient handoff (never persisted KB data), so the shape carries no
+ * schema version; `kk schema curator-output` projects this union for skills.
+ *
+ * - `add`: a new leaf. Requires `proposed_node`; never targets an existing
+ *   node (`target_node_id` is absent or `null`); may name a `home_folder`.
+ * - `modify`: an in-place rewrite. Requires the existing `target_node_id` and
+ *   the full `proposed_node`.
+ * - `contradict`: human-reviewable conflict. Requires `target_node_id` and a
+ *   non-empty `rationale`; `proposed_node` is optional because a session can
+ *   negate a node without yielding a replacement rule.
+ * - `drop`: no change. Only the origin and the reason.
+ */
+const CuratorAddActionSchema = z.object({
+  action: z.literal('add'),
   candidate_origin: z.string(),
-  target_node_id: z.string().nullable(),
-  proposed_node: CuratorProposedNodeSchema.nullable(),
+  /**
+   * An add never addresses an existing node. Omission is accepted and
+   * normalized to `null` so consumers see one shape; any string is rejected
+   * here rather than silently stripped.
+   */
+  target_node_id: z.null().default(null),
+  proposed_node: CuratorProposedNodeSchema,
   rationale: z.string(),
   /**
-   * Chosen existing folder relative to `nodes/` for a new-leaf `add` (the home
-   * branch picked by the relate ranking). Absent, null, or empty selects the
-   * `nodes/` root fallback. Placement is presentation only and never changes the
-   * node id; `modify`, `contradict`, and `drop` actions never set it. The
-   * writer's `--folder` guard owns traversal rejection, so this field only
-   * carries the value through dedup.
+   * Chosen existing folder relative to `nodes/` (the home branch picked by the
+   * relate ranking). Absent, null, or empty selects the `nodes/` root fallback.
+   * Placement is presentation only and never changes the node id. The writer's
+   * `--folder` guard owns traversal rejection, so this field only carries the
+   * value through dedup.
    */
   home_folder: z.string().nullable().optional(),
 });
+export type CuratorAddAction = z.infer<typeof CuratorAddActionSchema>;
+
+const CuratorModifyActionSchema = z.object({
+  action: z.literal('modify'),
+  candidate_origin: z.string(),
+  target_node_id: z.string().min(1),
+  proposed_node: CuratorProposedNodeSchema,
+  rationale: z.string(),
+});
+export type CuratorModifyAction = z.infer<typeof CuratorModifyActionSchema>;
+
+const CuratorContradictActionSchema = z.object({
+  action: z.literal('contradict'),
+  candidate_origin: z.string(),
+  target_node_id: z.string().min(1),
+  proposed_node: CuratorProposedNodeSchema.nullable().default(null),
+  rationale: z.string().min(1),
+});
+export type CuratorContradictAction = z.infer<typeof CuratorContradictActionSchema>;
+
+const CuratorDropActionSchema = z.object({
+  action: z.literal('drop'),
+  candidate_origin: z.string(),
+  rationale: z.string(),
+});
+export type CuratorDropAction = z.infer<typeof CuratorDropActionSchema>;
+
+export const CuratorActionSchema = z.discriminatedUnion('action', [
+  CuratorAddActionSchema,
+  CuratorModifyActionSchema,
+  CuratorContradictActionSchema,
+  CuratorDropActionSchema,
+]);
 export type CuratorAction = z.infer<typeof CuratorActionSchema>;
 
 export const CuratorOutputSchema = z.array(CuratorActionSchema);
 export type CuratorOutput = z.infer<typeof CuratorOutputSchema>;
+
+/**
+ * Conflict-file shape version. The original shape (no `schema_version`,
+ * `proposed_kind`/`proposed_title`/`proposed_confidence` plus a markdown
+ * `## Proposed node` body) is the implicit version 1; it cannot be resolved
+ * deterministically because it dropped the proposal's description, tags and
+ * edges. Version 2 persists the complete validated proposal so `conflict
+ * resolve` can apply Accept through the same modify path as `curate-persist`.
+ * Readers reject the legacy shape with hand-review guidance (clean break).
+ */
+export const CONFLICT_SCHEMA_VERSION = 2;
+
+/**
+ * Conflict lifecycle. `pending` (never reviewed) and `skipped` (reviewed and
+ * deferred by the human) are the two *open* states that `conflict prepare`
+ * lists again and that hold the target stable against rebalance. The other
+ * three are terminal records of the human's decision.
+ */
+export const ConflictStatusSchema = z.enum(['pending', 'skipped', 'accepted', 'rejected', 'kept']);
+export type ConflictStatus = z.infer<typeof ConflictStatusSchema>;
+export const OPEN_CONFLICT_STATUSES: ReadonlySet<ConflictStatus> = new Set(['pending', 'skipped']);
+
+/** The human's reply to one conflict, applied by `conflict resolve`. */
+export const ConflictDecisionSchema = z.enum(['accept', 'reject', 'keep', 'skip']);
+export type ConflictDecision = z.infer<typeof ConflictDecisionSchema>;
+
+/**
+ * Persisted conflict-file frontmatter (`conflicts/<run-id>-<n>.md`). The
+ * frontmatter is authoritative: it carries the complete validated proposal
+ * (or `null` for a contradiction that proposes no rewrite), the rationale and
+ * the target identity. The markdown body is a human-readable rendering of the
+ * same data and is never parsed. `default_decision` is stamped by `conflict
+ * prepare` so an empty reply applies exactly the default that was displayed.
+ */
+export const ConflictFrontmatterSchema = z.object({
+  schema_version: z.literal(CONFLICT_SCHEMA_VERSION),
+  id: z.string().min(1),
+  status: ConflictStatusSchema,
+  detected_at: z.string(),
+  run_id: z.string(),
+  candidate_origin: z.string(),
+  target_node_id: z.string().min(1),
+  rationale: z.string(),
+  proposal: CuratorProposedNodeSchema.nullable(),
+  default_decision: ConflictDecisionSchema.nullable().default(null),
+  decided_at: z.string().nullable().default(null),
+});
+export type ConflictFrontmatter = z.infer<typeof ConflictFrontmatterSchema>;
 
 export const IndexFrontmatterSchema = z.object({
   schema_version: z.literal(NODE_SCHEMA_VERSION),
@@ -322,18 +431,6 @@ export const BootstrapDocEntrySchema = z.object({
 export type BootstrapDocEntry = z.infer<typeof BootstrapDocEntrySchema>;
 
 /**
- * Persistence failure surfaced by the curator: an `add` whose target file
- * already exists, or a `modify` whose `target_node_id` is missing on disk.
- * Reported in run output; not persisted across runs.
- */
-export interface FailureReport {
-  reason: 'add_collision' | 'modify_missing_target';
-  candidate_origin: string;
-  node_id: string;
-  detail: string;
-}
-
-/**
  * Settings shipped in the project-level `.ai/kenkeep/config.yaml`
  * (committed). Every field is optional in the on-disk file; `resolveSettings()`
  * layers the documented defaults under project-level overrides. The
@@ -380,11 +477,32 @@ export const SettingsSchema = z
   .strict();
 export type SettingsFile = z.infer<typeof SettingsSchema>;
 
+/**
+ * An unfinished bootstrap attempt at one document content hash. `node write
+ * --source-doc` records each node it writes here; only `bootstrap
+ * complete-doc` moves the document into `docs`. `written` maps the id a draft
+ * derives (`deriveNodeId(kind, slug)`) to the id actually written, so a retry
+ * of the same draft is recognized instead of landing a `-2` duplicate.
+ */
+export const BootstrapInProgressEntrySchema = z.object({
+  content_sha256: z.string(),
+  last_written_at: z.string(),
+  written: z.record(z.string()),
+});
+export type BootstrapInProgressEntry = z.infer<typeof BootstrapInProgressEntrySchema>;
+
+/**
+ * `docs` holds only fully handled documents (zero-node results included),
+ * keyed by repo-relative path; a matching `content_sha256` means "skip".
+ * `in_progress` is optional and additive (no schema bump): an absent key is
+ * an empty map, and the meaning of `docs` is unchanged.
+ */
 export const BootstrapStateSchema = z.object({
   schema_version: z.literal(1),
   last_full_bootstrap_at: z.string().nullable().optional(),
   last_incremental_at: z.string().nullable().optional(),
   docs: z.record(BootstrapDocEntrySchema),
+  in_progress: z.record(BootstrapInProgressEntrySchema).optional(),
 });
 export type BootstrapState = z.infer<typeof BootstrapStateSchema>;
 

@@ -55,15 +55,15 @@ Regeneration paths:
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-graph-md](/index/map-graph-md.md)
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
-- Related: [map-nodes-hash](/index/map-nodes-hash.md)
+- Related: [map-graph-md](map-graph-md.md)
+- Related: [map-session-start-hook](../hooks/map-session-start-hook.md)
+- Related: [map-nodes-hash](map-nodes-hash.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/how-it-works.md](docs/how-it-works.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
-[3] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
+[3] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

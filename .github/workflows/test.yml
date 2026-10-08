@@ -28,8 +28,16 @@ jobs:
       - name: Build project
         run: npm run build
 
+      # The build above is the only one: --ignore-scripts skips the `pretest`
+      # rebuild that local `npm test` keeps for contributors.
       - name: Run tests
-        run: npm test
+        run: npm test --ignore-scripts
+
+      - name: Typecheck production sources
+        run: npm run typecheck
+
+      - name: Typecheck tests and scripts
+        run: npm run typecheck:tests
 
       - name: Run linting
         run: npm run lint

@@ -28,5 +28,5 @@ The rationale: Cursor and OpenCode let users choose any model family, so naming 
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
+- Related: [map-config-yaml](map-config-yaml.md)
 <!-- kk:related:end -->

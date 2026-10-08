@@ -1,14 +1,23 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { folderSummariesFileForNodesDir, FolderSummaryRegistrySchema } from './folder-summaries.js';
+import { tryNormalizeFolderKey } from './path-safety.js';
 import {
   formatIssue,
   InvalidNodeFrontmatterError,
   readAllNodes,
   validateNodeNaming,
+  type NodeFile,
 } from './nodes.js';
+import {
+  mergeRedirectsLedgers,
+  parseRedirectsLedger,
+  REDIRECTS_FILENAME,
+  resolveRedirect,
+  type RedirectsLedger,
+} from './redirects.js';
 import { NODE_SCHEMA_VERSION, PackManifestSchema, type PackManifest } from './schemas.js';
 
 export const PACK_MANIFEST_FILENAME = 'kenkeep-pack.yaml';
@@ -17,13 +26,38 @@ export const PACK_KNOWLEDGE_DIRNAME = 'knowledge';
 export interface PackValidationResult {
   ok: boolean;
   manifest?: PackManifest;
+  /** Every validated leaf of `knowledge/`, present once the tree parsed. */
+  nodes?: NodeFile[];
+  /** The pack's redirect ledger (`knowledge/.redirects.json`), `{}` when absent. */
+  ledger?: RedirectsLedger;
   errors: string[];
   warnings: string[];
+}
+
+/**
+ * The consumer side of an import, so identity and edge semantics are decided
+ * against the tree the pack will join rather than the pack alone.
+ * Omitted (or empty) for a standalone pack: references then have to resolve
+ * within the pack itself.
+ */
+export interface PackValidationContext {
+  /** Live consumer node ids, each mapped to its `nodes/`-relative path for diagnostics. */
+  consumerIds?: ReadonlyMap<string, string>;
+  /** The consumer's root redirect ledger. */
+  consumerLedger?: RedirectsLedger;
 }
 
 function isDirectory(path: string): boolean {
   try {
     return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
   } catch {
     return false;
   }
@@ -89,6 +123,44 @@ function invalidFrontmatterErrors(err: InvalidNodeFrontmatterError): string[] {
 }
 
 /**
+ * Every symlink among the pack files import reads, as POSIX paths relative to
+ * the pack root, sorted. The root manifest, `knowledge/` itself, every entry
+ * below it (leaves, reserved indexes, directories, dotfiles, non-markdown
+ * files) and the root-level folder summary sidecar are `lstat`ed; nothing is
+ * followed and nothing is read. A pack is third-party input: a link anywhere
+ * in it would let the import read whatever the consumer's machine can read,
+ * so the structural rule is "no links at all" rather than a target check,
+ * which a link could satisfy at scan time and defeat later. Callers run this
+ * before the manifest is parsed.
+ */
+export function findPackSymlinks(packRoot: string): string[] {
+  const found: string[] = [];
+  const report = (path: string): void => {
+    found.push(relative(packRoot, path).split(sep).join(posix.sep));
+  };
+  const manifestFile = join(packRoot, PACK_MANIFEST_FILENAME);
+  if (isSymlink(manifestFile)) report(manifestFile);
+  const knowledgeDir = join(packRoot, PACK_KNOWLEDGE_DIRNAME);
+  if (isSymlink(knowledgeDir)) {
+    report(knowledgeDir);
+    return found.sort((a, b) => a.localeCompare(b));
+  }
+  if (isSymlink(folderSummariesFileForNodesDir(knowledgeDir))) {
+    report(folderSummariesFileForNodesDir(knowledgeDir));
+  }
+  const walk = (dir: string): void => {
+    if (!isDirectory(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isSymbolicLink()) report(full);
+      else if (entry.isDirectory()) walk(full);
+    }
+  };
+  walk(knowledgeDir);
+  return found.sort((a, b) => a.localeCompare(b));
+}
+
+/**
  * Every directory under `knowledgeDir`, inclusive, as a POSIX path relative to
  * it. The root folder is the empty string, matching the registry's root key.
  */
@@ -102,24 +174,6 @@ function knowledgeFolders(knowledgeDir: string): string[] {
   };
   walk(knowledgeDir);
   return out.sort((a, b) => a.localeCompare(b));
-}
-
-/**
- * Normalize an untrusted registry key exactly as `normalizeFolderSummaryKey`
- * (src/lib/folder-summaries.ts) does on write, but returning `null` instead of
- * throwing when the key escapes the knowledge tree. A pack is third-party
- * content and its keys are never normalized on read, so a hostile pack can ship
- * `../../../evil`; prefixing with the destination branch does not neutralize it
- * because `dest/../..` normalizes away. `''`, `.` and `/` all denote the
- * legitimate root folder and must be accepted.
- */
-function normalizeRegistryKey(key: string): string | null {
-  const normalized = posix.normalize(key.split(sep).join(posix.sep));
-  if (normalized === '.' || normalized === '/') return '';
-  if (normalized.startsWith('../') || normalized === '..' || normalized.startsWith('/')) {
-    return null;
-  }
-  return normalized.replace(/\/+$/u, '');
 }
 
 /**
@@ -166,7 +220,9 @@ function validateFolderSummaryRegistry(
 
   const entries = new Set<string>();
   for (const key of Object.keys(result.data.summaries)) {
-    const normalized = normalizeRegistryKey(key);
+    // Keys are third-party input: `../../../evil` survives prefixing with the
+    // destination branch, because `dest/../..` normalizes away.
+    const normalized = tryNormalizeFolderKey(key);
     if (normalized === null) {
       errors.push(`folder summary key "${key}" escapes ${PACK_KNOWLEDGE_DIRNAME}/`);
       continue;
@@ -182,7 +238,113 @@ function validateFolderSummaryRegistry(
   }
 }
 
-export function validatePack(packRoot: string): PackValidationResult {
+/**
+ * The pack's redirect ledger. Export copies `nodes/` wholesale, so a pack
+ * published after a split ships `knowledge/.redirects.json`; absent means no
+ * retired ids. A present file is untrusted, so it is parsed strictly: the
+ * lenient consumer reader would turn a corrupt ledger into `{}` and drop the
+ * only record of what the pack's retired-id edges mean.
+ */
+function validateRedirectsLedger(knowledgeDir: string, errors: string[]): RedirectsLedger {
+  const file = join(knowledgeDir, REDIRECTS_FILENAME);
+  if (!existsSync(file)) return {};
+  try {
+    return parseRedirectsLedger(readFileSync(file, 'utf8'));
+  } catch (err) {
+    errors.push(
+      `malformed ${PACK_KNOWLEDGE_DIRNAME}/${REDIRECTS_FILENAME}: ${(err as Error).message}`
+    );
+    return {};
+  }
+}
+
+/**
+ * Identity and edge semantics of the pack against the tree it will join.
+ *
+ * Identity: a pack id is bound to the pack's own leaf, never to a consumer
+ * leaf that happens to share the id, so a collision with a live consumer node
+ * (or with an id the consumer retired) is an error that needs a human
+ * decision. Likewise the pack may not retire an id that is live on either
+ * side, and a retired id both ledgers record must agree on its successors.
+ *
+ * Edges: every `kk_relates_to` / `kk_depends_on` reference must resolve, via
+ * the merged ledgers, to a live id in the pack or the consumer. An unresolved
+ * reference would graft as a dangling edge; a pack referencing a node only the
+ * consumer has is legitimate (an extension of a base pack it imported).
+ */
+function validateGraphIdentity(
+  nodes: readonly NodeFile[],
+  packLedger: RedirectsLedger,
+  context: PackValidationContext,
+  errors: string[]
+): void {
+  const consumerIds = context.consumerIds ?? new Map<string, string>();
+  const consumerLedger = context.consumerLedger ?? {};
+  const packIds = new Map(nodes.map(node => [node.frontmatter.kk_id, node.relPath]));
+
+  for (const [id, relPath] of packIds) {
+    const consumerPath = consumerIds.get(id);
+    if (consumerPath !== undefined) {
+      errors.push(
+        `node id ${id} (${relPath}) already exists in this knowledge base at nodes/${consumerPath}; ` +
+          `import never binds a pack reference to unrelated content. Retire or rename one side, then re-run.`
+      );
+    }
+    const retiredTo = consumerLedger[id];
+    if (retiredTo !== undefined) {
+      errors.push(
+        `node id ${id} (${relPath}) was retired in this knowledge base ` +
+          `(${REDIRECTS_FILENAME} redirects it to ${retiredTo.join(', ')}); ` +
+          `re-publishing a retired id needs a human decision.`
+      );
+    }
+  }
+
+  for (const retired of Object.keys(packLedger)) {
+    const packPath = packIds.get(retired);
+    if (packPath !== undefined) {
+      errors.push(
+        `${REDIRECTS_FILENAME} retires ${retired}, which is a live node in the pack (${packPath}).`
+      );
+    }
+    const consumerPath = consumerIds.get(retired);
+    if (consumerPath !== undefined) {
+      errors.push(
+        `${REDIRECTS_FILENAME} retires ${retired}, which is a live node in this knowledge base ` +
+          `(nodes/${consumerPath}); resolve the identity by hand before importing.`
+      );
+    }
+  }
+
+  const { merged, collisions } = mergeRedirectsLedgers(consumerLedger, packLedger);
+  for (const collision of collisions) {
+    errors.push(
+      `redirect ${collision.id} is already recorded in this knowledge base with different ` +
+        `successors (here: ${collision.existing.join(', ')}; pack: ${collision.incoming.join(', ')}); ` +
+        `reconcile the ledgers by hand before importing.`
+    );
+  }
+
+  const live = new Set<string>([...packIds.keys(), ...consumerIds.keys()]);
+  for (const node of nodes) {
+    const refs = [...node.frontmatter.kk_relates_to, ...node.frontmatter.kk_depends_on];
+    for (const ref of refs) {
+      if (resolveRedirect(merged, live, ref).length > 0) continue;
+      errors.push(
+        `${node.relPath}: edge ${ref} does not resolve to a node in the pack or in this knowledge base.`
+      );
+    }
+  }
+}
+
+/**
+ * Validates a pack against the tree it will join. Reads through links, so
+ * callers refuse a pack with `findPackSymlinks` first.
+ */
+export function validatePack(
+  packRoot: string,
+  context: PackValidationContext = {}
+): PackValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const manifest = validateManifest(packRoot, errors);
@@ -198,7 +360,7 @@ export function validatePack(packRoot: string): PackValidationResult {
     return { ok: false, manifest, errors, warnings };
   }
 
-  let nodes;
+  let nodes: NodeFile[];
   try {
     nodes = readAllNodes(knowledgeDir);
   } catch (err) {
@@ -227,10 +389,14 @@ export function validatePack(packRoot: string): PackValidationResult {
   }
 
   validateFolderSummaryRegistry(knowledgeDir, errors, warnings);
+  const ledger = validateRedirectsLedger(knowledgeDir, errors);
+  validateGraphIdentity(nodes, ledger, context, errors);
 
   return {
     ok: errors.length === 0,
     manifest,
+    nodes,
+    ledger,
     errors,
     warnings,
   };

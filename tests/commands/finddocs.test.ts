@@ -100,6 +100,53 @@ describe('finddocs CLI command', () => {
     });
   });
 
+  describe('containment', () => {
+    it('never lists the kenkeep root and honors nested .gitignore files at their own scope', async () => {
+      // No `.kkignore` entry for `.ai/`: the exclusion must not depend on the
+      // user-editable stub. The KB's own `.gitignore` is present (as `init`
+      // writes it) but only covers runtime dirs, not nodes/ or conflicts/.
+      const kk = join(sandbox, '.ai', 'kenkeep');
+      mkdirSync(join(kk, '_sessions'), { recursive: true });
+      writeFileSync(join(kk, '.gitignore'), '/_sessions/\n.state/*\n');
+      writeFileSync(join(kk, '_sessions', 'private-session.md'), '# private transcript');
+      mkdirSync(join(kk, 'nodes', 'conventions'), { recursive: true });
+      writeFileSync(join(kk, 'nodes', 'conventions', 'naming.md'), '# existing node');
+      mkdirSync(join(kk, 'conflicts'), { recursive: true });
+      writeFileSync(join(kk, 'conflicts', 'c-1.md'), '# conflict');
+      mkdirSync(join(kk, '.state'), { recursive: true });
+      writeFileSync(join(kk, '.state', 'scratch.md'), '# state');
+      // Sibling `.ai/` content outside the kenkeep root is ordinary docs.
+      writeFileSync(join(sandbox, '.ai', 'notes.md'), '# ai notes');
+
+      // Nested ignore: `pkg/.gitignore` hides `pkg/secret.md` only.
+      mkdirSync(join(sandbox, 'pkg'), { recursive: true });
+      writeFileSync(join(sandbox, 'pkg', '.gitignore'), 'secret.md\n');
+      writeFileSync(join(sandbox, 'pkg', 'secret.md'), '# nested-ignored');
+      writeFileSync(join(sandbox, 'pkg', 'README.md'), '# pkg');
+      // The nested rule is scoped to `pkg/`: a root-level `secret.md` stays.
+      writeFileSync(join(sandbox, 'secret.md'), '# root secret is a doc');
+
+      const result = await runCli(sandbox, ['finddocs']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toBe(
+        [
+          '+ .ai/notes.md',
+          '+ README.md',
+          '+ docs/guide.md',
+          '+ pkg/README.md',
+          '+ secret.md',
+          '',
+        ].join('\n')
+      );
+
+      // `--from` into the KB root finds nothing rather than leaking it.
+      const scoped = await runCli(sandbox, ['finddocs', '--from', '.ai/kenkeep']);
+      expect(scoped.exitCode).toBe(0);
+      expect(scoped.stdout).toBe('');
+    });
+  });
+
   describe('--with-hashes', () => {
     it('appends a tab-separated SHA-256 digest and is byte-identical across runs', async () => {
       const first = await runCli(sandbox, ['finddocs', '--with-hashes']);

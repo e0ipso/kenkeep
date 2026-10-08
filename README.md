@@ -191,7 +191,7 @@ npx kenkeep pack import e0ipso/kenkeep-pack-drupal
 npx kenkeep pack import https://github.com/e0ipso/kenkeep-pack-drupal --as drupal
 ```
 
-Import is deterministic and never calls an LLM. Colliding note ids are skipped with a warning. Full guide: **[Knowledge packs](https://kenkeep.canpicasoft.com/knowledge-packs.html)**.
+Import is deterministic and never calls an LLM. A pack whose note ids collide with yours is rejected so you can decide. Import requires `.ai/kenkeep/` and `AGENTS.md` to be committed, so git can undo a failed run. Full guide: **[Knowledge packs](https://kenkeep.canpicasoft.com/knowledge-packs.html)**.
 
 ## Documentation
 

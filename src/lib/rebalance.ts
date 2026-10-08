@@ -104,6 +104,15 @@ export interface RebalanceDecision {
   actions: RebalanceCandidate[];
 }
 
+export interface RebalanceOptions {
+  /**
+   * Ids of leaves that must not become leaf-level candidates (split-leaf,
+   * create-branch): the targets of open human conflicts. Folder-level rules
+   * still count them. The trigger command fills this from `conflicts/`.
+   */
+  protectedLeafIds?: ReadonlySet<string>;
+}
+
 /**
  * Per-folder occupancy/diversity/leaf-size metric for one folder, keyed by its
  * POSIX-style path relative to `nodes/` (empty string is the root).
@@ -207,9 +216,16 @@ function createBranchActionsForRootLeaves(leaves: NodeFile[]): RebalanceCandidat
  */
 export function decideRebalance(
   folders: FolderMetricEntry[],
-  leaves: NodeFile[]
+  leaves: NodeFile[],
+  options: RebalanceOptions = {}
 ): RebalanceDecision {
   const actions: RebalanceCandidate[] = [];
+  // Target filter only: a leaf under an open human conflict still counts in
+  // its folder's occupancy, but it is never itself a split-leaf or
+  // create-branch candidate, so review cannot find its id retired or its
+  // file moved by a rebalance that ran before the human decided.
+  const protectedIds = options.protectedLeafIds ?? new Set<string>();
+  const movable = leaves.filter(leaf => !protectedIds.has(leaf.frontmatter.kk_id));
 
   for (const f of folders) {
     if (f.metrics.occupancy > FOLDER_OCCUPANCY_MAX) {
@@ -226,7 +242,7 @@ export function decideRebalance(
     }
   }
 
-  for (const leaf of leaves) {
+  for (const leaf of movable) {
     const size = estimateLeafTokens(leaf);
     const distinctConcepts = new Set(leaf.frontmatter.tags).size;
     if (size > LEAF_SIZE_SPLIT_THRESHOLD && distinctConcepts >= LEAF_CONCEPT_MIN) {
@@ -234,7 +250,7 @@ export function decideRebalance(
     }
   }
 
-  actions.push(...createBranchActionsForRootLeaves(leaves));
+  actions.push(...createBranchActionsForRootLeaves(movable));
 
   // Deterministic stable ordering: by branch path, then operation.
   actions.sort((a, b) => {
@@ -252,7 +268,10 @@ export function decideRebalance(
  * and returns the deterministic rebalance decision. This is the consumable
  * entrypoint the trigger command and the curate skill call.
  */
-export function evaluateRebalance(nodesDir: string): RebalanceDecision {
+export function evaluateRebalance(
+  nodesDir: string,
+  options: RebalanceOptions = {}
+): RebalanceDecision {
   const index = generateIndex(nodesDir);
   const folders: FolderMetricEntry[] = [...index.folders.values()].map(f => ({
     relDir: f.relDir,
@@ -260,5 +279,5 @@ export function evaluateRebalance(nodesDir: string): RebalanceDecision {
   }));
   // generateIndex already walked the tree; reuse its leaf set instead of a
   // second full read on the curate hot path.
-  return decideRebalance(folders, index.nodes);
+  return decideRebalance(folders, index.nodes, options);
 }

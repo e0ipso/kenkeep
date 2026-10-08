@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -106,15 +106,15 @@ interface HarnessCase {
   hookPath: string;
   capturedBy: string;
   needsInit: boolean;
-  seed: (ctx: { sandbox: string; home?: string }) => void;
+  seed: (ctx: { sandbox: string; home: string | undefined }) => void;
   /**
    * Materializes a substantial transcript whose ONLY node access is a
    * shell/search command reading `nodeAbs` (no dedicated read tool), so the
    * spawned hook proves command-derived reads reach `usage.jsonl`.
    */
-  seedUsageRead: (ctx: { sandbox: string; home?: string; nodeAbs: string }) => void;
+  seedUsageRead: (ctx: { sandbox: string; home: string | undefined; nodeAbs: string }) => void;
   input: (ctx: { sandbox: string }) => Record<string, unknown>;
-  env: (ctx: { home?: string }) => NodeJS.ProcessEnv;
+  env: (ctx: { home: string | undefined }) => NodeJS.ProcessEnv;
   homePrefix?: string;
 }
 
@@ -372,16 +372,25 @@ function writeOpenCodeStub(home: string, userText: string, agentText: string): v
     ],
   };
   writeFileSync(join(home, 'oc-export.json'), JSON.stringify(doc));
+  writeOpenCodeBinary(home, 'cat "$DIR/../oc-export.json"; exit 0');
+}
+
+/**
+ * Writes the fake `opencode` executable: answers `--version`, and runs
+ * `exportCommand` (a shell fragment with `$DIR` = the bin dir) for `export`.
+ */
+function writeOpenCodeBinary(home: string, exportCommand: string): void {
+  const binDir = join(home, 'bin');
+  mkdirSync(binDir, { recursive: true });
   const script = [
     '#!/bin/sh',
     'DIR=$(dirname "$0")',
     'if [ "$1" = "--version" ]; then echo 1.17.3; exit 0; fi',
-    'if [ "$1" = "export" ]; then cat "$DIR/../oc-export.json"; exit 0; fi',
+    `if [ "$1" = "export" ]; then ${exportCommand}; fi`,
     'exit 1',
     '',
   ].join('\n');
-  const scriptPath = join(binDir, 'opencode');
-  writeFileSync(scriptPath, script, { mode: 0o755 });
+  writeFileSync(join(binDir, 'opencode'), script, { mode: 0o755 });
 }
 
 const harnessCases: HarnessCase[] = [
@@ -514,13 +523,18 @@ describe.each(harnessCases)('kk-capture hook (spawned) [$id]', hc => {
     expect(log).toMatch(/transcript_hash: sha256:[0-9a-f]{64}/);
     // Substantial transcripts must remain in the proposal queue.
     expect(log).toContain('proposal_status: pending');
+    // The status line matches the outcome: a log was written.
+    expect(result.stdout + result.stderr).toContain('transcript saved');
   });
 
-  it('exits 0 and writes nothing when no transcript is available', async () => {
+  it('exits 0, writes nothing and reports "skipped" when no transcript is available', async () => {
     // Intentionally do not seed: the source transcript/rollout/events are absent.
     const result = await runHook(hc.hookPath, sandbox, hc.input({ sandbox }), hc.env({ home }));
     expect(result.exitCode).toBe(0);
     expect(sessionLogs(sandbox)).toHaveLength(0);
+    const output = result.stdout + result.stderr;
+    expect(output).not.toContain('saved');
+    expect(output).toContain('skipped');
   });
 });
 
@@ -566,6 +580,118 @@ describe.each(harnessCases)('kk-capture hook (spawned) [usage command read: $id]
     expect(records).toContainEqual(
       expect.objectContaining({ document: 'practice-foo', type: 'leaf', session_id: hc.sessionId })
     );
+  });
+});
+
+// OpenCode's capture must leave no transcript temp file behind on any
+// path, never put a raw private span on disk, and bound `opencode export` by
+// the hook's own deadline. `TMPDIR` is pointed at an empty sandbox directory so
+// "nothing left behind" is an exact listing, not a pattern scan of /tmp.
+describe('kk-capture hook (spawned) [opencode temp-file hygiene]', () => {
+  const hookPath = join(repoRoot, 'dist/hooks/opencode/kk-capture.cjs');
+  const PRIVATE = 'SECRET-PRIVATE-TOKEN-7f3a';
+  let sandbox: string;
+  let home: string;
+  let tmp: string;
+
+  function env(): NodeJS.ProcessEnv {
+    return { PATH: `${join(home, 'bin')}:${process.env['PATH'] ?? ''}`, TMPDIR: tmp };
+  }
+  const input = (): Record<string, unknown> => ({
+    session_id: OPENCODE_RAW_SESS,
+    hook_event_name: 'SessionIdle',
+    cwd: sandbox,
+  });
+
+  beforeEach(async () => {
+    sandbox = makeSandbox();
+    home = makeSandbox('ai-kk-opencode-stub-');
+    tmp = join(sandbox, 'tmp');
+    mkdirSync(tmp);
+    await gitInit(sandbox);
+    await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+  });
+  afterEach(() => {
+    cleanSandbox(sandbox);
+    cleanSandbox(home);
+  });
+
+  it('success: strips private spans before anything is written and leaves no temp files', async () => {
+    writeOpenCodeStub(
+      home,
+      `${SUBSTANTIAL_USER} <kk-private>${PRIVATE}</kk-private>`,
+      SUBSTANTIAL_AGENT
+    );
+    const result = await runHook(hookPath, sandbox, input(), env());
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('transcript saved');
+
+    const logs = sessionLogs(sandbox);
+    expect(logs).toHaveLength(1);
+    const log = readSessionLog(sandbox, logs[0] as string);
+    expect(log).toContain('[kk-private removed]');
+    expect(log).not.toContain(PRIVATE);
+    expect(readdirSync(tmp)).toEqual([]);
+  });
+
+  it('thrown failure: reports the error and leaves no temp files', async () => {
+    writeOpenCodeStub(
+      home,
+      `${SUBSTANTIAL_USER} <kk-private>${PRIVATE}</kk-private>`,
+      SUBSTANTIAL_AGENT
+    );
+    // A regular file where the sessions directory belongs makes the atomic
+    // session-log write throw inside the capture pipeline.
+    const sessionsDir = join(sandbox, '.ai/kenkeep/_sessions');
+    rmSync(sessionsDir, { recursive: true, force: true });
+    writeFileSync(sessionsDir, 'not a directory');
+
+    const result = await runHook(hookPath, sandbox, input(), env());
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('capture error');
+    expect(result.stderr).not.toContain('saved');
+    expect(readdirSync(tmp)).toEqual([]);
+  });
+
+  it('timeout: bounds the export by the hook deadline, reports skipped, leaves no temp files', async () => {
+    writeOpenCodeBinary(home, 'exec sleep 30');
+    const started = performance.now();
+    const result = await runHook(hookPath, sandbox, input(), env());
+    const elapsed = performance.now() - started;
+    expect(result.exitCode).toBe(0);
+    // The hook's deadline is 8 s; the export child must be cut off inside it.
+    expect(elapsed).toBeLessThan(8_000);
+    expect(result.stderr).toContain('skipped');
+    expect(result.stderr).not.toContain('saved');
+    expect(sessionLogs(sandbox)).toHaveLength(0);
+    expect(readdirSync(tmp)).toEqual([]);
+  });
+
+  it('timeout: a SIGTERM-ignoring export is still cut off inside the deadline', async () => {
+    writeOpenCodeBinary(home, 'trap "" TERM; exec sleep 12');
+    const started = performance.now();
+    const result = await runHook(hookPath, sandbox, input(), env());
+    const elapsed = performance.now() - started;
+    expect(result.exitCode).toBe(0);
+    expect(elapsed).toBeLessThan(8_000);
+    expect(result.stderr).toContain('skipped');
+    expect(sessionLogs(sandbox)).toHaveLength(0);
+    expect(readdirSync(tmp)).toEqual([]);
+  });
+
+  it('timeout: a SIGTERM-ignoring version probe is still cut off inside the deadline', async () => {
+    mkdirSync(join(home, 'bin'), { recursive: true });
+    writeFileSync(join(home, 'bin', 'opencode'), '#!/bin/sh\ntrap "" TERM\nexec sleep 12\n', {
+      mode: 0o755,
+    });
+    const started = performance.now();
+    const result = await runHook(hookPath, sandbox, input(), env());
+    const elapsed = performance.now() - started;
+    expect(result.exitCode).toBe(0);
+    expect(elapsed).toBeLessThan(8_000);
+    expect(result.stderr).toContain('skipped');
+    expect(sessionLogs(sandbox)).toHaveLength(0);
+    expect(readdirSync(tmp)).toEqual([]);
   });
 });
 

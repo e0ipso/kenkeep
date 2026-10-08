@@ -62,16 +62,16 @@ When capture later rewrites a log for the same `session_id`, it preserves `curat
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
-- Related: [map-session-log-stage-live](/state/map-session-log-stage-live.md)
+- Related: [map-capture-hook](../hooks/map-capture-hook.md)
+- Related: [map-proposal-drain-hook](../hooks/map-proposal-drain-hook.md)
+- Related: [map-session-log-stage-live](map-session-log-stage-live.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/hooks.md](docs/internals/hooks.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
-[3] [docs/internals/architecture.md](docs/internals/architecture.md)
-[4] [4c12545c-3224-4602-8b5a-14c752d26975:map:3](4c12545c-3224-4602-8b5a-14c752d26975:map:3)
+[1] [docs/internals/hooks.md](../../../../docs/internals/hooks.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
+[3] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
+[4] 4c12545c-3224-4602-8b5a-14c752d26975:map:3
 <!-- kk:citations:end -->

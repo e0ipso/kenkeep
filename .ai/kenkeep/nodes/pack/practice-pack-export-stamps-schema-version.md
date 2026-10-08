@@ -37,9 +37,9 @@ of relying on stale docs, copied examples, or interactive input.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
-- Related: [practice-strict-schema-version-bump-policy](/node-schema/practice-strict-schema-version-bump-policy.md)
-- Depends on: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
+- Related: [map-knowledge-pack-format](map-knowledge-pack-format.md)
+- Related: [practice-strict-schema-version-bump-policy](../node-schema/practice-strict-schema-version-bump-policy.md)
+- Depends on: [map-knowledge-pack-format](map-knowledge-pack-format.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
@@ -47,6 +47,6 @@ of relying on stale docs, copied examples, or interactive input.
 
 [1] [https://github.com/e0ipso/kenkeep/issues/73](https://github.com/e0ipso/kenkeep/issues/73)
 [2] [https://github.com/e0ipso/kenkeep/issues/74](https://github.com/e0ipso/kenkeep/issues/74)
-[3] [src/commands/pack-export.ts](src/commands/pack-export.ts)
-[4] [src/lib/schemas.ts](src/lib/schemas.ts)
+[3] [src/commands/pack-export.ts](../../../../src/commands/pack-export.ts)
+[4] [src/lib/schemas.ts](../../../../src/lib/schemas.ts)
 <!-- kk:citations:end -->

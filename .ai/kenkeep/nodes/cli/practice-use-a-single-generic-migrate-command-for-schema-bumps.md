@@ -22,6 +22,6 @@ The project uses a single `migrate` command for all schema bumps. The command re
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-strict-schema-version-bump-policy](/node-schema/practice-strict-schema-version-bump-policy.md)
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [practice-strict-schema-version-bump-policy](../node-schema/practice-strict-schema-version-bump-policy.md)
+- Related: [map-node-frontmatter](../node-schema/map-node-frontmatter.md)
 <!-- kk:related:end -->

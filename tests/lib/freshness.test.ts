@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
@@ -8,6 +8,10 @@ import { computeFreshness } from '../../src/lib/freshness.js';
 
 function git(cwd: string, args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'pipe' });
+}
+
+function gitOut(cwd: string, args: string[]): string {
+  return execFileSync('git', args, { cwd, stdio: 'pipe', maxBuffer: Infinity }).toString().trim();
 }
 
 function writeFile(root: string, rel: string, content: string): void {
@@ -139,6 +143,105 @@ describe('computeFreshness', () => {
     expect(report.flaggedCount).toBe(0);
   });
 
+  it('still flags a node after its referenced source is deleted', () => {
+    commit(root, 'src/gone.ts', 'v1', 'gone v1');
+    commitNode(root, 'practice-del', { body: 'Describes `src/gone.ts`.' });
+    commit(root, 'src/gone.ts', 'v2', 'gone v2');
+    expect(computeFreshness({ root, nodesDir }).flaggedCount).toBe(1);
+
+    git(root, ['rm', '-q', '--', 'src/gone.ts']);
+    git(root, ['commit', '-q', '-m', 'delete gone']);
+
+    const report = computeFreshness({ root, nodesDir });
+    expect(report.available).toBe(true);
+    expect(report.flagged).toEqual([
+      { id: 'practice-del', branch: 'topic', changedPaths: ['src/gone.ts'] },
+    ]);
+  });
+
+  it('flags a node whose referenced source was renamed away after curation', () => {
+    commit(root, 'src/old-name.ts', 'export const a = 1;\n', 'old v1');
+    commitNode(root, 'practice-ren', { derivedFrom: ['src/old-name.ts'] });
+    git(root, ['mv', 'src/old-name.ts', 'src/new-name.ts']);
+    git(root, ['commit', '-q', '-m', 'rename']);
+
+    const report = computeFreshness({ root, nodesDir });
+    expect(report.available).toBe(true);
+    expect(report.flagged).toEqual([
+      { id: 'practice-ren', branch: 'topic', changedPaths: ['src/old-name.ts'] },
+    ]);
+  });
+
+  it('does not flag a deletion that happened before the node was curated', () => {
+    commit(root, 'src/early.ts', 'v1', 'early v1');
+    git(root, ['rm', '-q', '--', 'src/early.ts']);
+    git(root, ['commit', '-q', '-m', 'delete early']);
+    commitNode(root, 'practice-early', { body: 'Used to live in `src/early.ts`.' });
+
+    const report = computeFreshness({ root, nodesDir });
+    expect(report.available).toBe(true);
+    expect(report.flaggedCount).toBe(0);
+  });
+
+  it('completes on a history whose name output exceeds 1 MiB', () => {
+    // Bulk commit via fast-import: 24k paths of ~65 bytes (~1.5 MiB of names),
+    // then load them into the index so a `git ls-files` listing is just as large.
+    const branch = gitOut(root, ['symbolic-ref', 'HEAD']);
+    const lines: string[] = ['blob', 'mark :1', 'data 1', 'x'];
+    lines.push(
+      `commit ${branch}`,
+      'committer T <t@example.com> 1700000000 +0000',
+      'data 4',
+      'bulk'
+    );
+    lines.push('M 100644 :1 src/foo.ts');
+    for (let i = 0; i < 24_000; i += 1) {
+      const n = String(i).padStart(5, '0');
+      lines.push(
+        `M 100644 :1 vendor/generated/group-${n.slice(0, 2)}/library-module-${n}-generated-file.js`
+      );
+    }
+    lines.push('');
+    execFileSync('git', ['fast-import', '--quiet'], {
+      cwd: root,
+      input: lines.join('\n'),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    git(root, ['read-tree', 'HEAD']);
+    expect(gitOut(root, ['ls-files']).length).toBeGreaterThan(1024 * 1024);
+
+    commitNode(root, 'practice-big', { body: 'Describes `src/foo.ts`.' });
+    commit(root, 'src/foo.ts', 'v2', 'foo v2');
+
+    const report = computeFreshness({ root, nodesDir });
+    expect(report.reason).toBeUndefined();
+    expect(report.available).toBe(true);
+    expect(report.flagged.map(f => f.id)).toEqual(['practice-big']);
+  });
+
+  it('kills a slow git log at the deadline and reports no signal', () => {
+    commitNode(root, 'practice-a', { body: 'Describes `src/foo.ts` behavior.' });
+    const realGit = execFileSync('sh', ['-c', 'command -v git']).toString().trim();
+    const binDir = join(root, 'slow-bin');
+    mkdirSync(binDir);
+    writeFileSync(
+      join(binDir, 'git'),
+      `#!/bin/sh\nif [ "$1" = log ]; then sleep 3; exit 0; fi\nexec ${realGit} "$@"\n`
+    );
+    chmodSync(join(binDir, 'git'), 0o755);
+    const savedPath = process.env['PATH'];
+    process.env['PATH'] = `${binDir}:${savedPath ?? ''}`;
+    try {
+      const started = Date.now();
+      const report = computeFreshness({ root, nodesDir, deadlineAt: started + 300 });
+      expect(Date.now() - started).toBeLessThan(1500);
+      expect(report.available).toBe(false);
+      expect(report.reason).toBe('git log did not finish before the hook deadline');
+    } finally {
+      process.env['PATH'] = savedPath;
+    }
+  });
+
   it('returns an unavailable, empty report on a non-git tree without throwing', () => {
     const plain = mkdtempSync(join(tmpdir(), 'kk-nogit-'));
     try {
@@ -150,6 +253,7 @@ describe('computeFreshness', () => {
       const report = computeFreshness({ root: plain, nodesDir: join(plain, '.ai/kenkeep/nodes') });
       expect(report.available).toBe(false);
       expect(report.flaggedCount).toBe(0);
+      expect(report.reason).toMatch(/^git log failed: /);
     } finally {
       rmSync(plain, { recursive: true, force: true });
     }

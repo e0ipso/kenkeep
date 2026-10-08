@@ -8,10 +8,15 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import matter from 'gray-matter';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runBootstrapCompleteDocCommand } from '../../src/commands/bootstrap-complete-doc.js';
+import { collectDanglingDerivedFrom } from '../../src/commands/doctor.js';
+import { runFindDocsCommand } from '../../src/commands/finddocs.js';
 import { runNodeWriteCommand } from '../../src/commands/node-write.js';
+import { readBootstrapState, sha256Hex } from '../../src/lib/bootstrap.js';
+import type { BootstrapState } from '../../src/lib/schemas.js';
 
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), 'kk-nodewrite-'));
@@ -124,6 +129,21 @@ describe('node write primitive', () => {
     expect(readFileSync(seedPath, 'utf8')).toContain('kk_id: practice-foo');
   });
 
+  it('never reuses an id the redirects ledger has retired', async () => {
+    writeFileSync(
+      join(cwd, '.ai/kenkeep/nodes/.redirects.json'),
+      JSON.stringify({ 'practice-old': ['practice-live'] })
+    );
+    const out = capturingStdout();
+    const code = await runNodeWriteCommand(
+      { kind: 'practice', slug: 'old', flags: { title: 'Old', summary: 'retired slug' } },
+      { readStdin: async () => '# Old\n\nBody.', isTTY: () => false, writeStdout: out.write }
+    );
+    expect(code).toBe(0);
+    expect(out.text()).toBe('practice-old-2\n');
+    expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-old.md'))).toBe(false);
+  });
+
   it('rejects invalid --confidence with nonzero exit and no partial file', async () => {
     const out = capturingStdout();
     const code = await runNodeWriteCommand(
@@ -141,43 +161,6 @@ describe('node write primitive', () => {
     expect(code).toBe(1);
     expect(out.text()).toBe('');
     expect(readdirSync(join(cwd, '.ai/kenkeep/nodes'))).toEqual([]);
-  });
-
-  it('folds bootstrap-state when both --source-doc and --source-hash are passed', async () => {
-    const stateFile = join(cwd, '.ai/kenkeep/.state/bootstrap-state.json');
-    expect(existsSync(stateFile)).toBe(false);
-    const out = capturingStdout();
-    const code = await runNodeWriteCommand(
-      {
-        kind: 'map',
-        slug: 'thing',
-        flags: {
-          title: 'Thing',
-          summary: 'A thing',
-          sourceDoc: 'docs/source.md',
-          sourceHash: 'a'.repeat(64),
-        },
-      },
-      {
-        readStdin: async () => '# Thing\n\nbody',
-        isTTY: () => false,
-        writeStdout: out.write,
-      }
-    );
-    expect(code).toBe(0);
-    expect(out.text()).toBe('map-thing\n');
-    expect(existsSync(stateFile)).toBe(true);
-    const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
-      schema_version: number;
-      docs: Record<
-        string,
-        { content_sha256: string; last_processed_at: string; produced_nodes: string[] }
-      >;
-    };
-    expect(state.schema_version).toBe(1);
-    expect(state.docs['docs/source.md']).toBeDefined();
-    expect(state.docs['docs/source.md']!.content_sha256).toBe('a'.repeat(64));
-    expect(state.docs['docs/source.md']!.produced_nodes).toEqual(['map-thing']);
   });
 
   it('skips bootstrap-state update when neither source flag is passed', async () => {
@@ -306,6 +289,8 @@ describe('node write primitive', () => {
   });
 
   it('serialises concurrent --source-doc writers via proper-lockfile', async () => {
+    writeDoc(cwd, 'docs/foo.md', '# Foo\n');
+    writeDoc(cwd, 'docs/bar.md', '# Bar\n');
     const out1 = capturingStdout();
     const out2 = capturingStdout();
     const [code1, code2] = await Promise.all([
@@ -342,13 +327,287 @@ describe('node write primitive', () => {
     ]);
     expect(code1).toBe(0);
     expect(code2).toBe(0);
-    const stateFile = join(cwd, '.ai/kenkeep/.state/bootstrap-state.json');
-    const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
-      docs: Record<string, { content_sha256: string; produced_nodes: string[] }>;
-    };
-    expect(state.docs['docs/foo.md']?.content_sha256).toBe('a'.repeat(64));
-    expect(state.docs['docs/bar.md']?.content_sha256).toBe('b'.repeat(64));
-    expect(state.docs['docs/foo.md']?.produced_nodes).toContain('practice-use-foo');
-    expect(state.docs['docs/bar.md']?.produced_nodes).toContain('practice-use-bar');
+    const state = readState(cwd);
+    expect(state.in_progress?.['docs/foo.md']).toMatchObject({
+      content_sha256: 'a'.repeat(64),
+      written: { 'practice-use-foo': 'practice-use-foo' },
+    });
+    expect(state.in_progress?.['docs/bar.md']).toMatchObject({
+      content_sha256: 'b'.repeat(64),
+      written: { 'practice-use-bar': 'practice-use-bar' },
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bootstrap source provenance and resumable document completion.
+//
+// `node write --source-doc` records per-node production only; a document is
+// finalized solely by `bootstrap complete-doc`. "Discovery" below is the exact
+// kk-bootstrap Step 1+2 contract: `finddocs --with-hashes`, minus every doc
+// whose `bootstrap-state.json` `docs[<relpath>].content_sha256` matches.
+// ---------------------------------------------------------------------------
+
+function writeDoc(root: string, rel: string, content: string): string {
+  const abs = join(root, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content);
+  return sha256Hex(content);
+}
+
+function readState(root: string): BootstrapState {
+  return JSON.parse(
+    readFileSync(join(root, '.ai/kenkeep/.state/bootstrap-state.json'), 'utf8')
+  ) as BootstrapState;
+}
+
+async function pendingDiscovery(root: string): Promise<string[]> {
+  let stdout = '';
+  const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+    stdout += String(chunk);
+    return true;
+  });
+  let code: number;
+  try {
+    code = await runFindDocsCommand({ withHashes: true });
+  } finally {
+    spy.mockRestore();
+  }
+  expect(code).toBe(0);
+  const state = readBootstrapState(join(root, '.ai/kenkeep/.state/bootstrap-state.json'));
+  return stdout
+    .split('\n')
+    .filter(Boolean)
+    .map(line => {
+      const [rel, sha] = line.replace(/^\+ /, '').split('\t');
+      return { rel: rel!, sha: sha! };
+    })
+    .filter(({ rel, sha }) => state.docs[rel]?.content_sha256 !== sha)
+    .map(({ rel }) => rel);
+}
+
+async function writeFromDoc(
+  slug: string,
+  doc: string,
+  hash: string
+): Promise<{ code: number; stdout: string }> {
+  const out = capturingStdout();
+  const code = await runNodeWriteCommand(
+    {
+      kind: 'practice',
+      slug,
+      flags: {
+        title: `Title ${slug}`,
+        summary: `Summary ${slug}`,
+        sourceDoc: doc,
+        sourceHash: hash,
+      },
+    },
+    { readStdin: async () => `Body of ${slug}.`, isTTY: () => false, writeStdout: out.write }
+  );
+  return { code, stdout: out.text() };
+}
+
+async function completeDoc(doc: string, hash: string): Promise<{ code: number; stdout: string }> {
+  const out = capturingStdout();
+  const code = await runBootstrapCompleteDocCommand({ doc, hash }, { writeStdout: out.write });
+  return { code, stdout: out.text() };
+}
+
+function leafFiles(root: string): string[] {
+  return readdirSync(join(root, '.ai/kenkeep/nodes'))
+    .filter(f => f.endsWith('.md'))
+    .sort();
+}
+
+describe('bootstrap provenance and resumable document completion', () => {
+  let cwd: string;
+  let original: string;
+  beforeEach(() => {
+    original = process.cwd();
+    cwd = sandbox();
+    process.chdir(cwd);
+  });
+  afterEach(() => {
+    process.chdir(original);
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('records the source document in kk_derived_from without completing the document', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo.\n');
+    const res = await writeFromDoc('use-foo', 'docs/a.md', hash);
+    expect(res).toEqual({ code: 0, stdout: 'practice-use-foo\n' });
+
+    const leaf = matter(readFileSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'), 'utf8'));
+    expect(leaf.data['kk_derived_from']).toEqual(['docs/a.md']);
+    // The repo-relative reference resolves on disk, so doctor's
+    // "derived_from references resolve" check stays green.
+    expect(collectDanglingDerivedFrom(cwd, join(cwd, '.ai/kenkeep/nodes'), cwd)).toEqual([]);
+
+    const state = readState(cwd);
+    expect(state.docs['docs/a.md']).toBeUndefined();
+    expect(state.in_progress?.['docs/a.md']).toMatchObject({
+      content_sha256: hash,
+      written: { 'practice-use-foo': 'practice-use-foo' },
+    });
+  });
+
+  it('resumes an interrupted multi-node document without duplicates, then finalizes it', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo. Avoid bar.\n');
+    writeDoc(cwd, 'docs/b.md', '# B\n');
+    expect(await pendingDiscovery(cwd)).toEqual(['docs/a.md', 'docs/b.md']);
+
+    // First run: the first of two nodes lands, then the run is interrupted
+    // before the document is finalized.
+    expect(await writeFromDoc('use-foo', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo\n',
+    });
+    expect(await pendingDiscovery(cwd)).toEqual(['docs/a.md', 'docs/b.md']);
+
+    // Retry: the skill re-drafts the whole document. The already-written
+    // node is not duplicated (no `-2` sibling); its existing id is reported.
+    const firstBytes = readFileSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'), 'utf8');
+    expect(await writeFromDoc('use-foo', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo\n',
+    });
+    expect(readFileSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'), 'utf8')).toBe(
+      firstBytes
+    );
+    expect(await writeFromDoc('avoid-bar', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-avoid-bar\n',
+    });
+    expect(leafFiles(cwd)).toEqual(['practice-avoid-bar.md', 'practice-use-foo.md']);
+
+    const done = await completeDoc('docs/a.md', hash);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toEqual({
+      doc: 'docs/a.md',
+      content_sha256: hash,
+      produced_nodes: ['practice-use-foo', 'practice-avoid-bar'],
+    });
+    const state = readState(cwd);
+    expect(state.docs['docs/a.md']).toMatchObject({
+      content_sha256: hash,
+      produced_nodes: ['practice-use-foo', 'practice-avoid-bar'],
+    });
+    expect(state.in_progress?.['docs/a.md']).toBeUndefined();
+    expect(await pendingDiscovery(cwd)).toEqual(['docs/b.md']);
+
+    // Normal collision behaviour is untouched outside a same-document retry:
+    // a different document deriving the same slug still gets a `-2` sibling.
+    const bHash = sha256Hex('# B\n');
+    expect(await writeFromDoc('use-foo', 'docs/b.md', bHash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo-2\n',
+    });
+  });
+
+  it('writes a recorded draft again when its leaf was removed before the retry', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo.\n');
+    const leaf = join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md');
+    expect(await writeFromDoc('use-foo', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo\n',
+    });
+    rmSync(leaf);
+
+    // The attempt record alone does not prove the node exists: the retry
+    // writes it again instead of reporting an id that is not in the tree.
+    expect(await writeFromDoc('use-foo', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo\n',
+    });
+    expect(matter(readFileSync(leaf, 'utf8')).data['kk_derived_from']).toEqual(['docs/a.md']);
+    expect(readState(cwd).in_progress?.['docs/a.md']?.written).toEqual({
+      'practice-use-foo': 'practice-use-foo',
+    });
+
+    const done = await completeDoc('docs/a.md', hash);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toMatchObject({ produced_nodes: ['practice-use-foo'] });
+  });
+
+  it('completes a document without listing a node removed after it was written', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo. Avoid bar.\n');
+    await writeFromDoc('use-foo', 'docs/a.md', hash);
+    await writeFromDoc('avoid-bar', 'docs/a.md', hash);
+    rmSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'));
+
+    const done = await completeDoc('docs/a.md', hash);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toEqual({
+      doc: 'docs/a.md',
+      content_sha256: hash,
+      produced_nodes: ['practice-avoid-bar'],
+    });
+    expect(readState(cwd).docs['docs/a.md']?.produced_nodes).toEqual(['practice-avoid-bar']);
+    expect(leafFiles(cwd)).toEqual(['practice-avoid-bar.md']);
+  });
+
+  it('keeps ids from an earlier completion after their leaves are removed', async () => {
+    const first = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo.\n');
+    await writeFromDoc('use-foo', 'docs/a.md', first);
+    expect((await completeDoc('docs/a.md', first)).code).toBe(0);
+    rmSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'));
+
+    // The document changes and is processed again. Only the current attempt
+    // is checked against the tree; the earlier completion's history stays.
+    const second = writeDoc(cwd, 'docs/a.md', '# A\n\nUse bar.\n');
+    await writeFromDoc('use-bar', 'docs/a.md', second);
+    const done = await completeDoc('docs/a.md', second);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toEqual({
+      doc: 'docs/a.md',
+      content_sha256: second,
+      produced_nodes: ['practice-use-foo', 'practice-use-bar'],
+    });
+    expect(leafFiles(cwd)).toEqual(['practice-use-bar.md']);
+  });
+
+  it('finalizes a zero-node document so it is not re-listed', async () => {
+    const hash = writeDoc(cwd, 'docs/empty.md', '# Nothing durable here\n');
+    expect(await pendingDiscovery(cwd)).toEqual(['docs/empty.md']);
+
+    const done = await completeDoc('docs/empty.md', hash);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toEqual({
+      doc: 'docs/empty.md',
+      content_sha256: hash,
+      produced_nodes: [],
+    });
+    expect(await pendingDiscovery(cwd)).toEqual([]);
+    expect(leafFiles(cwd)).toEqual([]);
+
+    // A content change re-lists it (the completion is bound to the hash).
+    writeDoc(cwd, 'docs/empty.md', '# Now with a rule\n\nAlways use foo.\n');
+    expect(await pendingDiscovery(cwd)).toEqual(['docs/empty.md']);
+  });
+
+  it('rejects unsafe or mismatched completion and source-doc inputs without writing', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n');
+    expect((await writeFromDoc('use-foo', 'docs/a.md', hash)).code).toBe(0);
+    const stateBefore = readFileSync(join(cwd, '.ai/kenkeep/.state/bootstrap-state.json'), 'utf8');
+
+    // Finalizing with a hash other than the in-progress attempt's: the doc
+    // changed mid-run, so completion would skip unseen content.
+    expect(await completeDoc('docs/a.md', 'f'.repeat(64))).toEqual({ code: 1, stdout: '' });
+    // Malformed hash, traversal, absolute and missing documents.
+    expect(await completeDoc('docs/a.md', 'not-a-hash')).toEqual({ code: 1, stdout: '' });
+    expect(await completeDoc('../outside.md', hash)).toEqual({ code: 1, stdout: '' });
+    expect(await completeDoc(join(cwd, 'docs/a.md'), hash)).toEqual({ code: 1, stdout: '' });
+    expect(await completeDoc('docs/missing.md', hash)).toEqual({ code: 1, stdout: '' });
+    expect(readFileSync(join(cwd, '.ai/kenkeep/.state/bootstrap-state.json'), 'utf8')).toBe(
+      stateBefore
+    );
+
+    expect(await writeFromDoc('escape', '../outside.md', hash)).toEqual({ code: 1, stdout: '' });
+    expect(await writeFromDoc('missing', 'docs/missing.md', hash)).toEqual({
+      code: 1,
+      stdout: '',
+    });
+    expect(leafFiles(cwd)).toEqual(['practice-use-foo.md']);
   });
 });

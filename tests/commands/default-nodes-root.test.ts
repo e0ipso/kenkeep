@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
@@ -17,6 +18,7 @@ import { runCuratePersistCommand } from '../../src/commands/curate-persist.js';
 import { runIndexRebuild } from '../../src/commands/index-rebuild.js';
 import { runNodeRefreshLinks } from '../../src/commands/node-refresh-links.js';
 import { runNodeWriteCommand } from '../../src/commands/node-write.js';
+import { runPackImportCommand } from '../../src/commands/pack-import.js';
 import { runRebalanceMove } from '../../src/commands/rebalance.js';
 import { assertDefaultNodesRoot, repoPaths } from '../../src/lib/paths.js';
 
@@ -69,6 +71,20 @@ function linkOutside(root: string, parent: string, segment: string): string {
   renameSync(join(root, segment), outside);
   symlinkSync(outside, join(root, segment), 'dir');
   return outside;
+}
+
+/** Pack import needs a clean git tree, so record the linked layout as committed. */
+function commitAll(root: string): void {
+  rmSync(join(root, '.git'), { recursive: true, force: true });
+  const git = (...args: string[]): void => {
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
+      cwd: root,
+      stdio: 'ignore',
+    });
+  };
+  git('init', '-q');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'seed');
 }
 
 function snapshot(dir: string): Record<string, string> {
@@ -198,6 +214,21 @@ describe('default nodes root route', () => {
       const outside = linkOutside(root, parent, segment);
       const before = snapshot(outside);
       expect(await runRebalanceMove({ input })).toBe(1);
+      expect(snapshot(outside)).toEqual(before);
+    }
+  );
+
+  it.each(LINKED_SEGMENTS)(
+    'pack import refuses a linked %s before reading the pack',
+    async segment => {
+      const outside = linkOutside(root, parent, segment);
+      commitAll(root);
+      const before = snapshot(outside);
+      const acquireSource = vi.fn(async () => {
+        throw new Error('the pack must not be read');
+      });
+      expect(await runPackImportCommand(join(parent, 'pack'), { acquireSource })).toBe(1);
+      expect(acquireSource).not.toHaveBeenCalled();
       expect(snapshot(outside)).toEqual(before);
     }
   );

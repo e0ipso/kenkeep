@@ -38,13 +38,13 @@ When a piece of content has both aspects (e.g. "use `rm_analytics.dispatcher`, o
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
-- Related: [map-kenkeep-directory](/overview/map-kenkeep-directory.md)
+- Related: [map-node-frontmatter](map-node-frontmatter.md)
+- Related: [map-kenkeep-directory](../overview/map-kenkeep-directory.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/how-it-works.md](docs/how-it-works.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

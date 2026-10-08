@@ -21,7 +21,7 @@ const PACKAGE_TAG = '[kenkeep]';
 runHookEntry({
   tag: 'cursor:kk-session-start',
   deadlineMs: 1000,
-  main: async payload => {
+  main: async (payload, _raw, budget) => {
     const roots = payload['workspace_roots'];
     const startCwd =
       Array.isArray(roots) && typeof roots[0] === 'string' && roots[0].length > 0
@@ -41,6 +41,7 @@ runHookEntry({
         stateFile: join(paths.stateDir, 'state.json'),
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
+        deadlineAt: budget.deadlineAt,
       });
       sendSessionStartNotifications(settings, result, paths.kkDir);
       const { statusLine, content: context } = buildNudgeContent(result);

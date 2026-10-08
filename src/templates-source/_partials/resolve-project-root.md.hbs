@@ -1,9 +1,19 @@
 ## Resolve the project root
 
-Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below:
+Resolve the repo root (the directory containing `.ai/kenkeep`) with the shipped detector, then treat the printed path as the working directory for every command below. The snippet first walks up from the current directory to the installed detector, so it also works when started from a nested package directory:
 
 ```bash
-KK_REPO_ROOT=$(node .ai/kenkeep/scripts/kk-detect-root.mjs) || exit $?
+KK_REPO_ROOT=$(
+  d=$PWD
+  until [ -f "$d/.ai/kenkeep/scripts/kk-detect-root.mjs" ]; do
+    if [ "$d" = / ]; then
+      echo 'kk-detect-root: no .ai/kenkeep/scripts/kk-detect-root.mjs in this directory or its parents.' >&2
+      exit 2
+    fi
+    d=$(dirname "$d")
+  done
+  cd "$d" && node .ai/kenkeep/scripts/kk-detect-root.mjs
+) || exit $?
 cd "$KK_REPO_ROOT" || exit $?
 pwd
 ```

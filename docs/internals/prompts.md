@@ -13,7 +13,7 @@ Two prompts decide what the knowledge base keeps. The proposal extractor turns a
 
 ## Where each prompt lives
 
-`proposal-extract.md` runs in the drain's headless driver, or inline in `/kk-curate` on Claude Code. Override it, along with `knowledge-admission.md` and `sub-agent-delegation.md`, under `.ai/kenkeep/.config/prompts/`. The skills (`kk-curate`, `kk-bootstrap`, `kk-add`, `kk-session-extract`, `kk-migrate`) run in your session, and their per-harness `SKILL.md` copy is the override. Canonical sources are `src/templates-source/skills/*/SKILL.md.hbs`. Bump the `Version:` comment on every behavior change.
+`proposal-extract.md` runs in the drain's headless driver, or inline in `/kk-curate` on Claude Code. Override it, along with `knowledge-admission.md` and `sub-agent-delegation.md`, under `.ai/kenkeep/.config/prompts/`. The skills (`kk-curate`, `kk-bootstrap`, `kk-add`, `kk-session-extract`, `kk-migrate`) run in your session, and their per-harness `SKILL.md` copy is the override. Canonical sources are `src/templates-source/skills/*/SKILL.md.hbs`. Bump the `Version:` comment on every behavior change. Prompt versions are independent of the npm version, and a prompt change goes in the release notes so users know to diff their overrides.
 
 ## The durability filter
 
@@ -81,7 +81,11 @@ flowchart TB
     CCON --> CONF[("conflicts/&lt;id&gt;.md")]
 ```
 
-The curator is the only stage that writes to `nodes/` or `conflicts/`, through two primitives. `curate-dedup` collapses duplicate actions, writes conflict files, and stamps the source logs. `curate-persist` writes every surviving add or modify and reports each result with its placement. A missing modify target or an unresolved id collision comes back as `failed`, never silently.
+The curator is the only stage that writes to `nodes/` or `conflicts/`, through deterministic primitives. The action contract is a discriminated union (`npx kenkeep schema curator-output`): `add` and `modify` carry a proposed node, `modify` also a target id, `contradict` a target id and a rationale (the proposed node is optional), `drop` an origin and a rationale.
+
+Each batch draft lists the sessions it consumed, with their transcript hashes, next to its actions. `drafts collect` merges the valid drafts into one `{ runId, batches, consumed, actions }` document. An invalid draft, or a batch that wrote none, contributes nothing, and its sessions stay pending. `curate-dedup` takes that document and validates it before any write. It collapses duplicate actions with keys namespaced per action kind, so a contradiction is never absorbed by a modify. A modify whose target has a contradiction is held as a second conflict. It writes the conflict files and stamps exactly the consumed sessions, each with the transcript version it consumed. `curate-persist` writes every surviving add or modify and reports each result with its placement. Before writing an add it looks for a leaf that already carries the action's origin with the same fields and body, and it skips a modify that would change nothing, so a rerun of the same survivors writes only what has not landed. A missing modify target or an unresolved id collision comes back as `failed`, never silently.
+
+Conflicts are resolved by `conflict prepare` (writes each open conflict's default decision into its file, nothing else) and `conflict resolve` (applies one decision; accept rewrites the target in place by id). Conflict files are `schema_version: 2`. They carry the full proposal and a `status` of `pending`, `skipped`, `accepted`, `rejected` or `kept`.
 
 ## Rebalance trigger
 
@@ -126,12 +130,16 @@ npx kenkeep schema node
 npx kenkeep validate curator-output actions.json
 ```
 
-Names: `node`, `proposed-node`, `proposal-output`, `curator-output`, `pack-manifest`.
+Names: `node`, `proposed-node`, `proposal-output`, `curator-output`, `curator-draft`, `pack-manifest`, `conflict`.
 
-Session logs carry `session_id`, `captured_by`, `proposal_status` (`pending`, `done`, `failed`, `skipped`), the extracted `proposals`, and `curator_processed_at` once curated. `ENTRY.md` and `GRAPH.md` carry `schema_version`, `node_count`, and `nodes_hash`, a `sha256` over the sorted `path\tsha256(contents)` lines of every leaf, excluding generated indexes.
+Session logs carry `session_id`, `captured_by`, `transcript_hash` / `transcript_chars` (the transcript version), `proposal_status` (`pending`, `done`, `failed`, `skipped`), the extracted `proposals`, and once curated `curator_processed_at` / `curator_run_id` with `curated_transcript_hash` / `curated_transcript_chars` naming the version consumed (see [hooks](hooks.md#transcript-versions)). `ENTRY.md` and `GRAPH.md` carry `schema_version`, `node_count`, and `nodes_hash`, a `sha256` over the sorted `path\tsha256(contents)` lines of every leaf, excluding generated indexes.
 
 ## Run logs and privacy
 
-The drain writes one stream-JSON trace per session under `_logs/proposal/`. No `result` line means the driver was killed or timed out. Curate and bootstrap leave their reasoning in the host session transcript instead.
+The drain writes one stream-JSON trace per session under `_logs/proposal/`. No `result` line means the driver was killed or timed out. Curate and bootstrap leave their reasoning in the host session transcript instead, plus per-batch JSONL traces and drafts under `_logs/curator/`.
+
+## Prompt evaluation
+
+`npm run prompt-eval -- --harness <id>` runs one headless call per frozen fixture through the same runner the drain uses, then judge calls for the fixtures that need one. Both prompts substitute the transcript or candidate literally, so `$&` and `$'` in a fixture reach the model unchanged. Large prompts go through the host's stdin channel rather than argv. Run it before bumping `proposal-extract.md` or `knowledge-admission.md`. The procedure is in [CONTRIBUTING.md](https://github.com/e0ipso/kenkeep/blob/main/CONTRIBUTING.md#prompt-evaluation).
 
 {% include callout.html variant="warning" content="Proposal logs contain the raw transcript. Treat `_logs/` like `_sessions/`. Both are gitignored." %}

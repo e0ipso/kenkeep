@@ -26,5 +26,5 @@ The Cursor adapter in this project injects the knowledge base index via `additio
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
+- Related: [map-cursor-harness-adapter](map-cursor-harness-adapter.md)
 <!-- kk:related:end -->

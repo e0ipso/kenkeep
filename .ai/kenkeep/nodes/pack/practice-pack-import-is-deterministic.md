@@ -45,10 +45,10 @@ review.
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
-- Related: [practice-determinism-contract](/index/practice-determinism-contract.md)
-- Related: [practice-skills-first-documentation-only-init-is-cli](/cli/practice-skills-first-documentation-only-init-is-cli.md)
-- Depends on: [map-knowledge-pack-format](/pack/map-knowledge-pack-format.md)
+- Related: [map-knowledge-pack-format](map-knowledge-pack-format.md)
+- Related: [practice-determinism-contract](../index/practice-determinism-contract.md)
+- Related: [practice-skills-first-documentation-only-init-is-cli](../cli/practice-skills-first-documentation-only-init-is-cli.md)
+- Depends on: [map-knowledge-pack-format](map-knowledge-pack-format.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
@@ -56,5 +56,5 @@ review.
 
 [1] [https://github.com/e0ipso/kenkeep/issues/72](https://github.com/e0ipso/kenkeep/issues/72)
 [2] [https://github.com/e0ipso/kenkeep/issues/74](https://github.com/e0ipso/kenkeep/issues/74)
-[3] [src/commands/pack-import.ts](src/commands/pack-import.ts)
+[3] [src/commands/pack-import.ts](../../../../src/commands/pack-import.ts)
 <!-- kk:citations:end -->

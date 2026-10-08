@@ -34,5 +34,5 @@ Releases are automated via [semantic-release](https://semantic-release.gitbook.i
 <!-- kk:citations:start -->
 # Citations
 
-[1] [CONTRIBUTING.md](CONTRIBUTING.md)
+[1] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
 <!-- kk:citations:end -->

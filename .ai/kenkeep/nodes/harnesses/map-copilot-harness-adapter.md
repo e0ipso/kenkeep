@@ -52,17 +52,17 @@ Session-start context injection: Copilot documents no stdout context-injection c
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
-- Related: [map-opencode-harness](/harnesses/map-opencode-harness.md)
-- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [map-codex-harness](map-codex-harness.md)
+- Related: [map-opencode-harness](map-opencode-harness.md)
+- Related: [map-cursor-harness-adapter](map-cursor-harness-adapter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
 [3] [https://github.com/github/copilot-cli](https://github.com/github/copilot-cli)
 [4] [https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference)
 <!-- kk:citations:end -->

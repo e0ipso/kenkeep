@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -1035,6 +1036,37 @@ describe('pack import command', () => {
         await git(sandbox, ['update-index', flag.replace('--', '--no-'), '--', gitPath]);
         await git(sandbox, ['checkout', '--', gitPath]);
       }
+    }
+  );
+
+  // The refusal prints one command per flag actually set: `git update-index`
+  // applies only the first of `--no-assume-unchanged --no-skip-worktree`, so a
+  // combined command would leave a skip-worktree flag in place. Running the
+  // printed commands verbatim must clear every flag.
+  it.each(['--assume-unchanged', '--skip-worktree', '--assume-unchanged --skip-worktree'])(
+    'prints commands that clear %s',
+    async spec => {
+      const flags = spec.split(' ');
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+      await commitAll(sandbox);
+      for (const flag of flags) await git(sandbox, ['update-index', flag, '--', 'AGENTS.md']);
+      expect(await git(sandbox, ['ls-files', '-v', '--', 'AGENTS.md'])).not.toMatch(/^H /);
+
+      const result = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+      expect(result.code).toBe(1);
+      const commands = [...result.stderr.matchAll(/`(git [^`]+)`/g)].map(match => match[1]!);
+      expect(commands).toHaveLength(flags.length);
+      for (const command of commands) {
+        expect(command).not.toContain('&&');
+        const argv = command.split(' ').slice(1);
+        expect(argv.slice(0, 3)).toEqual(['-C', realpathSync(sandbox), 'update-index']);
+        await git(sandbox, argv);
+      }
+      expect(await git(sandbox, ['ls-files', '-v', '--', 'AGENTS.md'])).toBe('H AGENTS.md\n');
+
+      const retry = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
     }
   );
 

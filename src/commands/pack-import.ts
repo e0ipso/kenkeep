@@ -461,6 +461,8 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
         'commit the knowledge base to a git repository first.'
     );
   }
+  const quote = (arg: string): string =>
+    /^[\w./@:+=-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
   const realRoot = realpathSync(root);
   const toTop = (path: string): string => relative(top, path).split(sep).join(posix.sep);
   const kkSpec = toTop(join(realRoot, relative(root, kkDir)));
@@ -491,12 +493,20 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
   const flagged = git(top, ['ls-files', '-v', '-z', '--', kkSpec, agentsSpec])
     .split('\0')
     .filter(entry => entry !== '' && !entry.startsWith('H '))
-    .map(entry => entry.slice(2));
+    .map(entry => ({ tag: entry[0]!, path: entry.slice(2) }));
   if (flagged.length > 0) {
+    // One command per flag: `git update-index` applies only the first of
+    // `--no-assume-unchanged --no-skip-worktree` and ignores the second.
+    const clear = flagged.flatMap(({ tag, path }) =>
+      [
+        ...(tag !== tag.toUpperCase() ? [`--no-assume-unchanged`] : []),
+        ...(tag.toUpperCase() === 'S' ? [`--no-skip-worktree`] : []),
+      ].map(option => `\`git -C ${quote(top)} update-index ${option} -- ${quote(path)}\``)
+    );
     throw new Error(
-      `${flagged.join(', ')} flagged assume-unchanged or skip-worktree, so git can neither ` +
-        'report nor undo changes to them. Clear the flag (`git update-index ' +
-        '--no-assume-unchanged --no-skip-worktree -- <path>`) and commit first.'
+      `${flagged.map(entry => entry.path).join(', ')} flagged assume-unchanged or ` +
+        'skip-worktree, so git can neither report nor undo changes to them. Clear the ' +
+        `flags with ${clear.join(', ')}, then commit first.`
     );
   }
   let agentsInHead: boolean;
@@ -506,8 +516,6 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
     throw new Error('the repository has no commit yet. Commit the knowledge base first.');
   }
 
-  const quote = (arg: string): string =>
-    /^[\w./@:+=-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
   const restorable = agentsInHead ? [kkSpec, agentsSpec] : [kkSpec];
   return [
     `git -C ${quote(top)} restore --source=HEAD --staged --worktree -- ${restorable.map(quote).join(' ')}`,

@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
@@ -159,6 +168,39 @@ describe('kk conflict prepare', () => {
     expect(c['rationale']).toBe('because c1');
     // The displayed default is recorded on the file for `conflict resolve`.
     expect(readConflictData(cwd, 'c1')['default_decision']).toBe('accept');
+  });
+
+  it('refuses a conflicts/ directory linked outside the knowledge base and writes nothing', async () => {
+    writeNode(cwd, 'practice-foo', 'line a\n');
+    writeConflict(cwd, { id: 'c1', target: 'practice-foo', proposedBody: 'line b\n' });
+    const outside = join(cwd, 'outside');
+    renameSync(join(cwd, '.ai/kenkeep/conflicts'), outside);
+    symlinkSync(outside, join(cwd, '.ai/kenkeep/conflicts'), 'dir');
+    const before = readFileSync(join(outside, 'c1.md'));
+
+    const { code, stdout, stderr } = await capture(() => runConflictPrepareCommand());
+    expect(code).toBe(1);
+    expect(stdout).toBe('');
+    expect(stderr).toContain('symlink');
+    expect(readFileSync(join(outside, 'c1.md'))).toEqual(before);
+  });
+
+  it('refuses a linked conflict file before stamping any other conflict', async () => {
+    writeNode(cwd, 'practice-a', 'line a\n');
+    writeNode(cwd, 'practice-b', 'line a\n');
+    writeConflict(cwd, { id: 'c1', target: 'practice-a', proposedBody: 'line b\n' });
+    writeConflict(cwd, { id: 'c2', target: 'practice-b', proposedBody: 'line b\n' });
+    const outside = join(cwd, 'outside.md');
+    renameSync(join(cwd, '.ai/kenkeep/conflicts/c2.md'), outside);
+    symlinkSync(outside, join(cwd, '.ai/kenkeep/conflicts/c2.md'));
+    const before = readFileSync(outside);
+
+    const { code, stderr } = await capture(() => runConflictPrepareCommand());
+    expect(code).toBe(1);
+    expect(stderr).toContain('symlink');
+    expect(readConflictData(cwd, 'c1')['default_decision']).toBeNull();
+    expect(lstatSync(join(cwd, '.ai/kenkeep/conflicts/c2.md')).isSymbolicLink()).toBe(true);
+    expect(readFileSync(outside)).toEqual(before);
   });
 
   it('computes default skip for a middling change', async () => {

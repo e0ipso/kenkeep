@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -172,6 +180,22 @@ describe('kk conflict resolve (built CLI)', () => {
     expect(readFileSync(targetFile).equals(before)).toBe(true);
     expect(leafFiles(root)).toEqual([targetFile]);
     expect(readConflict(root, 'run-1-1').data['status']).toBe(status);
+  });
+
+  it('refuses a conflicts/ directory linked outside before touching the target', async () => {
+    const targetFile = writeLeaf(root, 'topic', TARGET);
+    const before = readFileSync(targetFile);
+    writeConflict(root, { id: 'run-1-1', schemaVersion: 2 });
+    const outside = join(root, 'outside');
+    renameSync(join(root, '.ai/kenkeep/conflicts'), outside);
+    symlinkSync(outside, join(root, '.ai/kenkeep/conflicts'), 'dir');
+    const conflictBefore = readFileSync(join(outside, 'run-1-1.md'));
+
+    const res = await runCli(root, ['conflict', 'resolve', 'run-1-1', '--decision', 'accept']);
+    expect(res.exitCode).toBe(1);
+    expect(res.stderr).toContain('symlink');
+    expect(readFileSync(targetFile)).toEqual(before);
+    expect(readFileSync(join(outside, 'run-1-1.md'))).toEqual(conflictBefore);
   });
 
   it('a skipped conflict stays open: prepare lists it and it can be resolved later', async () => {

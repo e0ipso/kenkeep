@@ -10,7 +10,7 @@ import {
   type RebalanceMoveResult,
 } from '../lib/rebalance-move.js';
 import { readStdin } from '../lib/stdin.js';
-import { runIndexRebuild } from './index-rebuild.js';
+import { preflightIndexRebuild, runIndexRebuild } from './index-rebuild.js';
 
 /**
  * Deterministic, LLM-free rebalance trigger command. Reads the live tree under
@@ -86,6 +86,15 @@ export async function runRebalanceMove(opts: RebalanceMoveOptions = {}): Promise
     plan = RebalancePlanSchema.parse(JSON.parse(raw));
   } catch (err) {
     log.error(`rebalance move: invalid operation plan: ${(err as Error).message}`);
+    return 1;
+  }
+
+  // The rebuild after the moves refuses a malformed config or AGENTS.md block;
+  // refuse here instead, before a leaf moves.
+  try {
+    preflightIndexRebuild(root);
+  } catch (err) {
+    log.error(`rebalance move: ${(err as Error).message}`);
     return 1;
   }
 

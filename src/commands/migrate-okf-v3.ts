@@ -13,6 +13,7 @@ import { log } from '../lib/log.js';
 import { detectSchemaVersion } from '../lib/migrate.js';
 import { linkTargetResolver, renderGeneratedNodeSections } from '../lib/node-sections.js';
 import { INDEX_FILENAME } from '../lib/nodes.js';
+import { assertContained } from '../lib/path-safety.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { readRedirectsLedger } from '../lib/redirects.js';
 import {
@@ -81,8 +82,11 @@ interface MigrationSummary {
  * Resumable: a run interrupted after rewriting some leaves leaves a mixed
  * tree the normal readers refuse. Re-running this primitive recognizes the
  * leaves already in the v3 shape, skips them and converts the rest, so ids,
- * edges and `kk_derived_from` survive the interruption. This is the only
- * place that recognition lives; `readAllNodes` stays strict.
+ * edges and `kk_derived_from` survive the interruption. A run that failed
+ * after its final leaf conversion is resumed the same way: `runMigrateOkfV3`
+ * accepts the all-v3 tree while a v2 folder index remains or the entry
+ * catalog, written last, is not yet v3. This
+ * is the only place that recognition lives; `readAllNodes` stays strict.
  *
  * Mutates `nodesDir`. Callers that do not own the tree must copy it first.
  */
@@ -121,10 +125,11 @@ export function migrateNodesTreeToV3(
     mkdirSync(dir, { recursive: true });
     atomicWriteFile(join(dir, INDEX_FILENAME), folder.content);
   }
-  if (artifacts.entryFile !== undefined) atomicWriteFile(artifacts.entryFile, index.rootCatalog);
   if (artifacts.graphFile !== undefined) {
     atomicWriteFile(artifacts.graphFile, generateGraph(nodesDir).content);
   }
+  // Last write: a v3 entry catalog marks the run finished (see `runMigrateOkfV3`).
+  if (artifacts.entryFile !== undefined) atomicWriteFile(artifacts.entryFile, index.rootCatalog);
 
   return {
     converted: outputs.length,
@@ -134,11 +139,42 @@ export function migrateNodesTreeToV3(
   };
 }
 
+/**
+ * True when every leaf is already v3 but the run that converted them never
+ * finished its outputs: an earlier run converted the final leaf and then
+ * failed writing the indexes, GRAPH.md or ENTRY.md. The evidence is a folder
+ * index still in the v2 shape (v3 folder indexes carry no `schema_version`),
+ * or an entry catalog, the migration's last write, that is missing or older
+ * than v3. Re-running completes those outputs and leaves the converted leaf
+ * bytes alone.
+ */
+function isUnfinishedMigration(
+  current: number | null,
+  nodesDir: string,
+  entryFile: string
+): boolean {
+  if (current !== NODE_SCHEMA_VERSION) return false;
+  const schemaVersionOf = (file: string): unknown =>
+    (matter(readFileSync(file, 'utf8')).data as Record<string, unknown>).schema_version;
+  if (!existsSync(entryFile) || schemaVersionOf(entryFile) !== NODE_SCHEMA_VERSION) return true;
+  const hasV2Index = (dir: string): boolean =>
+    readdirSyncSorted(dir).some(entry => {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) return hasV2Index(full);
+      return entry.name === INDEX_FILENAME && schemaVersionOf(full) !== undefined;
+    });
+  return hasV2Index(nodesDir);
+}
+
 export async function runMigrateOkfV3(): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
+  const entryFile = join(paths.kkDir, 'ENTRY.md');
   const current = detectSchemaVersion(paths.nodesDir);
-  if (current !== LEGACY_NODE_SCHEMA_VERSION) {
+  if (
+    current !== LEGACY_NODE_SCHEMA_VERSION &&
+    !isUnfinishedMigration(current, paths.nodesDir, entryFile)
+  ) {
     log.error(
       `migrate okf-v3: refusing to run: expected schema_version ${LEGACY_NODE_SCHEMA_VERSION}, ` +
         `detected ${current === null ? 'none' : current}. Run \`kenkeep migrate status\` for the pending chain.`
@@ -149,7 +185,7 @@ export async function runMigrateOkfV3(): Promise<number> {
   let summary: MigrationSummary;
   try {
     summary = migrateNodesTreeToV3(paths.nodesDir, {
-      entryFile: join(paths.kkDir, 'ENTRY.md'),
+      entryFile,
       graphFile: join(paths.kkDir, 'GRAPH.md'),
     });
   } catch (err) {
@@ -168,8 +204,9 @@ export async function runMigrateOkfV3(): Promise<number> {
  * Reads every leaf of the tree for the migration: a v2 leaf has its v3
  * frontmatter resolved in memory (`pending`), a leaf already in the current
  * v3 shape is kept as is (`converted`), and anything else is a failure. All
- * failures — unreadable frontmatter, an id the v3 schema rejects, two leaves
- * sharing an id — are aggregated and thrown before any write.
+ * failures (unreadable frontmatter, an id the v3 schema rejects, two leaves
+ * sharing an id, a symlinked leaf or index.md the run would replace) are
+ * aggregated and thrown before any write.
  */
 function readMigrationLeaves(nodesDir: string): MigrationLeaf[] {
   if (!existsSync(nodesDir)) return [];
@@ -184,11 +221,22 @@ function readMigrationLeaves(nodesDir: string): MigrationLeaf[] {
         walk(full);
         continue;
       }
-      if (!entry.name.endsWith('.md') || entry.name === INDEX_FILENAME) continue;
+      if (!entry.name.endsWith('.md')) continue;
+      if (entry.name === INDEX_FILENAME) {
+        // Every folder index is regenerated; a symlink there would be replaced.
+        const unsafe = uncontainedReason(nodesDir, full);
+        if (unsafe !== null) failures.push(unsafe);
+        continue;
+      }
       const relPath = relative(nodesDir, full).split(sep).join(posix.sep);
       const parsed = matter(readFileSync(full, 'utf8'));
       const v2 = V2NodeFrontmatterSchema.safeParse(parsed.data);
       if (v2.success) {
+        const unsafe = uncontainedReason(nodesDir, full);
+        if (unsafe !== null) {
+          failures.push(unsafe);
+          continue;
+        }
         const v3 = v2ToV3Frontmatter(v2.data);
         if (!v3.success) {
           failures.push(`${full}: cannot convert to v3: ${issuesOf(v3.error)}`);
@@ -238,6 +286,16 @@ function readMigrationLeaves(nodesDir: string): MigrationLeaf[] {
     throw new Error(`refusing to migrate; fix these before re-running:\n${failures.join('\n')}`);
   }
   return leaves;
+}
+
+/** The containment boundary's refusal for a path the run will rewrite, or null. */
+function uncontainedReason(nodesDir: string, path: string): string | null {
+  try {
+    assertContained(nodesDir, path);
+    return null;
+  } catch (err) {
+    return (err as Error).message;
+  }
 }
 
 function readdirSyncSorted(dir: string): Dirent[] {

@@ -124,8 +124,8 @@ const PlacementInputSchema = z.object({
  * placement-and-folders JSON document (from `--input` or stdin),
  * validates every proposed id against the leaves actually on disk (each placed
  * exactly once) and every authored folder summary against the folders the
- * placements create, then resolves the complete intended output tree — all
- * BEFORE any write — then relocates each leaf with its id and bytes preserved
+ * placements create, then resolves the complete intended output tree (all
+ * BEFORE any write), then relocates each leaf with its id and bytes preserved
  * and stamps the authored folder summaries. A bad plan (unknown/omitted/
  * duplicated id, a destination conflict, or a summary keyed to an uncreated
  * folder) aborts with a clear message and makes zero filesystem changes. The

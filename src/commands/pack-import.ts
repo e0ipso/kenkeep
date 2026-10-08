@@ -25,7 +25,7 @@ import {
   OldLayoutError,
   readAllNodes,
 } from '../lib/nodes.js';
-import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findKenkeepRoot, repoPaths } from '../lib/paths.js';
 import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 
 const exec = promisify(execFile);
@@ -106,6 +106,7 @@ export async function runPackImportCommand(
       return 1;
     }
 
+    assertDefaultNodesRoot(paths);
     const destinationDir = join(paths.nodesDir, destinationName);
     if (existsSync(destinationDir)) {
       log.error(

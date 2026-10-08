@@ -43,13 +43,13 @@ The other two lint checks produce findings (not errors):
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-nodes-directory](/node-schema/map-nodes-directory.md)
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [map-nodes-directory](map-nodes-directory.md)
+- Related: [map-node-frontmatter](map-node-frontmatter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [README.md](README.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [README.md](../../../../README.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

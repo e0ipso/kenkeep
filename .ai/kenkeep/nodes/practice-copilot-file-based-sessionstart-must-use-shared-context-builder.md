@@ -27,6 +27,6 @@ That file-based bridge is only the transport. It must still use `buildSessionSta
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-copilot-harness-adapter](/harnesses/map-copilot-harness-adapter.md)
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
+- Related: [map-copilot-harness-adapter](harnesses/map-copilot-harness-adapter.md)
+- Related: [map-session-start-hook](hooks/map-session-start-hook.md)
 <!-- kk:related:end -->

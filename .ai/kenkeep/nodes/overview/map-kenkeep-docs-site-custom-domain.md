@@ -26,11 +26,11 @@ The repository Pages settings own the custom domain, so the docs tree does not n
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-kenkeep-package](/overview/map-kenkeep-package.md)
+- Related: [map-kenkeep-package](map-kenkeep-package.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [3b7523b7-c758-4524-8c4f-b1263c500087:map:0](3b7523b7-c758-4524-8c4f-b1263c500087:map:0)
+[1] 3b7523b7-c758-4524-8c4f-b1263c500087:map:0
 <!-- kk:citations:end -->

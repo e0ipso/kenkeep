@@ -40,14 +40,14 @@ Without the guard, a launcher's nested harness session would fire its own Sessio
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
+- Related: [map-capture-hook](map-capture-hook.md)
+- Related: [map-proposal-drain-hook](map-proposal-drain-hook.md)
+- Related: [map-session-start-hook](map-session-start-hook.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/hooks.md](docs/internals/hooks.md)
-[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+[1] [docs/internals/hooks.md](../../../../docs/internals/hooks.md)
+[2] [docs/troubleshooting.md](../../../../docs/troubleshooting.md)
 <!-- kk:citations:end -->

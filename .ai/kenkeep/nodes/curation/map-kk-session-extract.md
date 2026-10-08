@@ -28,13 +28,13 @@ The skill is for sessions that have just produced durable project knowledge and 
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-session-log-stage-live](/state/map-session-log-stage-live.md)
-- Related: [map-curate-dedup-scoped-session-mode](/map-curate-dedup-scoped-session-mode.md)
-- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-session-log-stage-live](../state/map-session-log-stage-live.md)
+- Related: [map-curate-dedup-scoped-session-mode](map-curate-dedup-scoped-session-mode.md)
+- Related: [map-curate-command](map-curate-command.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [4c12545c-3224-4602-8b5a-14c752d26975:map:1](4c12545c-3224-4602-8b5a-14c752d26975:map:1)
+[1] 4c12545c-3224-4602-8b5a-14c752d26975:map:1
 <!-- kk:citations:end -->

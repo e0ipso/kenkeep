@@ -31,7 +31,8 @@
     "kenkeep": "./dist/cli.js"
   },
   "files": [
-    "dist",
+    "dist/cli.js",
+    "dist/cli.js.map",
     "templates",
     "README.md",
     "LICENSE"
@@ -56,6 +57,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
     "commitlint": "commitlint --edit",
     "security:audit": "npm audit",
     "security:audit-json": "npm audit --json",
@@ -69,11 +71,11 @@
     "execa": "^9.5.2",
     "gray-matter": "^4.0.3",
     "ignore": "^7.0.5",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.2",
     "picocolors": "^1.1.1",
     "picomatch": "^4.0.4",
     "proper-lockfile": "^4.1.2",
-    "smol-toml": "^1.6.1",
+    "smol-toml": "^1.9.0",
     "split2": "^4.2.0",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.25.2"

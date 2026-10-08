@@ -39,16 +39,16 @@ Codex exports no in-session env var, so harness identity must be passed explicit
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
-- Related: [map-kenkeep-directory](/overview/map-kenkeep-directory.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [map-capture-hook](../hooks/map-capture-hook.md)
+- Related: [map-kenkeep-directory](../overview/map-kenkeep-directory.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/installation/codex-toml-hooks-coexistence.md](docs/installation/codex-toml-hooks-coexistence.md)
-[3] [docs/how-it-works.md](docs/how-it-works.md)
-[4] [7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:1](7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:1)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/installation/codex-toml-hooks-coexistence.md](../../../../docs/installation/codex-toml-hooks-coexistence.md)
+[3] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[4] 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:1
 <!-- kk:citations:end -->

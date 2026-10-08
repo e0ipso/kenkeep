@@ -47,14 +47,14 @@ Official docs: [Hooks](https://cursor.com/docs/hooks), [Third Party Hooks](https
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
 [3] [https://cursor.com/docs/hooks](https://cursor.com/docs/hooks)
 [4] [https://cursor.com/docs/cli/using](https://cursor.com/docs/cli/using)
 <!-- kk:citations:end -->

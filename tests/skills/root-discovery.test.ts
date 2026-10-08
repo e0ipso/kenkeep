@@ -30,3 +30,10 @@ describe('shipped kk skills root discovery', () => {
     }
   });
 });
+
+describe('shipped kk-curate batch agent prompt', () => {
+  it('carries its own Version comment', () => {
+    const text = readFileSync(join(skillsDir, 'kk-curate', 'batch-agent-prompt.md'), 'utf8');
+    expect(text).toMatch(/^<!--\n {2}Version: 1\n/m);
+  });
+});

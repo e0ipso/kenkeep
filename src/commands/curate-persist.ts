@@ -12,12 +12,7 @@ import {
 import { placeLeaf } from '../lib/leaf-placement.js';
 import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
 import { modifyNodeInPlace } from '../lib/node-modify.js';
-import {
-  CITATIONS_SECTION_END,
-  CITATIONS_SECTION_START,
-  RELATED_SECTION_END,
-  RELATED_SECTION_START,
-} from '../lib/node-sections.js';
+import { stripGeneratedSections } from '../lib/node-sections.js';
 import { resolveContainedDir, tryNormalizeFolderKey } from '../lib/path-safety.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
 import { readStdin } from '../lib/stdin.js';
@@ -189,26 +184,14 @@ function planAdd(
   return { frontmatter: checked.data, relDir, derived };
 }
 
-/** `text` without the generated section between `start` and `end`, if it carries one. */
-function stripSection(text: string, start: string, end: string): string {
-  const from = text.indexOf(start);
-  if (from === -1) return text;
-  const to = text.indexOf(end, from);
-  if (to === -1) return text;
-  return `${text.slice(0, from).trimEnd()}\n${text.slice(to + end.length).trimStart()}`;
-}
-
 /**
  * The part of a leaf body only the proposal determines. The node writer
  * appends generated Related and Citations sections derived from the
- * frontmatter and the tree, so they are dropped before bodies are compared.
+ * frontmatter and the tree, so they are dropped before bodies are compared,
+ * with the writer's own scanner: markers quoted in prose are authored text.
  */
 function authoredBody(body: string): string {
-  return stripSection(
-    stripSection(body, RELATED_SECTION_START, RELATED_SECTION_END),
-    CITATIONS_SECTION_START,
-    CITATIONS_SECTION_END
-  ).trim();
+  return stripGeneratedSections(body).trim();
 }
 
 /**

@@ -169,7 +169,7 @@ export async function runConflictResolveCommand(
     decided_at: decidedAt,
   };
   try {
-    writeConflictFile(file, updated);
+    writeConflictFile(conflictsDir, file, updated);
   } catch (err) {
     return fail(
       `decision applied to the target but the conflict file could not be updated: ${(err as Error).message}`

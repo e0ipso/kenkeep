@@ -164,6 +164,22 @@ export function renderGeneratedNodeSections(
   );
 }
 
+/**
+ * `body` without its generated Related and Citations sections, located the
+ * same way the node writer locates them (`locateDelimitedSection`). A marker
+ * quoted inline or inside a fenced block is authored prose and stays; a
+ * malformed layout is left as it is, because which part is generated cannot
+ * be told.
+ */
+export function stripGeneratedSections(body: string): string {
+  return spliceDelimitedSection(
+    spliceDelimitedSection(body, RELATED_SECTION_START, RELATED_SECTION_END, ''),
+    CITATIONS_SECTION_START,
+    CITATIONS_SECTION_END,
+    ''
+  );
+}
+
 /** One generated section present in a leaf body whose bytes differ from a fresh render. */
 export interface SectionDrift {
   section: 'Related' | 'Citations';

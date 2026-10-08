@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { atomicWriteFile } from './fs-atomic.js';
 import matter from 'gray-matter';
 import { deriveNodeId } from './nodes.js';
+import { withSessionLogLock } from './session-log.js';
 import {
   type CuratorAction,
   type CuratorContradictAction,
@@ -115,24 +116,36 @@ export interface SessionStamp {
  * `curationState`): the new turns stay pending for the next run, the prefix
  * up to `curated_transcript_chars` stays out of extraction, and the writes
  * already made are not stranded by refusing the stamp.
+ *
+ * Each read and rename holds the session log lock shared with capture and
+ * proposal write-back. Without it, a capture landing between the read and
+ * the rename would be replaced by the older transcript read here.
  */
-export function markSessionsProcessed(stamps: SessionStamp[], runId: string, now: Date): void {
+export async function markSessionsProcessed(
+  stamps: SessionStamp[],
+  runId: string,
+  now: Date
+): Promise<void> {
   for (const stamp of stamps) {
-    const parsed = matter(readFileSync(stamp.path, 'utf8'));
-    const data = { ...(parsed.data as Record<string, unknown>) };
-    data['curator_processed_at'] = now.toISOString();
-    data['curator_run_id'] = runId;
-    data['curated_transcript_hash'] = stamp.transcript_hash;
-    if (typeof stamp.transcript_chars === 'number') {
-      data['curated_transcript_chars'] = stamp.transcript_chars;
-    } else {
-      delete data['curated_transcript_chars'];
-    }
-    const serialized = matter.stringify(parsed.content, data);
-    // tmp+rename: a crash mid-write must not truncate the session log into an
-    // unparseable file the next sweep would silently drop.
-    atomicWriteFile(stamp.path, serialized);
+    await withSessionLogLock(stamp.path, () => stampSession(stamp, runId, now));
   }
+}
+
+function stampSession(stamp: SessionStamp, runId: string, now: Date): void {
+  const parsed = matter(readFileSync(stamp.path, 'utf8'));
+  const data = { ...(parsed.data as Record<string, unknown>) };
+  data['curator_processed_at'] = now.toISOString();
+  data['curator_run_id'] = runId;
+  data['curated_transcript_hash'] = stamp.transcript_hash;
+  if (typeof stamp.transcript_chars === 'number') {
+    data['curated_transcript_chars'] = stamp.transcript_chars;
+  } else {
+    delete data['curated_transcript_chars'];
+  }
+  const serialized = matter.stringify(parsed.content, data);
+  // tmp+rename: a crash mid-write must not truncate the session log into an
+  // unparseable file the next sweep would silently drop.
+  atomicWriteFile(stamp.path, serialized);
 }
 
 /**

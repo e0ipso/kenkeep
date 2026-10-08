@@ -143,7 +143,7 @@ async function main(): Promise<void> {
   program
     .command('curate-dedup')
     .description(
-      'Deterministic curator dedup primitive: validates the dedup input document ({ actions, consumed } as printed by `drafts collect`; --input or stdin), dedups, mints conflict ids, writes conflict files and stamps exactly the consumed session logs. Pure Node — no LLM.'
+      'Deterministic curator dedup primitive: validates the dedup input document ({ actions, consumed } as printed by `drafts collect`; --input or stdin), dedups, mints conflict ids, writes conflict files and stamps exactly the consumed session logs. Pure Node, no LLM.'
     )
     .option(
       '--input <path>',

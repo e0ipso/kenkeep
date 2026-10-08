@@ -290,7 +290,7 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
       }
     }
     if (stamps.length > 0) {
-      markSessionsProcessed(stamps, runId, now);
+      await markSessionsProcessed(stamps, runId, now);
     }
   } catch (err) {
     log.error(`curate dedup: write failed: ${(err as Error).message}`);

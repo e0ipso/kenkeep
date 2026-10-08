@@ -2,10 +2,12 @@ import { execFile } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -230,4 +232,80 @@ describe('migrate okf-v3', () => {
       expect(readFolderSummaries(nodesDir(sandbox)).get('a')).toBe('a legacy summary');
     }
   );
+  // Locking the nodes/ root lets the leaf in topic/ convert, then fails the
+  // first index write. Every leaf is v3 afterwards, so only the unfinished
+  // outputs (a v2 folder index, or an entry catalog not yet v3) say the step
+  // is still due. Root ignores directory modes.
+  it.skipIf(process.getuid?.() === 0).each([
+    ['a v2 folder index remains', 'index'],
+    ['the entry catalog is still v2', 'entry'],
+  ])('resumes after the final leaf converted when %s', async (_label, marker) => {
+    writeV2Node(sandbox, 'topic', 'practice', 'practice-one');
+    if (marker === 'index') {
+      writeV2Index(sandbox, 'topic', 'topic legacy summary');
+    } else {
+      writeFileSync(
+        join(sandbox, '.ai/kenkeep/ENTRY.md'),
+        matter.stringify('# Legacy entry\n', { schema_version: 2, nodes_hash: 'sha256:legacy' })
+      );
+    }
+    const leaf = join(nodesDir(sandbox), 'topic', 'practice-one.md');
+
+    let failed;
+    chmodSync(nodesDir(sandbox), 0o555);
+    try {
+      failed = await runCli(sandbox, ['migrate', 'okf-v3']);
+    } finally {
+      chmodSync(nodesDir(sandbox), 0o755);
+    }
+    expect(failed.exitCode).toBe(1);
+    expect(failed.stderr).toMatch(/EACCES|permission denied/i);
+    expect(failed.stderr).toMatch(/re-run/i);
+    const converted = readFileSync(leaf, 'utf8');
+    expect(matter(converted).data).toMatchObject({ kk_schema_version: 3 });
+
+    const resumed = await runCli(sandbox, ['migrate', 'okf-v3']);
+    expect(resumed.stderr).toBe('');
+    expect(resumed.exitCode).toBe(0);
+    expect(JSON.parse(resumed.stdout.trim())).toMatchObject({
+      converted: 0,
+      already_converted: 1,
+    });
+    expect(readFileSync(leaf, 'utf8')).toBe(converted);
+    expect(
+      matter(readFileSync(join(sandbox, '.ai/kenkeep/ENTRY.md'), 'utf8')).data.schema_version
+    ).toBe(3);
+    expect(matter(readFileSync(join(nodesDir(sandbox), 'topic', 'index.md'), 'utf8')).data).toEqual(
+      {}
+    );
+    if (marker === 'index') {
+      expect(readFolderSummaries(nodesDir(sandbox)).get('topic')).toBe('topic legacy summary');
+    }
+
+    // Finished: the step gate refuses again.
+    const again = await runCli(sandbox, ['migrate', 'okf-v3']);
+    expect(again.exitCode).toBe(1);
+    expect(again.stderr).toMatch(/expected schema_version 2, detected 3/);
+  });
+
+  it('refuses a symlinked v2 leaf before any write and keeps the link', async () => {
+    writeV2Node(sandbox, 'topic', 'practice', 'practice-plain');
+    writeV2Node(sandbox, 'topic', 'practice', 'practice-linked');
+    const link = join(nodesDir(sandbox), 'topic', 'practice-linked.md');
+    const outside = join(sandbox, 'outside.md');
+    writeFileSync(outside, readFileSync(link));
+    rmSync(link);
+    symlinkSync(outside, link);
+    const outsideBytes = readFileSync(outside, 'utf8');
+    const before = treeBytes(sandbox);
+
+    const result = await runCli(sandbox, ['migrate', 'okf-v3']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.trim()).toBe('');
+    expect(result.stderr).toMatch(/crosses the symlink/);
+
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readFileSync(outside, 'utf8')).toBe(outsideBytes);
+    expect(treeBytes(sandbox)).toEqual(before);
+  });
 });

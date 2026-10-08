@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync } fr
 import { join, posix } from 'node:path';
 import { z } from 'zod';
 import { atomicWriteFile } from './fs-atomic.js';
-import { normalizeFolderKey, resolveContainedDir } from './path-safety.js';
+import { assertContained, normalizeFolderKey, resolveContainedDir } from './path-safety.js';
 import {
   deriveNodeId,
   ensureUniqueId,
@@ -301,6 +301,10 @@ class SimulatedTree {
       throw new Error(`rebalance: leaf "${id}" already lives at ${to}`);
     }
     this.assertVacant(to);
+    // The move reads the source, removes it and writes the destination: none
+    // of the three may go through a symlink.
+    assertContained(this.nodesDir, leaf.absPath);
+    assertContained(this.nodesDir, this.abs(to));
     const from = leaf.relPath;
     const srcAbs = leaf.absPath;
     this.byPath.delete(from);
@@ -312,6 +316,7 @@ class SimulatedTree {
 
   retire(id: string): SimLeaf {
     const leaf = this.leaf(id);
+    assertContained(this.nodesDir, leaf.absPath);
     this.byId.delete(id);
     this.byPath.delete(leaf.relPath);
     this.vacated.add(leaf.relPath);
@@ -327,6 +332,7 @@ class SimulatedTree {
 
   add(leaf: SimLeaf): void {
     this.assertVacant(leaf.relPath);
+    assertContained(this.nodesDir, leaf.absPath);
     this.insert(leaf);
   }
 }
@@ -429,7 +435,8 @@ function resolveSplitLeaf(
 
 /**
  * Validate and resolve a whole plan against a simulated tree without touching
- * disk: every folder is containment-checked, every id resolved at the path an
+ * disk: every folder, source leaf and destination is containment-checked (no
+ * symlinked segment or leaf), every id resolved at the path an
  * earlier operation leaves it, every split-leaf child id minted and its path
  * reserved, duplicate split groups and destination conflicts rejected. Throws
  * on the first problem; a thrown preflight guarantees zero changes on disk.

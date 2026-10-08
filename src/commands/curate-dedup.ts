@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { atomicWriteFile, atomicWriteJson } from '../lib/fs-atomic.js';
-import { assertConflictWritable, renderConflictFile } from '../lib/conflicts.js';
+import {
+  assertConflictWritable,
+  conflictsLocation,
+  renderConflictFile,
+  type ConflictsLocation,
+} from '../lib/conflicts.js';
 import {
   dedupActions,
   markSessionsProcessed,
@@ -91,7 +96,7 @@ async function readInput(input: string | undefined): Promise<string> {
 function planConflictWrites(
   actions: CuratorAction[],
   runId: string,
-  conflictsDir: string,
+  location: ConflictsLocation,
   now: Date
 ): { survivors: CuratorAction[]; conflicts: PlannedConflict[] } {
   const survivors: CuratorAction[] = [];
@@ -128,7 +133,7 @@ function planConflictWrites(
       // check is the write-boundary guarantee that no conflict file lands
       // outside conflicts/ or through a link, regardless of how the id was
       // minted. Planning runs before any write, so a refusal writes nothing.
-      filePath: assertConflictWritable(conflictsDir, join(conflictsDir, `${id}.md`)),
+      filePath: assertConflictWritable(location, join(location.dir, `${id}.md`)),
       serialized: renderConflictFile(frontmatter),
     });
   }
@@ -210,7 +215,7 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
   const root = findRepoRoot();
   const paths = repoPaths(root);
   const sessionsDir = opts.sessionsDir ?? paths.sessionsDir;
-  const conflictsDir = opts.conflictsDir ?? paths.conflictsDir;
+  const location = conflictsLocation(root, paths.conflictsDir, opts.conflictsDir);
   // A caller-supplied run id names conflict files and session stamps, so it is
   // validated as a single safe filename segment before anything is read or
   // written (`--run-id ../../x` would otherwise plan a path outside conflicts/).
@@ -274,7 +279,7 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
   const now = opts.now ?? new Date();
   let planned: ReturnType<typeof planConflictWrites>;
   try {
-    planned = planConflictWrites(merged, runId, conflictsDir, now);
+    planned = planConflictWrites(merged, runId, location, now);
   } catch (err) {
     log.error(`curate dedup: ${(err as Error).message}`);
     return 1;
@@ -293,7 +298,7 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
       atomicWriteJson(outAbs, survivors);
     }
     if (conflicts.length > 0) {
-      mkdirSync(conflictsDir, { recursive: true });
+      mkdirSync(location.dir, { recursive: true });
       for (const c of conflicts) {
         atomicWriteFile(c.filePath, c.serialized);
       }

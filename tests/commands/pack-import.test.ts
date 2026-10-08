@@ -999,6 +999,98 @@ describe('pack import command', () => {
     expect(noGit.stderr).toContain('not inside a git work tree');
   });
 
+  // `git status` hides edits to a path flagged assume-unchanged or
+  // skip-worktree, and the printed `git restore` either overwrites such an
+  // edit or skips the path. Import refuses any flagged path it may write.
+  it.each(['--assume-unchanged', '--skip-worktree'])(
+    'refuses to start when a protected path is flagged %s',
+    async flag => {
+      writeProjectNode(sandbox, 'base', 'practice', 'practice-consumer-base');
+      await commitAll(sandbox);
+      const kkDir = join(sandbox, '.ai/kenkeep');
+      const agents = join(sandbox, 'AGENTS.md');
+      const leaf = join(kkDir, 'nodes/base/practice-consumer-base.md');
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      for (const [file, gitPath] of [
+        [agents, 'AGENTS.md'],
+        [leaf, '.ai/kenkeep/nodes/base/practice-consumer-base.md'],
+      ] as const) {
+        await git(sandbox, ['update-index', flag, '--', gitPath]);
+        const edited = `${readFileSync(file, 'utf8')}UNCOMMITTED_FACT\n`;
+        writeFileSync(file, edited);
+        expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+        const flags = await git(sandbox, ['ls-files', '-v']);
+
+        const result = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain(gitPath);
+        expect(result.stderr).toContain('assume-unchanged or skip-worktree');
+        expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(false);
+        expect(readFileSync(file, 'utf8')).toBe(edited);
+        expect(await git(sandbox, ['ls-files', '-v'])).toBe(flags);
+        expect(await git(sandbox, ['diff', '--cached', '--name-only'])).toBe('');
+
+        await git(sandbox, ['update-index', flag.replace('--', '--no-'), '--', gitPath]);
+        await git(sandbox, ['checkout', '--', gitPath]);
+      }
+    }
+  );
+
+  // Every file the graft and its rebuild would write is checked against the
+  // containment boundary first: a symlink at any of them is refused before
+  // the first byte lands, instead of being replaced by a regular file.
+  it.each([
+    'nodes/.redirects.json',
+    'FOLDER_SUMMARIES.md',
+    'ENTRY.md',
+    'GRAPH.md',
+    'nodes/index.md',
+    'nodes/base/index.md',
+    'nodes/base/practice-consumer-base.md',
+  ])('refuses to graft when %s is a symlink', async artifact => {
+    const kkDir = join(sandbox, '.ai/kenkeep');
+    const consumerNodes = join(kkDir, 'nodes');
+    writeNodeFile({
+      nodesDir: consumerNodes,
+      frontmatter: leafFrontmatter('practice', 'practice-consumer-base', {
+        kk_relates_to: ['practice-retired'],
+      }),
+      body: '# Base',
+      relDir: 'base',
+    });
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    writePackNode(packRoot, 'framework', 'practice', 'practice-new');
+    writeRedirectsLedger(join(packRoot, PACK_KNOWLEDGE_DIRNAME), {
+      'practice-retired': ['practice-new'],
+    });
+    const link = join(kkDir, artifact);
+    const external = join(sandbox, 'user-owned', basename(artifact));
+    mkdirSync(dirname(external), { recursive: true });
+    const absent = artifact.endsWith('.json')
+      ? '{}\n'
+      : '---\nschema_version: 1\nsummaries: {}\n---\n# Summaries\n';
+    writeFileSync(external, existsSync(link) ? readFileSync(link) : absent);
+    rmSync(link, { force: true });
+    symlinkSync(external, link);
+    const target = readFileSync(external);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('nothing was imported');
+    expect(result.stderr).toContain(link);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external)).toEqual(target);
+    expect(existsSync(join(consumerNodes, 'drupal'))).toBe(false);
+    expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+  });
+
   /**
    * A consumer with generated catalogs and a stale owned index the next
    * rebuild would remove: the state a failed nested rebuild must put back.

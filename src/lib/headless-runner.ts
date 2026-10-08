@@ -1,7 +1,7 @@
 import { execa } from 'execa';
-import { createWriteStream, mkdirSync } from 'node:fs';
+import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs';
 import { dirname } from 'node:path';
-import type { Readable } from 'node:stream';
+import { finished, type Readable } from 'node:stream';
 import split2 from 'split2';
 import type { ZodSchema } from 'zod';
 import type { HeadlessRunOptions } from '../harnesses/types.js';
@@ -89,6 +89,11 @@ interface ChildOutcome {
  * Spawns the host CLI with the recursion guard set, streams stdout line by
  * line into `spec.onLine`, mirrors the stream into `opts.logFile` and
  * throws on timeout or non-zero exit (with a stderr tail when available).
+ *
+ * A log file that cannot be opened rejects before the host starts. A failed
+ * mirror write stops the host and rejects once the child has exited, so a
+ * logging fault surfaces as a runner error instead of an unhandled stream
+ * `error` event.
  */
 export async function spawnHeadless(
   spec: HeadlessSpawnSpec,
@@ -100,10 +105,13 @@ export async function spawnHeadless(
     [RECURSION_GUARD_ENV]: '1',
   };
 
-  let logStream: ReturnType<typeof createWriteStream> | null = null;
+  let logStream: WriteStream | null = null;
   if (opts.logFile) {
-    mkdirSync(dirname(opts.logFile), { recursive: true });
-    logStream = createWriteStream(opts.logFile, { encoding: 'utf8', flags: 'a' });
+    try {
+      logStream = await openLogStream(opts.logFile);
+    } catch (err) {
+      throw new Error(`${spec.label} log file could not be opened: ${errorMessage(err)}`);
+    }
   }
 
   const stderrChunks: string[] = [];
@@ -116,6 +124,11 @@ export async function spawnHeadless(
     stderr: 'pipe',
     reject: false,
     ...(opts.cwd ? { cwd: opts.cwd } : {}),
+  });
+  let logError: unknown;
+  logStream?.on('error', err => {
+    logError ??= err;
+    proc.kill();
   });
   const stdout = proc.stdout as Readable;
   const stderr = proc.stderr as Readable | null;
@@ -138,7 +151,7 @@ export async function spawnHeadless(
   splitter.on('data', (line: string) => {
     const trimmed = line.trim();
     if (trimmed.length === 0) return;
-    if (logStream) logStream.write(`${trimmed}\n`);
+    if (logStream && logError === undefined) logStream.write(`${trimmed}\n`);
     spec.onLine(trimmed);
   });
   const streamDone = new Promise<void>((resolve, reject) => {
@@ -151,11 +164,12 @@ export async function spawnHeadless(
     const [r] = await Promise.all([outcomePromise, streamDone]);
     outcome = r;
   } finally {
-    if (logStream) {
-      await new Promise<void>(resolve => logStream!.end(resolve));
-    }
+    if (logStream) await closeLogStream(logStream);
   }
 
+  if (logError !== undefined) {
+    throw new Error(`${spec.label} log mirror failed: ${errorMessage(logError)}`);
+  }
   if (outcome.timedOut) {
     throw new Error(`${spec.label} subprocess timed out after ${timeoutMs}ms`);
   }
@@ -205,6 +219,35 @@ export function validateHeadlessJson<T>(
     throw new Error(`${role} output did not match schema: ${validated.error.message}`);
   }
   return validated.data;
+}
+
+/** Opens the append-mode mirror and waits until the descriptor exists. */
+async function openLogStream(file: string): Promise<WriteStream> {
+  mkdirSync(dirname(file), { recursive: true });
+  const stream = createWriteStream(file, { encoding: 'utf8', flags: 'a' });
+  await new Promise<void>((resolve, reject) => {
+    stream.once('error', reject);
+    stream.once('open', () => {
+      stream.off('error', reject);
+      resolve();
+    });
+  });
+  return stream;
+}
+
+/**
+ * Flushes and closes the mirror. A flush error reaches the stream's `error`
+ * listener; this only waits for the stream to settle either way.
+ */
+function closeLogStream(stream: WriteStream): Promise<void> {
+  return new Promise<void>(resolve => {
+    if (!stream.destroyed) stream.end();
+    finished(stream, () => resolve());
+  });
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function tailString(s: string, maxChars: number): string {

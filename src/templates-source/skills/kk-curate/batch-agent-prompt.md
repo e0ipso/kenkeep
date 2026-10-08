@@ -1,5 +1,10 @@
 # kk-curate batch agent prompt
 
+<!--
+  Version: 1
+  Shipped with kk-curate. Bump on any change to the prompt or its draft contract.
+-->
+
 Read this before dispatching a drafting sub-agent on the parallel path (Step 2). Dispatch each sub-agent with the instructions below, substituting `<list>` (the batch's absolute session-file paths) and `<DRAFT_PATH>` (its predetermined absolute output path). The action-rule restatement is inlined so the sub-agent does not need to read the parent skill.
 
 > You are drafting curator actions for ONE batch of pending session logs.

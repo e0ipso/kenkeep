@@ -4,7 +4,7 @@ import { codexDoctorChecks } from './doctor.js';
 import { runHeadlessCodex } from './headless.js';
 import { codexHookSpecs } from './hook-spec.js';
 import { codexPaths, installCodex } from './install.js';
-import { buildCodexHarnessOpts } from './opts.js';
+import { buildCodexHarnessOpts, codexLaunchModelArgs } from './opts.js';
 import { parseCodexTranscript, renderCodexTranscript } from './transcript.js';
 
 /**
@@ -25,10 +25,10 @@ export const codexAdapter: HarnessAdapter = {
   upgrade: opts => installCodex(opts),
   parseTranscript: parseCodexTranscript,
   renderTranscript: renderCodexTranscript,
-  runHeadless: (promptBody, stdin, schema, opts) =>
-    runHeadlessCodex(promptBody, stdin, schema, opts ?? {}),
+  runHeadless: (promptBody, schema, opts) => runHeadlessCodex(promptBody, schema, opts ?? {}),
   buildHarnessOpts: (settings: EffectiveSettings, role: ModelChoiceRole) =>
     buildCodexHarnessOpts(settings, role),
+  launchModelArgs: codexLaunchModelArgs,
   doctorChecks: paths => codexDoctorChecks(paths),
   // Codex CLI has no native auto-memory feature today; return [] without
   // spawning a child. The interface stays uniform across adapters.

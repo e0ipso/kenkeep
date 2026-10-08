@@ -26,5 +26,5 @@ Keep this distinction when evaluating requested product improvements. Developmen
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-harness-dirs-are-vendored-or-dogfooded-not-source](/conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md)
+- Related: [practice-harness-dirs-are-vendored-or-dogfooded-not-source](conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md)
 <!-- kk:related:end -->

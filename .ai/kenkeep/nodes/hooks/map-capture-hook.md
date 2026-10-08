@@ -58,13 +58,13 @@ Secret scanning is an end-user concern (pre-commit hooks, CI). This library does
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-session-log](/state/map-session-log.md)
-- Related: [practice-recursion-guard-kenkeep-builder-internal](/hooks/practice-recursion-guard-kenkeep-builder-internal.md)
+- Related: [map-session-log](../state/map-session-log.md)
+- Related: [practice-recursion-guard-kenkeep-builder-internal](practice-recursion-guard-kenkeep-builder-internal.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/hooks.md](docs/internals/hooks.md)
-[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [docs/internals/hooks.md](../../../../docs/internals/hooks.md)
+[2] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

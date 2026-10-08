@@ -36,8 +36,9 @@ function toPosix(p: string): string {
 
 /**
  * Discovers candidate markdown files under the repo (or a `--from` scope)
- * applying the same `.gitignore` + `.kkignore` + `STATIC_SKIPS` chain as
- * the bootstrap path, then prints `+ <relpath>` (one per surviving file).
+ * applying the same `.gitignore` (root and nested) + `.kkignore` +
+ * `STATIC_SKIPS` chain as the bootstrap path, never entering the kenkeep
+ * root, then prints `+ <relpath>` (one per surviving file).
  * With `--with-hashes`, each line is suffixed with a tab and the file's
  * SHA-256 hex digest, so callers can compare against `bootstrap-state.json`.
  *

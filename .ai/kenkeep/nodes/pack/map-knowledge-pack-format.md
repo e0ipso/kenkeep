@@ -46,10 +46,10 @@ pack documentation; import reads only `knowledge/`.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-pack-import-is-deterministic](/pack/practice-pack-import-is-deterministic.md)
-- Related: [practice-pack-id-collisions-skip-with-warning](/pack/practice-pack-id-collisions-skip-with-warning.md)
-- Related: [practice-pack-export-stamps-schema-version](/pack/practice-pack-export-stamps-schema-version.md)
-- Depends on: [practice-strict-schema-version-bump-policy](/node-schema/practice-strict-schema-version-bump-policy.md)
+- Related: [practice-pack-import-is-deterministic](practice-pack-import-is-deterministic.md)
+- Related: [practice-pack-id-collisions-skip-with-warning](practice-pack-id-collisions-skip-with-warning.md)
+- Related: [practice-pack-export-stamps-schema-version](practice-pack-export-stamps-schema-version.md)
+- Depends on: [practice-strict-schema-version-bump-policy](../node-schema/practice-strict-schema-version-bump-policy.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
@@ -57,6 +57,6 @@ pack documentation; import reads only `knowledge/`.
 
 [1] [https://github.com/e0ipso/kenkeep/issues/71](https://github.com/e0ipso/kenkeep/issues/71)
 [2] [https://github.com/e0ipso/kenkeep/issues/74](https://github.com/e0ipso/kenkeep/issues/74)
-[3] [src/lib/pack.ts](src/lib/pack.ts)
-[4] [src/lib/schemas.ts](src/lib/schemas.ts)
+[3] [src/lib/pack.ts](../../../../src/lib/pack.ts)
+[4] [src/lib/schemas.ts](../../../../src/lib/schemas.ts)
 <!-- kk:citations:end -->

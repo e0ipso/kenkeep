@@ -21,6 +21,11 @@ describe('kk-session-extract skill contract', () => {
     expect(text).toContain('session-log stage-live');
     expect(text).toContain('--session-id');
     expect(text).toContain('--generate-session-id');
+    // The stamp is scoped by the sessions the draft lists, not a dedup flag.
+    expect(text).toContain('validate curator-draft "$DRAFT_PATH"');
+    expect(text).toContain('drafts collect --run-id "$RUN_ID"');
+    expect(text).toContain('--input "$COLLECTED"');
+    expect(text).not.toContain('curate-dedup --session-id');
     expect(text).toContain('.ai/kenkeep/_sessions/');
     expect(text).toContain('rebalance trigger');
     expect(text).toMatch(/no durable knowledge was found|no writes/i);

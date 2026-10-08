@@ -36,13 +36,13 @@ Per-adapter code lives strictly under `src/harnesses/<id>/`. Anything shared —
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [practice-no-event-translation-across-adapters](/harnesses/practice-no-event-translation-across-adapters.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [practice-no-event-translation-across-adapters](practice-no-event-translation-across-adapters.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [CONTRIBUTING.md](CONTRIBUTING.md)
-[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+[2] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

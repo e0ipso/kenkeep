@@ -305,7 +305,7 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
         now: () => now,
         onProgress: message => process.stderr.write(`[prompt-eval] ${message}\n`),
         runHeadless: (prompt, runOpts) =>
-          adapter.runHeadless(prompt, '', ProposalOutputSchema, {
+          adapter.runHeadless(prompt, ProposalOutputSchema, {
             cwd: sandboxDir,
             harnessOpts,
             logFile: runOpts.logFile,
@@ -313,7 +313,7 @@ export async function runPromptEvalCommand(opts: PromptEvalCommandOptions): Prom
             timeoutMs: runOpts.timeoutMs,
           }),
         runJudge: (prompt, runOpts) =>
-          adapter.runHeadless(prompt, '', PromptEvalJudgeOutputSchema, {
+          adapter.runHeadless(prompt, PromptEvalJudgeOutputSchema, {
             cwd: sandboxDir,
             harnessOpts,
             logFile: runOpts.logFile,
@@ -381,11 +381,13 @@ function buildJudgePrompt(
     null,
     2
   );
+  // Callback form: a string replacement expands `$$`, `$&`, `$'` and the
+  // dollar-backtick token, which proposal bodies quoting shell text contain.
   const withSchema = template.includes(schemaPlaceholder)
-    ? template.replace(schemaPlaceholder, schema)
+    ? template.replace(schemaPlaceholder, () => schema)
     : template;
   return withSchema.includes(inputPlaceholder)
-    ? withSchema.replace(inputPlaceholder, input)
+    ? withSchema.replace(inputPlaceholder, () => input)
     : `${withSchema.trimEnd()}\n\n${input}`;
 }
 

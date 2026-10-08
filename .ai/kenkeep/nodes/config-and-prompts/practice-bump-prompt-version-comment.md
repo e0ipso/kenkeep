@@ -35,13 +35,13 @@ Every `src/templates-source/prompts/*.md` (and the equivalent skill commands) ca
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-local-prompt-overrides-fall-back-to-bundled](/config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md)
+- Related: [practice-local-prompt-overrides-fall-back-to-bundled](practice-local-prompt-overrides-fall-back-to-bundled.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/prompts.md](docs/internals/prompts.md)
-[2] [docs/troubleshooting.md](docs/troubleshooting.md)
-[3] [CONTRIBUTING.md](CONTRIBUTING.md)
+[1] [docs/internals/prompts.md](../../../../docs/internals/prompts.md)
+[2] [docs/troubleshooting.md](../../../../docs/troubleshooting.md)
+[3] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
 <!-- kk:citations:end -->

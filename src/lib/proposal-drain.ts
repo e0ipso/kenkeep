@@ -35,7 +35,6 @@ export const PROPOSAL_DRAIN_LOCK_OPTIONS = { stale: 60_000, realpath: false } as
 
 export type ProposalRunner = <T>(
   promptBody: string,
-  stdin: string,
   schema: ZodSchema<T>,
   opts: {
     timeoutMs: number;
@@ -243,7 +242,7 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
   let patch: FrontmatterPatch;
   let outcome: DrainEntryResult;
   try {
-    const out = await runner(prompt, '', ProposalOutputSchema, {
+    const out = await runner(prompt, ProposalOutputSchema, {
       timeoutMs,
       logFile,
       role: 'proposal',
@@ -282,7 +281,9 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
  * The extractable transcript: the `## Transcript` section only. A log that
  * grew after curation keeps its consumed turns under `## Curated prefix`
  * (see `renderSessionLog`), which is deliberately not matched here so the
- * extractor never re-proposes curated knowledge.
+ * extractor does not re-propose curated knowledge. A capture that lands while
+ * a curate run is stamping the log is the exception (see
+ * `markSessionsProcessed`).
  */
 function extractTranscript(body: string): string {
   const startMatch = body.match(/^## Transcript\s*\n+/m);
@@ -300,7 +301,9 @@ export function buildProposalPrompt(template: string, transcript: string): strin
       `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
     );
   }
-  return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
+  // Callback form: a string replacement expands `$$`, `$&`, `$'` and the
+  // dollar-backtick token, which would rewrite shell text in the transcript.
+  return template.replace(TRANSCRIPT_PLACEHOLDER, () => transcript);
 }
 
 export function proposalLogPath(logsDir: string, sessionId: string, when: Date): string {

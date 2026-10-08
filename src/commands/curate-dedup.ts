@@ -1,22 +1,39 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
-import matter from 'gray-matter';
-import { atomicWriteJson } from '../lib/fs-atomic.js';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
+import { atomicWriteFile, atomicWriteJson } from '../lib/fs-atomic.js';
+import {
+  assertConflictWritable,
+  conflictsLocation,
+  renderConflictFile,
+  type ConflictsLocation,
+} from '../lib/conflicts.js';
 import {
   dedupActions,
-  listPendingSessions,
   markSessionsProcessed,
   mintConflictId,
-  type PendingSession,
+  type SessionStamp,
 } from '../lib/curate.js';
-import { log } from '../lib/log.js';
-import { assertValidSessionId } from '../lib/session-log.js';
+import {
+  CurateDedupInputSchema,
+  readConsumableSession,
+  unresolvedOrigins,
+  type ConsumedSession,
+} from '../lib/curate-manifest.js';
+import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
+import { assertContained, assertValidRunId } from '../lib/path-safety.js';
 import { findRepoRoot, repoPaths } from '../lib/paths.js';
-import { CuratorOutputSchema, type CuratorAction } from '../lib/schemas.js';
+import {
+  CONFLICT_SCHEMA_VERSION,
+  type ConflictFrontmatter,
+  type CuratorAction,
+} from '../lib/schemas.js';
 
 export interface CurateDedupOptions {
-  /** Path to a proposals JSON file. When omitted, read from stdin. */
+  /**
+   * Path to the dedup input document (`{ actions, consumed }`, the document
+   * `drafts collect` prints). When omitted, read from stdin.
+   */
   input?: string | undefined;
   /** Path the deduped survivors JSON is written to (atomic). */
   output?: string | undefined;
@@ -26,8 +43,6 @@ export interface CurateDedupOptions {
   sessionsDir?: string | undefined;
   /** Override the `conflicts/` directory. Defaults to `repoPaths(...).conflictsDir`. */
   conflictsDir?: string | undefined;
-  /** When set, stamp only the unprocessed done log matching this session id. */
-  sessionId?: string | undefined;
   /**
    * Wall-clock injection point. Defaults to `new Date()`. Exposed for tests
    * that need byte-identical conflict-file frontmatter across runs; not
@@ -81,68 +96,137 @@ async function readInput(input: string | undefined): Promise<string> {
 function planConflictWrites(
   actions: CuratorAction[],
   runId: string,
-  conflictsDir: string,
+  location: ConflictsLocation,
   now: Date
 ): { survivors: CuratorAction[]; conflicts: PlannedConflict[] } {
   const survivors: CuratorAction[] = [];
   const conflicts: PlannedConflict[] = [];
   let n = 0;
   for (const action of actions) {
-    if (action.action !== 'contradict' || !action.proposed_node) {
+    if (action.action !== 'contradict') {
       survivors.push(action);
       continue;
     }
     n += 1;
     const id = mintConflictId(runId, n);
-    const proposedNode = action.proposed_node;
-    const frontmatter = {
+    // Every admitted contradiction becomes a pending conflict, including one
+    // that proposes no rewrite: it must never fall through to persist (which
+    // cannot act on it) or be dropped. The frontmatter persists the complete
+    // validated proposal (or `null`) so `conflict resolve` can apply Accept
+    // without reconstructing anything from prose.
+    const frontmatter: ConflictFrontmatter = {
+      schema_version: CONFLICT_SCHEMA_VERSION,
       id,
       status: 'pending',
       detected_at: now.toISOString(),
       run_id: runId,
       candidate_origin: action.candidate_origin,
-      target_node_id: action.target_node_id ?? null,
-      proposed_kind: proposedNode.type,
-      proposed_title: proposedNode.title,
-      proposed_confidence: proposedNode.kk_confidence,
+      target_node_id: action.target_node_id,
+      rationale: action.rationale,
+      proposal: action.proposed_node,
+      default_decision: null,
+      decided_at: null,
     };
-    const body = `## Rationale\n\n${action.rationale}\n\n## Proposed node\n\n${proposedNode.body}\n`;
     conflicts.push({
       id,
-      filePath: join(conflictsDir, `${id}.md`),
-      serialized: matter.stringify(body, frontmatter),
+      // The run id is validated as a single filename segment up front; this
+      // check is the write-boundary guarantee that no conflict file lands
+      // outside conflicts/ or through a link, regardless of how the id was
+      // minted. Planning runs before any write, so a refusal writes nothing.
+      filePath: assertConflictWritable(location, join(location.dir, `${id}.md`)),
+      serialized: renderConflictFile(frontmatter),
     });
   }
   return { survivors, conflicts };
 }
 
 /**
- * Atomic tmp+rename of a markdown file. Mirrors `writeNodeFile`'s rename
- * shape so the dedup primitive can write conflict files without pulling in
- * the node-specific schema validation (conflicts are not nodes).
+ * Resolves every consumed session against `_sessions/` before any write: the
+ * file must still exist, be directly under the sessions dir (no symlink),
+ * match the draft's session id and transcript version, and still be a done,
+ * unprocessed log. Returns the stamps to write (each path with the
+ * version validated here, which is what the stamp records even if a capture
+ * moves the log on before the stamp lands), or the first problem.
  */
-function writeFileAtomic(filePath: string, contents: string): void {
-  mkdirSync(dirname(filePath), { recursive: true });
-  const tmp = `${filePath}.tmp`;
-  writeFileSync(tmp, contents);
-  renameSync(tmp, filePath);
+function resolveConsumedSessions(
+  consumed: ConsumedSession[],
+  sessionsDir: string
+): { stamps: SessionStamp[] } | { problem: string } {
+  const stamps: SessionStamp[] = [];
+  const seen = new Set<string>();
+  for (const entry of consumed) {
+    if (seen.has(entry.session_id)) {
+      return { problem: `consumed session ${entry.session_id} is listed twice.` };
+    }
+    seen.add(entry.session_id);
+    let filePath: string;
+    try {
+      filePath = assertContained(sessionsDir, join(sessionsDir, entry.file), '_sessions/');
+    } catch (err) {
+      return { problem: (err as Error).message };
+    }
+    if (!existsSync(filePath)) {
+      return {
+        problem: `consumed session ${entry.session_id} (${entry.file}) is missing from _sessions/.`,
+      };
+    }
+    const read = readConsumableSession(filePath);
+    if (!read.ok) {
+      return {
+        problem: `consumed session ${entry.session_id} (${entry.file}) is no longer pending: ${read.reason}.`,
+      };
+    }
+    if (read.session.session_id !== entry.session_id) {
+      return {
+        problem: `consumed session ${entry.session_id} (${entry.file}) now carries session_id ${read.session.session_id}.`,
+      };
+    }
+    // The draft names the transcript version it was made from; a capture
+    // that landed since would make the stamp cover turns nobody curated.
+    // Refuse and leave the session pending for the next run.
+    if (read.session.transcript_hash !== entry.transcript_hash) {
+      return {
+        problem: `consumed session ${entry.session_id} (${entry.file}) changed since it was drafted (transcript_hash ${read.session.transcript_hash}, drafted from ${entry.transcript_hash}); it stays pending for the next run.`,
+      };
+    }
+    stamps.push({
+      path: filePath,
+      transcript_hash: entry.transcript_hash,
+      transcript_chars: read.transcript_chars,
+    });
+  }
+  return { stamps };
 }
 
 /**
- * `curate dedup` primitive. Reads a curator-actions JSON blob, dedups it,
- * mints `${runId}-${n}` conflict ids for the surviving conflict actions,
- * writes the surviving (non-conflict) actions to `--output`, materializes
- * each conflict markdown file, and stamps consumed pending session logs.
+ * `curate dedup` primitive. Reads the dedup input document (`actions` plus
+ * the `consumed` sessions `drafts collect` assembled from valid drafts),
+ * dedups the actions, mints `${runId}-${n}` conflict ids for the
+ * surviving conflict actions, writes the surviving (non-conflict) actions to
+ * `--output`, materializes each conflict markdown file, and stamps exactly
+ * the consumed sessions, never whatever happens to be pending on disk.
  *
  * Pure Node: no sub-agent, no LLM, no `proper-lockfile`. Validates the
- * input against `CuratorOutputSchema` before touching the filesystem.
+ * input shape, the consumed set (each session still a done, unprocessed log)
+ * and every action origin (must belong to a consumed session) before any
+ * write.
  */
 export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
   const sessionsDir = opts.sessionsDir ?? paths.sessionsDir;
-  const conflictsDir = opts.conflictsDir ?? paths.conflictsDir;
-  const runId = opts.runId !== undefined && opts.runId !== '' ? opts.runId : randomUUID();
+  const location = conflictsLocation(root, paths.conflictsDir, opts.conflictsDir);
+  // A caller-supplied run id names conflict files and session stamps, so it is
+  // validated as a single safe filename segment before anything is read or
+  // written (`--run-id ../../x` would otherwise plan a path outside conflicts/).
+  let runId: string;
+  try {
+    runId =
+      opts.runId !== undefined && opts.runId !== '' ? assertValidRunId(opts.runId) : randomUUID();
+  } catch (err) {
+    log.error(`curate dedup: ${(err as Error).message}`);
+    return 1;
+  }
 
   let raw: string;
   try {
@@ -160,59 +244,67 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
     return 1;
   }
 
-  const validated = CuratorOutputSchema.safeParse(parsedJson);
+  const validated = CurateDedupInputSchema.safeParse(parsedJson);
   if (!validated.success) {
     log.error(
-      `curate dedup: input does not match CuratorOutputSchema: ${validated.error.issues
+      `curate dedup: input does not match the dedup input contract ({ actions, consumed }): ${validated.error.issues
         .map(i => `${i.path.join('.') || '(root)'}: ${i.message}`)
         .join('; ')}`
     );
     return 1;
   }
+  const { actions, consumed } = validated.data;
 
-  const merged = dedupActions(validated.data);
+  // Every action must come from a consumed session; otherwise the input was
+  // not produced by this run's drafts and stamping would be unsound.
+  const strays = unresolvedOrigins(actions, new Set(consumed.map(s => s.session_id)));
+  if (strays.length > 0) {
+    log.error(
+      `curate dedup: action origin(s) do not resolve within the consumed sessions: ${strays.join(', ')}.`
+    );
+    return 1;
+  }
+
+  // Resolve the consumed set against disk before any write so a session that
+  // was stamped by another run (or re-captured into a non-done state) in the
+  // meantime fails the whole call rather than being double-curated.
+  const resolvedSessions = resolveConsumedSessions(consumed, resolve(sessionsDir));
+  if ('problem' in resolvedSessions) {
+    log.error(`curate dedup: ${resolvedSessions.problem}`);
+    return 1;
+  }
+  const stamps = resolvedSessions.stamps;
+
+  const merged = dedupActions(actions);
   const now = opts.now ?? new Date();
-  const { survivors, conflicts } = planConflictWrites(merged, runId, conflictsDir, now);
-
-  let filterSessionId: string | undefined;
-  if (opts.sessionId !== undefined && opts.sessionId !== '') {
-    try {
-      filterSessionId = assertValidSessionId(opts.sessionId);
-    } catch (err) {
-      log.error(`curate dedup: ${(err as Error).message}`);
-      return 1;
-    }
+  let planned: ReturnType<typeof planConflictWrites>;
+  try {
+    planned = planConflictWrites(merged, runId, location, now);
+  } catch (err) {
+    log.error(`curate dedup: ${(err as Error).message}`);
+    return 1;
   }
-
-  // Discover pending sessions to stamp. The stamp is part of the same atomic
-  // transaction as the survivors + conflict writes.
-  let pending: PendingSession[] = listPendingSessions(sessionsDir);
-  if (filterSessionId !== undefined) {
-    pending = pending.filter(s => s.sessionId === filterSessionId);
-    if (pending.length === 0) {
-      log.error(
-        `curate dedup: no unprocessed proposal_status=done session log for session_id ${filterSessionId}.`
-      );
-      return 1;
-    }
-  }
+  const { survivors, conflicts } = planned;
 
   // Atomicity protocol: ALL writes happen tmp+rename, in a fixed order
   // (survivors JSON → conflicts → session stamps). If a later write fails,
-  // prior writes have already landed on disk — documented in the task.
+  // prior writes have already landed on disk (the kk-curate skill says how
+  // to recover). The
+  // stamps carry the version resolved above, not whatever the log holds by
+  // the time they are written (see `markSessionsProcessed`).
   try {
     if (opts.output !== undefined && opts.output !== '') {
       const outAbs = isAbsolute(opts.output) ? opts.output : resolve(process.cwd(), opts.output);
       atomicWriteJson(outAbs, survivors);
     }
     if (conflicts.length > 0) {
-      mkdirSync(conflictsDir, { recursive: true });
+      mkdirSync(location.dir, { recursive: true });
       for (const c of conflicts) {
-        writeFileAtomic(c.filePath, c.serialized);
+        atomicWriteFile(c.filePath, c.serialized);
       }
     }
-    if (pending.length > 0) {
-      markSessionsProcessed(pending, runId, now);
+    if (stamps.length > 0) {
+      await markSessionsProcessed(stamps, runId, now);
     }
   } catch (err) {
     log.error(`curate dedup: write failed: ${(err as Error).message}`);
@@ -222,9 +314,9 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
   const summary: DedupSummary = {
     kept: survivors.length,
     conflicts: conflicts.length,
-    stamped: pending.length,
+    stamped: stamps.length,
     runId,
   };
-  process.stdout.write(`${JSON.stringify(summary)}\n`);
+  writeJsonDocument(summary);
   return 0;
 }

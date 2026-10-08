@@ -1,6 +1,6 @@
 import type { ZodSchema } from 'zod';
 import type { RepoPaths } from '../lib/paths.js';
-import type { EffectiveSettings, ModelChoiceRole } from '../lib/settings.js';
+import type { EffectiveSettings, ModelChoice, ModelChoiceRole } from '../lib/settings.js';
 
 /**
  * Opaque lifecycle event identifier. Each adapter declares its own event
@@ -176,12 +176,7 @@ export interface HarnessAdapter {
    * the structured result against the provided Zod schema. The adapter
    * reads its per-harness knobs from `opts.harnessOpts`.
    */
-  runHeadless<T>(
-    promptBody: string,
-    stdin: string,
-    schema: ZodSchema<T>,
-    opts?: HeadlessRunOptions
-  ): Promise<T>;
+  runHeadless<T>(promptBody: string, schema: ZodSchema<T>, opts?: HeadlessRunOptions): Promise<T>;
 
   /**
    * Translates the loaded settings into an adapter-specific `harnessOpts`
@@ -191,6 +186,16 @@ export interface HarnessAdapter {
    * defaults.
    */
   buildHarnessOpts(settings: EffectiveSettings, role: ModelChoiceRole): Record<string, unknown>;
+
+  /**
+   * Translates a configured model choice whose `harness` discriminator is
+   * this adapter's id into model argv elements (e.g. `['--model', 'opus',
+   * '--effort', 'high']`). The launcher inserts them after the prefix's
+   * leading subcommand words and before its first option, so a value-taking
+   * flag such as Copilot's `-p` stays next to the slash payload (see
+   * `buildLaunchArgs` in `src/lib/launch-skill.ts`).
+   */
+  launchModelArgs(choice: ModelChoice): string[];
 
   /** Harness-specific doctor checks (CLI on PATH, hooks registered, skills present, ...). */
   doctorChecks(paths: RepoPaths): Promise<NamedDoctorCheck[]>;

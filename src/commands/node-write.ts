@@ -1,18 +1,23 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { text as readStdinText } from 'node:stream/consumers';
-import lockfile from 'proper-lockfile';
-import { readBootstrapState, writeBootstrapState } from '../lib/bootstrap.js';
-import { log } from '../lib/log.js';
+import {
+  assertContentHash,
+  assertSourceDoc,
+  bootstrapStateFile,
+  liveNodeIds,
+  recordWrittenNode,
+  updateBootstrapStateLocked,
+  writtenInAttempt,
+} from '../lib/bootstrap.js';
+import { log, stderrLog } from '../lib/log.js';
 import { deriveNodeId, ensureUniqueId, readAllNodes, writeNodeFile } from '../lib/nodes.js';
-import { assertDefaultNodesRoot, findRepoRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
-import { STATE_LOCK_OPTIONS } from '../lib/state.js';
+import { ledgerIds, readRedirectsLedger } from '../lib/redirects.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import {
   ConfidenceSchema,
   NODE_SCHEMA_VERSION,
   NodeFrontmatterSchema,
   NodeKindSchema,
-  type BootstrapState,
   type Confidence,
   type NodeFrontmatter,
   type NodeKind,
@@ -54,9 +59,8 @@ export interface NodeWriteArgs {
 /**
  * Headless primitive: write a single node to `nodes/<folder>/<id>.md` (or
  * `nodes/<id>.md` at the root when `--folder` is omitted) with atomic
- * tmp+rename, Zod-validated frontmatter, slug-collision resolution via
- * `ensureUniqueId` over the whole tree, and (optionally) folded
- * `bootstrap-state.json` hash-map update. The folder is presentation only; the
+ * tmp+rename, Zod-validated frontmatter and slug-collision resolution via
+ * `ensureUniqueId` over the whole tree. The folder is presentation only; the
  * id is identity and is independent of placement. A folder that escapes
  * `nodes/` is rejected before any disk write.
  *
@@ -65,14 +69,20 @@ export interface NodeWriteArgs {
  * Stdout contract: on success, prints the final resolved node id (and
  * nothing else) so callers (skills) can capture it via `Bash`.
  *
- * State-fold: when BOTH `--source-doc <relpath>` and `--source-hash <sha256>`
- * are provided, the per-file hash map in `bootstrap-state.json` is updated
- * in the same invocation. Order: write the node file first; then update
- * bootstrap-state. If the second step fails, the node file is on disk and
- * the next bootstrap run will see "node exists but no hash recorded" and
- * recompute, which is the desired safe failure mode. The two writes are
- * not transactionally linked — single-author atomic writes are sufficient
- * for this tool's concurrency model (cf. plan 31, "minimum viable set").
+ * Bootstrap provenance: `--source-doc <relpath>` and `--source-hash <sha256>`
+ * come together (or not at all). The doc must be the repo-relative path
+ * `finddocs` printed; it becomes the leaf's `kk_derived_from` entry. The
+ * write is recorded in `bootstrap-state.json` under the document's
+ * unfinished attempt (`in_progress`) and NEVER marks the document complete:
+ * only `bootstrap complete-doc` does, once the skill has handled the whole
+ * document. The node write and the record happen under the state lock, node
+ * first; if recording fails the leaf stays on disk and the document stays
+ * unfinished (safe: the next run reprocesses it). A retry of the same draft
+ * (same derived id) in the same unfinished attempt writes nothing and prints
+ * the id written the first time, so resuming an interrupted document never
+ * lands a `-2` duplicate. That holds only while the recorded leaf is still in
+ * the tree; once it is gone (deleted or retired) the draft is written again.
+ * Outside that case collisions still suffix (`-2`).
  */
 export async function runNodeWriteCommand(
   args: NodeWriteArgs,
@@ -105,6 +115,10 @@ export async function runNodeWriteCommand(
         '--source-doc and --source-hash must be provided together (or neither); no writes performed.'
       );
     }
+    const source =
+      hasDoc && hasHash
+        ? { doc: assertSourceDoc(root, sourceDoc), hash: assertContentHash(sourceHash) }
+        : null;
 
     const title = (args.flags.title ?? '').trim();
     if (!title) {
@@ -122,50 +136,72 @@ export async function runNodeWriteCommand(
       : 'high';
 
     const body = await readBody(args.flags.from, deps);
-
-    const existingIds = new Set(readAllNodes(paths.nodesDir).map(n => n.frontmatter.kk_id));
     const baseId = deriveNodeId(kind, slug);
-    const id = ensureUniqueId(existingIds, baseId);
 
-    // Build + validate frontmatter BEFORE any disk write so a schema
-    // failure leaves no partial file on disk.
-    const candidate: NodeFrontmatter = {
-      type: kind,
-      title,
-      description: summary,
-      tags,
-      kk_schema_version: NODE_SCHEMA_VERSION,
-      kk_id: id,
-      kk_derived_from: [],
-      kk_relates_to: relatesTo,
-      kk_depends_on: dependsOn,
-      kk_confidence: confidence,
+    // Resolves the id over the whole tree, validates the frontmatter BEFORE
+    // any disk write (a schema failure leaves no partial file), then writes
+    // atomically (tmp+rename inside writeNodeFile). The folder is
+    // presentation: a non-empty `--folder` places the leaf into that folder
+    // under `nodes/`; empty/omitted lands at the root. `writeNodeFile`
+    // rejects a folder that escapes `nodes/` before any write.
+    const writeLeaf = (): string => {
+      // Retired ids stay reserved: reusing one would rebind its redirect.
+      const existingIds = ledgerIds(readRedirectsLedger(paths.nodesDir));
+      for (const n of readAllNodes(paths.nodesDir)) existingIds.add(n.frontmatter.kk_id);
+      const id = ensureUniqueId(existingIds, baseId);
+      const candidate: NodeFrontmatter = {
+        type: kind,
+        title,
+        description: summary,
+        tags,
+        kk_schema_version: NODE_SCHEMA_VERSION,
+        kk_id: id,
+        kk_derived_from: source ? [source.doc] : [],
+        kk_relates_to: relatesTo,
+        kk_depends_on: dependsOn,
+        kk_confidence: confidence,
+      };
+      const validated = NodeFrontmatterSchema.safeParse(candidate);
+      if (!validated.success) {
+        const lines = validated.error.issues.map(
+          i => `  - ${i.path.join('.') || '(root)'}: ${i.message}`
+        );
+        throw new Error(`frontmatter validation failed:\n${lines.join('\n')}`);
+      }
+      const relDir = (args.flags.folder ?? '').trim();
+      writeNodeFile({ nodesDir: paths.nodesDir, frontmatter: validated.data, body, relDir });
+      return id;
     };
-    const validated = NodeFrontmatterSchema.safeParse(candidate);
-    if (!validated.success) {
-      const lines = validated.error.issues.map(
-        i => `  - ${i.path.join('.') || '(root)'}: ${i.message}`
-      );
-      throw new Error(`frontmatter validation failed:\n${lines.join('\n')}`);
-    }
 
-    // 1) Write the node file (atomic tmp+rename inside writeNodeFile). The
-    //    folder is presentation: a non-empty `--folder` places the leaf into
-    //    that existing folder under `nodes/`; empty/omitted lands at the root.
-    //    `writeNodeFile` rejects a folder that escapes `nodes/` before any write.
-    const relDir = (args.flags.folder ?? '').trim();
-    writeNodeFile({ nodesDir: paths.nodesDir, frontmatter: validated.data, body, relDir });
-
-    // 2) If both source flags were provided, fold the per-file hash-map
-    //    update into the same invocation. Separate atomic write; if this
-    //    fails after step 1 succeeded, the node is on disk without a
-    //    state entry — next bootstrap recomputes (safe).
-    if (hasDoc && hasHash) {
-      await updateBootstrapState({
-        paths,
-        sourceDoc: sourceDoc!,
-        sourceHash: sourceHash!,
-        nodeId: id,
+    let id: string;
+    if (source === null) {
+      id = writeLeaf();
+    } else {
+      id = await updateBootstrapStateLocked(bootstrapStateFile(paths.stateDir), state => {
+        const already = writtenInAttempt(state, source.doc, source.hash, baseId);
+        if (already !== undefined) {
+          // The record only says the leaf was written once. Replay only while
+          // it is still in the tree, so a reported id always exists and later
+          // edits to the leaf are kept.
+          if (liveNodeIds(paths.nodesDir).has(already)) {
+            stderrLog.info(
+              `${baseId} was already written as ${already} for ${source.doc} in this unfinished attempt; nothing written.`
+            );
+            return { next: null, result: already };
+          }
+          stderrLog.info(
+            `${already} was written for ${source.doc} in this unfinished attempt but is no longer in the tree; writing ${baseId} again.`
+          );
+        }
+        const written = writeLeaf();
+        const next = recordWrittenNode(state, {
+          doc: source.doc,
+          hash: source.hash,
+          derivedId: baseId,
+          nodeId: written,
+          now: new Date().toISOString(),
+        });
+        return { next, result: written };
       });
     }
 
@@ -176,55 +212,6 @@ export async function runNodeWriteCommand(
   } catch (err) {
     log.error(err instanceof Error ? err.message : String(err));
     return 1;
-  }
-}
-
-interface UpdateBootstrapStateArgs {
-  paths: RepoPaths;
-  sourceDoc: string;
-  sourceHash: string;
-  nodeId: string;
-}
-
-async function updateBootstrapState(args: UpdateBootstrapStateArgs): Promise<void> {
-  const file = join(args.paths.stateDir, 'bootstrap-state.json');
-  // `proper-lockfile` requires the target to exist. Lazy-create an empty
-  // placeholder before acquiring the lock so the first concurrent writer
-  // has something to lock against.
-  if (!existsSync(file)) {
-    writeBootstrapState(file, { schema_version: 1, docs: {} });
-  }
-  // Retry on contention so concurrent host sub-agents serialise on the
-  // RMW rather than failing fast (cf. proposal-drain, which intentionally
-  // bails on ELOCKED for the single-drainer contract).
-  const release = await lockfile.lock(file, {
-    ...STATE_LOCK_OPTIONS,
-    retries: { retries: 10, minTimeout: 25, maxTimeout: 200, factor: 1.5 },
-  });
-  try {
-    const current = readBootstrapState(file);
-    const existing = current.docs[args.sourceDoc];
-    const producedNodes = existing
-      ? Array.from(new Set([...existing.produced_nodes, args.nodeId]))
-      : [args.nodeId];
-    const next: BootstrapState = {
-      schema_version: 1,
-      ...(current.last_full_bootstrap_at !== undefined
-        ? { last_full_bootstrap_at: current.last_full_bootstrap_at }
-        : {}),
-      last_incremental_at: new Date().toISOString(),
-      docs: {
-        ...current.docs,
-        [args.sourceDoc]: {
-          content_sha256: args.sourceHash,
-          last_processed_at: new Date().toISOString(),
-          produced_nodes: producedNodes,
-        },
-      },
-    };
-    writeBootstrapState(file, next);
-  } finally {
-    await release();
   }
 }
 

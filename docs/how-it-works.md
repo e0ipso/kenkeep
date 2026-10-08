@@ -45,6 +45,6 @@ On Claude Code and Codex a second hook fires after each prompt you type. It inje
   <img src="{{ '/assets/diagrams/layout.svg' | relative_url }}" alt="What lives in .ai/kenkeep/: committed files shared with the team (nodes, ENTRY.md, GRAPH.md, FOLDER_SUMMARIES.md, conflicts, config.yaml, prompt overrides) and gitignored per-user files (_sessions, _logs, hooks, .state)" />
 </p>
 
-Each note is a markdown file with frontmatter. A `practice` note says how we build: conventions, prohibitions, gotchas. A `map` note says what exists: modules, services, vocabulary. Notes link to each other by id, never by path, so a note can move between folders without breaking a link. Every folder gets a generated `index.md`, and the whole `nodes/` tree is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle.
+Each note is a markdown file with frontmatter. A `practice` note says how we build: conventions, prohibitions, gotchas. A `map` note says what exists: modules, services, vocabulary. Notes link to each other by id, never by path, so a note can move between folders without breaking a link. The Related and Citations links a note renders are relative to its own file, so they open on GitHub. Every folder gets a generated `index.md`, and the whole `nodes/` tree is an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) bundle.
 
 Frontmatter reference: [Internals, Prompts and schemas](internals/prompts.md#node-frontmatter).

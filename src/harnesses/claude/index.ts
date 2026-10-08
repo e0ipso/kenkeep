@@ -6,7 +6,7 @@ import { claudeDoctorChecks } from './doctor.js';
 import { runHeadlessClaude, runHeadlessClaudeRaw } from './headless.js';
 import { CLAUDE_HOOK_SPECS } from './hook-spec.js';
 import { claudePaths, installClaude } from './install.js';
-import { buildClaudeHarnessOpts } from './opts.js';
+import { buildClaudeHarnessOpts, claudeLaunchModelArgs } from './opts.js';
 import { renderRoleTagged } from '../../lib/transcript-render.js';
 import { parseTranscriptJsonl } from './transcript.js';
 
@@ -32,7 +32,7 @@ async function claudeListMemoryFiles(opts: { timeoutMs?: number } = {}): Promise
   if (opts.timeoutMs !== undefined) runOpts.timeoutMs = opts.timeoutMs;
   let raw: string;
   try {
-    raw = await runHeadlessClaudeRaw(HARNESS_MEMORY_DISCOVERY_PROMPT, '', runOpts);
+    raw = await runHeadlessClaudeRaw(HARNESS_MEMORY_DISCOVERY_PROMPT, runOpts);
   } catch (err) {
     log.warn(
       `claude listMemoryFiles: headless child failed (${err instanceof Error ? err.message : String(err)}); returning [].`
@@ -79,10 +79,10 @@ export const claudeAdapter: HarnessAdapter = {
   upgrade: opts => installClaude(opts),
   parseTranscript: parseTranscriptJsonl,
   renderTranscript: renderRoleTagged,
-  runHeadless: (promptBody, stdin, schema, opts) =>
-    runHeadlessClaude(promptBody, stdin, schema, opts ?? {}),
+  runHeadless: (promptBody, schema, opts) => runHeadlessClaude(promptBody, schema, opts ?? {}),
   buildHarnessOpts: (settings: EffectiveSettings, role: ModelChoiceRole) =>
     buildClaudeHarnessOpts(settings, role),
+  launchModelArgs: claudeLaunchModelArgs,
   doctorChecks: paths => claudeDoctorChecks(paths),
   detectFromEnv: detectClaudeFromEnv,
   listMemoryFiles: claudeListMemoryFiles,

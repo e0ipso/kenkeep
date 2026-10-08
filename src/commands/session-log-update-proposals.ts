@@ -73,7 +73,7 @@ export async function runSessionLogUpdateProposalsCommand(
       proposal_error: opts.error ?? 'unknown error',
       proposal_log: null,
     };
-    return commit(filePath, expectedHash, patch, sessionId);
+    return await commit(filePath, expectedHash, patch, sessionId);
   }
 
   const raw = await readStdin();
@@ -106,17 +106,17 @@ export async function runSessionLogUpdateProposalsCommand(
       map: validated.data.map,
     },
   };
-  return commit(filePath, expectedHash, patch, sessionId);
+  return await commit(filePath, expectedHash, patch, sessionId);
 }
 
 /** Writes the patch bound to `expectedHash`; a changed transcript is refused with nothing written. */
-function commit(
+async function commit(
   filePath: string,
   expectedHash: string,
   patch: FrontmatterPatch,
   sessionId: string
-): number {
-  const written = writeSessionLogFrontmatter(filePath, expectedHash, patch);
+): Promise<number> {
+  const written = await writeSessionLogFrontmatter(filePath, expectedHash, patch);
   if (!written.ok) {
     log.error(
       `transcript changed since extraction (expected ${expectedHash}, found ${written.currentHash ?? '(none)'}); nothing written, the log stays pending: re-extract from its current body.`

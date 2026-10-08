@@ -6,7 +6,7 @@
  * document, shapes the messages into a role-tagged transcript, extracts the
  * read-tool paths, and feeds both through the shared capture pipeline with the
  * export document itself as the transcript source. Export is the sole, primary
- * source — there is no on-disk file-tree fallback.
+ * source; there is no on-disk file-tree fallback.
  *
  * Temp-file lifecycle: the export document is OpenCode's own stdout,
  * captured to a file because the CLI does not flush a pipe (see
@@ -157,8 +157,11 @@ interface ExportedDocument {
  * fd flushes completely, so the full document is captured. Verified end-to-end
  * against a real OpenCode v1.17.3 session.
  *
- * Both child timeouts are cut from the hook's remaining budget so the
- * synchronous spawn can never outlive the (cooperative) outer deadline.
+ * Both child timeouts are cut from the hook's remaining budget and end the
+ * child with SIGKILL, which it cannot ignore, so the synchronous spawn can
+ * never outlive the (cooperative) outer deadline. SIGTERM would not do: Node
+ * waits for the child to exit, and a child that ignores SIGTERM keeps the
+ * hook blocked past its deadline with the export directory still on disk.
  */
 function runOpenCodeExport(
   sessionId: string,
@@ -174,6 +177,7 @@ function runOpenCodeExport(
   try {
     execFileSync('opencode', ['--version'], {
       timeout: probeTimeoutMs,
+      killSignal: 'SIGKILL',
       stdio: 'ignore',
       env: childEnv,
     });
@@ -187,7 +191,9 @@ function runOpenCodeExport(
   let status: number | null;
   try {
     const run = spawnSync('opencode', ['export', sessionId], {
-      ...(Number.isFinite(exportTimeoutMs) ? { timeout: exportTimeoutMs } : {}),
+      ...(Number.isFinite(exportTimeoutMs)
+        ? { timeout: exportTimeoutMs, killSignal: 'SIGKILL' as const }
+        : {}),
       stdio: ['ignore', fd, 'ignore'],
       env: childEnv,
     });

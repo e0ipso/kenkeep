@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
@@ -217,6 +217,29 @@ describe('computeFreshness', () => {
     expect(report.reason).toBeUndefined();
     expect(report.available).toBe(true);
     expect(report.flagged.map(f => f.id)).toEqual(['practice-big']);
+  });
+
+  it('kills a slow git log at the deadline and reports no signal', () => {
+    commitNode(root, 'practice-a', { body: 'Describes `src/foo.ts` behavior.' });
+    const realGit = execFileSync('sh', ['-c', 'command -v git']).toString().trim();
+    const binDir = join(root, 'slow-bin');
+    mkdirSync(binDir);
+    writeFileSync(
+      join(binDir, 'git'),
+      `#!/bin/sh\nif [ "$1" = log ]; then sleep 3; exit 0; fi\nexec ${realGit} "$@"\n`
+    );
+    chmodSync(join(binDir, 'git'), 0o755);
+    const savedPath = process.env['PATH'];
+    process.env['PATH'] = `${binDir}:${savedPath ?? ''}`;
+    try {
+      const started = Date.now();
+      const report = computeFreshness({ root, nodesDir, deadlineAt: started + 300 });
+      expect(Date.now() - started).toBeLessThan(1500);
+      expect(report.available).toBe(false);
+      expect(report.reason).toBe('git log did not finish before the hook deadline');
+    } finally {
+      process.env['PATH'] = savedPath;
+    }
   });
 
   it('returns an unavailable, empty report on a non-git tree without throwing', () => {

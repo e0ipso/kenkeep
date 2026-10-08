@@ -138,7 +138,7 @@ export function snapshotTree(nodesDir: string): TreeSnapshot {
  * (which renders exactly this set), the rebuild (which removes any owned file
  * outside it) and lint (which flags the stale leftovers).
  */
-export function computeOwnedFolderDirs(nodes: readonly NodeFile[]): Set<string> {
+export function computeOwnedFolderDirs(nodes: readonly Pick<NodeFile, 'relDir'>[]): Set<string> {
   const dirs = new Set<string>(['']);
   for (const n of nodes) {
     const segments = n.relDir === '' ? [] : n.relDir.split('/');

@@ -317,13 +317,15 @@ A rerun after everything landed is a no-op (exit 0, nothing written). Report eve
 
 ## 5b. Mark the processed harness memory files
 
-For each file staged in Step 0b whose `session_id` appears in the collector's `consumed` list, and none of whose actions failed (no `failed` result in the `curate-persist` summary with a `candidate_origin` starting with that `session_id`), record it in the ledger:
+Mark files only when the last `curate-persist` run over `$SURVIVORS` exited 0 with `"failed":0`. If any action is still failed, leave **every** file staged in Step 0b unmarked, whatever the failed action's `candidate_origin` says. `curate-dedup` keeps one action per duplicate and drops the other origins, so an action drawn from a memory file can survive under another session's origin (or another memory file's), and the origins in the summary cannot tell you which files' knowledge is missing. After you fix a failure and a rerun of `curate-persist` reports `"failed":0`, mark them then.
+
+When persist is clean, record each file staged in Step 0b whose `session_id` appears in the collector's `consumed` list and whose log now carries `curator_run_id: $RUN_ID`:
 
 ```bash
 npx --yes kenkeep@latest memory mark "<iri>" --hash "<sha256>" --run-id "$RUN_ID"
 ```
 
-`curate-dedup` wrote its conflicts and stamped its log, and `curate-persist` wrote its surviving actions, so the knowledge is on disk before the ledger says so. Leave a file unmarked when its batch was invalid or missing, when one of its actions failed, or when Steps 3 to 5 were skipped: `memory list` returns it on the next run. A non-zero exit means the file changed during the run; it is listed again next time. Carry the marked and unmarked files into the Step 6 report.
+`curate-dedup` wrote its conflicts and stamped its log, and `curate-persist` wrote every surviving action, so the knowledge is on disk before the ledger says so. Leave a file unmarked when its batch was invalid or missing, when any persisted action failed, or when Steps 3 to 5 were skipped: `memory list` returns it on the next run. A non-zero exit means the file changed during the run; it is listed again next time. Carry the marked and unmarked files into the Step 6 report.
 
 ## 6. Report the content summary, then resolve conflicts
 
@@ -481,5 +483,5 @@ Curated <nodes_written> nodes; <drops> dropped; <accepted> conflict(s) accepted,
 - Rebalance (Step 7b) runs only as the final phase of curate, after the conflicts are decided and the indices rebuilt; it is never a separate command or nudge. When `rebalance trigger` reports `{"actions":[]}`, skip the LLM clustering step entirely (zero added cost) and report no structural action. When it fires, reason only over the branches it names, never widen the scope, and apply moves only through the `rebalance move` primitive. Never relocate files or regenerate indexes by hand, and never `git add`, `git commit`, or `git restore` anything.
 - On both paths every batch writes a draft that lists the sessions it consumed; those lists, from valid drafts only, are the only thing that decides which sessions `curate-dedup` stamps. Never stamp, edit, or delete a session log by hand, and never list a session the batch did not read.
 - Survivors are persisted only through `curate-persist`. A failed action is retried by rerunning that same command on the same `$SURVIVORS` after fixing its cause; it never falls back to writing a leaf by hand.
-- Harness memory files enter the run only through `memory list` and `session-log stage-live` (Step 0b) and leave the queue only through `memory mark` after their actions landed (Step 5b). Never edit `memory-ledger.json` by hand and never mark a file whose actions failed.
+- Harness memory files enter the run only through `memory list` and `session-log stage-live` (Step 0b) and leave the queue only through `memory mark` after `curate-persist` reported no failed action (Step 5b). Never edit `memory-ledger.json` by hand and never mark a file while any persisted action is still failed.
 - The dedup primitive takes no run-level lock and refuses a document whose consumed sessions are already stamped, so a re-run with the same `$COLLECTED` and a different `runId` fails closed rather than double-stamping, but it would still be a wasted run. One `curate-dedup` call per run.

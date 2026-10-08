@@ -104,7 +104,7 @@ describe('freshness command', () => {
     const result = await runCli(sandbox, ['freshness']);
     const output = result.stdout + result.stderr;
     expect(result.exitCode).toBe(0);
-    expect(output).toMatch(/kenkeep freshness: no signal — git log failed: \S/);
+    expect(output).toMatch(/kenkeep freshness: no signal: git log failed: \S/);
     expect(output).not.toContain('appear fresh');
   });
 });

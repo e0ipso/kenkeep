@@ -9,6 +9,7 @@ import {
   curationState,
   findSessionLogBySessionId,
   renderSessionLog,
+  withSessionLogLock,
   writeSessionLog,
 } from './session-log.js';
 import {
@@ -67,18 +68,36 @@ export interface CaptureContext {
 /**
  * Removes user-marked private spans before anything is persisted. Text
  * wrapped in `<kk-private>…</kk-private>` never reaches the session log,
- * the transcript hash, or the cursory-session stats. An UNCLOSED opening
- * tag strips to the end of that message — privacy-first: a typo must fail
- * toward removing too much, never too little. This is explicit user-intent
- * marking, not a secret scanner; the PRD's human-review gate (Goal 6)
- * remains the safeguard for everything unmarked.
+ * the transcript hash, or the cursory-session stats. Spans nest: a span ends
+ * at the closing tag that matches its own opening tag, so an inner span never
+ * ends the outer one early. An UNCLOSED opening tag strips to the end of that
+ * message: privacy-first, a typo must fail toward removing too much, never
+ * too little. A closing tag with no open span is left as text. This is
+ * explicit user-intent marking, not a secret scanner; the PRD's human-review
+ * gate (Goal 6) remains the safeguard for everything unmarked.
  */
 export const PRIVATE_SPAN_PLACEHOLDER = '[kk-private removed]';
 
+const PRIVATE_TAG_RE = /<(\/?)kk-private>/g;
+
 export function stripPrivateSpans(text: string): string {
-  return text
-    .replace(/<kk-private>[\s\S]*?<\/kk-private>/g, PRIVATE_SPAN_PLACEHOLDER)
-    .replace(/<kk-private>[\s\S]*$/, PRIVATE_SPAN_PLACEHOLDER);
+  let out = '';
+  let depth = 0;
+  let kept = 0;
+  for (const match of text.matchAll(PRIVATE_TAG_RE)) {
+    const closing = match[1] === '/';
+    if (!closing) {
+      if (depth === 0) out += text.slice(kept, match.index);
+      depth += 1;
+    } else if (depth > 0) {
+      depth -= 1;
+      if (depth === 0) {
+        out += PRIVATE_SPAN_PLACEHOLDER;
+        kept = match.index + match[0].length;
+      }
+    }
+  }
+  return depth > 0 ? out + PRIVATE_SPAN_PLACEHOLDER : out + text.slice(kept);
 }
 
 export async function captureSession(
@@ -138,41 +157,40 @@ export async function captureSession(
   //    the consumed prefix apart so only the delta is extracted.
   //  - otherwise (never curated, rewritten/compacted transcript, or an
   //    unversioned pre-binding stamp): the whole version is pending.
-  const existing = existingFilename
-    ? readExistingFrontmatter(join(ctx.sessionsDir, existingFilename))
-    : null;
-  if (existing && existing['transcript_hash'] === hash) {
-    await trackUsage(ctx, transcriptText, sessionId, capturedAt);
-    return {
-      status: 'unchanged',
-      sessionLogPath: join(ctx.sessionsDir, existingFilename as string),
-    };
-  }
-  const carried = existing ? carriedCurationStamp(existing, slice) : undefined;
+  // The read and the write share the session log lock with proposal
+  // write-back, so a write-back checked against the previous version can
+  // never replace this one afterwards.
+  const target = join(ctx.sessionsDir, filename);
+  const written = await withSessionLogLock(target, () => {
+    const existing = existingFilename ? readExistingFrontmatter(target) : null;
+    if (existing && existing['transcript_hash'] === hash) return false;
+    const carried = existing ? carriedCurationStamp(existing, slice) : undefined;
 
-  const body = renderSessionLog({
-    sessionId,
-    capturedBy: trigger,
-    capturedAt,
-    transcriptHash: hash,
-    body: slice,
-    ...(carried ?? {}),
-    ...(isCursory && !carried
-      ? {
-          proposalStatus: 'skipped' as const,
-          proposalError: 'cursory_session',
-          proposalCompletedAt: capturedAt,
-        }
-      : {}),
+    const body = renderSessionLog({
+      sessionId,
+      capturedBy: trigger,
+      capturedAt,
+      transcriptHash: hash,
+      body: slice,
+      ...(carried ?? {}),
+      ...(isCursory && !carried
+        ? {
+            proposalStatus: 'skipped' as const,
+            proposalError: 'cursory_session',
+            proposalCompletedAt: capturedAt,
+          }
+        : {}),
+    });
+
+    writeSessionLog(ctx.sessionsDir, filename, body);
+    return true;
   });
-
-  const sessionLogPath = writeSessionLog(ctx.sessionsDir, filename, body);
 
   await trackUsage(ctx, transcriptText, sessionId, capturedAt);
 
   return {
-    status: 'written',
-    sessionLogPath,
+    status: written ? 'written' : 'unchanged',
+    sessionLogPath: target,
   };
 }
 

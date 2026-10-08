@@ -12,8 +12,8 @@
  *
  * Bounded and fail-open: the scaffold's 1 s deadline is cooperative (it cannot
  * interrupt synchronous work), so retrieval checks the same budget between
- * leaves and between scored nodes and gives up — injecting nothing, with a
- * 'budget' diagnostic — once it is spent; the overrun is at most one leaf
+ * leaves and between scored nodes and gives up, injecting nothing, with a
+ * 'budget' diagnostic, once it is spent; the overrun is at most one leaf
  * read+parse. Any missing prompt, missing/empty/malformed knowledge base, or
  * error likewise yields no injected context (the hook exits 0 with no stdout).
  * The prompt text is never logged or persisted.

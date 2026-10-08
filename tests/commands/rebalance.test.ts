@@ -2,9 +2,12 @@ import { execFile } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -585,6 +588,67 @@ describe('rebalance trigger and move (integration)', () => {
     expect(res.stderr + res.stdout).toContain('escapes nodes/');
     // The leaf did not move.
     expect(existsSync(join(nodesDir(sandbox), 'home', 'practice-x.md'))).toBe(true);
+  });
+  it('refuses a malformed AGENTS.md block before moving any leaf', async () => {
+    writeLeaf(sandbox, 'home', 'practice-x');
+    await runCli(sandbox, ['index', 'rebuild']);
+    writeFileSync(
+      join(sandbox, 'AGENTS.md'),
+      '# Instructions\n<!-- >>> kenkeep:kk-index >>> -->\n'
+    );
+    const source = join(nodesDir(sandbox), 'home', 'practice-x.md');
+    const sourceBytes = readFileSync(source, 'utf8');
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        operations: [
+          { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-x'] },
+        ],
+      })
+    );
+
+    const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('kenkeep-managed block is malformed');
+    expect(readFileSync(source, 'utf8')).toBe(sourceBytes);
+    expect(existsSync(join(nodesDir(sandbox), 'new'))).toBe(false);
+  });
+
+  it('refuses a symlinked source leaf before any leaf of the plan moves', async () => {
+    writeLeaf(sandbox, 'home', 'practice-a');
+    writeLeaf(sandbox, 'home', 'practice-linked');
+    const link = join(nodesDir(sandbox), 'home', 'practice-linked.md');
+    const outside = join(sandbox, 'outside.md');
+    writeFileSync(outside, readFileSync(link));
+    rmSync(link);
+    symlinkSync(outside, link);
+    await runCli(sandbox, ['index', 'rebuild']);
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        operations: [
+          { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-a'] },
+          {
+            operation: 'create-branch',
+            folder: 'other',
+            summary: 'Other',
+            ids: ['practice-linked'],
+          },
+        ],
+      })
+    );
+
+    const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('crosses the symlink');
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(existsSync(join(nodesDir(sandbox), 'home', 'practice-a.md'))).toBe(true);
+    expect(existsSync(join(nodesDir(sandbox), 'new'))).toBe(false);
+    expect(existsSync(join(nodesDir(sandbox), 'other'))).toBe(false);
   });
 });
 

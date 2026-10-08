@@ -168,7 +168,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
  *   - It is a bare filename and exists under `_sessions/`.
  *   - It is a repo-relative path and exists when resolved against `root`.
  *   - It is an absolute path and exists as-is.
- *   - It is a live node id, or a legacy retired id whose redirect chain
+ *   - It is a legacy retired id whose redirect chain
  *     reaches at least one live node. Preserve these citations as recorded.
  */
 export function collectDanglingDerivedFrom(
@@ -184,7 +184,6 @@ export function collectDanglingDerivedFrom(
   for (const node of nodes) {
     for (const ref of node.frontmatter.kk_derived_from) {
       if (resolvesOnDisk(ref, root, sessionsDir)) continue;
-      if (liveIds.has(ref)) continue;
       if (Object.hasOwn(redirects, ref) && resolveRedirect(redirects, liveIds, ref).length > 0)
         continue;
       out.push({ nodeId: node.frontmatter.kk_id, reference: ref });

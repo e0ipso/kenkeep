@@ -64,7 +64,7 @@ export function resolveRedirect(
     const current = stack.pop() as string;
     if (seen.has(current)) continue;
     seen.add(current);
-    const successors = ledger[current];
+    const successors = Object.hasOwn(ledger, current) ? ledger[current] : undefined;
     if (!successors) continue;
     for (const next of successors) {
       if (live.has(next)) out.add(next);

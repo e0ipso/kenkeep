@@ -64,7 +64,9 @@ npx kenkeep index rebuild
 
 ## `doctor` reports dangling provenance after a leaf split
 
-Current splits copy the source note's `kk_derived_from` to every child and record the retired id in `nodes/.redirects.json`. Older splits may have put that retired id in the children's provenance. Keep those citations: `doctor` accepts a node id when it is live or its redirect chain reaches at least one live successor. No rewrite or migration is needed.
+Current splits copy the source note's `kk_derived_from` to every child and record the retired id in `nodes/.redirects.json`. Older splits may have put that retired id in the children's provenance. Keep those citations: `doctor` accepts a retired id when its redirect chain reaches at least one live successor, including the citing child. This validates recorded lineage; it does not recover the source's original evidence. No rewrite or migration is needed.
+
+Legacy retired-ID Citations links still render as paths and may be broken. Inspect the ledger and git history to follow that lineage. A live node id without a ledger entry is not accepted as provenance.
 
 If the warning remains, check the ledger and its successor notes. Missing sources, empty redirects, and redirect chains with no live successor still warn. Restore missing evidence from git when available; preserve meaningful provenance rather than deleting it to silence a warning. Missing documentation or session logs still warn independently of valid retired-id citations.
 

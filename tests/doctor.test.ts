@@ -377,6 +377,7 @@ describe('doctor', () => {
       'practice-empty': [],
       'practice-cycle-a': ['practice-cycle-b'],
       'practice-cycle-b': ['practice-cycle-a'],
+      'practice-prototype-successor': ['toString'],
     });
     writeFileSync(ledgerPath, ledger);
     const validRefs = ['practice-retired', 'practice-ancestor'];
@@ -397,12 +398,14 @@ describe('doctor', () => {
       'docs/missing.md',
       'session-missing.md',
       'constructor',
+      'practice-prototype-successor',
+      'practice-child',
     ];
     writeChild([...validRefs, ...missingRefs]);
     const dangling = await runCli(sandbox, ['doctor', '--verbose'], env);
     expect(dangling.exitCode).toBe(0);
     const output = dangling.stdout + dangling.stderr;
-    expect(output).toContain('derived_from references resolve: 7 dangling reference(s)');
+    expect(output).toContain('derived_from references resolve: 9 dangling reference(s)');
     for (const ref of missingRefs) expect(output).toContain(`  - practice-child: ${ref}`);
     for (const ref of validRefs) expect(output).not.toContain(`  - practice-child: ${ref}`);
   });

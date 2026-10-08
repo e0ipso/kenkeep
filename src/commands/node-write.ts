@@ -5,7 +5,7 @@ import lockfile from 'proper-lockfile';
 import { readBootstrapState, writeBootstrapState } from '../lib/bootstrap.js';
 import { log } from '../lib/log.js';
 import { deriveNodeId, ensureUniqueId, readAllNodes, writeNodeFile } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
 import { STATE_LOCK_OPTIONS } from '../lib/state.js';
 import {
   ConfidenceSchema,
@@ -90,6 +90,7 @@ export async function runNodeWriteCommand(
   const writeStdout = deps.writeStdout ?? ((s: string) => process.stdout.write(s));
 
   try {
+    assertDefaultNodesRoot(paths);
     const kind = parseKind(args.kind);
     const slug = (args.slug ?? '').trim();
     if (!slug) {

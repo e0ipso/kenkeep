@@ -1,3 +1,10 @@
+## [1.19.1](https://github.com/e0ipso/kenkeep/compare/v1.19.0...v1.19.1) (2026-10-08)
+
+### Bug Fixes
+
+* harden provenance redirect checks ([#127](https://github.com/e0ipso/kenkeep/issues/127)) ([dd382f5](https://github.com/e0ipso/kenkeep/commit/dd382f51d2e2f47a40c254ae443d179a08e92d1b))
+* resolve retired provenance IDs ([#127](https://github.com/e0ipso/kenkeep/issues/127)) ([9c337c9](https://github.com/e0ipso/kenkeep/commit/9c337c96ea4fc98c61acd4665a5fa33eb7f120d9))
+
 ## [1.19.0](https://github.com/e0ipso/kenkeep/compare/v1.18.0...v1.19.0) (2026-10-08)
 
 ### Features

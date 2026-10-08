@@ -199,7 +199,7 @@ function resolveConsumedSessions(
  * dedups the actions, mints `${runId}-${n}` conflict ids for the
  * surviving conflict actions, writes the surviving (non-conflict) actions to
  * `--output`, materializes each conflict markdown file, and stamps exactly
- * the consumed sessions — never whatever happens to be pending on disk.
+ * the consumed sessions, never whatever happens to be pending on disk.
  *
  * Pure Node: no sub-agent, no LLM, no `proper-lockfile`. Validates the
  * input shape, the consumed set (each session still a done, unprocessed log)
@@ -283,7 +283,8 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
 
   // Atomicity protocol: ALL writes happen tmp+rename, in a fixed order
   // (survivors JSON → conflicts → session stamps). If a later write fails,
-  // prior writes have already landed on disk — documented in the task. The
+  // prior writes have already landed on disk (the kk-curate skill says how
+  // to recover). The
   // stamps carry the version resolved above, not whatever the log holds by
   // the time they are written (see `markSessionsProcessed`).
   try {

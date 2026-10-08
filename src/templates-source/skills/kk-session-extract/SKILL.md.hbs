@@ -49,7 +49,7 @@ The staged log lives under `.ai/kenkeep/_sessions/` with `proposal_status: done`
 
 You are the curator for this single staged session. Read the staged log's proposals and draft one `CuratorAction` per candidate using the same rules as `/kk-curate` Step 2 (action taxonomy, `candidate_origin` as `<session_id>:<practice|map>:<index>`, relate-and-place, whole-tree dedup awareness). Do not invent a second action-rule authority — follow `/kk-curate`'s curator semantics.
 
-Mint a run id once. The staged log is this run's single batch, and its draft is the only thing `curate-dedup` stamps from, so the staged log — and nothing else pending in `_sessions/` — is consumed:
+Mint a run id once. The staged log is this run's single batch, and its draft is the only thing `curate-dedup` stamps from, so the staged log is consumed and nothing else pending in `_sessions/` is:
 
 ```bash
 RUN_ID=$(uuidgen 2>/dev/null || date -u +"curate-%Y%m%dT%H%M%SZ")

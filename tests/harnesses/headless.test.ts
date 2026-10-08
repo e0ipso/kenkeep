@@ -11,6 +11,30 @@ vi.mock('execa', () => ({ execa: vi.fn() }));
 const Schema = z.object({ ok: z.boolean(), n: z.number() });
 
 /**
+ * `opencode run --format json` writes one record per line from its `emit`
+ * helper (`packages/opencode/src/cli/cmd/run.ts`, v1.18.34): `type`,
+ * `timestamp`, `sessionID`, then the payload. A completed assistant text part
+ * arrives once, whole, as a `text` record; a session error as an `error`
+ * record. The SDK `message.part.updated` envelopes never reach stdout.
+ */
+function openCodeRecord(type: string, data: Record<string, unknown>): string {
+  return JSON.stringify({ type, timestamp: 1, sessionID: 'ses_1', ...data });
+}
+
+function openCodeText(messageID: string, partID: string, text: string): string {
+  return openCodeRecord('text', {
+    part: {
+      id: partID,
+      sessionID: 'ses_1',
+      messageID,
+      type: 'text',
+      text,
+      time: { start: 1, end: 2 },
+    },
+  });
+}
+
+/**
  * The execa-backed adapters share a uniform contract: they spawn a child,
  * parse a terminal event into JSON, validate it against the caller's Zod
  * schema, force the recursion-guard env var, and throw when the child
@@ -60,13 +84,11 @@ const execaHeadlessCases: Array<{
   {
     id: 'opencode',
     success: payload => [
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm', part: { type: 'text', text: JSON.stringify(payload) } },
-      }),
-      JSON.stringify({ type: 'session.idle' }),
+      openCodeRecord('step_start', { part: { type: 'step-start', messageID: 'msg_1' } }),
+      openCodeText('msg_1', 'prt_1', JSON.stringify(payload)),
+      openCodeRecord('step_finish', { part: { type: 'step-finish', messageID: 'msg_1' } }),
     ],
-    noResult: [JSON.stringify({ type: 'session.idle' })],
+    noResult: [openCodeRecord('step_start', { part: { type: 'step-start', messageID: 'msg_1' } })],
   },
 ];
 
@@ -231,21 +253,12 @@ describe('opencode headless option mapping and error handling', () => {
   const opencode = getHarness('opencode');
   afterEach(() => vi.clearAllMocks());
 
-  it('passes --model and --agent in canonical order and accumulates text deltas', async () => {
+  it('passes --model and --agent in canonical order and returns the last message text', async () => {
     const { captured } = mockExecaOnce([
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm1', part: { type: 'text', text: 'stale' } },
-      }),
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm2', part: { type: 'text', text: '{"ok":' } },
-      }),
-      JSON.stringify({
-        type: 'message.part.updated',
-        properties: { messageID: 'm2', part: { type: 'text', text: 'true,"n":42}' } },
-      }),
-      JSON.stringify({ type: 'session.idle' }),
+      openCodeText('msg_1', 'prt_1', 'stale'),
+      openCodeRecord('tool_use', { part: { type: 'tool', messageID: 'msg_1' } }),
+      openCodeText('msg_2', 'prt_2', 'Result:'),
+      openCodeText('msg_2', 'prt_3', '{"ok":true,"n":42}'),
     ]);
     const out = await opencode.runHeadless('hello', Schema, {
       harnessOpts: { model: 'anthropic/claude-sonnet-4', agent: 'build' },
@@ -264,10 +277,34 @@ describe('opencode headless option mapping and error handling', () => {
     ]);
   });
 
-  it('throws on non-zero exit', async () => {
-    mockExecaOnce([JSON.stringify({ type: 'session.idle' })], { exitCode: 1, stderr: 'boom' });
+  it('ignores SDK event envelopes, which the CLI never writes to stdout', async () => {
+    mockExecaOnce([
+      JSON.stringify({
+        type: 'message.part.updated',
+        properties: { messageID: 'm', part: { type: 'text', text: '{"ok":true,"n":1}' } },
+      }),
+    ]);
+    await expect(opencode.runHeadless('hello', Schema)).rejects.toThrow(/no assistant text/);
+  });
+
+  it('throws on non-zero exit and names the error record opencode reported', async () => {
+    mockExecaOnce(
+      [
+        openCodeRecord('error', {
+          error: { name: 'ProviderModelNotFoundError', data: { message: 'model not found' } },
+        }),
+      ],
+      { exitCode: 1, stderr: 'boom' }
+    );
     await expect(opencode.runHeadless('hello', Schema)).rejects.toThrow(
-      /opencode subprocess failed/
+      /opencode subprocess failed.*model not found/s
+    );
+  });
+
+  it('reports a streamed error instead of a missing result when the exit code is zero', async () => {
+    mockExecaOnce([openCodeRecord('error', { error: { name: 'UnknownError' } })]);
+    await expect(opencode.runHeadless('hello', Schema)).rejects.toThrow(
+      /opencode reported an error: UnknownError/
     );
   });
 });

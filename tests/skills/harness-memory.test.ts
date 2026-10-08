@@ -57,6 +57,12 @@ describe('shipped skills ingest harness memory through the ledger primitives', (
     );
     expect(markSection).toMatch(/none of whose actions failed/);
   });
+
+  it('both skills say `memory list` makes a headless Claude call', () => {
+    for (const name of ['kk-bootstrap', 'kk-curate']) {
+      expect(skillText(name)).toContain('one headless `claude -p` call');
+    }
+  });
 });
 
 describe('memory list / memory mark through the built CLI', () => {
@@ -157,6 +163,22 @@ describe('memory list / memory mark through the built CLI', () => {
     expect(changed.files).toHaveLength(1);
     expect(changed.files[0]!.sha256).not.toBe(first.files[0]!.sha256);
     expect(changed.files[0]!.session_id).not.toBe(first.files[0]!.session_id);
+  });
+
+  it('memory list on Claude spawns a headless `claude -p` discovery call, as its help says', async () => {
+    const argvFile = join(cwd, 'discovery-argv.txt');
+    const reply = JSON.stringify({ type: 'result', is_error: false, result: '[]' });
+    writeFileSync(
+      join(binDir, 'claude'),
+      `#!/bin/sh\nprintf '%s\\n' "$@" > '${argvFile}'\ncat >/dev/null\nprintf '%s\\n' '${reply}'\n`
+    );
+    expect((await list()).files).toEqual([]);
+    expect(readFileSync(argvFile, 'utf8').split('\n')).toContain('-p');
+
+    const help = await runCli(cwd, ['memory', 'list', '--help'], env());
+    expect(help.stdout.replace(/\s+/g, ' ')).toContain('one headless `claude -p` discovery call');
+    const groupHelp = await runCli(cwd, ['memory', '--help'], env());
+    expect(groupHelp.stdout).not.toMatch(/^\s*Deterministic primitives/m);
   });
 
   it('a harness without native memory prints an empty list and exits 0', async () => {

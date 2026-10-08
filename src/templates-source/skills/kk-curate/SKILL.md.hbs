@@ -53,7 +53,7 @@ The host harness may keep auto-memory files outside the repo (Claude Code's pers
 npx --yes kenkeep@latest memory list
 ```
 
-It prints one JSON document: `{"harness":"<id>","files":[{"iri","path","sha256","bytes","session_id"}]}`. `files` holds only new or changed memory files; `[]` (nothing changed, or a harness without native memory) is the normal case: proceed to Step 1 with no message. Listing writes nothing; a file stays listed until Step 5b marks it.
+It prints one JSON document: `{"harness":"<id>","files":[{"iri","path","sha256","bytes","session_id"}]}`. `files` holds only new or changed memory files; `[]` (nothing changed, or a harness without native memory) is the normal case: proceed to Step 1 with no message. Unlike the other primitives this one is not LLM-free on Claude Code: it finds the memory files with one headless `claude -p` call (a billed model call that can take up to a minute; if it fails, `files` is `[]` and nothing is lost, the files come back next run). The other hosts spawn nothing. Listing writes nothing; a file stays listed until Step 5b marks it.
 
 Bring each listed file into the same pipeline as a captured session, so it is deduped, contradiction-checked and persisted under the same rules:
 

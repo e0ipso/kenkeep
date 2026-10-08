@@ -9,7 +9,7 @@ import {
 import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
 import { modifyNodeInPlace } from '../lib/node-modify.js';
 import { findNodeById } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import {
   ConflictDecisionSchema,
   OPEN_CONFLICT_STATUSES,
@@ -28,12 +28,20 @@ export interface ConflictResolveOptions {
 }
 
 /**
- * The `error` prefix when the target was rewritten but the conflict record
- * was not. The kk-curate skill quotes it to tell a landed accept from a
- * refused one.
+ * The `error` prefix when an accept rewrote the target but the conflict record
+ * was not updated. The kk-curate skill quotes it to tell a landed accept from
+ * a refused one.
  */
 export const PARTIAL_ACCEPT_ERROR =
   'decision applied to the target but the conflict file could not be updated';
+
+/**
+ * The `error` prefix when a reject, keep or skip could not be recorded. These
+ * decisions never write the target, so nothing changed. Kept distinct from
+ * `PARTIAL_ACCEPT_ERROR` so the skill does not report a node change.
+ */
+export const RECORD_NOT_UPDATED_ERROR =
+  'decision not recorded: the conflict file could not be updated and no node was changed';
 
 interface ResolveReport {
   id: string;
@@ -91,7 +99,13 @@ export async function runConflictResolveCommand(
   }
 
   const conflicts = conflictsLocation(root, paths.conflictsDir, opts.conflictsDir);
-  const nodesDir = opts.nodesDir ?? paths.nodesDir;
+  let nodesDir: string;
+  try {
+    nodesDir = opts.nodesDir ?? assertDefaultNodesRoot(paths);
+  } catch (err) {
+    log.error(`conflict resolve: ${(err as Error).message}`);
+    return 1;
+  }
 
   let file: string;
   try {
@@ -184,7 +198,8 @@ export async function runConflictResolveCommand(
   try {
     writeConflictFile(conflicts, file, updated);
   } catch (err) {
-    return fail(`${PARTIAL_ACCEPT_ERROR}: ${(err as Error).message}`);
+    const prefix = decision === 'accept' ? PARTIAL_ACCEPT_ERROR : RECORD_NOT_UPDATED_ERROR;
+    return fail(`${prefix}: ${(err as Error).message}`);
   }
 
   report.status = updated.status;

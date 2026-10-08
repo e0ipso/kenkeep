@@ -11,6 +11,10 @@ import {
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  PARTIAL_ACCEPT_ERROR,
+  RECORD_NOT_UPDATED_ERROR,
+} from '../../src/commands/conflict-resolve.js';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 
 const TARGET = 'practice-foo';
@@ -183,6 +187,99 @@ describe('kk conflict resolve (built CLI)', () => {
     expect(readConflict(root, 'run-1-1').data['status']).toBe(status);
   });
 
+  describe('when the conflict record cannot be written', () => {
+    /** Preload that fails the atomic rename onto the conflict file, as a full disk would. */
+    function failingRecordWrite(): NodeJS.ProcessEnv {
+      const preload = join(root, 'fail-record.cjs');
+      writeFileSync(
+        preload,
+        [
+          "const fs = require('node:fs');",
+          'const real = fs.renameSync;',
+          'fs.renameSync = function (from, to) {',
+          "  if (String(to).split(require('node:path').sep).join('/').endsWith('/conflicts/run-1-1.md')) throw new Error('simulated full disk');",
+          '  return real(from, to);',
+          '};',
+          "require('node:module').syncBuiltinESMExports();",
+        ].join('\n')
+      );
+      return { NODE_OPTIONS: `--require ${JSON.stringify(preload)}` };
+    }
+
+    it('accept reports a landed accept, and a repaired retry records it without a second change', async () => {
+      const targetFile = writeLeaf(root, 'topic', TARGET);
+      const before = readFileSync(targetFile);
+      const conflictFile = writeConflict(root, { id: 'run-1-1', schemaVersion: 2 });
+      const conflictBefore = readFileSync(conflictFile);
+
+      const res = await runCli(
+        root,
+        ['conflict', 'resolve', 'run-1-1', '--decision', 'accept'],
+        failingRecordWrite()
+      );
+      expect(res.exitCode).toBe(1);
+      const out = JSON.parse(res.stdout) as Record<string, unknown>;
+      expect(out).toMatchObject({ decision: 'accept', status: 'pending' });
+      expect(String(out['error'])).toMatch(new RegExp(`^${PARTIAL_ACCEPT_ERROR}: `));
+      const landed = readFileSync(targetFile);
+      expect(landed.equals(before)).toBe(false);
+      expect(readFileSync(conflictFile)).toEqual(conflictBefore);
+
+      const retry = await runCli(root, ['conflict', 'resolve', 'run-1-1', '--decision', 'accept']);
+      expect(retry.exitCode, retry.stderr).toBe(0);
+      expect(JSON.parse(retry.stdout)).toMatchObject({ decision: 'accept', status: 'accepted' });
+      expect(readFileSync(targetFile)).toEqual(landed);
+    });
+
+    it.each([
+      ['reject', 'pending', 'rejected'],
+      ['keep', 'pending', 'kept'],
+      ['skip', 'pending', 'skipped'],
+      ['reject', 'skipped', 'rejected'],
+    ])(
+      '%s on a %s conflict reports a record-only failure, and a repaired retry records %s',
+      async (decision, previous, recorded) => {
+        const targetFile = writeLeaf(root, 'topic', TARGET);
+        const before = readFileSync(targetFile);
+        const conflictFile = writeConflict(root, {
+          id: 'run-1-1',
+          schemaVersion: 2,
+          status: previous,
+          defaultDecision: 'accept',
+        });
+        const conflictBefore = readFileSync(conflictFile);
+
+        const res = await runCli(
+          root,
+          ['conflict', 'resolve', 'run-1-1', '--decision', decision],
+          failingRecordWrite()
+        );
+        expect(res.exitCode).toBe(1);
+        const out = JSON.parse(res.stdout) as Record<string, unknown>;
+        expect(out).toMatchObject({ decision, status: previous });
+        const error = String(out['error']);
+        expect(error).toMatch(new RegExp(`^${RECORD_NOT_UPDATED_ERROR}: `));
+        expect(error.startsWith(PARTIAL_ACCEPT_ERROR)).toBe(false);
+        expect(readFileSync(targetFile)).toEqual(before);
+        expect(readFileSync(conflictFile)).toEqual(conflictBefore);
+
+        // The retry the skill offers passes the reported decision, not the
+        // prepared default (accept here), so the target stays untouched.
+        const retry = await runCli(root, [
+          'conflict',
+          'resolve',
+          'run-1-1',
+          '--decision',
+          String(out['decision']),
+        ]);
+        expect(retry.exitCode, retry.stderr).toBe(0);
+        expect(JSON.parse(retry.stdout)).toMatchObject({ decision, status: recorded });
+        expect(readFileSync(targetFile)).toEqual(before);
+        expect(readConflict(root, 'run-1-1').data['status']).toBe(recorded);
+      }
+    );
+  });
+
   it('accept refuses a target whose filename is not its id and writes no leaf', async () => {
     // foo is stored as manual.md and bar sits at foo's canonical filename.
     const fooFile = writeLeaf(root, 'topic', TARGET, 'TARGET ORIGINAL.\n');
@@ -244,6 +341,26 @@ describe('kk conflict resolve (built CLI)', () => {
       expect(res.stderr).toContain('symlink');
       expect(readFileSync(targetFile)).toEqual(before);
       expect(readFileSync(join(root, '.ai/kenkeep/conflicts/run-1-1.md'))).toEqual(conflictBefore);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a nodes/ directory linked outside before accepting into it', async () => {
+    const targetFile = writeLeaf(root, 'topic', TARGET);
+    const before = readFileSync(targetFile);
+    const conflictFile = writeConflict(root, { id: 'run-1-1', schemaVersion: 2 });
+    const conflictBefore = readFileSync(conflictFile);
+    const outside = `${root}-nodes-outside`;
+    renameSync(join(root, '.ai/kenkeep/nodes'), outside);
+    symlinkSync(outside, join(root, '.ai/kenkeep/nodes'), 'dir');
+
+    try {
+      const res = await runCli(root, ['conflict', 'resolve', 'run-1-1', '--decision', 'accept']);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('symlink');
+      expect(readFileSync(join(outside, 'topic', `${TARGET}.md`))).toEqual(before);
+      expect(readFileSync(conflictFile)).toEqual(conflictBefore);
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }

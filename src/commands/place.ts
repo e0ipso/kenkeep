@@ -6,7 +6,7 @@ import { writePlacements, type Placement } from '../lib/migrate-flat-to-tree.js'
 import { reconcileFolderSummaries, reconcilePlacements } from '../lib/migrate-place.js';
 import { readAllNodesFlat } from '../lib/migrate-read.js';
 import { stampFolderSummary } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 import { readStdin } from '../lib/stdin.js';
 
@@ -180,6 +180,7 @@ export async function runPlaceApply(opts: PlaceApplyOptions = {}): Promise<numbe
 
   let placed: { id: string; targetFolder: string }[];
   try {
+    assertDefaultNodesRoot(paths);
     const leaves = readAllNodesFlat(paths.nodesDir);
     // Validate both channels BEFORE any write (abort-before-write guarantee):
     // reconcilePlacements throws on an unknown/omitted id; reconcileFolderSummaries

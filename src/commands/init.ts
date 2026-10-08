@@ -31,6 +31,7 @@ const SESSIONS_IGNORE_LINE = '/_sessions/';
 
 const KENKEEP_GITIGNORE_LINES = [
   SESSIONS_IGNORE_LINE,
+  '/_sessions/*.lock/',
   '/_logs/',
   '/hooks/',
   '.state/*',

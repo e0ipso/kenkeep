@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { HarnessAdapter } from '../harnesses/types.js';
 import { copyMissingEntries } from './fs-atomic.js';
+import { assertContained } from './path-safety.js';
 import {
   expectedHookScripts,
   missingHookScripts,
@@ -25,21 +26,41 @@ function shippedPlugins(templatesDir: string, harnessId: string): string[] {
   return existsSync(dir) ? readdirSync(dir).sort() : [];
 }
 
+/** A checked restore of one adapter's missing hook scripts; see `planHarnessRuntimeRepair`. */
+export interface HarnessRuntimeRepair {
+  src: string;
+  dest: string;
+  names: string[];
+}
+
 /**
- * Copies the adapter's missing hook scripts from the running package and
- * returns their names. They are the one runtime asset a clone lacks: the
- * consumer `.gitignore` covers `.ai/kenkeep/hooks/`, while skills, plugins,
- * prompts and host registrations are committed. Scripts already on disk stay
- * byte-identical; replacing the set is what `init --upgrade` is for.
+ * Plans the restore of the adapter's hook scripts from the running package.
+ * They are the one runtime asset a clone lacks: the consumer `.gitignore`
+ * covers `.ai/kenkeep/hooks/`, while skills, plugins, prompts and host
+ * registrations are committed. Every destination must stay inside `root`
+ * without crossing a symlink; otherwise this throws and nothing is written,
+ * so callers can plan every adapter before repairing any.
  */
-export function repairHarnessRuntime(
+export function planHarnessRuntimeRepair(
   root: string,
   templatesDir: string,
   adapter: HarnessAdapter
-): string[] {
+): HarnessRuntimeRepair | null {
   const src = templateHooksDir(templatesDir, adapter.id);
-  if (!src) return [];
-  return copyMissingEntries(src.dir, hooksDirOf(root, adapter), expectedHookScripts(adapter.hooks));
+  if (!src) return null;
+  const dest = hooksDirOf(root, adapter);
+  const names = expectedHookScripts(adapter.hooks);
+  for (const name of names) assertContained(root, join(dest, name), 'the repository');
+  return { src: src.dir, dest, names };
+}
+
+/**
+ * Copies the planned scripts that are missing and returns their names.
+ * Scripts already on disk stay byte-identical; replacing the set is what
+ * `init --upgrade` is for.
+ */
+export function repairHarnessRuntime(plan: HarnessRuntimeRepair): string[] {
+  return copyMissingEntries(plan.src, plan.dest, plan.names);
 }
 
 /**

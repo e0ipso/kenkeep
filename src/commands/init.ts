@@ -4,7 +4,7 @@ import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js
 import type { HarnessAdapter } from '../harnesses/types.js';
 import { ensureAgentsKkBlock } from '../lib/agents-block.js';
 import { copyMissingEntries, copyTree } from '../lib/fs-atomic.js';
-import { repairHarnessRuntime } from '../lib/harness-install-status.js';
+import { planHarnessRuntimeRepair, repairHarnessRuntime } from '../lib/harness-install-status.js';
 import {
   installedVersionRecord,
   mergeHarnessInventory,
@@ -160,6 +160,12 @@ async function runRepair(
     if (!hasHarness(id)) log.warn(`Recorded harness '${id}' is unknown to this kenkeep; skipped.`);
   }
   const added = opts.harnesses.filter(id => !recorded.harnesses.includes(id));
+  // Every restore target is checked before anything is written, so a refused
+  // one (a symlinked hooks directory) leaves the whole repository as it was.
+  const repairs = known.map(id => ({
+    id,
+    plan: planHarnessRuntimeRepair(root, templatesDir, getHarness(id)),
+  }));
 
   for (const id of added) {
     await getHarness(id).install({ root, paths, templatesDir, upgrade: false });
@@ -167,8 +173,8 @@ async function runRepair(
   }
 
   let restoredAnything = false;
-  for (const id of known) {
-    const restored = repairHarnessRuntime(root, templatesDir, getHarness(id));
+  for (const { id, plan } of repairs) {
+    const restored = plan ? repairHarnessRuntime(plan) : [];
     if (restored.length === 0) continue;
     restoredAnything = true;
     log.success(`Restored ${plural(restored.length, 'hook script', 'hook scripts')} for ${id}:`);

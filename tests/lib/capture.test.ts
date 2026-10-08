@@ -36,6 +36,29 @@ describe('stripPrivateSpans', () => {
     );
   });
 
+  it('removes a nested span through its own closing tag, never leaking outer content', () => {
+    const text =
+      'keep <kk-private>outer <kk-private>inner secret</kk-private> OUTER-SECRET </kk-private> tail';
+    expect(stripPrivateSpans(text)).toBe(`keep ${PRIVATE_SPAN_PLACEHOLDER} tail`);
+    expect(
+      stripPrivateSpans(
+        '<kk-private>a<kk-private>b</kk-private>c</kk-private><kk-private>d</kk-private>'
+      )
+    ).toBe(`${PRIVATE_SPAN_PLACEHOLDER}${PRIVATE_SPAN_PLACEHOLDER}`);
+  });
+
+  it('strips to the end when a nested span leaves the outer one unclosed', () => {
+    expect(
+      stripPrivateSpans('keep <kk-private>outer <kk-private>inner</kk-private> OUTER-SECRET')
+    ).toBe(`keep ${PRIVATE_SPAN_PLACEHOLDER}`);
+  });
+
+  it('leaves a closing tag with no open span as text', () => {
+    expect(stripPrivateSpans('a </kk-private> b <kk-private>x</kk-private>')).toBe(
+      `a </kk-private> b ${PRIVATE_SPAN_PLACEHOLDER}`
+    );
+  });
+
   it('leaves unmarked text untouched', () => {
     expect(stripPrivateSpans(FILLER)).toBe(FILLER);
   });

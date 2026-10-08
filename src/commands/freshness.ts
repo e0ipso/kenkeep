@@ -23,7 +23,7 @@ export async function runFreshness(opts: FreshnessOptions = {}): Promise<number>
 /** Deterministic renderer for a freshness report (no timestamps, stable order). */
 export function renderFreshness(report: FreshnessReport, opts: { verbose: boolean }): void {
   if (!report.available) {
-    log.plain(`kenkeep freshness: no signal — ${report.reason ?? 'unknown'}.`);
+    log.plain(`kenkeep freshness: no signal: ${report.reason ?? 'unknown'}.`);
     return;
   }
 

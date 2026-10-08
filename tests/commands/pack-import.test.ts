@@ -1,15 +1,32 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runIndexRebuild } from '../../src/commands/index-rebuild.js';
 import { runPackExportCommand } from '../../src/commands/pack-export.js';
 import { acquirePackSource, runPackImportCommand } from '../../src/commands/pack-import.js';
 import type { AcquiredPack } from '../../src/commands/pack-import.js';
 import { readFolderSummaries, writeFolderSummaries } from '../../src/lib/folder-summaries.js';
+import { runLint } from '../../src/lib/lint.js';
+import { writeNodeFile } from '../../src/lib/nodes.js';
+import { unresolvedHrefs } from '../helpers/rendered-links.js';
 import { PACK_KNOWLEDGE_DIRNAME } from '../../src/lib/pack.js';
+import { readRedirectsLedger, writeRedirectsLedger } from '../../src/lib/redirects.js';
 import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 import { defaultProjectConfigBody } from '../../src/lib/settings.js';
@@ -45,17 +62,12 @@ function writeIndex(dir: string, opts: { root?: boolean } = {}): void {
   );
 }
 
-function writePackNode(
-  packRoot: string,
-  relDir: string,
+function leafFrontmatter(
   kind: NodeKind,
   id: string,
-  body = '# Body\n'
-): void {
-  const dir = join(packRoot, 'knowledge', relDir);
-  mkdirSync(dir, { recursive: true });
-  writeIndex(dir);
-  const fm: NodeFrontmatter = {
+  overrides: Partial<NodeFrontmatter> = {}
+): NodeFrontmatter {
+  return {
     kk_schema_version: NODE_SCHEMA_VERSION,
     kk_id: id,
     title: id,
@@ -66,8 +78,67 @@ function writePackNode(
     kk_depends_on: [],
     kk_confidence: 'high',
     description: `Summary for ${id}.`,
+    ...overrides,
   };
-  writeFileSync(join(dir, `${id}.md`), matter.stringify(body, fm));
+}
+
+function writePackNode(
+  packRoot: string,
+  relDir: string,
+  kind: NodeKind,
+  id: string,
+  body = '# Body\n',
+  overrides: Partial<NodeFrontmatter> = {}
+): void {
+  const dir = join(packRoot, 'knowledge', relDir);
+  mkdirSync(dir, { recursive: true });
+  writeIndex(dir);
+  writeFileSync(
+    join(dir, `${id}.md`),
+    matter.stringify(body, leafFrontmatter(kind, id, overrides))
+  );
+}
+
+// A synthetic private file outside every pack and sandbox. The leaf variant is
+// a VALID node whose id matches the link name, so the only thing standing
+// between its body and the consumer KB is symlink rejection itself (a malformed
+// target would be refused by frontmatter validation for the wrong reason).
+const PRIVATE_TOKEN = 'PRIVATE-TOKEN-5f3a9c-do-not-import';
+
+function writePrivateFile(root: string, kind: 'leaf' | 'index'): string {
+  const file = join(root, kind === 'leaf' ? 'practice-leaked.md' : 'private-notes.md');
+  const body = `# Private\n\n${PRIVATE_TOKEN}\n`;
+  writeFileSync(
+    file,
+    kind === 'leaf' ? matter.stringify(body, leafFrontmatter('practice', 'practice-leaked')) : body
+  );
+  return file;
+}
+
+/** Whether any regular file under `dir` (links are not followed) contains `needle`. */
+function treeContains(dir: string, needle: string): boolean {
+  if (!existsSync(dir)) return false;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    const stat = lstatSync(full);
+    if (stat.isDirectory() && treeContains(full, needle)) return true;
+    if (stat.isFile() && readFileSync(full, 'utf8').includes(needle)) return true;
+  }
+  return false;
+}
+
+/** Every regular file under `dir` as `dir`-relative POSIX path -> bytes. */
+function readTree(dir: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const walk = (current: string): void => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else out.set(relative(dir, full).split(sep).join('/'), readFileSync(full, 'utf8'));
+    }
+  };
+  walk(dir);
+  return out;
 }
 
 function writePack(root: string): string {
@@ -133,26 +204,44 @@ function writePackRegistry(packRoot: string, frontmatter: string[]): void {
   );
 }
 
-function writeProjectNode(root: string, relDir: string, kind: NodeKind, id: string): void {
+function writeProjectNode(
+  root: string,
+  relDir: string,
+  kind: NodeKind,
+  id: string,
+  overrides: Partial<NodeFrontmatter> = {}
+): void {
   const dir = join(root, '.ai/kenkeep/nodes', relDir);
   mkdirSync(dir, { recursive: true });
-  const fm: NodeFrontmatter = {
-    kk_schema_version: NODE_SCHEMA_VERSION,
-    kk_id: id,
-    title: id,
-    type: kind,
-    tags: ['existing'],
-    kk_derived_from: [],
-    kk_relates_to: [],
-    kk_depends_on: [],
-    kk_confidence: 'high',
-    description: `Summary for ${id}.`,
-  };
-  writeFileSync(join(dir, `${id}.md`), matter.stringify('# Existing\n', fm));
+  writeFileSync(
+    join(dir, `${id}.md`),
+    matter.stringify(
+      '# Existing\n',
+      leafFrontmatter(kind, id, { tags: ['existing'], ...overrides })
+    )
+  );
 }
 
-async function initSandbox(root: string): Promise<void> {
-  await exec('git', ['init', '-q'], { cwd: root });
+/** Runs git in `cwd` only, never in a repository named by inherited GIT_* variables. */
+async function git(cwd: string, args: string[]): Promise<string> {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))
+  );
+  const { stdout } = await exec('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
+    cwd,
+    env,
+  });
+  return stdout;
+}
+
+/** Commits everything under `root`: import refuses a tree git cannot restore. */
+async function commitAll(root: string): Promise<void> {
+  await git(root, ['add', '-A']);
+  await git(root, ['commit', '-q', '--allow-empty', '-m', 'fixture']);
+}
+
+async function initSandbox(root: string, gitRoot = root): Promise<void> {
+  await git(gitRoot, ['init', '-q']);
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/nodes'), { recursive: true });
   writeFileSync(join(root, 'AGENTS.md'), '# Test repo\n');
@@ -195,7 +284,11 @@ async function capture(
  * `cleanup`; `returnTo` is restored as the cwd before returning, because export
  * and import each resolve their repo from `process.cwd()`.
  */
-async function exportFixturePack(cleanup: string[], returnTo: string): Promise<string> {
+async function exportFixturePack(
+  cleanup: string[],
+  returnTo: string,
+  seed?: (source: string, nodesDir: string) => void
+): Promise<string> {
   const source = mkdtempSync(join(tmpdir(), 'kk-pack-source-'));
   cleanup.push(source);
   await initSandbox(source);
@@ -212,6 +305,7 @@ async function exportFixturePack(cleanup: string[], returnTo: string): Promise<s
       ['framework/hooks', HOOKS_SUMMARY],
     ])
   );
+  seed?.(source, nodesDir);
 
   const outDir = join(source, 'pack-out');
   process.chdir(source);
@@ -241,9 +335,9 @@ async function createTarball(packRoot: string): Promise<string> {
 function mockFetchSequence(
   responses: Array<{ status: number; body: unknown }>,
   opts: { captureHeaders?: boolean } = {}
-): { urls: string[]; headers: HeadersInit[] } {
+): { urls: string[]; headers: NonNullable<RequestInit['headers']>[] } {
   const urls: string[] = [];
-  const headers: HeadersInit[] = [];
+  const headers: NonNullable<RequestInit['headers']>[] = [];
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     urls.push(String(input));
     if (opts.captureHeaders) headers.push(init?.headers ?? {});
@@ -291,10 +385,17 @@ describe('pack import command', () => {
     for (const root of extraRoots) rmSync(root, { recursive: true, force: true });
   });
 
+  const afterCommit = async (
+    fn: () => Promise<number>
+  ): Promise<{ code: number; stdout: string; stderr: string }> => {
+    await commitAll(sandbox);
+    return capture(fn);
+  };
+
   it('grafts a valid pack into an isolated branch and rebuilds indexes', async () => {
     const acquired: AcquiredPack = { packRoot, resolvedSource: 'fixture-pack' };
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', { acquireSource: async () => acquired })
     );
 
@@ -312,7 +413,7 @@ describe('pack import command', () => {
   });
 
   it('uses --as for the destination branch', async () => {
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         as: 'drupal-seven',
         acquireSource: async () => ({ packRoot, resolvedSource: 'fixture-pack' }),
@@ -329,7 +430,7 @@ describe('pack import command', () => {
   it('aborts when the destination branch already exists', async () => {
     mkdirSync(join(sandbox, '.ai/kenkeep/nodes/drupal'), { recursive: true });
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
@@ -340,32 +441,34 @@ describe('pack import command', () => {
     expect(result.stderr).toContain('--as');
   });
 
-  it('skips colliding ids and reports them without aborting', async () => {
+  it('rejects a pack id that collides with a consumer node instead of binding it', async () => {
+    // The pack's `map-drupal-hooks` relates to `practice-drupal-services`,
+    // which the consumer also has as an unrelated leaf. Silently skipping the
+    // pack copy would bind the pack's edge to the consumer's content, so
+    // the collision is a human decision: nothing is written.
     writeProjectNode(sandbox, 'existing', 'practice', 'practice-drupal-services');
+    writePackNode(packRoot, 'framework', 'map', 'map-drupal-hooks', '# Body\n', {
+      kk_relates_to: ['practice-drupal-services'],
+    });
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
     );
 
-    expect(result.code).toBe(0);
-    expect(result.stdout).toContain('Nodes grafted: 1');
-    expect(result.stdout).toContain('Nodes skipped: 1');
+    expect(result.code).toBe(1);
     expect(result.stderr).toContain('practice-drupal-services');
-    expect(
-      existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal/framework/practice-drupal-services.md'))
-    ).toBe(false);
-    expect(
-      existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal/framework/map-drupal-hooks.md'))
-    ).toBe(true);
+    expect(result.stderr).toContain('existing/practice-drupal-services.md');
+    expect(result.stdout).not.toContain('Nodes grafted');
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(false);
   });
 
   it('sets the imported branch summary from the manifest when the pack root index lacks one', async () => {
     rmSync(packRoot, { recursive: true, force: true });
     packRoot = writePack(mkdtempSync(join(tmpdir(), 'kk-pack-fixture-')));
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
@@ -388,7 +491,7 @@ describe('pack import command', () => {
       ])
     );
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot: exportedPack, resolvedSource: 'round-trip' }),
       })
@@ -419,7 +522,7 @@ describe('pack import command', () => {
   it('re-keys every folder summary under the --as branch', async () => {
     const exportedPack = await exportFixturePack(extraRoots, sandbox);
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         as: 'renamed',
         acquireSource: async () => ({ packRoot: exportedPack, resolvedSource: 'round-trip' }),
@@ -443,7 +546,7 @@ describe('pack import command', () => {
   it('imports a legacy pack that ships no folder summary registry', async () => {
     expect(existsSync(join(packRoot, 'knowledge.FOLDER_SUMMARIES.md'))).toBe(false);
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'legacy-pack' }),
       })
@@ -464,7 +567,7 @@ describe('pack import command', () => {
       new Map([['framework', FRAMEWORK_SUMMARY]])
     );
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
@@ -489,7 +592,7 @@ describe('pack import command', () => {
       '  "/": Pack slash text.',
     ]);
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
@@ -518,7 +621,7 @@ describe('pack import command', () => {
       new Map([['framework', FRAMEWORK_SUMMARY]])
     );
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
@@ -537,7 +640,7 @@ describe('pack import command', () => {
     extraRoots.push(legacyRoot);
     writeLegacyV2Pack(legacyRoot);
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         as: 'legacy',
         acquireSource: async () => ({ packRoot: legacyRoot, resolvedSource: 'v2' }),
@@ -557,7 +660,7 @@ describe('pack import command', () => {
     extraRoots.push(legacyRoot);
     writeLegacyV2Pack(legacyRoot);
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         as: 'legacy',
         migrate: true,
@@ -596,7 +699,7 @@ describe('pack import command', () => {
       'utf8'
     );
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         as: 'legacy',
         migrate: true,
@@ -615,7 +718,7 @@ describe('pack import command', () => {
   });
 
   it('accepts a pack directory as the source, not only a tarball', async () => {
-    const result = await capture(() => runPackImportCommand(packRoot));
+    const result = await afterCommit(() => runPackImportCommand(packRoot));
 
     expect(result.code).toBe(0);
     expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal/index.md'))).toBe(true);
@@ -624,7 +727,7 @@ describe('pack import command', () => {
   });
 
   it('rejects a source that is neither a directory, a tarball, nor a GitHub ref', async () => {
-    const result = await capture(() => runPackImportCommand('not a pack'));
+    const result = await afterCommit(() => runPackImportCommand('not a pack'));
 
     expect(result.code).toBe(1);
     expect(result.stderr).toContain('unsupported pack source');
@@ -634,7 +737,7 @@ describe('pack import command', () => {
   it('returns validation errors without writing on an invalid pack', async () => {
     rmSync(join(packRoot, 'knowledge'), { recursive: true, force: true });
 
-    const result = await capture(() =>
+    const result = await afterCommit(() =>
       runPackImportCommand('fixture', {
         acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
       })
@@ -644,6 +747,524 @@ describe('pack import command', () => {
     expect(result.stderr).toContain('not a valid kenkeep pack');
     expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(false);
   });
+
+  // Every link target below is a valid manifest or node, so following any link
+  // would pass validation; only the structural symlink rule refuses the pack.
+  it.each(['directory', 'tarball'] as const)(
+    'rejects a %s pack with a symlinked manifest, leaf or index before reading it',
+    async sourceKind => {
+      const privateRoot = mkdtempSync(join(tmpdir(), 'kk-private-'));
+      extraRoots.push(privateRoot);
+      writePackManifest(privateRoot);
+      rmSync(join(packRoot, 'kenkeep-pack.yaml'));
+      symlinkSync(join(privateRoot, 'kenkeep-pack.yaml'), join(packRoot, 'kenkeep-pack.yaml'));
+      symlinkSync(
+        writePrivateFile(privateRoot, 'leaf'),
+        join(packRoot, 'knowledge/framework/practice-leaked.md')
+      );
+      // A leafless branch holding nothing but a linked index.
+      mkdirSync(join(packRoot, 'knowledge/empty'), { recursive: true });
+      symlinkSync(
+        writePrivateFile(privateRoot, 'index'),
+        join(packRoot, 'knowledge/empty/index.md')
+      );
+      const source = sourceKind === 'tarball' ? await createTarball(packRoot) : packRoot;
+
+      const result = await afterCommit(() => runPackImportCommand(source));
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('symlink');
+      expect(result.stderr).toContain('kenkeep-pack.yaml');
+      expect(result.stderr).toContain('knowledge/framework/practice-leaked.md');
+      expect(result.stderr).toContain('knowledge/empty/index.md');
+      expect(result.stderr).not.toContain('PackManifestSchema');
+      expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(false);
+      expect(treeContains(join(sandbox, '.ai/kenkeep'), PRIVATE_TOKEN)).toBe(false);
+    }
+  );
+
+  // A consumer edge to an id the pack retired resolves through the merged
+  // ledger, so the refreshed link lands on the successor inside the graft.
+  it('renders a consumer edge to a pack-retired id as a link to its grafted successor', async () => {
+    const consumerNodes = join(sandbox, '.ai/kenkeep/nodes');
+    const consumer = writeNodeFile({
+      nodesDir: consumerNodes,
+      frontmatter: leafFrontmatter('practice', 'practice-consumer-base', {
+        kk_relates_to: ['practice-retired'],
+      }),
+      body: '# Base',
+      relDir: 'base',
+    });
+    expect(readFileSync(consumer, 'utf8')).toContain('](../practice-retired.md)');
+    writePackNode(packRoot, 'framework', 'practice', 'practice-new');
+    writeRedirectsLedger(join(packRoot, PACK_KNOWLEDGE_DIRNAME), {
+      'practice-retired': ['practice-new'],
+    });
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    const refreshed = readFileSync(consumer, 'utf8');
+    expect(refreshed).toContain(
+      '- Related: [practice-retired → practice-new](../drupal/framework/practice-new.md)'
+    );
+    expect(refreshed).not.toContain('../practice-retired.md');
+    expect(unresolvedHrefs(consumer)).toEqual([]);
+    const lint = runLint({ nodesDir: consumerNodes });
+    expect(lint.errors).toEqual([]);
+    expect(lint.findings.filter(f => f.rule === 'stale-rendered-link')).toEqual([]);
+  });
+
+  // A split leaves `old id -> [new ids]` in the ledger and edges that still
+  // cite the old id. Export carries the ledger; import must merge it into the
+  // consumer root (the only place the ledger reader looks) or the edge dangles.
+  const seedSplitHistory = (_source: string, nodesDir: string): void => {
+    writeProjectNode(_source, 'framework', 'practice', 'practice-new');
+    writeProjectNode(_source, 'framework', 'practice', 'practice-citing', {
+      kk_relates_to: ['practice-retired'],
+    });
+    writeRedirectsLedger(nodesDir, { 'practice-retired': ['practice-new'] });
+  };
+
+  it('carries a split redirect through an export/import round trip', async () => {
+    const exportedPack = await exportFixturePack(extraRoots, sandbox, seedSplitHistory);
+    expect(readRedirectsLedger(join(exportedPack, PACK_KNOWLEDGE_DIRNAME))).toEqual({
+      'practice-retired': ['practice-new'],
+    });
+    const consumerNodes = join(sandbox, '.ai/kenkeep/nodes');
+    writeProjectNode(sandbox, 'existing', 'practice', 'practice-local');
+    writeRedirectsLedger(consumerNodes, { 'practice-old-local': ['practice-local'] });
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot: exportedPack, resolvedSource: 'round-trip' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Redirects merged: 1');
+    expect(readRedirectsLedger(consumerNodes)).toEqual({
+      'practice-old-local': ['practice-local'],
+      'practice-retired': ['practice-new'],
+    });
+    // The pack never writes a ledger into the graft branch: the reader only
+    // recognizes the bundle root.
+    expect(existsSync(join(consumerNodes, 'drupal/.redirects.json'))).toBe(false);
+    const lint = runLint({ nodesDir: consumerNodes });
+    expect(lint.errors).toEqual([]);
+    expect(
+      lint.findings.some(
+        f => f.rule === 'redirected-edge' && f.message.includes('practice-retired')
+      )
+    ).toBe(true);
+    const graph = readFileSync(join(sandbox, '.ai/kenkeep/GRAPH.md'), 'utf8');
+    expect(graph).toContain('## practice-citing');
+    expect(graph).toContain('relates_to:** practice-retired');
+  });
+
+  it('rejects a pack redirect that maps a retired id differently from the consumer ledger', async () => {
+    const exportedPack = await exportFixturePack(extraRoots, sandbox, seedSplitHistory);
+    const consumerNodes = join(sandbox, '.ai/kenkeep/nodes');
+    writeProjectNode(sandbox, 'existing', 'practice', 'practice-local');
+    writeRedirectsLedger(consumerNodes, { 'practice-retired': ['practice-local'] });
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot: exportedPack, resolvedSource: 'round-trip' }),
+      })
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('practice-retired');
+    expect(result.stderr).toContain('practice-local');
+    expect(result.stderr).toContain('practice-new');
+    expect(readRedirectsLedger(consumerNodes)).toEqual({ 'practice-retired': ['practice-local'] });
+    expect(existsSync(join(consumerNodes, 'drupal'))).toBe(false);
+  });
+
+  it('rejects unresolved pack references before grafting, resolving them within pack and consumer', async () => {
+    writePackNode(packRoot, 'framework', 'map', 'map-drupal-hooks', '# Body\n', {
+      kk_depends_on: ['practice-consumer-base'],
+    });
+
+    const dangling = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(dangling.code).toBe(1);
+    expect(dangling.stderr).toContain('practice-consumer-base');
+    expect(dangling.stderr).toContain('map-drupal-hooks');
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(false);
+
+    // The same edge resolves once the consumer carries the referenced node: a
+    // pack may build on a base the consumer already imported.
+    writeProjectNode(sandbox, 'base', 'practice', 'practice-consumer-base');
+    const resolved = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(resolved.code).toBe(0);
+    expect(resolved.stdout).toContain('Nodes grafted: 2');
+    expect(runLint({ nodesDir: join(sandbox, '.ai/kenkeep/nodes') }).errors).toEqual([]);
+  });
+
+  it('refreshes rendered links of grafted leaves and consumer leaves that link to them', async () => {
+    mkdirSync(join(sandbox, 'docs'), { recursive: true });
+    writeFileSync(join(sandbox, 'docs/x.md'), '# x\n');
+    const consumerNodes = join(sandbox, '.ai/kenkeep/nodes');
+    // The consumer leaf links to a pack id before the pack exists (root fallback).
+    const consumer = writeNodeFile({
+      nodesDir: consumerNodes,
+      frontmatter: leafFrontmatter('practice', 'practice-consumer-base', {
+        kk_relates_to: ['map-drupal-hooks'],
+      }),
+      body: '# Base',
+      relDir: 'base',
+    });
+    // Pack leaves rendered where the author had them: depth of knowledge/framework.
+    const packNodes = join(packRoot, 'knowledge');
+    writeNodeFile({
+      nodesDir: packNodes,
+      frontmatter: leafFrontmatter('map', 'map-drupal-hooks', {
+        kk_derived_from: ['docs/x.md'],
+        kk_depends_on: ['practice-consumer-base'],
+        kk_relates_to: ['practice-drupal-services'],
+      }),
+      body: '# Hooks',
+      relDir: 'framework',
+    });
+    const consumerBefore = readFileSync(consumer, 'utf8');
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+    expect(result.code).toBe(0);
+
+    const grafted = join(consumerNodes, 'drupal/framework/map-drupal-hooks.md');
+    const graftedText = readFileSync(grafted, 'utf8');
+    expect(graftedText).toContain('[1] [docs/x.md](../../../../../docs/x.md)');
+    expect(graftedText).toContain(
+      '- Related: [practice-drupal-services](practice-drupal-services.md)'
+    );
+    expect(graftedText).toContain(
+      '- Depends on: [practice-consumer-base](../../base/practice-consumer-base.md)'
+    );
+    expect(readFileSync(consumer, 'utf8')).not.toBe(consumerBefore);
+    expect(readFileSync(consumer, 'utf8')).toContain(
+      '- Related: [map-drupal-hooks](../drupal/framework/map-drupal-hooks.md)'
+    );
+    expect(unresolvedHrefs(grafted)).toEqual([]);
+    expect(unresolvedHrefs(consumer)).toEqual([]);
+    const lint = runLint({ nodesDir: consumerNodes });
+    expect(lint.findings.filter(f => f.rule === 'stale-rendered-link')).toEqual([]);
+  });
+
+  it('refuses to start unless git can restore the knowledge base and AGENTS.md', async () => {
+    // A kenkeep root nested in a monorepo: git paths are relative to the top level.
+    const top = mkdtempSync(join(tmpdir(), 'kk-pack-mono-'));
+    extraRoots.push(top);
+    const nested = join(top, 'apps/kb');
+    await initSandbox(nested, top);
+    await commitAll(top);
+    writeProjectNode(nested, 'local', 'practice', 'practice-draft');
+    writeFileSync(join(nested, 'AGENTS.md'), '# Edited\n');
+    process.chdir(nested);
+    const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+    const dirty = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+    expect(dirty.code).toBe(1);
+    expect(dirty.stderr).toContain('apps/kb/.ai/kenkeep/nodes/local/practice-draft.md');
+    expect(dirty.stderr).toContain('apps/kb/AGENTS.md');
+    expect(dirty.stderr).toContain('Commit or stash');
+    expect(existsSync(join(nested, '.ai/kenkeep/nodes/drupal'))).toBe(false);
+
+    await commitAll(top);
+    const clean = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+    expect(clean.code).toBe(0);
+    expect(existsSync(join(nested, '.ai/kenkeep/nodes/drupal'))).toBe(true);
+
+    rmSync(join(top, '.git'), { recursive: true, force: true });
+    const noGit = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+    expect(noGit.code).toBe(1);
+    expect(noGit.stderr).toContain('not inside a git work tree');
+  });
+
+  // `git status` hides edits to a path flagged assume-unchanged or
+  // skip-worktree, and the printed `git restore` either overwrites such an
+  // edit or skips the path. Import refuses any flagged path it may write.
+  it.each(['--assume-unchanged', '--skip-worktree'])(
+    'refuses to start when a protected path is flagged %s',
+    async flag => {
+      writeProjectNode(sandbox, 'base', 'practice', 'practice-consumer-base');
+      await commitAll(sandbox);
+      const kkDir = join(sandbox, '.ai/kenkeep');
+      const agents = join(sandbox, 'AGENTS.md');
+      const leaf = join(kkDir, 'nodes/base/practice-consumer-base.md');
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      for (const [file, gitPath] of [
+        [agents, 'AGENTS.md'],
+        [leaf, '.ai/kenkeep/nodes/base/practice-consumer-base.md'],
+      ] as const) {
+        await git(sandbox, ['update-index', flag, '--', gitPath]);
+        const edited = `${readFileSync(file, 'utf8')}UNCOMMITTED_FACT\n`;
+        writeFileSync(file, edited);
+        expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+        const flags = await git(sandbox, ['ls-files', '-v']);
+
+        const result = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain(gitPath);
+        expect(result.stderr).toContain('assume-unchanged or skip-worktree');
+        expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(false);
+        expect(readFileSync(file, 'utf8')).toBe(edited);
+        expect(await git(sandbox, ['ls-files', '-v'])).toBe(flags);
+        expect(await git(sandbox, ['diff', '--cached', '--name-only'])).toBe('');
+
+        await git(sandbox, ['update-index', flag.replace('--', '--no-'), '--', gitPath]);
+        await git(sandbox, ['checkout', '--', gitPath]);
+      }
+    }
+  );
+
+  // The refusal prints one command per flag actually set: `git update-index`
+  // applies only the first of `--no-assume-unchanged --no-skip-worktree`, so a
+  // combined command would leave a skip-worktree flag in place. Running the
+  // printed commands verbatim must clear every flag.
+  it.each(['--assume-unchanged', '--skip-worktree', '--assume-unchanged --skip-worktree'])(
+    'prints commands that clear %s',
+    async spec => {
+      const flags = spec.split(' ');
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+      await commitAll(sandbox);
+      for (const flag of flags) await git(sandbox, ['update-index', flag, '--', 'AGENTS.md']);
+      expect(await git(sandbox, ['ls-files', '-v', '--', 'AGENTS.md'])).not.toMatch(/^H /);
+
+      const result = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+      expect(result.code).toBe(1);
+      const commands = [...result.stderr.matchAll(/`(git [^`]+)`/g)].map(match => match[1]!);
+      expect(commands).toHaveLength(flags.length);
+      for (const command of commands) {
+        expect(command).not.toContain('&&');
+        const argv = command.split(' ').slice(1);
+        expect(argv.slice(0, 3)).toEqual(['-C', realpathSync(sandbox), 'update-index']);
+        await git(sandbox, argv);
+      }
+      expect(await git(sandbox, ['ls-files', '-v', '--', 'AGENTS.md'])).toBe('H AGENTS.md\n');
+
+      const retry = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
+    }
+  );
+
+  // Every file the graft and its rebuild would write is checked against the
+  // containment boundary first: a symlink at any of them is refused before
+  // the first byte lands, instead of being replaced by a regular file.
+  it.each([
+    'nodes/.redirects.json',
+    'FOLDER_SUMMARIES.md',
+    'ENTRY.md',
+    'GRAPH.md',
+    'nodes/index.md',
+    'nodes/base/index.md',
+    'nodes/base/practice-consumer-base.md',
+  ])('refuses to graft when %s is a symlink', async artifact => {
+    const kkDir = join(sandbox, '.ai/kenkeep');
+    const consumerNodes = join(kkDir, 'nodes');
+    writeNodeFile({
+      nodesDir: consumerNodes,
+      frontmatter: leafFrontmatter('practice', 'practice-consumer-base', {
+        kk_relates_to: ['practice-retired'],
+      }),
+      body: '# Base',
+      relDir: 'base',
+    });
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    writePackNode(packRoot, 'framework', 'practice', 'practice-new');
+    writeRedirectsLedger(join(packRoot, PACK_KNOWLEDGE_DIRNAME), {
+      'practice-retired': ['practice-new'],
+    });
+    const link = join(kkDir, artifact);
+    const external = join(sandbox, 'user-owned', basename(artifact));
+    mkdirSync(dirname(external), { recursive: true });
+    const absent = artifact.endsWith('.json')
+      ? '{}\n'
+      : '---\nschema_version: 1\nsummaries: {}\n---\n# Summaries\n';
+    writeFileSync(external, existsSync(link) ? readFileSync(link) : absent);
+    rmSync(link, { force: true });
+    symlinkSync(external, link);
+    const target = readFileSync(external);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('nothing was imported');
+    expect(result.stderr).toContain(link);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external)).toEqual(target);
+    expect(existsSync(join(consumerNodes, 'drupal'))).toBe(false);
+    expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+  });
+
+  // AGENTS.md is the one rebuild output outside .ai/kenkeep/. When the rebuild
+  // would rewrite its pointer block, a symlink there (live or dangling) is
+  // refused before the graft, so the link and its target survive and a later
+  // import without the link goes through.
+  it.each(['live', 'dangling'])(
+    'refuses to graft when AGENTS.md is a %s symlink the rebuild would rewrite',
+    async kind => {
+      const kkDir = join(sandbox, '.ai/kenkeep');
+      const agents = join(sandbox, 'AGENTS.md');
+      const external = join(sandbox, 'user-owned', 'AGENTS.md');
+      mkdirSync(dirname(external), { recursive: true });
+      if (kind === 'live') writeFileSync(external, '# User instructions\n');
+      rmSync(agents);
+      symlinkSync(external, agents);
+      const target = kind === 'live' ? readFileSync(external) : null;
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      const result = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('nothing was imported');
+      expect(result.stderr).toContain(agents);
+      expect(lstatSync(agents).isSymbolicLink()).toBe(true);
+      if (target === null) expect(existsSync(external)).toBe(false);
+      else expect(readFileSync(external)).toEqual(target);
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(false);
+      expect(await git(sandbox, ['status', '--porcelain', '--untracked-files=all'])).toBe('');
+
+      rmSync(agents);
+      writeFileSync(agents, '# Test repo\n');
+      const retry = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
+      expect(lstatSync(agents).isFile()).toBe(true);
+      expect(readFileSync(agents, 'utf8')).toContain('kenkeep:kk-index');
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(true);
+    }
+  );
+
+  // A symlinked AGENTS.md that already carries the current pointer block is
+  // left alone by the rebuild, so it does not block the import.
+  it('grafts through a symlinked AGENTS.md the rebuild leaves untouched', async () => {
+    const agents = join(sandbox, 'AGENTS.md');
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    const external = join(sandbox, 'user-owned', 'AGENTS.md');
+    mkdirSync(dirname(external), { recursive: true });
+    writeFileSync(external, readFileSync(agents));
+    rmSync(agents);
+    symlinkSync(external, agents);
+    const target = readFileSync(external);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(lstatSync(agents).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external)).toEqual(target);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(true);
+  });
+
+  /**
+   * A consumer with generated catalogs and a stale owned index the next
+   * rebuild would remove: the state a failed nested rebuild must put back.
+   */
+  async function seedRebuiltConsumer(): Promise<{ kkDir: string; stale: string }> {
+    const kkDir = join(sandbox, '.ai/kenkeep');
+    writeProjectNode(sandbox, 'base', 'practice', 'practice-consumer-base');
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    const stale = join(kkDir, 'nodes/leafless/index.md');
+    mkdirSync(dirname(stale), { recursive: true });
+    writeFileSync(stale, '# stale\n');
+    return { kkDir, stale };
+  }
+
+  // The nested rebuild writes the catalogs and removes stale indexes before
+  // its AGENTS.md step can refuse a malformed block. That refusal is known up
+  // front, so it is checked before anything is grafted.
+  it('refuses to graft when the rebuild would refuse a malformed AGENTS.md block', async () => {
+    const { kkDir } = await seedRebuiltConsumer();
+    const agents = join(sandbox, 'AGENTS.md');
+    const malformed = '# Test repo\n\n<!-- >>> kenkeep:kk-index >>> -->\n';
+    writeFileSync(agents, malformed);
+    const before = readTree(kkDir);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('malformed');
+    expect(result.stderr).toContain('nothing was imported');
+    expect(readTree(kkDir)).toEqual(before);
+    expect(readFileSync(agents, 'utf8')).toBe(malformed);
+  });
+
+  // A failure no preflight foresees lands after the graft has written leaves,
+  // catalogs and a stale-index removal. AGENTS.md is the one file the rebuild
+  // writes outside .ai/kenkeep, so a read-only repo root makes its last write
+  // fail. The printed git commands must undo all of it, so a retry does not
+  // fail on "destination exists". Root ignores mode bits.
+  it.skipIf(process.getuid?.() === 0)(
+    'prints git commands that undo a failed import, after which a retry succeeds',
+    async () => {
+      const { kkDir } = await seedRebuiltConsumer();
+      // The seeding rebuild appended the pointer block; drop it again so the
+      // import's rebuild has to write AGENTS.md.
+      writeFileSync(join(sandbox, 'AGENTS.md'), '# Test repo\n');
+      await commitAll(sandbox);
+      const before = readTree(kkDir);
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      chmodSync(sandbox, 0o555);
+      let failed: Awaited<ReturnType<typeof capture>>;
+      try {
+        failed = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+      } finally {
+        chmodSync(sandbox, 0o755);
+      }
+
+      expect(failed.code).toBe(1);
+      expect(failed.stderr).toContain('EACCES');
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(true);
+      expect(existsSync(join(kkDir, 'nodes/leafless/index.md'))).toBe(false);
+      const undo = failed.stderr
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.startsWith('git '));
+      expect(undo).toHaveLength(2);
+      for (const command of undo) await git(sandbox, command.split(' ').slice(1));
+
+      expect(readTree(kkDir)).toEqual(before);
+      expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+
+      const retry = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
+      expect(readFileSync(join(kkDir, 'ENTRY.md'), 'utf8')).toContain('drupal');
+    }
+  );
 });
 
 describe('pack source acquisition', () => {

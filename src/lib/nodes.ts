@@ -1,19 +1,14 @@
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import { z } from 'zod';
 import { setFolderSummary } from './folder-summaries.js';
+import { atomicWriteFile } from './fs-atomic.js';
 import { MIGRATE_COMMAND_HINT } from './migrate-guidance.js';
-import { renderGeneratedNodeSections } from './node-sections.js';
+import { linkTargetResolver, renderGeneratedNodeSections } from './node-sections.js';
+import { assertContained, resolveContainedDir, validateNodeId } from './path-safety.js';
+import { ledgerIds, readRedirectsLedger } from './redirects.js';
 import {
   NODE_SCHEMA_VERSION,
   NodeFrontmatterSchema,
@@ -69,12 +64,17 @@ export class InvalidNodeFrontmatterError extends Error {
 }
 
 /**
- * Thrown when the on-disk knowledge base uses the old flat `nodes/<kind>/`
- * layout (or `schema_version: 1`). The reader rejects the old shape outright
- * rather than misparsing it; the message points the user at the `kk-migrate`
- * skill, which clusters in-session and preserves every node's id and edges
- * (re-init would not migrate, and deleting the tree would discard curated
- * knowledge).
+ * Thrown when a leaf declares an older node schema (the v1 flat
+ * `nodes/<kind>/` storage carried `schema_version: 1`, the v2 tree
+ * `schema_version: 2`). The reader rejects the old shape outright rather than
+ * misparsing it; the message points the user at the `kk-migrate` skill, which
+ * clusters in-session and preserves every node's id and edges (re-init would
+ * not migrate, and deleting the tree would discard curated knowledge).
+ *
+ * Legacy status is decided by that schema evidence only. A topical folder
+ * named after a kind (`nodes/map/`, `nodes/practice/`) is a legitimate v3
+ * folder (`kind` is a facet, not a location), including in the window before
+ * its generated `index.md` exists.
  */
 export class OldLayoutError extends Error {
   constructor(detail: string) {
@@ -87,36 +87,30 @@ export class OldLayoutError extends Error {
   }
 }
 
-const LEGACY_KIND_DIRS = ['practice', 'map'];
-
 /**
- * Detects the old flat layout: a `nodes/practice/` or `nodes/map/` directory
- * that holds leaf `.md` files (the legacy two-bucket shape) without the new
- * per-folder `index.md` convention. Throws `OldLayoutError` if found. This is
- * the clean-break guard; it must fire before any attempt to parse leaves so an
- * old KB fails loudly instead of being silently misread.
+ * Thrown by a tree walk given a `deadlineAt` once that instant has passed.
+ * Hooks run synchronously under a timer that cannot interrupt them, so the
+ * walk checks the clock itself and the hook fails open.
  */
-export function assertNotOldLayout(nodesDir: string): void {
-  if (!existsSync(nodesDir)) return;
-  for (const kind of LEGACY_KIND_DIRS) {
-    const dir = join(nodesDir, kind);
-    if (!existsSync(dir) || !isDirectory(dir)) continue;
-    const hasLeafDocs = readdirSync(dir).some(name => name.endsWith('.md') && name !== 'index.md');
-    const hasIndex = existsSync(join(dir, 'index.md'));
-    if (hasLeafDocs && !hasIndex) {
-      throw new OldLayoutError(
-        `Detected the legacy nodes/${kind}/ bucket with leaf documents and no index.md.`
-      );
-    }
+export class BudgetExceededError extends Error {
+  constructor(unit: string) {
+    super(`cooperative budget exceeded before ${unit}`);
+    this.name = 'BudgetExceededError';
   }
 }
 
-function isDirectory(p: string): boolean {
-  try {
-    return statSync(p).isDirectory();
-  } catch {
-    return false;
-  }
+/** Throws {@link BudgetExceededError} when `deadlineAt` (epoch ms) has passed. */
+export function assertWithinBudget(deadlineAt: number | undefined, unit: string): void {
+  if (deadlineAt !== undefined && Date.now() > deadlineAt) throw new BudgetExceededError(unit);
+}
+
+/**
+ * Optional deadline for the tree walks below. The clock is checked before
+ * each directory listing and each leaf read, so a walk overruns by at most
+ * one leaf.
+ */
+export interface WalkBudget {
+  deadlineAt?: number | undefined;
 }
 
 /**
@@ -126,20 +120,20 @@ function isDirectory(p: string): boolean {
  * (lexicographic) order so downstream generation is byte-stable.
  *
  * `kind` is a frontmatter facet only and does not constrain directory placement
- * (placement is topical). `assertNotOldLayout` runs first and rejects the flat
- * `nodes/<kind>/` layout.
+ * (placement is topical). A leaf declaring a legacy `schema_version` aborts the
+ * whole read with `OldLayoutError` before its frontmatter is validated, so an
+ * old KB fails loudly with migrate guidance instead of being misread.
  *
  * Aggregates parse and schema failures across the whole tree and throws a
  * single `InvalidNodeFrontmatterError` listing every offending file. Callers
  * that wrap this in a `try/catch` get one actionable report; everywhere else,
  * the failure aborts loudly instead of silently dropping nodes.
  */
-export function readAllNodes(nodesDir: string): NodeFile[] {
-  assertNotOldLayout(nodesDir);
+export function readAllNodes(nodesDir: string, budget: WalkBudget = {}): NodeFile[] {
   const out: NodeFile[] = [];
   const failures: NodeLoadFailure[] = [];
   if (existsSync(nodesDir)) {
-    collectLeafNodes(nodesDir, nodesDir, out, failures);
+    collectLeafNodes(nodesDir, nodesDir, out, failures, budget.deadlineAt);
   }
   out.sort((a, b) => a.relPath.localeCompare(b.relPath));
   if (failures.length > 0) {
@@ -152,19 +146,22 @@ function collectLeafNodes(
   rootDir: string,
   currentDir: string,
   out: NodeFile[],
-  failures: NodeLoadFailure[]
+  failures: NodeLoadFailure[],
+  deadlineAt: number | undefined
 ): void {
+  assertWithinBudget(deadlineAt, 'directory listing');
   const names = readdirSync(currentDir, { withFileTypes: true }).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
   for (const entry of names) {
     const fullPath = join(currentDir, entry.name);
     if (entry.isDirectory()) {
-      collectLeafNodes(rootDir, fullPath, out, failures);
+      collectLeafNodes(rootDir, fullPath, out, failures, deadlineAt);
       continue;
     }
     if (!entry.name.endsWith('.md')) continue;
     if (RESERVED_NODE_FILENAMES.has(entry.name)) continue;
+    assertWithinBudget(deadlineAt, 'leaf read');
     const raw = readFileSync(fullPath, 'utf8');
     let parsed: ReturnType<typeof matter>;
     try {
@@ -249,47 +246,36 @@ export function findNodeById(nodesDir: string, id: string): NodeFile | null {
  * the hash content-addressed and mtime-independent
  * (`practice-determinism-contract`).
  */
-export function computeNodesHash(nodesDir: string): string {
+export function computeNodesHash(nodesDir: string, budget: WalkBudget = {}): string {
   const entries: string[] = [];
   if (existsSync(nodesDir)) {
-    walkMarkdown(nodesDir, nodesDir, entries);
+    walkMarkdown(nodesDir, nodesDir, entries, budget.deadlineAt);
   }
   entries.sort();
   return createHash('sha256').update(entries.join('\n'), 'utf8').digest('hex');
 }
 
-function walkMarkdown(rootDir: string, currentDir: string, out: string[]): void {
+function walkMarkdown(
+  rootDir: string,
+  currentDir: string,
+  out: string[],
+  deadlineAt: number | undefined
+): void {
+  assertWithinBudget(deadlineAt, 'directory listing');
   for (const name of readdirSync(currentDir, { withFileTypes: true })) {
     const fullPath = join(currentDir, name.name);
     if (name.isDirectory()) {
-      walkMarkdown(rootDir, fullPath, out);
+      walkMarkdown(rootDir, fullPath, out, deadlineAt);
       continue;
     }
     if (!name.name.endsWith('.md')) continue;
     // OKF reserved files are not leaf nodes and do not contribute to the leaf hash.
     if (RESERVED_NODE_FILENAMES.has(name.name)) continue;
+    assertWithinBudget(deadlineAt, 'leaf read');
     const rel = relative(rootDir, fullPath).split(sep).join(posix.sep);
     const sha = createHash('sha256').update(readFileSync(fullPath)).digest('hex');
     out.push(`${rel}\t${sha}`);
   }
-}
-
-/**
- * Deterministic hash over an in-memory leaf set, using the same
- * `<relPath>\t<sha256(body+fm)>`, sort, join, sha256 algorithm as
- * `computeNodesHash`. Used for per-folder index-node frontmatter so a leaf edit
- * only perturbs the hash recorded in that leaf's own folder index, not in
- * unrelated folders. Hashes the reconstructed leaf content (frontmatter + body)
- * so it tracks any field or body change.
- */
-export function hashLeaves(leaves: NodeFile[]): string {
-  const entries = leaves.map(n => {
-    const content = matter.stringify(n.body, n.frontmatter);
-    const sha = createHash('sha256').update(content, 'utf8').digest('hex');
-    return `${n.relPath}\t${sha}`;
-  });
-  entries.sort();
-  return createHash('sha256').update(entries.join('\n'), 'utf8').digest('hex');
 }
 
 /**
@@ -330,32 +316,13 @@ export function validateNodeNaming(
   node: Pick<NodeFile, 'filename' | 'frontmatter'>
 ): string | null {
   const { kk_id: id, type } = node.frontmatter;
-  if (id.trim() === '') {
-    return 'leaf has an empty id; every leaf must carry a stable id';
-  }
-  const prefix = `${type}-`;
-  if (!id.startsWith(prefix)) {
-    return `id ${id} does not start with type prefix ${prefix}`;
-  }
-  const bare = id.slice(prefix.length);
-  const canonicalBare = slugify(bare);
-  if (bare !== canonicalBare) {
-    return `id ${id} is not canonical; expected ${type}-${canonicalBare}`;
-  }
+  const idProblem = validateNodeId(id, type);
+  if (idProblem !== null) return idProblem;
   const expectedFilename = nodeFilename(id);
   if (node.filename !== expectedFilename) {
     return `filename ${node.filename} does not match expected ${expectedFilename}`;
   }
   return null;
-}
-
-/**
- * Resolves the on-disk path for a leaf. `relDir` is the topical folder under
- * `nodes/` (POSIX-style, may be empty for the `nodes/` root).
- */
-export function nodeFilePath(nodesDir: string, id: string, relDir = ''): string {
-  const dir = relDir ? join(nodesDir, ...relDir.split(posix.sep)) : nodesDir;
-  return join(dir, nodeFilename(id));
 }
 
 /**
@@ -374,6 +341,21 @@ export function ensureUniqueId(existingIds: Set<string>, candidate: string): str
   throw new Error(`id "${candidate}" collides with 4 existing ids; choose a more distinct title`);
 }
 
+/**
+ * The ids a new leaf may not take: every live id plus every id the redirect
+ * ledger records (`ledgerIds`). Seed `ensureUniqueId` from this rather than
+ * from the live set alone; re-minting a retired id rebinds every edge that
+ * reached its successors to the new leaf.
+ */
+export function reservedNodeIds(
+  nodesDir: string,
+  nodes: readonly NodeFile[] = readAllNodes(nodesDir)
+): Set<string> {
+  const reserved = ledgerIds(readRedirectsLedger(nodesDir));
+  for (const node of nodes) reserved.add(node.frontmatter.kk_id);
+  return reserved;
+}
+
 export interface WriteNodeArgs {
   nodesDir: string;
   frontmatter: NodeFrontmatter;
@@ -386,6 +368,13 @@ export interface WriteNodeArgs {
    * is rejected by `resolveLeafDir` before any disk write.
    */
   relDir?: string;
+  /**
+   * Pre-minted `id -> relPath` entries for leaves that do not exist on disk
+   * yet (e.g. the siblings a split-leaf is about to write). They overlay the
+   * on-disk tree when rendering Related links, so a link to a not-yet-written
+   * sibling resolves to its real path instead of the root fallback.
+   */
+  pendingPaths?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -397,24 +386,9 @@ export interface WriteNodeArgs {
  * resolves to the `nodes/` root (the deliberate root fallback, not an error).
  */
 export function resolveLeafDir(nodesDir: string, relDir = ''): string {
-  if (!relDir) return nodesDir;
-  // Reject an absolute placement up front: an absolute relDir (POSIX `/foo` or
-  // a platform-absolute path) is never a folder under `nodes/`. Joining it
-  // would silently neutralize the leading separator into a subfolder, so guard
-  // before `join` rather than relying on the post-join `relative` check.
-  if (isAbsolute(relDir) || relDir.startsWith('/')) {
-    throw new Error(
-      `home folder "${relDir}" escapes nodes/; placement must target a folder under nodes/`
-    );
-  }
-  const resolved = join(nodesDir, ...relDir.split(posix.sep));
-  const rel = relative(nodesDir, resolved);
-  if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
-    throw new Error(
-      `home folder "${relDir}" escapes nodes/; placement must target a folder under nodes/`
-    );
-  }
-  return resolved;
+  // One shared resolver (path-safety): normalizes the key, rejects absolute
+  // and `..` escapes, and refuses any symlinked segment on the real filesystem.
+  return resolveContainedDir(nodesDir, relDir);
 }
 
 /**
@@ -425,18 +399,25 @@ export function resolveLeafDir(nodesDir: string, relDir = ''): string {
  * disk write.
  */
 export function writeNodeFile(args: WriteNodeArgs): string {
+  // The schema refinement guarantees a canonical `<kind>-<slug>` id, so the
+  // filename below is a single safe segment; the directory and the final file
+  // path are both containment-checked (no `..`, no symlinked segment) before
+  // any disk write.
   const validated = NodeFrontmatterSchema.parse(args.frontmatter);
   const targetDir = resolveLeafDir(args.nodesDir, args.relDir ?? '');
-  const filePath = join(targetDir, nodeFilename(validated.kk_id));
+  const filePath = assertContained(args.nodesDir, join(targetDir, nodeFilename(validated.kk_id)));
   const relPath = toPosixRel(args.nodesDir, filePath);
   const pathsById = new Map(readAllNodes(args.nodesDir).map(n => [n.frontmatter.kk_id, n.relPath]));
+  for (const [id, pending] of args.pendingPaths ?? []) pathsById.set(id, pending);
   pathsById.set(validated.kk_id, relPath);
-  mkdirSync(dirname(filePath), { recursive: true });
-  const tmp = `${filePath}.tmp`;
-  const body = renderGeneratedNodeSections(args.body, validated, id => pathsById.get(id) ?? null);
+  // An edge to a retired id lands on its ledger successor(s), the same
+  // resolution lint and retrieval apply, so the link never names a vacated path.
+  const body = renderGeneratedNodeSections(args.body, validated, {
+    leafRelPath: relPath,
+    resolveTargets: linkTargetResolver(pathsById, readRedirectsLedger(args.nodesDir)),
+  });
   const out = matter.stringify(body.trimEnd() + '\n', validated);
-  writeFileSync(tmp, out);
-  renameSync(tmp, filePath);
+  atomicWriteFile(filePath, out);
   return filePath;
 }
 

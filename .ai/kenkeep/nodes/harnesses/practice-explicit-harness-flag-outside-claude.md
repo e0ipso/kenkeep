@@ -37,13 +37,13 @@ The `--harness <id>` flag (one of `claude`, `codex`, `cursor`, `opencode`) selec
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
-- Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [map-cursor-harness-adapter](map-cursor-harness-adapter.md)
+- Related: [map-config-yaml](../config-and-prompts/map-config-yaml.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
 <!-- kk:citations:end -->

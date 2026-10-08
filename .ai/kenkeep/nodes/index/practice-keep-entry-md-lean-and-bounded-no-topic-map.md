@@ -22,5 +22,5 @@ The top-level entry catalog (`.ai/kenkeep/ENTRY.md`) is purpose-built as a conci
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-entry-md](/index/map-entry-md.md)
+- Related: [map-entry-md](map-entry-md.md)
 <!-- kk:related:end -->

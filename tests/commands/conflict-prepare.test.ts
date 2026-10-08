@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
@@ -46,42 +55,76 @@ function writeConflict(
   root: string,
   opts: {
     id: string;
-    target: string | null;
+    target: string;
     kind?: string;
     confidence?: string;
     detectedAt?: string;
-    proposedBody: string;
+    /** `null` records a contradiction that proposes no rewrite. */
+    proposedBody: string | null;
     status?: string;
+    defaultDecision?: string | null;
   }
 ): void {
   const fm = {
+    schema_version: 2,
     id: opts.id,
     status: opts.status ?? 'pending',
     detected_at: opts.detectedAt ?? '2026-06-01T00:00:00Z',
     run_id: 'run-1',
     candidate_origin: 'sess:practice:0',
     target_node_id: opts.target,
-    proposed_kind: opts.kind ?? 'practice',
-    proposed_title: `Proposed ${opts.id}`,
-    proposed_confidence: opts.confidence ?? 'medium',
+    rationale: `because ${opts.id}`,
+    proposal:
+      opts.proposedBody === null
+        ? null
+        : {
+            title: `Proposed ${opts.id}`,
+            type: opts.kind ?? 'practice',
+            tags: ['t'],
+            description: `proposed summary ${opts.id}`,
+            body: opts.proposedBody,
+            kk_confidence: opts.confidence ?? 'medium',
+            kk_relates_to: [],
+            kk_depends_on: [],
+          },
+    default_decision: opts.defaultDecision ?? null,
+    decided_at: null,
   };
-  const body = `## Rationale\n\nbecause ${opts.id}\n\n## Proposed node\n\n${opts.proposedBody}\n`;
-  writeFileSync(join(root, `.ai/kenkeep/conflicts/${opts.id}.md`), matter.stringify(body, fm));
+  writeFileSync(
+    join(root, `.ai/kenkeep/conflicts/${opts.id}.md`),
+    matter.stringify(`## Rationale\n\nbecause ${opts.id}\n`, fm)
+  );
 }
 
-async function capture(
-  fn: () => Promise<number>
-): Promise<{ code: number; json: { count: number; conflicts: Array<Record<string, unknown>> } }> {
+function readConflictData(root: string, id: string): Record<string, unknown> {
+  return matter(readFileSync(join(root, `.ai/kenkeep/conflicts/${id}.md`), 'utf8')).data as Record<
+    string,
+    unknown
+  >;
+}
+
+async function capture(fn: () => Promise<number>): Promise<{
+  code: number;
+  stdout: string;
+  stderr: string;
+  json: { count: number; conflicts: Array<Record<string, unknown>> };
+}> {
   let stdout = '';
-  const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+  let stderr = '';
+  const out = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
     stdout += chunk.toString();
     return true;
   });
+  const err = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    stderr += `${args.join(' ')}\n`;
+  });
   try {
     const code = await fn();
-    return { code, json: JSON.parse(stdout) };
+    const json = stdout === '' ? { count: 0, conflicts: [] } : JSON.parse(stdout);
+    return { code, stdout, stderr, json };
   } finally {
-    spy.mockRestore();
+    out.mockRestore();
+    err.mockRestore();
   }
 }
 
@@ -100,10 +143,10 @@ describe('kk conflict prepare', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('computes default y for a small change with high confidence', async () => {
+  it('computes default accept for a small change with high confidence and stamps it', async () => {
     const body = 'line a\nline b\nline c\n';
     writeNode(cwd, 'practice-foo', body);
-    // One-line change, high confidence -> lines_changed < 5 -> y.
+    // One-line change, high confidence -> lines_changed < 5 -> accept.
     writeConflict(cwd, {
       id: 'c1',
       target: 'practice-foo',
@@ -113,28 +156,80 @@ describe('kk conflict prepare', () => {
     const { code, json } = await capture(() => runConflictPrepareCommand());
     expect(code).toBe(0);
     expect(json.count).toBe(1);
-    expect(json.conflicts[0].default).toBe('y');
-  });
-
-  it('computes default n for a large change (ratio > 0.5)', async () => {
-    writeNode(cwd, 'practice-bar', 'a\nb\nc\nd\n');
-    // Fully rewritten body -> ratio 1.0 -> n. Medium confidence so the y rule
-    // never fires even though it is a different size.
-    writeConflict(cwd, {
-      id: 'c2',
-      target: 'practice-bar',
-      confidence: 'medium',
-      proposedBody: 'w\nx\ny\nz\nq\nr\n',
+    const c = json.conflicts[0]!;
+    expect(c['default']).toBe('accept');
+    expect(c['default_decision']).toBe('accept');
+    expect(c['has_proposal']).toBe(true);
+    // The full proposal travels with the record so the skill renders it as-is.
+    expect(c['proposal']).toMatchObject({
+      title: 'Proposed c1',
+      description: 'proposed summary c1',
     });
-    const { json } = await capture(() => runConflictPrepareCommand());
-    expect(json.conflicts[0].default).toBe('n');
-    expect(json.conflicts[0].ratio as number).toBeGreaterThan(0.5);
+    expect(c['rationale']).toBe('because c1');
+    // The displayed default is recorded on the file for `conflict resolve`.
+    expect(readConflictData(cwd, 'c1')['default_decision']).toBe('accept');
   });
 
-  it('computes default s for a middling change', async () => {
+  it('refuses a conflicts/ directory linked outside the knowledge base and writes nothing', async () => {
+    writeNode(cwd, 'practice-foo', 'line a\n');
+    writeConflict(cwd, { id: 'c1', target: 'practice-foo', proposedBody: 'line b\n' });
+    const outside = join(cwd, 'outside');
+    renameSync(join(cwd, '.ai/kenkeep/conflicts'), outside);
+    symlinkSync(outside, join(cwd, '.ai/kenkeep/conflicts'), 'dir');
+    const before = readFileSync(join(outside, 'c1.md'));
+
+    const { code, stdout, stderr } = await capture(() => runConflictPrepareCommand());
+    expect(code).toBe(1);
+    expect(stdout).toBe('');
+    expect(stderr).toContain('symlink');
+    expect(readFileSync(join(outside, 'c1.md'))).toEqual(before);
+  });
+
+  it.each(['.ai/kenkeep', '.ai'])(
+    'refuses a %s directory linked outside the repository and writes nothing',
+    async linked => {
+      writeNode(cwd, 'practice-foo', 'line a\n');
+      writeConflict(cwd, { id: 'c1', target: 'practice-foo', proposedBody: 'line b\n' });
+      const outside = `${cwd}-outside`;
+      renameSync(join(cwd, linked), outside);
+      symlinkSync(outside, join(cwd, linked), 'dir');
+      const conflict = join(cwd, '.ai/kenkeep/conflicts/c1.md');
+      const before = readFileSync(conflict);
+
+      try {
+        const { code, stdout, stderr } = await capture(() => runConflictPrepareCommand());
+        expect(code).toBe(1);
+        expect(stdout).toBe('');
+        expect(stderr).toContain('symlink');
+        expect(readFileSync(conflict)).toEqual(before);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it('refuses a linked conflict file before stamping any other conflict', async () => {
+    writeNode(cwd, 'practice-a', 'line a\n');
+    writeNode(cwd, 'practice-b', 'line a\n');
+    writeConflict(cwd, { id: 'c1', target: 'practice-a', proposedBody: 'line b\n' });
+    writeConflict(cwd, { id: 'c2', target: 'practice-b', proposedBody: 'line b\n' });
+    const outside = join(cwd, 'outside.md');
+    renameSync(join(cwd, '.ai/kenkeep/conflicts/c2.md'), outside);
+    symlinkSync(outside, join(cwd, '.ai/kenkeep/conflicts/c2.md'));
+    const before = readFileSync(outside);
+
+    const { code, stderr } = await capture(() => runConflictPrepareCommand());
+    expect(code).toBe(1);
+    expect(stderr).toContain('symlink');
+    expect(readConflictData(cwd, 'c1')['default_decision']).toBeNull();
+    expect(lstatSync(join(cwd, '.ai/kenkeep/conflicts/c2.md')).isSymbolicLink()).toBe(true);
+    expect(readFileSync(outside)).toEqual(before);
+  });
+
+  it('computes default skip for a middling change', async () => {
     // 12-line body sharing 9 lines, 3 replaced -> lines_changed = 6 (3 del + 3 add),
     // total_lines = 12, ratio = 0.5 (not > 0.5). lines_changed >= 5 and not high
-    // confidence -> falls through both rules to s.
+    // confidence -> falls through both rules to skip.
     const existing = Array.from({ length: 12 }, (_, i) => `line ${i}`).join('\n') + '\n';
     const proposed = Array.from({ length: 9 }, (_, i) => `line ${i}`).join('\n') + '\nX\nY\nZ\n';
     writeNode(cwd, 'practice-baz', existing);
@@ -145,24 +240,32 @@ describe('kk conflict prepare', () => {
       proposedBody: proposed,
     });
     const { json } = await capture(() => runConflictPrepareCommand());
-    const c = json.conflicts[0];
-    expect(c.ratio as number).toBeLessThanOrEqual(0.5);
-    expect(c.lines_changed as number).toBeGreaterThanOrEqual(5);
-    expect(c.default).toBe('s');
+    const c = json.conflicts[0]!;
+    expect(c['ratio'] as number).toBeLessThanOrEqual(0.5);
+    expect(c['lines_changed'] as number).toBeGreaterThanOrEqual(5);
+    expect(c['default']).toBe('skip');
   });
 
-  it('defaults to s when there is no target node', async () => {
-    writeConflict(cwd, { id: 'c4', target: null, proposedBody: 'orphan body\n' });
+  it('re-stamps a stale recorded default instead of trusting it', async () => {
+    writeNode(cwd, 'practice-foo', 'a\n');
+    // A recorded `accept` that the current rules no longer support: a full
+    // rewrite at medium confidence computes `reject`, and the file follows.
+    writeConflict(cwd, {
+      id: 'c5',
+      target: 'practice-foo',
+      confidence: 'medium',
+      proposedBody: 'x\ny\nz\n',
+      defaultDecision: 'accept',
+    });
     const { json } = await capture(() => runConflictPrepareCommand());
-    expect(json.conflicts[0].default).toBe('s');
-    expect(json.conflicts[0].existing).toBeNull();
+    expect(json.conflicts[0]!['default']).toBe('reject');
+    expect(readConflictData(cwd, 'c5')['default_decision']).toBe('reject');
   });
 
-  it('sorts by target_node_id (null last) and groups consecutive same-target conflicts', async () => {
+  it('sorts by target_node_id, then kind, then detected_at and groups same-target conflicts', async () => {
     writeNode(cwd, 'practice-aaa', 'a\nb\n');
     writeNode(cwd, 'practice-bbb', 'a\nb\n');
-    // Insertion order deliberately scrambled; expect aaa, aaa, bbb, then null.
-    writeConflict(cwd, { id: 'z-null', target: null, proposedBody: 'x\n' });
+    // Insertion order deliberately scrambled; expect aaa, aaa, bbb.
     writeConflict(cwd, {
       id: 'b-bbb',
       target: 'practice-bbb',
@@ -182,23 +285,37 @@ describe('kk conflict prepare', () => {
       proposedBody: 'x\n',
     });
     const { json } = await capture(() => runConflictPrepareCommand());
-    const order = json.conflicts.map(c => c.target_node_id);
-    expect(order).toEqual(['practice-aaa', 'practice-aaa', 'practice-bbb', null]);
+    expect(json.conflicts.map(c => c['target_node_id'])).toEqual([
+      'practice-aaa',
+      'practice-aaa',
+      'practice-bbb',
+    ]);
     // First aaa conflict starts a group and carries the existing node; the
     // second aaa conflict is in the same group with no repeated existing block.
-    expect(json.conflicts[0].first_in_group).toBe(true);
-    expect(json.conflicts[0].existing).not.toBeNull();
-    expect(json.conflicts[1].first_in_group).toBe(false);
-    expect(json.conflicts[1].existing).toBeNull();
-    expect(json.conflicts[2].first_in_group).toBe(true);
+    expect(json.conflicts[0]!['first_in_group']).toBe(true);
+    expect(json.conflicts[0]!['existing']).not.toBeNull();
+    expect(json.conflicts[1]!['first_in_group']).toBe(false);
+    expect(json.conflicts[1]!['existing']).toBeNull();
+    expect(json.conflicts[2]!['first_in_group']).toBe(true);
     // detected_at orders the two aaa conflicts.
-    expect(json.conflicts[0].id).toBe('a-aaa-1');
-    expect(json.conflicts[1].id).toBe('a-aaa-2');
+    expect(json.conflicts[0]!['id']).toBe('a-aaa-1');
+    expect(json.conflicts[1]!['id']).toBe('a-aaa-2');
   });
 
-  it('skips non-pending conflicts', async () => {
-    writeConflict(cwd, { id: 'resolved', target: null, status: 'resolved', proposedBody: 'x\n' });
-    const { json } = await capture(() => runConflictPrepareCommand());
-    expect(json.count).toBe(0);
+  it('a contradiction without a proposed node yields a usable record: existing node rendered, no proposal, default skip', async () => {
+    writeNode(cwd, 'practice-foo', 'line a\nline b\n');
+    writeConflict(cwd, { id: 'c-noprop', target: 'practice-foo', proposedBody: null });
+    const { code, json } = await capture(() => runConflictPrepareCommand());
+    expect(code).toBe(0);
+    expect(json.count).toBe(1);
+    const c = json.conflicts[0]!;
+    expect(c['target_node_id']).toBe('practice-foo');
+    expect(c['has_proposal']).toBe(false);
+    expect(c['proposal']).toBeNull();
+    expect(c['rationale']).toBe('because c-noprop');
+    expect(c['existing']).not.toBeNull();
+    // Nothing to accept, so the only honest default is to hold for the human.
+    expect(c['default']).toBe('skip');
+    expect(c['lines_changed']).toBe(0);
   });
 });

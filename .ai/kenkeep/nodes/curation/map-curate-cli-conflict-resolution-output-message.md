@@ -25,6 +25,6 @@ The message is only emitted when `result.conflicts > 0`, so the happy path (no c
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-conflict-files](/curation/map-conflict-files.md)
+- Related: [map-curate-command](map-curate-command.md)
+- Related: [map-conflict-files](map-conflict-files.md)
 <!-- kk:related:end -->

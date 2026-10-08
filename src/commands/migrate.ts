@@ -5,12 +5,14 @@ import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
 
 /**
  * Deterministic, LLM-free dispatch primitive: reports which migrations are
- * pending without ever executing one. Detects the on-disk schema version and,
+ * pending without ever executing one. Detects the on-disk schema version from
+ * leaf schema evidence (`detectSchemaVersion`; a kind-named topical folder such
+ * as `nodes/map/` is not legacy evidence) and,
  * when the knowledge base lags behind `NODE_SCHEMA_VERSION`, resolves the
  * ordered step chain from the registry and emits it as a single JSON line for
  * the in-host `kk-migrate` skill to dispatch on:
  *
- *   {"current":1,"target":2,"steps":[{"id":"flat-to-tree","from":1,"to":2,"primitives":["place inventory","place apply"]}]}
+ *   {"current":2,"target":3,"steps":[{"id":"okf-v3","from":2,"to":3,"primitives":["migrate okf-v3"]}]}
  *
  * When the knowledge base is already current (or absent) it reports "nothing
  * to do" and exits 0, mirroring `place inventory`'s short-circuits. An

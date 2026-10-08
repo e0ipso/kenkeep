@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  incomingReferrers,
   placeLeaf,
   type PlacementInput,
   type PlacementResult,
@@ -156,6 +157,22 @@ describe('placeLeaf', () => {
     expect(placeLeaf(input, after)).toEqual({ kind: 'placed', folder: 'gamma', reason: 'edges' });
   });
 
+  it('follows an edge naming a retired id to the folder its live successor occupies', () => {
+    const input = loose({ relates_to: ['practice-old'] });
+    const tree = [
+      leaf({ id: 'practice-live', relDir: 'alpha' }),
+      leaf({ id: 'practice-b1', relDir: 'beta' }),
+    ];
+    const ledger = { 'practice-old': ['practice-live'] };
+    expect(placeLeaf(input, tree, undefined, ledger)).toEqual({
+      kind: 'placed',
+      folder: 'alpha',
+      reason: 'edges',
+    });
+    // Without the ledger the edge dangles and contributes nothing.
+    expect(placeLeaf(input, tree)).toEqual({ kind: 'unplaceable' });
+  });
+
   it('returns deeply equal results on repeated runs over a tied input', () => {
     const tree = tiedTree(['t1'], ['t1']);
     const input = loose({
@@ -189,5 +206,42 @@ describe('placeLeaf', () => {
       if (node === undefined) throw new Error(`${id} is missing from the live tree`);
       expect(placeLeaf(node.frontmatter, tree, id), id).toEqual(want);
     }
+  });
+});
+
+// The sweep never deletes a root leaf other nodes reference.
+describe('incomingReferrers', () => {
+  it('lists every other node naming the id in kk_relates_to or kk_depends_on, never itself', () => {
+    const tree = [
+      leaf({ id: 'practice-target', relates_to: ['practice-target'] }),
+      leaf({ id: 'practice-r1', relDir: 'alpha', relates_to: ['practice-target'] }),
+      leaf({ id: 'practice-r2', relDir: 'beta', depends_on: ['practice-target'] }),
+      leaf({ id: 'practice-unrelated', relDir: 'beta', relates_to: ['practice-r1'] }),
+    ];
+    expect(incomingReferrers('practice-target', tree).map(n => n.frontmatter.kk_id)).toEqual([
+      'practice-r1',
+      'practice-r2',
+    ]);
+    expect(incomingReferrers('practice-unrelated', tree)).toEqual([]);
+  });
+
+  // An edge naming a retired id is a valid edge once the ledger redirects it
+  // (lint: redirected-edge), so the live successor is referenced through it.
+  it('counts an edge naming a retired id as a reference to its live successor', () => {
+    const tree = [
+      leaf({ id: 'practice-live' }),
+      leaf({ id: 'practice-r1', relDir: 'alpha', relates_to: ['practice-old'] }),
+      leaf({ id: 'practice-r2', relDir: 'beta', depends_on: ['practice-older'] }),
+      leaf({ id: 'practice-unrelated', relDir: 'beta', relates_to: ['practice-r1'] }),
+    ];
+    const ledger = {
+      'practice-old': ['practice-live'],
+      'practice-older': ['practice-old'],
+    };
+    expect(incomingReferrers('practice-live', tree, ledger).map(n => n.frontmatter.kk_id)).toEqual([
+      'practice-r1',
+      'practice-r2',
+    ]);
+    expect(incomingReferrers('practice-live', tree)).toEqual([]);
   });
 });

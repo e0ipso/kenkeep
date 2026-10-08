@@ -34,6 +34,7 @@ function printCounts(result: LintResult): void {
     { rule: 'tag-whitespace', bucket: 'findings' },
     { rule: 'empty-summary', bucket: 'findings' },
     { rule: 'orphan', bucket: 'findings' },
+    { rule: 'stale-rendered-link', bucket: 'findings' },
   ];
   for (const { rule, bucket } of rules) {
     const n = bucket === 'errors' ? (errBy.get(rule) ?? 0) : (findBy.get(rule) ?? 0);

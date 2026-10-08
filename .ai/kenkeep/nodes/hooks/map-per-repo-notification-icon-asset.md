@@ -27,12 +27,12 @@ The icon is a committed static asset in `src/templates-source/kenkeep/assets/not
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
-- Related: [map-kenkeep-directory](/overview/map-kenkeep-directory.md)
+- Related: [map-session-start-hook](map-session-start-hook.md)
+- Related: [map-kenkeep-directory](../overview/map-kenkeep-directory.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [96b49c42-b254-4bca-a9c2-40579b0ed896:map:0](96b49c42-b254-4bca-a9c2-40579b0ed896:map:0)
+[1] 96b49c42-b254-4bca-a9c2-40579b0ed896:map:0
 <!-- kk:citations:end -->

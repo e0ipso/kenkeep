@@ -22,8 +22,7 @@ runHookEntry({
     await runProposalDrain({
       binaryName: 'opencode',
       startCwd,
-      runner: async (prompt, stdin, schema, opts) =>
-        runHeadlessOpenCode(prompt, stdin, schema, opts),
+      runner: async (prompt, schema, opts) => runHeadlessOpenCode(prompt, schema, opts),
       buildHarnessOpts: settings => buildOpenCodeHarnessOpts(settings, 'proposal'),
       harnessTag: 'opencode:kk-proposal-drain',
     });

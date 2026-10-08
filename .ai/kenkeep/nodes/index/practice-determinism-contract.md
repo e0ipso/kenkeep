@@ -40,13 +40,13 @@ The package depends on a strict determinism contract for everything that touches
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-nodes-hash](/index/map-nodes-hash.md)
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [map-graph-md](/index/map-graph-md.md)
+- Related: [map-nodes-hash](map-nodes-hash.md)
+- Related: [map-entry-md](map-entry-md.md)
+- Related: [map-graph-md](map-graph-md.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

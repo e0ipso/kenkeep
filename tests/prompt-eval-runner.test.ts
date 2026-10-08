@@ -315,4 +315,64 @@ describe('prompt eval harness runner', () => {
       )
     ).rejects.toThrow(/output directory is not empty/i);
   });
+
+  it('substitutes transcript and judge input literally, preserving replacement tokens', async () => {
+    const root = createFixtureRoot();
+    // `$$`, `$&`, `$'` and the dollar-backtick token are expanded by a string
+    // replacement; shell text in a fixture must reach both prompts untouched.
+    const tokens = "echo $$ and $& and $' and $`";
+    writeFileSync(
+      join(root, 'fixtures', 'sessions', 'fixture-a.md'),
+      `---\nschema_version: 1\nsession_id: 10000000-0000-4000-8000-000000000001\nharness: claude\ncaptured_at: '2026-01-15T10:00:00.000Z'\n---\n[USER]: Alpha ${tokens}\n`
+    );
+    const prompts: string[] = [];
+    const judgePrompts: string[] = [];
+
+    const result = await runPromptEvaluation(
+      {
+        concurrency: 1,
+        fixturesDir: join(root, 'fixtures'),
+        harnessId: 'codex',
+        judgePromptFile: join(root, 'judge.md'),
+        modelLabel: '{"harness":"codex","model":"test-model"}',
+        outputDir: join(root, 'output'),
+        promptFile: join(root, 'prompt.md'),
+        runs: 1,
+        timeoutMs: 1_000,
+      },
+      {
+        now: () => new Date('2026-07-20T12:00:00.000Z'),
+        onProgress: () => undefined,
+        runHeadless: async prompt => {
+          prompts.push(prompt);
+          if (!prompt.includes('Alpha')) return { practice: [], map: [] };
+          return {
+            practice: [
+              {
+                type: 'practice',
+                tags: ['alpha'],
+                title: 'Retain Alpha',
+                description: 'Alpha is retained.',
+                body: tokens,
+                kk_confidence: 'high',
+              },
+            ],
+            map: [],
+          };
+        },
+        runJudge: async prompt => {
+          judgePrompts.push(prompt);
+          return { comparisons: [] };
+        },
+        scoreResults: () => 'Prompt eval score\n',
+      }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const alphaPrompt = prompts.find(prompt => prompt.includes('Alpha'));
+    expect(alphaPrompt).toBe(`<!-- Version: 5 -->\nBefore\n[USER]: Alpha ${tokens}\nAfter\n`);
+    expect(judgePrompts).toHaveLength(1);
+    expect(judgePrompts[0]).toContain(`"body": ${JSON.stringify(tokens)}`);
+    expect(judgePrompts[0]).not.toContain('[JUDGE INPUT PLACEHOLDER]');
+  });
 });

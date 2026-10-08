@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { atomicWriteJson } from './fs-atomic.js';
 
 /**
  * The redirects ledger filename, stored at the `nodes/` root as
@@ -40,9 +41,7 @@ export function writeRedirectsLedger(nodesDir: string, ledger: RedirectsLedger):
   const sortedKeys = Object.keys(ledger).sort();
   const ordered: RedirectsLedger = {};
   for (const k of sortedKeys) ordered[k] = ledger[k] ?? [];
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(ordered, null, 2)}\n`);
-  renameSync(tmp, file);
+  atomicWriteJson(file, ordered);
 }
 
 /**
@@ -73,4 +72,73 @@ export function resolveRedirect(
     }
   }
   return [...out].sort();
+}
+
+/**
+ * Every id the ledger mentions, retired keys and successors alike. None may be
+ * minted again: a new live leaf under a retired id makes `resolveRedirect`
+ * prefer it, so every edge that reached the id's successors silently binds to
+ * unrelated content; a successor that is no longer live is the same hazard one
+ * hop later.
+ */
+export function ledgerIds(ledger: RedirectsLedger): Set<string> {
+  const ids = new Set<string>();
+  for (const [retired, successors] of Object.entries(ledger)) {
+    ids.add(retired);
+    for (const successor of successors) ids.add(successor);
+  }
+  return ids;
+}
+
+/**
+ * Strict ledger parser for untrusted input (a pack's `knowledge/.redirects.json`).
+ * Unlike `readRedirectsLedger`, which tolerates a corrupt consumer
+ * ledger on read paths, this throws on malformed JSON or a shape other than
+ * `{ <retired id>: [<successor id>, ...] }`, so a broken third-party ledger is
+ * reported instead of silently merging as empty.
+ */
+export function parseRedirectsLedger(raw: string): RedirectsLedger {
+  const parsed = RedirectsLedgerSchema.safeParse(JSON.parse(raw) as unknown);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .join('; ');
+    throw new Error(`ledger must map each retired id to an array of successor ids (${issues})`);
+  }
+  return parsed.data;
+}
+
+/** A retired id both ledgers record, with different successor sets. */
+export interface RedirectCollision {
+  id: string;
+  existing: string[];
+  incoming: string[];
+}
+
+/**
+ * Merge `incoming` redirects into `base` (neither is mutated). A retired id
+ * present in both with the same successor set (order-insensitive) is a no-op;
+ * one mapped differently is a collision the caller must refuse, because
+ * picking either side silently rewrites what the other side's edges mean.
+ * Collisions are left out of `merged`.
+ */
+export function mergeRedirectsLedgers(
+  base: RedirectsLedger,
+  incoming: RedirectsLedger
+): { merged: RedirectsLedger; collisions: RedirectCollision[] } {
+  const merged: RedirectsLedger = { ...base };
+  const collisions: RedirectCollision[] = [];
+  for (const [id, successors] of Object.entries(incoming)) {
+    const existing = base[id];
+    if (existing === undefined) {
+      merged[id] = [...successors];
+      continue;
+    }
+    const left = [...new Set(existing)].sort();
+    const right = [...new Set(successors)].sort();
+    if (left.length !== right.length || left.some((value, i) => value !== right[i])) {
+      collisions.push({ id, existing: left, incoming: right });
+    }
+  }
+  return { merged, collisions };
 }

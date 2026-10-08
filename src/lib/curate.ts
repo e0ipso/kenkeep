@@ -1,124 +1,157 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { atomicWriteFile } from './fs-atomic.js';
-import { join } from 'node:path';
 import matter from 'gray-matter';
 import { deriveNodeId } from './nodes.js';
+import { withSessionLogLock } from './session-log.js';
 import {
   type CuratorAction,
-  SessionLogFrontmatterSchema,
-  ProposalCandidateSchema,
-  type ProposalCandidate,
+  type CuratorContradictAction,
+  type CuratorModifyAction,
 } from './schemas.js';
 
 /**
- * Prefix used to encode `candidate_origin` for harness-memory candidates.
- * In-host curators (skills) stamp this prefix when a candidate comes from a
- * harness auto-memory IRI rather than a session log; downstream code uses it
- * to attribute `derived_from` to the source IRI.
- */
-export const MEMORY_ORIGIN_PREFIX = 'harness-memory:';
-
-export interface PendingSession {
-  filename: string;
-  filePath: string;
-  sessionId: string;
-  capturedAt: string;
-  practiceCandidates: ProposalCandidate[];
-  mapCandidates: ProposalCandidate[];
-}
-
-interface SessionMatterData {
-  proposals?: { practice?: unknown; map?: unknown };
-  curator_processed_at?: unknown;
-}
-
-/**
- * Reads `_sessions/` and returns every log with `proposal_status: done` that
- * has not yet been processed by curate. Used by the `curate dedup` primitive
- * and by `kenkeep status` for reporting.
- */
-export function listPendingSessions(sessionsDir: string): PendingSession[] {
-  if (!existsSync(sessionsDir)) return [];
-  const out: PendingSession[] = [];
-  for (const name of readdirSync(sessionsDir)) {
-    if (!name.endsWith('.md')) continue;
-    const filePath = join(sessionsDir, name);
-    const parsed = matter(readFileSync(filePath, 'utf8'));
-    const fmCheck = SessionLogFrontmatterSchema.safeParse(parsed.data);
-    if (!fmCheck.success) continue;
-    const fm = fmCheck.data;
-    if (fm.proposal_status !== 'done') continue;
-    const data = parsed.data as SessionMatterData;
-    if (typeof data.curator_processed_at === 'string') continue;
-    const practice = parseCandidateArray(data.proposals?.practice);
-    const map = parseCandidateArray(data.proposals?.map);
-    out.push({
-      filename: name,
-      filePath,
-      sessionId: fm.session_id,
-      capturedAt: fm.captured_at,
-      practiceCandidates: practice,
-      mapCandidates: map,
-    });
-  }
-  out.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
-  return out;
-}
-
-function parseCandidateArray(value: unknown): ProposalCandidate[] {
-  if (!Array.isArray(value)) return [];
-  const out: ProposalCandidate[] = [];
-  for (const entry of value) {
-    const parsed = ProposalCandidateSchema.safeParse(entry);
-    if (parsed.success) out.push(parsed.data);
-  }
-  return out;
-}
-
-/**
- * Cross-batch dedup: two actions producing the same node (same target on
- * modify, or same slug derived from type+title on add) collapse into one.
- * Higher-confidence wins.
+ * Cross-batch dedup. Keys are namespaced per action kind so kinds never
+ * compete with each other:
+ *
+ * - `add` / `modify` share `node:<id>` (the modify target, or the slug derived
+ *   from type+title): two proposals for the same node collapse into one, the
+ *   higher confidence wins and a tie keeps the earliest input.
+ * - `drop` is keyed by `candidate_origin`.
+ * - `contradict` is keyed by target *and* origin, so a contradiction is never
+ *   outranked by a modify or by another contradiction of the same target; only
+ *   an exact re-submission of the same origin collapses.
+ *
+ * Then, for every target with a surviving contradiction, any surviving
+ * `modify` of that target is **held**: it is re-emitted as a `contradict`
+ * action carrying the modify's full proposal and a rationale that explains
+ * the hold. The dedup primitive materializes it as a pending conflict next to
+ * the contradiction (same `target_node_id`, so `conflict prepare` groups
+ * them), and the human decides whether the rewrite still applies. A target
+ * with contradictory evidence is therefore never modified without that
+ * decision, regardless of confidence or input order.
  */
 export function dedupActions(actions: CuratorAction[]): CuratorAction[] {
   const byKey = new Map<string, CuratorAction>();
   for (const action of actions) {
-    if (action.action === 'drop' || !action.proposed_node) {
-      byKey.set(`drop:${action.candidate_origin}`, action);
-      continue;
-    }
-    const node = action.proposed_node;
-    const key = action.target_node_id ?? deriveNodeId(node.type, node.title);
-    const existing = byKey.get(key);
-    if (!existing || rankConfidence(action) > rankConfidence(existing)) {
-      byKey.set(key, action);
+    switch (action.action) {
+      case 'drop':
+        byKey.set(`drop:${action.candidate_origin}`, action);
+        break;
+      case 'contradict':
+        byKey.set(`contradict:${action.target_node_id}:${action.candidate_origin}`, action);
+        break;
+      case 'add':
+      case 'modify': {
+        const id =
+          action.action === 'modify'
+            ? action.target_node_id
+            : deriveNodeId(action.proposed_node.type, action.proposed_node.title);
+        const key = `node:${id}`;
+        const existing = byKey.get(key);
+        if (!existing || rankConfidence(action) > rankConfidence(existing)) {
+          byKey.set(key, action);
+        }
+        break;
+      }
     }
   }
-  return [...byKey.values()];
+  const contradicted = new Set<string>();
+  for (const action of byKey.values()) {
+    if (action.action === 'contradict') contradicted.add(action.target_node_id);
+  }
+  return [...byKey.values()].map(action =>
+    action.action === 'modify' && contradicted.has(action.target_node_id)
+      ? holdModify(action)
+      : action
+  );
+}
+
+/**
+ * Turns a modify whose target has contradictory evidence into a conflict
+ * record the human reviews alongside that contradiction. The proposal is
+ * carried verbatim; only the rationale gains the hold explanation.
+ */
+function holdModify(action: CuratorModifyAction): CuratorContradictAction {
+  return {
+    action: 'contradict',
+    candidate_origin: action.candidate_origin,
+    target_node_id: action.target_node_id,
+    proposed_node: action.proposed_node,
+    rationale:
+      `Held for human review: a contradiction against ${action.target_node_id} was reported ` +
+      `in the same run, so this modification was not applied automatically. ` +
+      `Original rationale: ${action.rationale}`,
+  };
 }
 
 function rankConfidence(action: CuratorAction): number {
+  if (action.action !== 'add' && action.action !== 'modify') return 0;
   const node = action.proposed_node;
-  if (!node) return 0;
   return node.kk_confidence === 'high' ? 3 : node.kk_confidence === 'medium' ? 2 : 1;
 }
 
 /**
- * Stamps `curator_processed_at` / `curator_run_id` into the frontmatter of
- * each pending session file. Exported so the standalone `curate dedup`
- * primitive can apply the same mark from the CLI.
+ * One session a run consumed: the log's path and the transcript version the
+ * caller validated against the run's drafts before any write.
  */
-export function markSessionsProcessed(sessions: PendingSession[], runId: string, now: Date): void {
-  for (const s of sessions) {
-    const parsed = matter(readFileSync(s.filePath, 'utf8'));
-    const data = { ...(parsed.data as Record<string, unknown>) };
-    data['curator_processed_at'] = now.toISOString();
-    data['curator_run_id'] = runId;
-    const serialized = matter.stringify(parsed.content, data);
-    // tmp+rename: a crash mid-write must not truncate the session log into an
-    // unparseable file the next sweep would silently drop.
-    atomicWriteFile(s.filePath, serialized);
+export interface SessionStamp {
+  path: string;
+  transcript_hash: string;
+  transcript_chars?: number | undefined;
+}
+
+/**
+ * Stamps `curator_processed_at` / `curator_run_id` and the consumed version
+ * (`curated_transcript_hash` / `curated_transcript_chars`) into the
+ * frontmatter of each given session log. The caller (`curate dedup`) passes
+ * exactly the sessions it validated against the run's drafts, with the
+ * version it validated; this never enumerates `_sessions/` itself.
+ *
+ * The version is taken from the caller, never read back from the file. By
+ * the time this runs, the survivors and conflicts are already on disk, and a
+ * capture may have moved the log to a newer transcript since validation.
+ * Copying the file's current hash would mark that newer transcript curated
+ * although nobody curated it, and its turns would never reach curation.
+ * Writing the consumed version instead leaves such a log `outdated` (see
+ * `curationState`): the new turns stay pending for the next run, and the
+ * writes already made are not stranded by refusing the stamp.
+ *
+ * The stamp does not re-render the body. That capture rendered the whole
+ * newer transcript under `## Transcript`, because the log was not stamped
+ * yet, and an identical recapture leaves the file alone. So in this race
+ * the consumed prefix stays extractable until a capture with new turns
+ * splits it off: the next run may extract it again, and its dedup sees
+ * nodes that already exist. Nothing is lost.
+ *
+ * Each read and rename holds the session log lock shared with capture and
+ * proposal write-back. Without it, a capture landing between the read and
+ * the rename would be replaced by the older transcript read here.
+ */
+export async function markSessionsProcessed(
+  stamps: SessionStamp[],
+  runId: string,
+  now: Date
+): Promise<void> {
+  for (const stamp of stamps) {
+    await withSessionLogLock(stamp.path, () => stampSession(stamp, runId, now));
   }
+}
+
+function stampSession(stamp: SessionStamp, runId: string, now: Date): void {
+  const parsed = matter(readFileSync(stamp.path, 'utf8'));
+  const data = { ...(parsed.data as Record<string, unknown>) };
+  data['curator_processed_at'] = now.toISOString();
+  data['curator_run_id'] = runId;
+  data['curated_transcript_hash'] = stamp.transcript_hash;
+  if (typeof stamp.transcript_chars === 'number') {
+    data['curated_transcript_chars'] = stamp.transcript_chars;
+  } else {
+    delete data['curated_transcript_chars'];
+  }
+  const serialized = matter.stringify(parsed.content, data);
+  // tmp+rename: a crash mid-write must not truncate the session log into an
+  // unparseable file the next sweep would silently drop.
+  atomicWriteFile(stamp.path, serialized);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import matter from 'gray-matter';
@@ -8,6 +8,7 @@ import { SessionLogFrontmatterSchema } from '../../src/lib/schemas.js';
 import {
   DEFAULT_NUDGE_THRESHOLD,
   KK_NAVIGATION_DIRECTIVE,
+  buildNudgeContent,
   buildSessionStartContext,
   buildSessionStartNotifications,
   countPendingSessions,
@@ -59,6 +60,7 @@ interface SeedOptions {
   practiceCount?: number;
   mapCount?: number;
   proposalStatus?: string;
+  curatedHash?: string;
 }
 
 function seedSession(
@@ -83,6 +85,7 @@ function seedSession(
     proposals: { practice, map },
   };
   if (processed) fm['curator_processed_at'] = '2026-05-11T11:00:00Z';
+  if (opts.curatedHash !== undefined) fm['curated_transcript_hash'] = opts.curatedHash;
   writeFileSync(
     join(harness.sessionsDir, `session-${sessionId}.md`),
     matter.stringify('## body\n', fm)
@@ -154,8 +157,8 @@ describe('buildSessionStartContext (index injection)', () => {
   });
 
   it('injects the descent directive exactly once when ENTRY.md already embeds it', () => {
-    // Task 2 embeds the directive in the generated ENTRY.md body. The hook must
-    // therefore NOT append it again (Success Criterion 8: exactly one occurrence).
+    // The generated ENTRY.md body embeds the directive, so the hook must not
+    // append it again: exactly one occurrence.
     seedNode(harness, 'practice', 'practice-foo');
     writeIndexFromCurrentNodes(harness);
     const entry = readFileSync(join(harness.kkDir, 'ENTRY.md'), 'utf8');
@@ -231,6 +234,62 @@ describe('buildSessionStartContext (curation nudge)', () => {
     expect(readState(harness.stateFile).last_nudged_at).toBe(now.toISOString());
   });
 
+  it('throttles the attention nudge to at most once per hour while queue status stays visible', () => {
+    for (let i = 0; i < DEFAULT_NUDGE_THRESHOLD; i += 1) {
+      seedSession(harness, `s-${i}`, false, { practiceCount: 1 });
+    }
+    const t0 = new Date('2026-05-11T10:00:00Z');
+    const start = (at: Date) => {
+      const result = buildSessionStartContext({
+        kkDir: harness.kkDir,
+        nodesDir: harness.nodesDir,
+        sessionsDir: harness.sessionsDir,
+        stateFile: harness.stateFile,
+        freshness: () => null,
+        now: () => at,
+      });
+      return {
+        result,
+        output: buildNudgeContent(result),
+        notifications: buildSessionStartNotifications(result),
+      };
+    };
+    const queueStatus = `Curation queue: ${DEFAULT_NUDGE_THRESHOLD} session log(s) awaiting curation, ${DEFAULT_NUDGE_THRESHOLD} candidate(s).`;
+
+    // t0: first start above threshold nudges and records the nudge time.
+    const first = start(t0);
+    expect(first.result.nudged).toBe(true);
+    expect(first.output.statusLine).toContain('Action needed: Run /kk-curate.');
+    expect(first.output.content).toContain('KENKEEP ATTENTION');
+    expect(first.output.content).toContain('IMPORTANT: After completing your response');
+    expect(first.notifications).toHaveLength(1);
+    expect(readState(harness.stateFile).last_nudged_at).toBe(t0.toISOString());
+
+    // t0+30m: nudge, directive and notification are suppressed; queue status is not.
+    const t30 = new Date(t0.getTime() + 30 * 60_000);
+    const second = start(t30);
+    expect(second.result.nudged).toBe(false);
+    expect(second.result.curationLoud).toBe(false);
+    expect(second.result.pendingSessions).toBe(DEFAULT_NUDGE_THRESHOLD);
+    expect(second.output.statusLine).toContain(queueStatus);
+    expect(second.output.content).toContain(queueStatus);
+    expect(second.output.content).not.toContain('KENKEEP ATTENTION');
+    expect(second.output.content).not.toContain('Run /kk-curate');
+    expect(second.output.content).not.toContain('IMPORTANT: After completing your response');
+    expect(second.notifications).toEqual([]);
+    // Suppressed starts do not move the throttle window.
+    expect(readState(harness.stateFile).last_nudged_at).toBe(t0.toISOString());
+
+    // t0+61m: the hour has passed, so the nudge fires again and is re-recorded.
+    const t61 = new Date(t0.getTime() + 61 * 60_000);
+    const third = start(t61);
+    expect(third.result.nudged).toBe(true);
+    expect(third.output.content).toContain('Action: Run /kk-curate.');
+    expect(third.output.content).toContain('IMPORTANT: After completing your response');
+    expect(third.notifications).toHaveLength(1);
+    expect(readState(harness.stateFile).last_nudged_at).toBe(t61.toISOString());
+  });
+
   it('does not nudge below threshold', () => {
     seedSession(harness, 'just-one', false);
     const result = buildSessionStartContext({
@@ -242,6 +301,24 @@ describe('buildSessionStartContext (curation nudge)', () => {
     });
     expect(result.nudged).toBe(false);
     expect(result.pendingSessions).toBe(1);
+  });
+});
+
+describe('summarizePendingSessions (frontmatter-only reads)', () => {
+  let harness: Harness;
+  beforeEach(() => (harness = makeHarness()));
+  afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
+
+  it('counts a session log whose body is too large to read whole', () => {
+    seedSession(harness, 'huge', false, { practiceCount: 2, mapCount: 1 });
+    // Extend the transcript body (sparsely) past V8's maximum string length: a
+    // whole-file read cannot even decode it, while the status fields all live
+    // in the frontmatter at the head of the file.
+    truncateSync(join(harness.sessionsDir, 'session-huge.md'), 600 * 1024 * 1024);
+    const summary = summarizePendingSessions(harness.sessionsDir);
+    expect(summary.pending).toBe(1);
+    expect(summary.candidateCount).toBe(3);
+    expect(summary.oldestCapturedAt?.toISOString()).toBe('2026-05-11T10:00:00.000Z');
   });
 });
 
@@ -338,6 +415,12 @@ describe('pending-session accounting', () => {
     seedSession(harness, 'b', false);
     seedSession(harness, 'c', true);
     expect(countPendingSessions(harness.sessionsDir)).toBe(2);
+  });
+
+  it('counts a curated session whose transcript grew after the stamp', () => {
+    seedSession(harness, 'current', true, { curatedHash: 'sha256:current' });
+    seedSession(harness, 'grown', true, { curatedHash: 'sha256:older' });
+    expect(countPendingSessions(harness.sessionsDir)).toBe(1);
   });
 
   it('aggregates candidate counts across pending sessions and ignores processed ones', () => {

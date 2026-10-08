@@ -37,5 +37,5 @@ It does **not** install or patch husky, lint-staged, secretlint, or commitlint. 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
 <!-- kk:citations:end -->

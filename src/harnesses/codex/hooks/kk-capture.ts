@@ -12,6 +12,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
+import { captureOutcomeMessage, captureSkippedMessage } from '../../../lib/capture-report.js';
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import type { CaptureTrigger } from '../../../lib/schemas.js';
@@ -59,8 +60,9 @@ runHookEntry({
       const rolloutPath = locateRollout(homeRoot, sessionId);
       if (rolloutPath === null) {
         // The rollout JSONL may not have been flushed yet, or the session
-        // happened on a different machine. Exit silently per
-        // feedback_hide_cosmetic_shell_errors.
+        // happened on a different machine. Not an error (per
+        // feedback_hide_cosmetic_shell_errors), but never claim a save.
+        process.stderr.write(`${captureSkippedMessage('no rollout found for this session')}\n`);
         return;
       }
       const input: HookInput = {
@@ -70,7 +72,7 @@ runHookEntry({
         ...(typeof payload['cwd'] === 'string' ? { cwd: payload['cwd'] as string } : {}),
       };
       process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-      await captureSession(input, {
+      const result = await captureSession(input, {
         sessionsDir: paths.sessionsDir,
         parseTranscript: parseCodexTranscript,
         usage: {
@@ -80,7 +82,7 @@ runHookEntry({
           extractReads: extractCodexReads,
         },
       });
-      process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
+      process.stderr.write(`${captureOutcomeMessage(result)}\n`);
     } catch (err) {
       process.stderr.write(
         `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

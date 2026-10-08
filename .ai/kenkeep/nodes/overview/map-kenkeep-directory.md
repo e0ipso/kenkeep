@@ -51,21 +51,21 @@ The package installs a managed block in the repo `.gitignore` for the runtime st
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-nodes-directory](/node-schema/map-nodes-directory.md)
-- Related: [map-session-log](/state/map-session-log.md)
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [map-graph-md](/index/map-graph-md.md)
-- Related: [map-state-file](/state/map-state-file.md)
-- Related: [map-bootstrap-state-file](/bootstrap/map-bootstrap-state-file.md)
-- Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
-- Related: [map-conflict-files](/curation/map-conflict-files.md)
-- Related: [map-hook-build-pipeline-ts-to-cjs](/hooks/map-hook-build-pipeline-ts-to-cjs.md)
+- Related: [map-nodes-directory](../node-schema/map-nodes-directory.md)
+- Related: [map-session-log](../state/map-session-log.md)
+- Related: [map-entry-md](../index/map-entry-md.md)
+- Related: [map-graph-md](../index/map-graph-md.md)
+- Related: [map-state-file](../state/map-state-file.md)
+- Related: [map-bootstrap-state-file](../bootstrap/map-bootstrap-state-file.md)
+- Related: [map-config-yaml](../config-and-prompts/map-config-yaml.md)
+- Related: [map-conflict-files](../curation/map-conflict-files.md)
+- Related: [map-hook-build-pipeline-ts-to-cjs](../hooks/map-hook-build-pipeline-ts-to-cjs.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/architecture.md](docs/internals/architecture.md)
-[2] [docs/installation.md](docs/installation.md)
-[3] [7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0](7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0)
+[1] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
+[2] [docs/installation.md](../../../../docs/installation.md)
+[3] 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:0
 <!-- kk:citations:end -->

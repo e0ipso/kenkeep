@@ -36,13 +36,13 @@ When `/kk-bootstrap` (or `bootstrap-incremental`) writes a candidate node, the d
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [map-kk-bootstrap-skill](map-kk-bootstrap-skill.md)
+- Related: [map-node-frontmatter](../node-schema/map-node-frontmatter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [src/templates-source/skills/kk-bootstrap/SKILL.md](src/templates-source/skills/kk-bootstrap/SKILL.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [src/templates-source/skills/kk-bootstrap/SKILL.md](../../../../src/templates-source/skills/kk-bootstrap/SKILL.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

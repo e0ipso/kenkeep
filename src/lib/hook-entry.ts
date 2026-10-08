@@ -15,8 +15,8 @@
  * timer only fires while `main` is awaiting something (a lock, a child process,
  * a pending write). Synchronous work must observe the {@link HookBudget} handed
  * to `main` between its own bounded units (per leaf, per chunk, per child
- * timeout) and stop cooperatively; one unbounded synchronous unit — a single
- * file parse, a single `spawnSync` without its own timeout — can still overrun.
+ * timeout) and stop cooperatively; one unbounded synchronous unit (a single
+ * file parse, a single `spawnSync` without its own timeout) can still overrun.
  * The timer is cleared as soon as `main` settles, so a completed hook never
  * logs a 'deadline' diagnostic or exits after the fact.
  */
@@ -161,7 +161,7 @@ export function runHookEntry(options: HookEntryOptions): void {
     }
 
     try {
-      // Stdin acquisition — route through the async launcher when requested.
+      // Stdin acquisition: route through the async launcher when requested.
       let raw: string;
       if (asyncLauncher) {
         if (isLauncherChild()) {

@@ -90,9 +90,33 @@ export function refreshRenderedLinks(
   scope?: ReadonlySet<string>,
   opts: { refuseMalformed?: boolean } = {}
 ): string[] {
-  const nodes = readAllNodes(nodesDir);
+  const planned = planRenderedLinkRefresh(
+    readAllNodes(nodesDir),
+    readRedirectsLedger(nodesDir),
+    scope,
+    opts
+  );
+  // The read follows symlinks, but a write must not: check the whole planned
+  // set against the shared containment boundary first, so a refused leaf
+  // leaves every other leaf untouched too.
+  for (const { node } of planned) assertContained(nodesDir, node.path);
+  for (const { node, body } of planned) atomicWriteFile(node.path, withBody(node, body));
+  return planned.map(({ node }) => node.path);
+}
+
+/**
+ * The leaves `refreshRenderedLinks` would rewrite for this tree and ledger,
+ * with their fresh bodies. Pure: nothing is read or written, so a caller can
+ * plan against a tree it has not written yet. Throws the malformed-marker
+ * refusal described above when `refuseMalformed` is set.
+ */
+export function planRenderedLinkRefresh(
+  nodes: readonly NodeFile[],
+  ledger: RedirectsLedger,
+  scope?: ReadonlySet<string>,
+  opts: { refuseMalformed?: boolean } = {}
+): Array<{ node: NodeFile; body: string }> {
   const pathsById = pathIndex(nodes);
-  const ledger = readRedirectsLedger(nodesDir);
   const live = new Set(pathsById.keys());
   const edgeInScope = (id: string): boolean =>
     scope === undefined ||
@@ -124,12 +148,7 @@ export function refreshRenderedLinks(
         malformed.map(line => `  ${line}`).join('\n')
     );
   }
-  // The read follows symlinks, but a write must not: check the whole planned
-  // set against the shared containment boundary first, so a refused leaf
-  // leaves every other leaf untouched too.
-  for (const { node } of planned) assertContained(nodesDir, node.path);
-  for (const { node, body } of planned) atomicWriteFile(node.path, withBody(node, body));
-  return planned.map(({ node }) => node.path);
+  return planned;
 }
 
 /**

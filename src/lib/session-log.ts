@@ -1,6 +1,7 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { dump } from 'js-yaml';
+import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from './fs-atomic.js';
 import type { CaptureTrigger, ProposalStatus } from './schemas.js';
 
@@ -125,6 +126,36 @@ export function renderSessionLog(input: SessionLogInput): string {
     '',
   ];
   return `---\n${yaml}---\n${bodyLines.join('\n')}`;
+}
+
+/**
+ * Lock options for one session log's read-check-write sections. Capture and
+ * proposal write-back hold it only across a frontmatter read and an atomic
+ * rename, so contention lasts milliseconds and the retries stay inside the
+ * capture hooks' deadline. A holder killed inside that window leaves a lock
+ * that goes stale after `stale` ms.
+ */
+export const SESSION_LOG_LOCK_OPTIONS = {
+  stale: 5000,
+  realpath: false,
+  retries: { retries: 10, factor: 1.5, minTimeout: 20, maxTimeout: 200 },
+} as const;
+
+/**
+ * Runs `fn` while holding the lock for the session log at `file` (the lock is
+ * the sibling `<file>.lock` directory, so the log need not exist yet). Every
+ * writer that decides from the log's current frontmatter must read it inside
+ * `fn`: atomic rename alone prevents torn files, not a stale read overwriting
+ * a newer capture.
+ */
+export async function withSessionLogLock<T>(file: string, fn: () => T | Promise<T>): Promise<T> {
+  mkdirSync(dirname(file), { recursive: true });
+  const release = await lockfile.lock(file, SESSION_LOG_LOCK_OPTIONS);
+  try {
+    return await fn();
+  } finally {
+    await release();
+  }
 }
 
 /**

@@ -46,7 +46,11 @@ export interface FreshnessOptions {
    * full history.
    */
   maxCommits?: number;
-  /** Epoch-ms instant after which the node walk gives up and no signal is reported. */
+  /**
+   * Epoch-ms instant after which no signal is reported. The node walk checks
+   * it between units, and the `git log` child gets the time left as its
+   * timeout and is killed when it runs out.
+   */
   deadlineAt?: number | undefined;
 }
 
@@ -95,10 +99,17 @@ export function computeFreshness(opts: FreshnessOptions): FreshnessReport {
   }
   if (nodes.length === 0) return unavailableReport('the knowledge base has no nodes');
 
+  const remainingMs = opts.deadlineAt === undefined ? undefined : opts.deadlineAt - Date.now();
+  if (remainingMs !== undefined && remainingMs <= 0) {
+    return unavailableReport('the hook deadline passed before git log');
+  }
   let pathToRecency: Map<string, number>;
   try {
-    pathToRecency = pathRecencyIndex(opts.root, opts.maxCommits);
+    pathToRecency = pathRecencyIndex(opts.root, opts.maxCommits, remainingMs);
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
+      return unavailableReport('git log did not finish before the hook deadline');
+    }
     return unavailableReport(`git log failed: ${gitFailure(err)}`);
   }
   return flagNodes(nodes, pathToRecency, opts.root);
@@ -162,7 +173,7 @@ function rollupByBranch(flagged: FlaggedNode[]): BranchRollup[] {
  * history: the union of body path tokens (Markdown link targets + inline-code
  * spans) and `kk_derived_from` entries. Historical membership means a path that
  * has since been deleted or renamed still counts. Paths under `.ai/kenkeep/`
- * (other knowledge-base files) and the node's own file are excluded — the
+ * (other knowledge-base files) and the node's own file are excluded: the
  * signal is about the surrounding source code, not the KB.
  */
 function referencedSourcePaths(
@@ -250,9 +261,15 @@ const COMMIT_MARK = '\u0001commit\u0001';
  * recent commit that touched it (0 = HEAD, larger = older). The first time a
  * path appears (newest-first order) is its most recent change. `--no-renames`
  * records a rename as a deletion of the old path, so the old path stays in
- * history.
+ * history. With `timeoutMs`, git is SIGKILLed when it runs out (a slow
+ * repository or git wrapper cannot hold a synchronous hook past its deadline)
+ * and the call throws with code `ETIMEDOUT`.
  */
-function pathRecencyIndex(root: string, maxCommits?: number): Map<string, number> {
+function pathRecencyIndex(
+  root: string,
+  maxCommits: number | undefined,
+  timeoutMs: number | undefined
+): Map<string, number> {
   const args = ['log', `--format=${COMMIT_MARK}%H`, '--name-only', '--no-renames'];
   if (maxCommits !== undefined && maxCommits > 0) args.push('-n', String(maxCommits));
   args.push('HEAD');
@@ -261,6 +278,7 @@ function pathRecencyIndex(root: string, maxCommits?: number): Map<string, number
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: GIT_LOG_MAX_BUFFER,
+    ...(timeoutMs !== undefined ? { timeout: timeoutMs, killSignal: 'SIGKILL' as const } : {}),
   });
 
   const map = new Map<string, number>();

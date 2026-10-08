@@ -6,6 +6,7 @@ import yaml from 'js-yaml';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
+import { withSessionLogLock } from '../src/lib/session-log-lock.js';
 
 const exec = promisify(execFile);
 
@@ -119,6 +120,31 @@ describe('init --upgrade', () => {
     const check = spawnSync('git', ['check-ignore', '-q', logRel], { cwd: sandbox });
     expect(check.status).toBe(1);
   });
+
+  it.each(['fresh', 'upgrade'])(
+    'keeps session owner records untracked with retention enabled after %s init',
+    async flow => {
+      expect((await runCli(sandbox, ['init', '--harnesses', 'claude'])).exitCode).toBe(0);
+      const ignoreFile = join(sandbox, '.ai/kenkeep/.gitignore');
+      let rules = readFileSync(ignoreFile, 'utf8');
+      if (flow === 'upgrade') rules = rules.replace('/_sessions/*.lock/\n', '');
+      writeFileSync(ignoreFile, rules.replace('/_sessions/\n', '!/_sessions/\n'));
+      if (flow === 'upgrade') {
+        expect(
+          (await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade'])).exitCode
+        ).toBe(0);
+      }
+      const logRel = '.ai/kenkeep/_sessions/retained.md';
+      writeFileSync(join(sandbox, logRel), 'retained session');
+      await withSessionLogLock(join(sandbox, logRel), async () => {
+        const { stdout } = await exec('git', ['ls-files', '--others', '--exclude-standard'], {
+          cwd: sandbox,
+        });
+        expect(stdout).toContain(logRel + '\n');
+        expect(stdout).not.toContain('owner-');
+      });
+    }
+  );
 
   it('refreshes hooks but preserves a customized config.yaml', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);

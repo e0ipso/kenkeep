@@ -68,18 +68,36 @@ export interface CaptureContext {
 /**
  * Removes user-marked private spans before anything is persisted. Text
  * wrapped in `<kk-private>…</kk-private>` never reaches the session log,
- * the transcript hash, or the cursory-session stats. An UNCLOSED opening
- * tag strips to the end of that message — privacy-first: a typo must fail
- * toward removing too much, never too little. This is explicit user-intent
- * marking, not a secret scanner; the PRD's human-review gate (Goal 6)
- * remains the safeguard for everything unmarked.
+ * the transcript hash, or the cursory-session stats. Spans nest: a span ends
+ * at the closing tag that matches its own opening tag, so an inner span never
+ * ends the outer one early. An UNCLOSED opening tag strips to the end of that
+ * message: privacy-first, a typo must fail toward removing too much, never
+ * too little. A closing tag with no open span is left as text. This is
+ * explicit user-intent marking, not a secret scanner; the PRD's human-review
+ * gate (Goal 6) remains the safeguard for everything unmarked.
  */
 export const PRIVATE_SPAN_PLACEHOLDER = '[kk-private removed]';
 
+const PRIVATE_TAG_RE = /<(\/?)kk-private>/g;
+
 export function stripPrivateSpans(text: string): string {
-  return text
-    .replace(/<kk-private>[\s\S]*?<\/kk-private>/g, PRIVATE_SPAN_PLACEHOLDER)
-    .replace(/<kk-private>[\s\S]*$/, PRIVATE_SPAN_PLACEHOLDER);
+  let out = '';
+  let depth = 0;
+  let kept = 0;
+  for (const match of text.matchAll(PRIVATE_TAG_RE)) {
+    const closing = match[1] === '/';
+    if (!closing) {
+      if (depth === 0) out += text.slice(kept, match.index);
+      depth += 1;
+    } else if (depth > 0) {
+      depth -= 1;
+      if (depth === 0) {
+        out += PRIVATE_SPAN_PLACEHOLDER;
+        kept = match.index + match[0].length;
+      }
+    }
+  }
+  return depth > 0 ? out + PRIVATE_SPAN_PLACEHOLDER : out + text.slice(kept);
 }
 
 export async function captureSession(

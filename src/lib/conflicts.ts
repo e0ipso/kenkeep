@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import matter from 'gray-matter';
 import { atomicWriteFile } from './fs-atomic.js';
 import { assertContained } from './path-safety.js';
@@ -39,9 +39,27 @@ export function renderConflictFile(fm: ConflictFrontmatter): string {
   return matter.stringify(body, fm);
 }
 
+/**
+ * The write boundary for one conflict file. `file` must stay under
+ * `conflictsDir`, and neither `conflicts/` itself nor the file may be a
+ * symlink: a linked directory would put the write outside the knowledge
+ * base, and the atomic rename would replace a linked file instead of
+ * writing through it. Writers run this for every file before their first
+ * write, so a refusal never leaves a partial set of writes behind.
+ */
+export function assertConflictWritable(conflictsDir: string, file: string): string {
+  const abs = assertContained(conflictsDir, file, CONFLICTS_LABEL);
+  // Rooted one level up so the `conflicts` segment itself is checked too.
+  return assertContained(dirname(resolve(conflictsDir)), abs, CONFLICTS_LABEL);
+}
+
 /** Atomically writes a conflict file from its validated frontmatter. */
-export function writeConflictFile(file: string, fm: ConflictFrontmatter): void {
-  atomicWriteFile(file, renderConflictFile(fm));
+export function writeConflictFile(
+  conflictsDir: string,
+  file: string,
+  fm: ConflictFrontmatter
+): void {
+  atomicWriteFile(assertConflictWritable(conflictsDir, file), renderConflictFile(fm));
 }
 
 function isOpenStatus(status: unknown): status is ConflictStatus {
@@ -159,7 +177,8 @@ export function openConflictTargetIds(conflictsDir: string): Set<string> {
  * Resolves the `<conflict>` argument of `conflict resolve` to an absolute file
  * under `conflictsDir`. A bare id maps to `<conflictsDir>/<id>.md`; anything
  * that looks like a path (`.md` suffix, a separator, or an existing file) is
- * taken as a path. Either way the result must stay inside `conflictsDir`.
+ * taken as a path. Either way the result must pass `assertConflictWritable`,
+ * because `conflict resolve` rewrites it after applying the decision.
  */
 export function resolveConflictPath(conflictsDir: string, ref: string): string {
   const looksLikePath =
@@ -169,7 +188,7 @@ export function resolveConflictPath(conflictsDir: string, ref: string): string {
       ? ref
       : resolve(process.cwd(), ref)
     : join(conflictsDir, `${ref}.md`);
-  const abs = assertContained(conflictsDir, candidate, CONFLICTS_LABEL);
+  const abs = assertConflictWritable(conflictsDir, candidate);
   if (!existsSync(abs) || !statSync(abs).isFile()) {
     throw new Error(`conflict "${ref}" not found under ${CONFLICTS_LABEL} (${abs})`);
   }

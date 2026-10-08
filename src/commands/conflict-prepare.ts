@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import {
+  assertConflictWritable,
   computeConflictDefault,
   readOpenConflicts,
   writeConflictFile,
@@ -101,6 +102,7 @@ export async function runConflictPrepareCommand(
 
   const sorted = [...open.conflicts].sort(conflictOrder);
   const prepared: PreparedConflict[] = [];
+  const stamps: Array<{ file: string; fm: ConflictFrontmatter }> = [];
   let groupId = 0;
   let prevTarget: string | null = null;
 
@@ -132,14 +134,7 @@ export async function runConflictPrepareCommand(
     // Record the displayed default so `conflict resolve` with no decision
     // applies this exact value. Idempotent: rewrite only on change.
     const stamped: ConflictFrontmatter = { ...fm, default_decision: def.default };
-    if (fm.default_decision !== def.default) {
-      try {
-        writeConflictFile(record.file, stamped);
-      } catch (err) {
-        log.error(`conflict prepare: cannot stamp ${record.file}: ${(err as Error).message}`);
-        return 1;
-      }
-    }
+    if (fm.default_decision !== def.default) stamps.push({ file: record.file, fm: stamped });
 
     prepared.push({
       ...stamped,
@@ -153,6 +148,25 @@ export async function runConflictPrepareCommand(
       ratio: def.ratio,
       default: def.default,
     });
+  }
+
+  // Every stamp target passes the write boundary before the first stamp, so
+  // a linked file later in the order cannot leave earlier stamps behind.
+  for (const { file } of stamps) {
+    try {
+      assertConflictWritable(conflictsDir, file);
+    } catch (err) {
+      log.error(`conflict prepare: cannot stamp ${file}: ${(err as Error).message}`);
+      return 1;
+    }
+  }
+  for (const { file, fm } of stamps) {
+    try {
+      writeConflictFile(conflictsDir, file, fm);
+    } catch (err) {
+      log.error(`conflict prepare: cannot stamp ${file}: ${(err as Error).message}`);
+      return 1;
+    }
   }
 
   writeJsonDocument({ count: prepared.length, conflicts: prepared });

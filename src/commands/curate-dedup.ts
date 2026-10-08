@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { atomicWriteFile, atomicWriteJson } from '../lib/fs-atomic.js';
-import { renderConflictFile } from '../lib/conflicts.js';
+import { assertConflictWritable, renderConflictFile } from '../lib/conflicts.js';
 import {
   dedupActions,
   markSessionsProcessed,
@@ -125,9 +125,10 @@ function planConflictWrites(
     conflicts.push({
       id,
       // The run id is validated as a single filename segment up front; this
-      // containment check is the write-boundary guarantee that no conflict
-      // file can land outside conflicts/ regardless of how the id was minted.
-      filePath: assertContained(conflictsDir, join(conflictsDir, `${id}.md`), 'conflicts/'),
+      // check is the write-boundary guarantee that no conflict file lands
+      // outside conflicts/ or through a link, regardless of how the id was
+      // minted. Planning runs before any write, so a refusal writes nothing.
+      filePath: assertConflictWritable(conflictsDir, join(conflictsDir, `${id}.md`)),
       serialized: renderConflictFile(frontmatter),
     });
   }
@@ -198,7 +199,7 @@ function resolveConsumedSessions(
  * dedups the actions, mints `${runId}-${n}` conflict ids for the
  * surviving conflict actions, writes the surviving (non-conflict) actions to
  * `--output`, materializes each conflict markdown file, and stamps exactly
- * the consumed sessions — never whatever happens to be pending on disk.
+ * the consumed sessions, never whatever happens to be pending on disk.
  *
  * Pure Node: no sub-agent, no LLM, no `proper-lockfile`. Validates the
  * input shape, the consumed set (each session still a done, unprocessed log)
@@ -271,11 +272,19 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
 
   const merged = dedupActions(actions);
   const now = opts.now ?? new Date();
-  const { survivors, conflicts } = planConflictWrites(merged, runId, conflictsDir, now);
+  let planned: ReturnType<typeof planConflictWrites>;
+  try {
+    planned = planConflictWrites(merged, runId, conflictsDir, now);
+  } catch (err) {
+    log.error(`curate dedup: ${(err as Error).message}`);
+    return 1;
+  }
+  const { survivors, conflicts } = planned;
 
   // Atomicity protocol: ALL writes happen tmp+rename, in a fixed order
   // (survivors JSON → conflicts → session stamps). If a later write fails,
-  // prior writes have already landed on disk — documented in the task. The
+  // prior writes have already landed on disk (the kk-curate skill says how
+  // to recover). The
   // stamps carry the version resolved above, not whatever the log holds by
   // the time they are written (see `markSessionsProcessed`).
   try {
@@ -290,7 +299,7 @@ export async function runCurateDedupCommand(opts: CurateDedupOptions = {}): Prom
       }
     }
     if (stamps.length > 0) {
-      markSessionsProcessed(stamps, runId, now);
+      await markSessionsProcessed(stamps, runId, now);
     }
   } catch (err) {
     log.error(`curate dedup: write failed: ${(err as Error).message}`);

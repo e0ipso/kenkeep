@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -570,6 +571,48 @@ describe('curate-persist primitive', () => {
       expect(code).toBe(0);
       expect(JSON.parse(stdout).results[0].status).toBe('written');
       expect(matter(readFileSync(leafPath, 'utf8')).content).toContain('Newer body.');
+    });
+
+    it('fails a modify of a target whose filename is not its id and writes nothing', async () => {
+      const nodes = join(cwd, '.ai/kenkeep/nodes');
+      const canonical = join(nodes, 'topic/practice-existing.md');
+      renameSync(canonical, join(nodes, 'topic/manual.md'));
+      const before = treeBytes(nodes);
+      const input = join(cwd, 'survivors.json');
+      writeFileSync(
+        input,
+        JSON.stringify([modifyAction('s2:practice:0', 'practice-existing', { title: 'Existing' })])
+      );
+      const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+      expect(code).toBe(1);
+      expect(JSON.parse(stdout).results[0]).toMatchObject({ status: 'failed' });
+      expect(treeBytes(nodes)).toEqual(before);
+    });
+
+    it('treats generated-section markers quoted in the body as authored text', async () => {
+      const input = join(cwd, 'survivors.json');
+      const run = async (action: unknown) => {
+        writeFileSync(input, JSON.stringify([action]));
+        const res = await captureStdout(() => runCuratePersistCommand({ input }));
+        return { code: res.code, summary: JSON.parse(res.stdout) };
+      };
+      const quoted = (fact: string): string =>
+        `Quoted \`<!-- kk:related:start -->\` ${fact} \`<!-- kk:related:end -->\` ending.\n\n` +
+        '```md\n<!-- kk:citations:start -->\nFENCED\n<!-- kk:citations:end -->\n```\n';
+      const added = await run(
+        addAction('s:practice:0', 'topic', { title: 'Q', body: quoted('A') })
+      );
+      expect(added.summary.results[0].status).toBe('written');
+      const leafPath = join(cwd, '.ai/kenkeep/nodes', added.summary.results[0].path);
+
+      const change = modifyAction('s:practice:0', 'practice-q', { title: 'Q', body: quoted('B') });
+      const modified = await run(change);
+      expect(modified.code).toBe(0);
+      expect(modified.summary.results[0].status).toBe('written');
+      expect(readFileSync(leafPath, 'utf8')).toContain(' B `');
+
+      const replayed = await run(change);
+      expect(replayed.summary.results[0].status).toBe('already-applied');
     });
   });
 

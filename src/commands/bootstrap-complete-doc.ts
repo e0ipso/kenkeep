@@ -33,8 +33,10 @@ export interface BootstrapCompleteDocDeps {
  * document listed for the next run.
  *
  * Moves the attempt's written ids into `docs[<relpath>]` of
- * `bootstrap-state.json` under the state lock, leaving out any leaf that is no
- * longer in the tree. Idempotent at the same hash.
+ * `bootstrap-state.json` under the state lock, leaving out any of them that is
+ * no longer in the tree. Ids recorded by an earlier completion are kept as
+ * they are, even if those leaves were deleted since. Idempotent at the same
+ * hash.
  * Refuses, changing nothing, an invalid path or hash, or an unfinished attempt
  * recorded at a different hash (the document changed mid-run).
  *

@@ -214,9 +214,10 @@ export function liveNodeIds(nodesDir: string): Set<string> {
  * whether it produced nodes or none. Moves the attempt's written ids that are
  * still in `liveIds` into `docs[doc].produced_nodes` (merged with any earlier
  * completion's) and drops the attempt. A written leaf that was removed since
- * is not recorded as produced. Throws, changing nothing, when the unfinished
- * attempt is at a different hash: the document changed mid-run, and
- * completing it would skip content no draft saw.
+ * is not recorded as produced. Ids from an earlier completion are kept as
+ * recorded, even if those leaves are gone. Throws, changing nothing, when the
+ * unfinished attempt is at a different hash: the document changed mid-run,
+ * and completing it would skip content no draft saw.
  */
 export function completeDocument(
   state: BootstrapState,

@@ -261,7 +261,7 @@ const HEADER =
   '> kenkeep prompt-time knowledge: nodes likely relevant to this request. These are routing hints — open the linked node before relying on details, and verify any named file/function/flag against the live tree.';
 
 const ELLIPSIS = '…';
-const SUMMARY_SEPARATOR = ' — ';
+const SUMMARY_SEPARATOR = ': ';
 
 interface EntryParts {
   /** Rendered (already `inline`d) title; defaults to the node's full title. */

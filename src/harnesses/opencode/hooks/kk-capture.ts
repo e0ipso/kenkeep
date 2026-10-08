@@ -6,7 +6,7 @@
  * document, shapes the messages into a role-tagged transcript, extracts the
  * read-tool paths, and feeds both through the shared capture pipeline with the
  * export document itself as the transcript source. Export is the sole, primary
- * source — there is no on-disk file-tree fallback.
+ * source; there is no on-disk file-tree fallback.
  *
  * Temp-file lifecycle: the export document is OpenCode's own stdout,
  * captured to a file because the CLI does not flush a pipe (see

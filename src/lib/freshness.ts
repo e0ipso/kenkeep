@@ -173,7 +173,7 @@ function rollupByBranch(flagged: FlaggedNode[]): BranchRollup[] {
  * history: the union of body path tokens (Markdown link targets + inline-code
  * spans) and `kk_derived_from` entries. Historical membership means a path that
  * has since been deleted or renamed still counts. Paths under `.ai/kenkeep/`
- * (other knowledge-base files) and the node's own file are excluded — the
+ * (other knowledge-base files) and the node's own file are excluded: the
  * signal is about the surrounding source code, not the KB.
  */
 function referencedSourcePaths(

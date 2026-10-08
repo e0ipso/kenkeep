@@ -281,7 +281,9 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
  * The extractable transcript: the `## Transcript` section only. A log that
  * grew after curation keeps its consumed turns under `## Curated prefix`
  * (see `renderSessionLog`), which is deliberately not matched here so the
- * extractor never re-proposes curated knowledge.
+ * extractor does not re-propose curated knowledge. A capture that lands while
+ * a curate run is stamping the log is the exception (see
+ * `markSessionsProcessed`).
  */
 function extractTranscript(body: string): string {
   const startMatch = body.match(/^## Transcript\s*\n+/m);

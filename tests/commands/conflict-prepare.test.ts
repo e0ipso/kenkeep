@@ -185,6 +185,29 @@ describe('kk conflict prepare', () => {
     expect(readFileSync(join(outside, 'c1.md'))).toEqual(before);
   });
 
+  it.each(['.ai/kenkeep', '.ai'])(
+    'refuses a %s directory linked outside the repository and writes nothing',
+    async linked => {
+      writeNode(cwd, 'practice-foo', 'line a\n');
+      writeConflict(cwd, { id: 'c1', target: 'practice-foo', proposedBody: 'line b\n' });
+      const outside = `${cwd}-outside`;
+      renameSync(join(cwd, linked), outside);
+      symlinkSync(outside, join(cwd, linked), 'dir');
+      const conflict = join(cwd, '.ai/kenkeep/conflicts/c1.md');
+      const before = readFileSync(conflict);
+
+      try {
+        const { code, stdout, stderr } = await capture(() => runConflictPrepareCommand());
+        expect(code).toBe(1);
+        expect(stdout).toBe('');
+        expect(stderr).toContain('symlink');
+        expect(readFileSync(conflict)).toEqual(before);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    }
+  );
+
   it('refuses a linked conflict file before stamping any other conflict', async () => {
     writeNode(cwd, 'practice-a', 'line a\n');
     writeNode(cwd, 'practice-b', 'line a\n');

@@ -40,26 +40,48 @@ export function renderConflictFile(fm: ConflictFrontmatter): string {
 }
 
 /**
- * The write boundary for one conflict file. `file` must stay under
- * `conflictsDir`, and neither `conflicts/` itself nor the file may be a
- * symlink: a linked directory would put the write outside the knowledge
- * base, and the atomic rename would replace a linked file instead of
- * writing through it. Writers run this for every file before their first
- * write, so a refusal never leaves a partial set of writes behind.
+ * Where conflict files live and the directory their write boundary starts
+ * from. `trustedRoot` is the repository root for the default
+ * `.ai/kenkeep/conflicts/`, so `.ai` and `.ai/kenkeep` are checked too. An
+ * explicit directory override is the caller's own choice, so only its
+ * `conflicts` segment and the files below it are checked.
  */
-export function assertConflictWritable(conflictsDir: string, file: string): string {
-  const abs = assertContained(conflictsDir, file, CONFLICTS_LABEL);
-  // Rooted one level up so the `conflicts` segment itself is checked too.
-  return assertContained(dirname(resolve(conflictsDir)), abs, CONFLICTS_LABEL);
+export interface ConflictsLocation {
+  dir: string;
+  trustedRoot: string;
+}
+
+/** The conflicts location for a command: the repo default unless `override` is given. */
+export function conflictsLocation(
+  repoRoot: string,
+  defaultDir: string,
+  override: string | undefined
+): ConflictsLocation {
+  if (override !== undefined) return { dir: override, trustedRoot: dirname(resolve(override)) };
+  return { dir: defaultDir, trustedRoot: repoRoot };
+}
+
+/**
+ * The write boundary for one conflict file. `file` must stay under the
+ * conflicts directory, and no existing segment from the trusted root down to
+ * the file may be a symlink: a linked `.ai`, `.ai/kenkeep` or `conflicts/`
+ * would put the write outside the knowledge base, and the atomic rename would
+ * replace a linked file instead of writing through it. Writers run this for
+ * every file before their first write, so a refusal never leaves a partial
+ * set of writes behind.
+ */
+export function assertConflictWritable(loc: ConflictsLocation, file: string): string {
+  const abs = assertContained(loc.dir, file, CONFLICTS_LABEL);
+  return assertContained(loc.trustedRoot, abs, CONFLICTS_LABEL);
 }
 
 /** Atomically writes a conflict file from its validated frontmatter. */
 export function writeConflictFile(
-  conflictsDir: string,
+  loc: ConflictsLocation,
   file: string,
   fm: ConflictFrontmatter
 ): void {
-  atomicWriteFile(assertConflictWritable(conflictsDir, file), renderConflictFile(fm));
+  atomicWriteFile(assertConflictWritable(loc, file), renderConflictFile(fm));
 }
 
 function isOpenStatus(status: unknown): status is ConflictStatus {
@@ -175,20 +197,20 @@ export function openConflictTargetIds(conflictsDir: string): Set<string> {
 
 /**
  * Resolves the `<conflict>` argument of `conflict resolve` to an absolute file
- * under `conflictsDir`. A bare id maps to `<conflictsDir>/<id>.md`; anything
+ * under `loc.dir`. A bare id maps to `<loc.dir>/<id>.md`; anything
  * that looks like a path (`.md` suffix, a separator, or an existing file) is
  * taken as a path. Either way the result must pass `assertConflictWritable`,
  * because `conflict resolve` rewrites it after applying the decision.
  */
-export function resolveConflictPath(conflictsDir: string, ref: string): string {
+export function resolveConflictPath(loc: ConflictsLocation, ref: string): string {
   const looksLikePath =
     ref.endsWith('.md') || ref.includes('/') || ref.includes('\\') || isAbsolute(ref);
   const candidate = looksLikePath
     ? isAbsolute(ref)
       ? ref
       : resolve(process.cwd(), ref)
-    : join(conflictsDir, `${ref}.md`);
-  const abs = assertConflictWritable(conflictsDir, candidate);
+    : join(loc.dir, `${ref}.md`);
+  const abs = assertConflictWritable(loc, candidate);
   if (!existsSync(abs) || !statSync(abs).isFile()) {
     throw new Error(`conflict "${ref}" not found under ${CONFLICTS_LABEL} (${abs})`);
   }

@@ -1,6 +1,11 @@
 import { existsSync } from 'node:fs';
 import { relative, sep } from 'node:path';
-import { readConflictFile, resolveConflictPath, writeConflictFile } from '../lib/conflicts.js';
+import {
+  conflictsLocation,
+  readConflictFile,
+  resolveConflictPath,
+  writeConflictFile,
+} from '../lib/conflicts.js';
 import { stderrLog as log, writeJsonDocument } from '../lib/log.js';
 import { modifyNodeInPlace } from '../lib/node-modify.js';
 import { findNodeById } from '../lib/nodes.js';
@@ -21,6 +26,14 @@ export interface ConflictResolveOptions {
   /** Override the nodes directory. Defaults to repoPaths(...).nodesDir. */
   nodesDir?: string | undefined;
 }
+
+/**
+ * The `error` prefix when the target was rewritten but the conflict record
+ * was not. The kk-curate skill quotes it to tell a landed accept from a
+ * refused one.
+ */
+export const PARTIAL_ACCEPT_ERROR =
+  'decision applied to the target but the conflict file could not be updated';
 
 interface ResolveReport {
   id: string;
@@ -77,12 +90,12 @@ export async function runConflictResolveCommand(
     return 1;
   }
 
-  const conflictsDir = opts.conflictsDir ?? paths.conflictsDir;
+  const conflicts = conflictsLocation(root, paths.conflictsDir, opts.conflictsDir);
   const nodesDir = opts.nodesDir ?? paths.nodesDir;
 
   let file: string;
   try {
-    file = resolveConflictPath(conflictsDir, ref);
+    file = resolveConflictPath(conflicts, ref);
   } catch (err) {
     log.error(`conflict resolve: ${(err as Error).message}`);
     return 1;
@@ -169,11 +182,9 @@ export async function runConflictResolveCommand(
     decided_at: decidedAt,
   };
   try {
-    writeConflictFile(conflictsDir, file, updated);
+    writeConflictFile(conflicts, file, updated);
   } catch (err) {
-    return fail(
-      `decision applied to the target but the conflict file could not be updated: ${(err as Error).message}`
-    );
+    return fail(`${PARTIAL_ACCEPT_ERROR}: ${(err as Error).message}`);
   }
 
   report.status = updated.status;

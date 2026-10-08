@@ -268,6 +268,34 @@ describe('init', () => {
     expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
   });
 
+  it('refuses an unparseable OpenCode config without installing the adapter', async () => {
+    mkdirSync(join(sandbox, '.opencode'), { recursive: true });
+    const configFile = join(sandbox, '.opencode/opencode.json');
+    writeFileSync(configFile, '{broken\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('.opencode/opencode.json');
+    expect(readFileSync(configFile, 'utf8')).toBe('{broken\n');
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/opencode'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses an OpenCode config whose plugin or instructions entry is not an array', async () => {
+    mkdirSync(join(sandbox, '.opencode'), { recursive: true });
+    const configFile = join(sandbox, '.opencode/opencode.json');
+    const original = '{"plugin":"user-plugin","instructions":"user-instructions"}\n';
+    writeFileSync(configFile, original);
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toMatch(/opencode\.json[^\n]*"plugin"/);
+    expect(readFileSync(configFile, 'utf8')).toBe(original);
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
   it('tells Copilot users to commit the .github/ artifacts it actually wrote', async () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'copilot'], {
       COPILOT_HOME: join(sandbox, 'copilot-home'),

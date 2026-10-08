@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWriteFile, copyTree } from '../../lib/fs-atomic.js';
 import { installSharedSkills } from '../../lib/install-skills.js';
-import { log } from '../../lib/log.js';
 import { upsertManagedBlock } from '../../lib/managed-block.js';
 import { copySharedHookScripts, sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { HarnessInstallOptions, HarnessPaths } from '../types.js';
@@ -87,27 +86,33 @@ export const OPENCODE_INSTRUCTIONS_ENTRY = '.opencode/AGENTS.md';
  *
  * Merge semantics: creates the file when absent; appends to existing
  * arrays (or adds the keys) while preserving every other key; no-ops when
- * both entries are already present. An unparseable config is left
- * untouched — destroying a user's config to register ourselves is worse
- * than asking them to add two lines.
+ * both entries are already present. A config that is unparseable, is not a
+ * JSON object, or holds a non-array `plugin` or `instructions` value throws
+ * a diagnostic naming the file and leaves it untouched: replacing a user's
+ * values to register ourselves would destroy them, and skipping the
+ * registration would leave every hook inert.
  */
 export function registerOpenCodePlugin(configFile: string): void {
   let config: Record<string, unknown> = {};
   if (existsSync(configFile)) {
+    let raw: unknown;
     try {
-      config = JSON.parse(readFileSync(configFile, 'utf8')) as Record<string, unknown>;
-    } catch {
-      log.warn(
-        `could not parse ${configFile}; add "${OPENCODE_PLUGIN_ENTRY}" to its "plugin" array ` +
-          `and "${OPENCODE_INSTRUCTIONS_ENTRY}" to its "instructions" array manually.`
-      );
-      return;
+      raw = JSON.parse(readFileSync(configFile, 'utf8'));
+    } catch (err) {
+      throw new Error(`Could not parse existing ${configFile}: ${(err as Error).message}`);
+    }
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw malformedConfig(configFile, '(top level)', 'expected a JSON object');
+    }
+    config = raw as Record<string, unknown>;
+  }
+  for (const key of ['plugin', 'instructions']) {
+    if (key in config && !Array.isArray(config[key])) {
+      throw malformedConfig(configFile, key, 'expected an array');
     }
   }
-  const plugins = Array.isArray(config['plugin']) ? (config['plugin'] as unknown[]) : [];
-  const instructions = Array.isArray(config['instructions'])
-    ? (config['instructions'] as unknown[])
-    : [];
+  const plugins = (config['plugin'] as unknown[] | undefined) ?? [];
+  const instructions = (config['instructions'] as unknown[] | undefined) ?? [];
   const hasPlugin = plugins.includes(OPENCODE_PLUGIN_ENTRY);
   const hasInstructions = instructions.includes(OPENCODE_INSTRUCTIONS_ENTRY);
   if (hasPlugin && hasInstructions) return;
@@ -116,6 +121,13 @@ export function registerOpenCodePlugin(configFile: string): void {
     config['instructions'] = [...instructions, OPENCODE_INSTRUCTIONS_ENTRY];
   }
   atomicWriteFile(configFile, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+function malformedConfig(configFile: string, path: string, problem: string): Error {
+  return new Error(
+    `Malformed OpenCode config in ${configFile}: "${path}": ${problem}. kenkeep left the file ` +
+      'unchanged; fix or remove that entry, then re-run the command.'
+  );
 }
 
 /**
@@ -159,15 +171,16 @@ export function ensureOpenCodeGitignore(gitignoreFile: string): void {
 export async function installOpenCode(opts: HarnessInstallOptions): Promise<void> {
   const templateDir = join(opts.templatesDir, OPENCODE_TEMPLATE_SUBDIR);
   const paths = openCodePaths(opts.root);
-  // The managed .gitignore block goes first: a malformed one is refused before
-  // any other file of this adapter lands.
+  // The managed .gitignore block and the config registration go first: either
+  // writer refuses a malformed user file before any runtime file of this
+  // adapter lands.
   ensureOpenCodeGitignore(paths.gitignoreFile);
+  registerOpenCodePlugin(paths.configFile);
 
   const pluginSrc = join(templateDir, 'plugins');
   if (existsSync(pluginSrc)) {
     copyTree(pluginSrc, paths.pluginsDir);
   }
   copySharedHookScripts(opts.templatesDir, opts.paths, 'opencode');
-  registerOpenCodePlugin(paths.configFile);
   installSharedSkills(opts.templatesDir, paths.skillsDir);
 }

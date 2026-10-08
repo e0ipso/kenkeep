@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
-import { join, posix, relative, sep } from 'node:path';
+import { basename, dirname, join, posix, relative, sep } from 'node:path';
 import matter from 'gray-matter';
 import { z } from 'zod';
 import { atomicWriteFile } from '../lib/fs-atomic.js';
@@ -8,7 +8,7 @@ import {
   readFolderSummaries,
   renderFolderSummaries,
 } from '../lib/folder-summaries.js';
-import { generateGraph, generateIndex } from '../lib/index-gen.js';
+import { computeOwnedFolderDirs, generateGraph, generateIndex } from '../lib/index-gen.js';
 import { log } from '../lib/log.js';
 import { detectSchemaVersion } from '../lib/migrate.js';
 import { linkTargetResolver, renderGeneratedNodeSections } from '../lib/node-sections.js';
@@ -72,30 +72,35 @@ interface MigrationSummary {
  *
  * `entryFile` and `graphFile` are the repo's kenkeep-owned artifacts. A pack
  * has neither, so both are optional: with no `entryFile` the root catalog is
- * not written, and with no `graphFile` no graph is emitted.
+ * not written, and with no `graphFile` no graph is emitted. `root` is the
+ * directory the caller authorizes for the writes outside the tree: the
+ * folder-summary sidecar, `entryFile` and `graphFile` must lie under it. It
+ * defaults to the tree's parent, where the sidecar lives.
  *
  * Preflight, then write. Every leaf is parsed and its v3 frontmatter and body
- * are rendered in memory first, and the id set is checked for duplicates, so
- * an unreadable leaf, an invalid id or two leaves sharing an id abort before
- * any file changes.
+ * are rendered in memory first, the id set is checked for duplicates, and
+ * every path the run writes goes through the shared containment check, so an
+ * unreadable leaf, an invalid id, two leaves sharing an id or a symlinked
+ * output (dangling or not) abort before any file changes.
  *
  * Resumable: a run interrupted after rewriting some leaves leaves a mixed
  * tree the normal readers refuse. Re-running this primitive recognizes the
  * leaves already in the v3 shape, skips them and converts the rest, so ids,
  * edges and `kk_derived_from` survive the interruption. A run that failed
- * after its final leaf conversion is resumed the same way: `runMigrateOkfV3`
- * accepts the all-v3 tree while a v2 folder index remains or the entry
- * catalog, written last, is not yet v3. This
- * is the only place that recognition lives; `readAllNodes` stays strict.
+ * after its final leaf conversion leaves an all-v3 tree, and nothing on disk
+ * proves its outputs were finished, so `runMigrateOkfV3` also runs on an
+ * all-v3 tree: it converts nothing and regenerates every output. This is the
+ * only place that recognition lives; `readAllNodes` stays strict.
  *
  * Mutates `nodesDir`. Callers that do not own the tree must copy it first.
  */
 export function migrateNodesTreeToV3(
   nodesDir: string,
-  artifacts: { entryFile?: string; graphFile?: string } = {}
+  artifacts: { root?: string; entryFile?: string; graphFile?: string } = {}
 ): MigrationSummary {
   // Preflight: resolve the complete intended output in memory.
   const leaves = readMigrationLeaves(nodesDir);
+  refuseUnsafeOutputs(nodesDir, leaves, artifacts);
   const idToRelPath = new Map(leaves.map(leaf => [leaf.frontmatter.kk_id, leaf.relPath]));
   const resolveTargets = linkTargetResolver(idToRelPath, readRedirectsLedger(nodesDir));
   const collisions: MigrationSummary['collisions'] = [];
@@ -128,7 +133,6 @@ export function migrateNodesTreeToV3(
   if (artifacts.graphFile !== undefined) {
     atomicWriteFile(artifacts.graphFile, generateGraph(nodesDir).content);
   }
-  // Last write: a v3 entry catalog marks the run finished (see `runMigrateOkfV3`).
   if (artifacts.entryFile !== undefined) atomicWriteFile(artifacts.entryFile, index.rootCatalog);
 
   return {
@@ -139,45 +143,19 @@ export function migrateNodesTreeToV3(
   };
 }
 
-/**
- * True when every leaf is already v3 but the run that converted them never
- * finished its outputs: an earlier run converted the final leaf and then
- * failed writing the indexes, GRAPH.md or ENTRY.md. The evidence is a folder
- * index still in the v2 shape (v3 folder indexes carry no `schema_version`),
- * or an entry catalog, the migration's last write, that is missing or older
- * than v3. Re-running completes those outputs and leaves the converted leaf
- * bytes alone.
- */
-function isUnfinishedMigration(
-  current: number | null,
-  nodesDir: string,
-  entryFile: string
-): boolean {
-  if (current !== NODE_SCHEMA_VERSION) return false;
-  const schemaVersionOf = (file: string): unknown =>
-    (matter(readFileSync(file, 'utf8')).data as Record<string, unknown>).schema_version;
-  if (!existsSync(entryFile) || schemaVersionOf(entryFile) !== NODE_SCHEMA_VERSION) return true;
-  const hasV2Index = (dir: string): boolean =>
-    readdirSyncSorted(dir).some(entry => {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) return hasV2Index(full);
-      return entry.name === INDEX_FILENAME && schemaVersionOf(full) !== undefined;
-    });
-  return hasV2Index(nodesDir);
-}
-
 export async function runMigrateOkfV3(): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
   const entryFile = join(paths.kkDir, 'ENTRY.md');
   const current = detectSchemaVersion(paths.nodesDir);
-  if (
-    current !== LEGACY_NODE_SCHEMA_VERSION &&
-    !isUnfinishedMigration(current, paths.nodesDir, entryFile)
-  ) {
+  // An all-v3 tree is accepted too: an earlier run may have converted every
+  // leaf and then failed before its outputs were written. Re-running it
+  // converts nothing and regenerates the outputs.
+  if (current !== LEGACY_NODE_SCHEMA_VERSION && current !== NODE_SCHEMA_VERSION) {
     log.error(
-      `migrate okf-v3: refusing to run: expected schema_version ${LEGACY_NODE_SCHEMA_VERSION}, ` +
-        `detected ${current === null ? 'none' : current}. Run \`kenkeep migrate status\` for the pending chain.`
+      `migrate okf-v3: refusing to run: expected schema_version ${LEGACY_NODE_SCHEMA_VERSION} ` +
+        `(or ${NODE_SCHEMA_VERSION} to finish an interrupted run), detected ` +
+        `${current === null ? 'none' : current}. Run \`kenkeep migrate status\` for the pending chain.`
     );
     return 1;
   }
@@ -185,6 +163,7 @@ export async function runMigrateOkfV3(): Promise<number> {
   let summary: MigrationSummary;
   try {
     summary = migrateNodesTreeToV3(paths.nodesDir, {
+      root: paths.kkDir,
       entryFile,
       graphFile: join(paths.kkDir, 'GRAPH.md'),
     });
@@ -205,8 +184,8 @@ export async function runMigrateOkfV3(): Promise<number> {
  * frontmatter resolved in memory (`pending`), a leaf already in the current
  * v3 shape is kept as is (`converted`), and anything else is a failure. All
  * failures (unreadable frontmatter, an id the v3 schema rejects, two leaves
- * sharing an id, a symlinked leaf or index.md the run would replace) are
- * aggregated and thrown before any write.
+ * sharing an id, a symlinked v2 leaf the run would replace) are aggregated
+ * and thrown before any write.
  */
 function readMigrationLeaves(nodesDir: string): MigrationLeaf[] {
   if (!existsSync(nodesDir)) return [];
@@ -221,13 +200,7 @@ function readMigrationLeaves(nodesDir: string): MigrationLeaf[] {
         walk(full);
         continue;
       }
-      if (!entry.name.endsWith('.md')) continue;
-      if (entry.name === INDEX_FILENAME) {
-        // Every folder index is regenerated; a symlink there would be replaced.
-        const unsafe = uncontainedReason(nodesDir, full);
-        if (unsafe !== null) failures.push(unsafe);
-        continue;
-      }
+      if (!entry.name.endsWith('.md') || entry.name === INDEX_FILENAME) continue;
       const relPath = relative(nodesDir, full).split(sep).join(posix.sep);
       const parsed = matter(readFileSync(full, 'utf8'));
       const v2 = V2NodeFrontmatterSchema.safeParse(parsed.data);
@@ -282,16 +255,55 @@ function readMigrationLeaves(nodesDir: string): MigrationLeaf[] {
       failures.push(`more than one leaf carries id "${id}": ${paths.join(', ')}`);
     }
   }
-  if (failures.length > 0) {
-    throw new Error(`refusing to migrate; fix these before re-running:\n${failures.join('\n')}`);
-  }
+  refuseIfFailed(failures);
   return leaves;
 }
 
+/**
+ * Runs every output path the migration writes besides the v2 leaves through
+ * the containment boundary before any write: each owned folder's `index.md`
+ * under `nodesDir`, and the folder-summary sidecar, entry catalog and graph
+ * under the caller's `root`. A symlink at any of them, dangling or not, would
+ * be replaced, so all refusals are aggregated and thrown.
+ */
+function refuseUnsafeOutputs(
+  nodesDir: string,
+  leaves: readonly MigrationLeaf[],
+  artifacts: { root?: string; entryFile?: string; graphFile?: string }
+): void {
+  const failures: string[] = [];
+  const check = (root: string, path: string, label: string): void => {
+    const unsafe = uncontainedReason(root, path, label);
+    if (unsafe !== null) failures.push(unsafe);
+  };
+  const ownedDirs = computeOwnedFolderDirs(
+    leaves.map(leaf => ({ relDir: posix.dirname(leaf.relPath).replace(/^\.$/u, '') }))
+  );
+  for (const dir of [...ownedDirs].sort((a, b) => a.localeCompare(b))) {
+    check(nodesDir, join(nodesDir, ...dir.split('/').filter(Boolean), INDEX_FILENAME), 'nodes/');
+  }
+  const root = artifacts.root ?? dirname(nodesDir);
+  const files = [
+    folderSummariesFileForNodesDir(nodesDir),
+    artifacts.entryFile,
+    artifacts.graphFile,
+  ];
+  for (const file of files) {
+    if (file !== undefined) check(root, file, `${basename(root)}/`);
+  }
+  refuseIfFailed(failures);
+}
+
+function refuseIfFailed(failures: readonly string[]): void {
+  if (failures.length > 0) {
+    throw new Error(`refusing to migrate; fix these before re-running:\n${failures.join('\n')}`);
+  }
+}
+
 /** The containment boundary's refusal for a path the run will rewrite, or null. */
-function uncontainedReason(nodesDir: string, path: string): string | null {
+function uncontainedReason(root: string, path: string, label = 'nodes/'): string | null {
   try {
-    assertContained(nodesDir, path);
+    assertContained(root, path, label);
     return null;
   } catch (err) {
     return (err as Error).message;

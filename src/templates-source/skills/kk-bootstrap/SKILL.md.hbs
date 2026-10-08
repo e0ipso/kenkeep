@@ -59,7 +59,7 @@ The host harness may keep auto-memory files outside the repo (Claude Code's pers
 npx --yes kenkeep@latest memory list
 ```
 
-It prints one JSON document: `{"harness":"<id>","files":[{"iri","path","sha256","bytes","session_id"}]}`. `files` holds only new or changed memory files; `[]` (nothing changed, or a harness without native memory) is a normal result, not an error. Listing writes nothing: a file stays listed until it is marked in the finalize step, so an interrupted run sees it again.
+It prints one JSON document: `{"harness":"<id>","files":[{"iri","path","sha256","bytes","session_id"}]}`. `files` holds only new or changed memory files; `[]` (nothing changed, or a harness without native memory) is a normal result, not an error. Unlike the other primitives this one is not LLM-free on Claude Code: it finds the memory files with one headless `claude -p` call (a billed model call that can take up to a minute; if it fails, `files` is `[]` and nothing is lost, the files come back next run). The other hosts spawn nothing. Listing writes nothing: a file stays listed until it is marked in the finalize step, so an interrupted run sees it again.
 
 Add each listed file to your working set and `Read` it from `path`. Treat it like any other candidate doc in Steps 3 to 6, with two differences: it lives outside the repo, so `node write` takes no `--source-doc`/`--source-hash` for nodes drawn from it, and it is finished with `memory mark` instead of `bootstrap complete-doc` (see "Finalize each document"). Keep its `iri` and `sha256`; the finalize step needs both.
 

@@ -536,12 +536,12 @@ async function main(): Promise<void> {
   const memoryGroup = program
     .command('memory')
     .description(
-      "Deterministic primitives over the active harness's auto-memory files and the per-user ledger (`.state/memory-ledger.json`) that keeps unchanged files out of bootstrap and curate."
+      "Primitives over the active harness's auto-memory files and the per-user ledger (`.state/memory-ledger.json`) that keeps unchanged files out of bootstrap and curate. `memory mark` never calls an LLM; `memory list` asks the harness where its memory files are, which on Claude Code is one headless `claude -p` call."
     );
   memoryGroup
     .command('list')
     .description(
-      'Headless primitive: list the active harness\'s auto-memory files that are new or changed since the ledger last recorded them. Adapters without native memory print an empty list. Prints one JSON document ({"harness","files":[{"iri","path","sha256","bytes","session_id"}]}); never writes the ledger.'
+      'Headless primitive: list the active harness\'s auto-memory files that are new or changed since the ledger last recorded them. On Claude Code the file locations come from one headless `claude -p` discovery call (a model call, not deterministic; a failed or timed-out call lists nothing). Adapters without native memory print an empty list and spawn nothing. Prints one JSON document ({"harness","files":[{"iri","path","sha256","bytes","session_id"}]}); never writes the ledger.'
     )
     .action(async () => {
       const flags: Parameters<typeof runMemoryListCommand>[0] = {};

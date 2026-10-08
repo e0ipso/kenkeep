@@ -38,7 +38,9 @@ function resolveInitializedPaths(): RepoPaths {
  * Asks the active harness adapter for its auto-memory files and prints the
  * ones whose content the per-user ledger (`.state/memory-ledger.json`) has
  * not recorded: new files and files changed since they were last marked.
- * Adapters without native memory contribute nothing and spawn nothing.
+ * Adapters without native memory contribute nothing and spawn nothing. The
+ * Claude adapter finds its files with one headless `claude -p` call, so this
+ * primitive is not LLM-free there; a failed call lists nothing.
  * Reading never updates the ledger; a file stays listed until `memory mark`
  * records it after the derived knowledge was persisted.
  *

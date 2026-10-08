@@ -650,6 +650,93 @@ describe('rebalance trigger and move (integration)', () => {
     expect(existsSync(join(nodesDir(sandbox), 'new'))).toBe(false);
     expect(existsSync(join(nodesDir(sandbox), 'other'))).toBe(false);
   });
+
+  describe('a planned folder that is a leaf file', () => {
+    function treeBytes(): Record<string, string> {
+      return Object.fromEntries(
+        readdirRec(join(sandbox, '.ai/kenkeep')).map(file => [file, readFileSync(file, 'utf8')])
+      );
+    }
+    async function runPlan(operations: unknown[]): Promise<{ exitCode: number; stderr: string }> {
+      const planPath = join(sandbox, 'plan.json');
+      writeFileSync(planPath, JSON.stringify({ operations }));
+      return runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+    }
+    beforeEach(async () => {
+      for (const id of ['practice-first', 'practice-second', 'practice-anchor']) {
+        writeLeaf(sandbox, 'home', id);
+      }
+      await runCli(sandbox, ['index', 'rebuild']);
+    });
+
+    it('refuses a folder beneath an existing leaf before any leaf moves', async () => {
+      const before = treeBytes();
+      const res = await runPlan([
+        { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-first'] },
+        {
+          operation: 'create-branch',
+          folder: 'home/practice-anchor.md',
+          summary: 'Under a leaf',
+          ids: ['practice-second'],
+        },
+      ]);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('needs folder home/practice-anchor.md, which is a file');
+      expect(treeBytes()).toEqual(before);
+    });
+
+    it('refuses a split-leaf whose folder is the leaf it retires', async () => {
+      const before = treeBytes();
+      const res = await runPlan([
+        {
+          operation: 'split-leaf',
+          leafId: 'practice-anchor',
+          folder: 'home/practice-anchor.md',
+          summary: 'halves',
+          children: [
+            { title: 'first half', summary: 'first', body: 'First.' },
+            { title: 'second half', summary: 'second', body: 'Second.' },
+          ],
+        },
+      ]);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('which is a file');
+      expect(treeBytes()).toEqual(before);
+    });
+
+    it('refuses a leaf destination that an earlier operation made a folder', async () => {
+      const before = treeBytes();
+      const res = await runPlan([
+        {
+          operation: 'create-branch',
+          folder: 'new/practice-anchor.md',
+          summary: 'Odd name',
+          ids: ['practice-first'],
+        },
+        { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-anchor'] },
+      ]);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('is a folder the plan places leaves in');
+      expect(treeBytes()).toEqual(before);
+    });
+
+    it('reuses the path of a leaf an earlier operation moved away as a folder', async () => {
+      await move(sandbox, {
+        operations: [
+          { operation: 'create-branch', folder: 'kept', summary: 'Kept', ids: ['practice-anchor'] },
+          {
+            operation: 'create-branch',
+            folder: 'home/practice-anchor.md',
+            summary: 'Reused path',
+            ids: ['practice-second'],
+          },
+        ],
+      });
+      const home = join(nodesDir(sandbox), 'home');
+      expect(existsSync(join(nodesDir(sandbox), 'kept', 'practice-anchor.md'))).toBe(true);
+      expect(existsSync(join(home, 'practice-anchor.md', 'practice-second.md'))).toBe(true);
+    });
+  });
 });
 
 function readdirRec(dir: string): string[] {

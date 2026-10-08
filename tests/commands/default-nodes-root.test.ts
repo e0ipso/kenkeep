@@ -17,6 +17,7 @@ import { runCuratePersistCommand } from '../../src/commands/curate-persist.js';
 import { runIndexRebuild } from '../../src/commands/index-rebuild.js';
 import { runNodeRefreshLinks } from '../../src/commands/node-refresh-links.js';
 import { runNodeWriteCommand } from '../../src/commands/node-write.js';
+import { runRebalanceMove } from '../../src/commands/rebalance.js';
 import { assertDefaultNodesRoot, repoPaths } from '../../src/lib/paths.js';
 
 // The CLI derives `.ai/kenkeep/nodes/` from the repository root. Those three
@@ -175,6 +176,31 @@ describe('default nodes root route', () => {
     expect(await runNodeRefreshLinks()).toBe(1);
     expect(snapshot(outside)).toEqual(before);
   });
+
+  it.each(LINKED_SEGMENTS)(
+    'rebalance move applies no operation under a linked %s',
+    async segment => {
+      const input = join(parent, 'plan.json');
+      writeFileSync(
+        input,
+        JSON.stringify({
+          operations: [
+            {
+              operation: 'create-branch',
+              folder: 'moved',
+              summary: 'Moved.',
+              ids: ['practice-existing'],
+            },
+            { operation: 'merge', branch: 'moved', into: 'topic' },
+          ],
+        })
+      );
+      const outside = linkOutside(root, parent, segment);
+      const before = snapshot(outside);
+      expect(await runRebalanceMove({ input })).toBe(1);
+      expect(snapshot(outside)).toEqual(before);
+    }
+  );
 
   it('trusts a linked repository root itself', () => {
     const alias = join(parent, 'alias');

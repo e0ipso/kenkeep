@@ -103,7 +103,7 @@ Both root artifacts (and every `index.md`) are regenerated deterministically fro
 
 **Node frontmatter** carries OKF's `type` (`practice` | `map`), `title`, `description` and `tags`, plus `kk_schema_version: 3`, `kk_id`, `kk_derived_from` (session-log or doc provenance), `kk_relates_to` (loose association, by id), `kk_depends_on` (genuine dependency, by id) and `kk_confidence`. Both edge fields are rendered in `GRAPH.md` and dangling-checked by `npx kenkeep lint`.
 
-**Retired ids stay resolvable.** When a node's id is retired (only a split-leaf rebalance does this), a JSON ledger at `nodes/.redirects.json` maps the old id to its successor id(s), resolved transitively, so older references and provenance keep working after a reorganization. Split children keep the source's `kk_derived_from` and may carry their own edges. Edges that no child claims are reported, and no child may cite the retired id.
+**Retired ids stay resolvable.** When a node's id is retired (only a split-leaf rebalance does this), a JSON ledger at `nodes/.redirects.json` maps the old id to its successor id(s), resolved transitively, so older references and provenance keep working after a reorganization. Split children keep the source's `kk_derived_from` and may carry their own edges. Edges that no child claims are reported, and no new child may cite the retired id. Existing legacy retired-id provenance is preserved without a rewrite: `doctor` accepts it when the redirect chain reaches at least one live successor, and still warns when no source resolves.
 
 ## 8. User stories
 

@@ -62,6 +62,12 @@ Someone changed `nodes/` by hand, or restored a note after curate rebuilt the in
 npx kenkeep index rebuild
 ```
 
+## `doctor` reports dangling provenance after a leaf split
+
+Current splits copy the source note's `kk_derived_from` to every child and record the retired id in `nodes/.redirects.json`. Older splits may have put that retired id in the children's provenance. Keep those citations: `doctor` accepts a node id when it is live or its redirect chain reaches at least one live successor. No rewrite or migration is needed.
+
+If the warning remains, check the ledger and its successor notes. Missing sources, empty redirects, and redirect chains with no live successor still warn. Restore missing evidence from git when available; preserve meaningful provenance rather than deleting it to silence a warning. Missing documentation or session logs still warn independently of valid retired-id citations.
+
 ## Bootstrap re-reads docs it already processed
 
 `.state/bootstrap-state.json` keys on content hash. A document counts as done only after `bootstrap complete-doc` records it. Either the file changed, even by whitespace, or the state file was deleted or corrupted, or the previous run stopped before `bootstrap complete-doc` finalized the document. That last case is expected: the document sits under `in_progress` and the next run resumes it without writing duplicate notes. Delete the state file to force a full re-run on purpose.

@@ -347,6 +347,66 @@ describe('doctor', () => {
     expect(danglingMatches.length).toBe(1);
   });
 
+  it('preserves legacy split provenance and only warns when no source resolves', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
+    const nodesDir = join(sandbox, '.ai/kenkeep/nodes');
+    const childPath = join(nodesDir, 'practice-child.md');
+    const writeChild = (references: string[]) => {
+      writeFileSync(
+        childPath,
+        matter.stringify('Child body.', {
+          kk_schema_version: 3,
+          kk_id: 'practice-child',
+          title: 'Split child',
+          type: 'practice',
+          description: 'A child with legacy provenance.',
+          tags: [],
+          kk_derived_from: references,
+          kk_relates_to: [],
+          kk_confidence: 'high',
+        })
+      );
+    };
+    const ledgerPath = join(nodesDir, '.redirects.json');
+    const ledger = JSON.stringify({
+      'practice-retired': ['practice-child', 'practice-missing-successor'],
+      'practice-ancestor': ['practice-retired'],
+      'practice-dead': ['practice-missing-successor'],
+      'practice-empty': [],
+      'practice-cycle-a': ['practice-cycle-b'],
+      'practice-cycle-b': ['practice-cycle-a'],
+    });
+    writeFileSync(ledgerPath, ledger);
+    const validRefs = ['practice-retired', 'practice-ancestor'];
+    writeChild(validRefs);
+    const childBefore = readFileSync(childPath, 'utf8');
+
+    const clean = await runCli(sandbox, ['doctor', '--verbose'], env);
+    expect(clean.exitCode).toBe(0);
+    expect(clean.stdout + clean.stderr).toContain('derived_from references resolve: no dangling');
+    expect(readFileSync(childPath, 'utf8')).toBe(childBefore);
+    expect(readFileSync(ledgerPath, 'utf8')).toBe(ledger);
+
+    const missingRefs = [
+      'practice-unknown',
+      'practice-dead',
+      'practice-empty',
+      'practice-cycle-a',
+      'docs/missing.md',
+      'session-missing.md',
+      'constructor',
+    ];
+    writeChild([...validRefs, ...missingRefs]);
+    const dangling = await runCli(sandbox, ['doctor', '--verbose'], env);
+    expect(dangling.exitCode).toBe(0);
+    const output = dangling.stdout + dangling.stderr;
+    expect(output).toContain('derived_from references resolve: 7 dangling reference(s)');
+    for (const ref of missingRefs) expect(output).toContain(`  - practice-child: ${ref}`);
+    for (const ref of validRefs) expect(output).not.toContain(`  - practice-child: ${ref}`);
+  });
+
   it('skips hygiene surfacing when node frontmatter is invalid', async () => {
     const stubBin = writeHarnessBinaryStubs(sandbox);
     const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };

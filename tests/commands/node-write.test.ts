@@ -547,6 +547,26 @@ describe('bootstrap provenance and resumable document completion', () => {
     expect(leafFiles(cwd)).toEqual(['practice-avoid-bar.md']);
   });
 
+  it('keeps ids from an earlier completion after their leaves are removed', async () => {
+    const first = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo.\n');
+    await writeFromDoc('use-foo', 'docs/a.md', first);
+    expect((await completeDoc('docs/a.md', first)).code).toBe(0);
+    rmSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'));
+
+    // The document changes and is processed again. Only the current attempt
+    // is checked against the tree; the earlier completion's history stays.
+    const second = writeDoc(cwd, 'docs/a.md', '# A\n\nUse bar.\n');
+    await writeFromDoc('use-bar', 'docs/a.md', second);
+    const done = await completeDoc('docs/a.md', second);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toEqual({
+      doc: 'docs/a.md',
+      content_sha256: second,
+      produced_nodes: ['practice-use-foo', 'practice-use-bar'],
+    });
+    expect(leafFiles(cwd)).toEqual(['practice-use-bar.md']);
+  });
+
   it('finalizes a zero-node document so it is not re-listed', async () => {
     const hash = writeDoc(cwd, 'docs/empty.md', '# Nothing durable here\n');
     expect(await pendingDiscovery(cwd)).toEqual(['docs/empty.md']);

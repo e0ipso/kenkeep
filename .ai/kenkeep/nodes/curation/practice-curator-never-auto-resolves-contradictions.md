@@ -38,16 +38,16 @@ When the curator detects a candidate that contradicts an existing node, it emits
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-conflict-files](/curation/map-conflict-files.md)
-- Related: [map-curator-action](/curation/map-curator-action.md)
-- Related: [map-curate-command](/curation/map-curate-command.md)
+- Related: [map-conflict-files](map-conflict-files.md)
+- Related: [map-curator-action](map-curator-action.md)
+- Related: [map-curate-command](map-curate-command.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/how-it-works.md](docs/how-it-works.md)
-[2] [docs/daily-use.md](docs/daily-use.md)
-[3] [docs/internals/prompts.md](docs/internals/prompts.md)
-[4] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[2] [docs/daily-use.md](../../../../docs/daily-use.md)
+[3] [docs/internals/prompts.md](../../../../docs/internals/prompts.md)
+[4] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

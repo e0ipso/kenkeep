@@ -32,6 +32,6 @@ Detection is a substring match for the start sentinel. If found, the block betwe
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
+- Related: [map-entry-md](../index/map-entry-md.md)
+- Related: [map-session-start-hook](../hooks/map-session-start-hook.md)
 <!-- kk:related:end -->

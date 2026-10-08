@@ -16,6 +16,7 @@ import { runLintCommand } from './commands/lint.js';
 import { runLogsPrune } from './commands/logs-prune.js';
 import { runSessionLogStageLiveCommand } from './commands/session-log-stage-live.js';
 import { runSessionLogUpdateProposalsCommand } from './commands/session-log-update-proposals.js';
+import { runMemoryListCommand, runMemoryMarkCommand } from './commands/memory.js';
 import { runMigrateOkfV3 } from './commands/migrate-okf-v3.js';
 import { runMigrateStatus } from './commands/migrate.js';
 import { runNodeAddLauncher } from './commands/node-add.js';
@@ -529,6 +530,36 @@ async function main(): Promise<void> {
     )
     .action(async () => {
       const code = await runLogsPrune();
+      process.exit(code);
+    });
+
+  const memoryGroup = program
+    .command('memory')
+    .description(
+      "Primitives over the active harness's auto-memory files and the per-user ledger (`.state/memory-ledger.json`) that keeps unchanged files out of bootstrap and curate. `memory mark` never calls an LLM; `memory list` asks the harness where its memory files are, which on Claude Code is one headless `claude -p` call."
+    );
+  memoryGroup
+    .command('list')
+    .description(
+      'Headless primitive: list the active harness\'s auto-memory files that are new or changed since the ledger last recorded them. On Claude Code the file locations come from one headless `claude -p` discovery call (a model call, not deterministic; a failed or timed-out call lists nothing). Adapters without native memory print an empty list and spawn nothing. Prints one JSON document ({"harness","files":[{"iri","path","sha256","bytes","session_id"}]}); never writes the ledger.'
+    )
+    .action(async () => {
+      const flags: Parameters<typeof runMemoryListCommand>[0] = {};
+      const harnessFlag = getHarnessFlag();
+      if (harnessFlag !== undefined) flags.harness = harnessFlag;
+      const code = await runMemoryListCommand(flags);
+      process.exit(code);
+    });
+  memoryGroup
+    .command('mark')
+    .description(
+      'Headless primitive: record one memory file as processed at the hash `memory list` printed, so it is skipped until its content changes. Run it only after the nodes or conflicts derived from the file were written; refuses (exit 1, nothing written) when the file changed since it was listed. Prints one JSON document.'
+    )
+    .argument('<iri>', 'file:// IRI as printed by `memory list`')
+    .requiredOption('--hash <sha256>', 'sha256 hex digest printed by `memory list` for this file')
+    .requiredOption('--run-id <id>', 'the bootstrap or curate run id that processed the file')
+    .action(async (iri: string, opts: { hash: string; runId: string }) => {
+      const code = await runMemoryMarkCommand({ iri, hash: opts.hash, runId: opts.runId });
       process.exit(code);
     });
 

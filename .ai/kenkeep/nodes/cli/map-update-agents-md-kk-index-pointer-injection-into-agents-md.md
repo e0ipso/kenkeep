@@ -28,6 +28,6 @@ The injected pointer content: `Curated project knowledge lives in [.ai/kenkeep/E
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [practice-init-does-not-install-commit-tooling](/cli/practice-init-does-not-install-commit-tooling.md)
+- Related: [map-entry-md](../index/map-entry-md.md)
+- Related: [practice-init-does-not-install-commit-tooling](practice-init-does-not-install-commit-tooling.md)
 <!-- kk:related:end -->

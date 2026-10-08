@@ -29,7 +29,7 @@ Applies to: any future changes to the curate command's terminal output around co
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-conflict-files](/curation/map-conflict-files.md)
-- Related: [practice-curator-never-auto-resolves-contradictions](/curation/practice-curator-never-auto-resolves-contradictions.md)
+- Related: [map-curate-command](map-curate-command.md)
+- Related: [map-conflict-files](map-conflict-files.md)
+- Related: [practice-curator-never-auto-resolves-contradictions](practice-curator-never-auto-resolves-contradictions.md)
 <!-- kk:related:end -->

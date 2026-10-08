@@ -26,13 +26,13 @@ This mode exists for `/kk-session-extract`, where a live session is staged and c
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-session-log](/state/map-session-log.md)
-- Related: [map-kk-session-extract](/curation/map-kk-session-extract.md)
+- Related: [map-curate-command](map-curate-command.md)
+- Related: [map-session-log](../state/map-session-log.md)
+- Related: [map-kk-session-extract](map-kk-session-extract.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [4c12545c-3224-4602-8b5a-14c752d26975:map:2](4c12545c-3224-4602-8b5a-14c752d26975:map:2)
+[1] 4c12545c-3224-4602-8b5a-14c752d26975:map:2
 <!-- kk:citations:end -->

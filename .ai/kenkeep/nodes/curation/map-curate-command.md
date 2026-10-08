@@ -46,14 +46,14 @@ Per-spawn model selection from `curatorModel: { name, effort }` in `config.yaml`
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curator-action](/curation/map-curator-action.md)
-- Related: [map-conflict-files](/curation/map-conflict-files.md)
-- Related: [practice-curator-never-auto-resolves-contradictions](/curation/practice-curator-never-auto-resolves-contradictions.md)
+- Related: [map-curator-action](map-curator-action.md)
+- Related: [map-conflict-files](map-conflict-files.md)
+- Related: [practice-curator-never-auto-resolves-contradictions](practice-curator-never-auto-resolves-contradictions.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/daily-use.md](docs/daily-use.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
+[1] [docs/daily-use.md](../../../../docs/daily-use.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
 <!-- kk:citations:end -->

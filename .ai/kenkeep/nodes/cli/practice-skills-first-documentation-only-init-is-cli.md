@@ -22,6 +22,6 @@ The public-facing documentation recommends the skill workflow (`/kk-curate`, `/k
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-kk-bootstrap-skill](../bootstrap/map-kk-bootstrap-skill.md)
 <!-- kk:related:end -->

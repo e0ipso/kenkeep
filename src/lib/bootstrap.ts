@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
-import { isAbsolute, join, posix, relative, sep } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import picomatch from 'picomatch';
 import ignore, { type Ignore } from 'ignore';
 import lockfile from 'proper-lockfile';
@@ -11,6 +11,7 @@ import {
   type BootstrapState,
 } from './schemas.js';
 import { atomicWriteJson, readJsonValidated } from './fs-atomic.js';
+import { readAllNodes } from './nodes.js';
 import { assertContained } from './path-safety.js';
 import { repoPaths } from './paths.js';
 import { STATE_LOCK_OPTIONS } from './state.js';
@@ -139,9 +140,11 @@ export async function updateBootstrapStateLocked<T>(
   file: string,
   update: (state: BootstrapState) => { next: BootstrapState | null; result: T }
 ): Promise<T> {
-  // `proper-lockfile` requires the target to exist. Lazy-create an empty
-  // state so the first concurrent writer has something to lock against.
-  if (!existsSync(file)) writeBootstrapState(file, { schema_version: 1, docs: {} });
+  // With `realpath: false` the lock is a sibling directory and the target may
+  // be missing, so the first writer creates the file under the lock. Creating
+  // it before locking would let a slow first writer replace a concurrent
+  // writer's records with an empty state.
+  mkdirSync(dirname(file), { recursive: true });
   const release = await lockfile.lock(file, {
     ...STATE_LOCK_OPTIONS,
     retries: { retries: 10, minTimeout: 25, maxTimeout: 200, factor: 1.5 },
@@ -201,17 +204,23 @@ export function recordWrittenNode(
   };
 }
 
+/** Ids of the leaves currently in the tree under `nodesDir`. */
+export function liveNodeIds(nodesDir: string): Set<string> {
+  return new Set(readAllNodes(nodesDir).map(n => n.frontmatter.kk_id));
+}
+
 /**
  * Finalizes `doc` at `hash`: the skill declared the document fully handled,
- * whether it produced nodes or none. Moves the attempt's written ids into
- * `docs[doc].produced_nodes` (merged with any earlier completion's) and drops
- * the attempt. Throws, changing nothing, when the unfinished attempt is at a
- * different hash: the document changed mid-run, and completing it would skip
- * content no draft saw.
+ * whether it produced nodes or none. Moves the attempt's written ids that are
+ * still in `liveIds` into `docs[doc].produced_nodes` (merged with any earlier
+ * completion's) and drops the attempt. A written leaf that was removed since
+ * is not recorded as produced. Throws, changing nothing, when the unfinished
+ * attempt is at a different hash: the document changed mid-run, and
+ * completing it would skip content no draft saw.
  */
 export function completeDocument(
   state: BootstrapState,
-  args: { doc: string; hash: string; now: string }
+  args: { doc: string; hash: string; now: string; liveIds: ReadonlySet<string> }
 ): { next: BootstrapState; entry: BootstrapDocEntry } {
   const attempt = state.in_progress?.[args.doc];
   if (attempt !== undefined && attempt.content_sha256 !== args.hash) {
@@ -221,7 +230,9 @@ export function completeDocument(
     );
   }
   const produced = new Set(state.docs[args.doc]?.produced_nodes ?? []);
-  for (const id of Object.values(attempt?.written ?? {})) produced.add(id);
+  for (const id of Object.values(attempt?.written ?? {})) {
+    if (args.liveIds.has(id)) produced.add(id);
+  }
   const entry: BootstrapDocEntry = {
     content_sha256: args.hash,
     last_processed_at: args.now,

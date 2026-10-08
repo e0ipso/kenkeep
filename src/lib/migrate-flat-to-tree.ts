@@ -118,6 +118,8 @@ function preflightPlacements(nodesDir: string, placements: Placement[]): Planned
   const targets = new Set<string>();
   const plan: PlannedWrite[] = [];
   for (const placement of placements) {
+    // The source is read here and removed after every destination lands.
+    assertContained(nodesDir, placement.sourcePath);
     const parsed = matter(readFileSync(placement.sourcePath, 'utf8'));
     const data = parsed.data as Record<string, unknown>;
     const target = targetPathFor(nodesDir, placement);

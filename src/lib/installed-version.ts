@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { z } from 'zod';
 import { packageVersion } from './version.js';
 
 /**
@@ -16,9 +17,24 @@ export interface InstalledVersion {
 }
 
 /**
+ * Every marker kenkeep has written under `.ai/kenkeep/` has this shape (the
+ * `assistants` field of the pre-rename releases lived under
+ * `.ai/knowledge-base/`, which nothing reads), so no field has a fallback.
+ * Unknown keys are dropped on rewrite.
+ */
+const InstalledVersionSchema = z.object({
+  schema_version: z.literal(1),
+  package: z.string(),
+  version: z.string(),
+  installed_at: z.string(),
+  harnesses: z.array(z.string()),
+});
+
+/**
  * Reads the marker. Returns null when it does not exist and throws when it
- * cannot be parsed: a corrupt inventory must stop `init` rather than be
- * silently replaced, and `doctor` reports it through its own check.
+ * cannot be parsed or does not match the marker shape: a corrupt inventory
+ * must stop `init` rather than be silently replaced, and `doctor` reports it
+ * through its own check.
  */
 export function readInstalledVersion(file: string): InstalledVersion | null {
   if (!existsSync(file)) return null;
@@ -28,20 +44,16 @@ export function readInstalledVersion(file: string): InstalledVersion | null {
   } catch (err) {
     throw new Error(`Could not parse ${file}: ${(err as Error).message}`);
   }
-  if (raw === null || typeof raw !== 'object') {
-    throw new Error(`Could not parse ${file}: expected a JSON object`);
+  const parsed = InstalledVersionSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const where = issue && issue.path.length > 0 ? `"${issue.path.join('.')}"` : '(top level)';
+    throw new Error(
+      `Malformed ${file}: ${where}: ${issue?.message ?? 'invalid'}. Fix the file by hand; ` +
+        'kenkeep left it unchanged.'
+    );
   }
-  const record = raw as Partial<InstalledVersion> & { harnesses?: unknown };
-  const harnesses = Array.isArray(record.harnesses)
-    ? record.harnesses.filter((h): h is string => typeof h === 'string')
-    : [];
-  return {
-    schema_version: 1,
-    package: typeof record.package === 'string' ? record.package : 'kenkeep',
-    version: typeof record.version === 'string' ? record.version : '',
-    installed_at: typeof record.installed_at === 'string' ? record.installed_at : '',
-    harnesses,
-  };
+  return parsed.data;
 }
 
 /** A fresh marker for the current package version. */

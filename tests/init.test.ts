@@ -1,5 +1,14 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
@@ -266,6 +275,82 @@ describe('init', () => {
     // a re-run after the fix is a fresh install.
     expect(readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8')).toBe('{"hooks": 5}\n');
     expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses an unparseable OpenCode config without installing the adapter', async () => {
+    mkdirSync(join(sandbox, '.opencode'), { recursive: true });
+    const configFile = join(sandbox, '.opencode/opencode.json');
+    writeFileSync(configFile, '{broken\n');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('.opencode/opencode.json');
+    expect(readFileSync(configFile, 'utf8')).toBe('{broken\n');
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/opencode'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses an OpenCode config whose plugin or instructions entry is not an array', async () => {
+    mkdirSync(join(sandbox, '.opencode'), { recursive: true });
+    const configFile = join(sandbox, '.opencode/opencode.json');
+    const original = '{"plugin":"user-plugin","instructions":"user-instructions"}\n';
+    writeFileSync(configFile, original);
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'opencode']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toMatch(/opencode\.json[^\n]*"plugin"/);
+    expect(readFileSync(configFile, 'utf8')).toBe(original);
+    expect(existsSync(join(sandbox, '.opencode/plugins/kk.mjs'))).toBe(false);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/.state/installed-version'))).toBe(false);
+  });
+
+  it('refuses to restore hook scripts through a symlinked hooks directory', async () => {
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(first.exitCode).toBe(0);
+    const outside = makeSandbox('ai-kk-outside-');
+    try {
+      const claudeCapture = join(sandbox, '.ai/kenkeep/hooks/claude/kk-capture.cjs');
+      rmSync(claudeCapture);
+      const codexHooks = join(sandbox, '.ai/kenkeep/hooks/codex');
+      rmSync(codexHooks, { recursive: true });
+      symlinkSync(outside, codexHooks);
+      const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+      const marker = readFileSync(versionFile, 'utf8');
+
+      const repair = await runCli(sandbox, ['init', '--harnesses', 'codex']);
+      expect(repair.exitCode).not.toBe(0);
+      expect(repair.stderr + repair.stdout).toContain('symlink');
+      expect(readdirSync(outside)).toEqual([]);
+      expect(lstatSync(codexHooks).isSymbolicLink()).toBe(true);
+      expect(readFileSync(versionFile, 'utf8')).toBe(marker);
+      // The refusal is decided before any repair write, so the earlier
+      // harness's missing script is not restored either.
+      expect(existsSync(claudeCapture)).toBe(false);
+    } finally {
+      cleanSandbox(outside);
+    }
+  });
+
+  it.each([
+    ['an object of harnesses', { claude: true, codex: true }],
+    ['a non-string harness entry', ['claude', 5]],
+  ])('stops on a corrupt inventory holding %s', async (_label, harnesses) => {
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(first.exitCode).toBe(0);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
+    installed['harnesses'] = harnesses;
+    const corrupt = `${JSON.stringify(installed, null, 2)}\n`;
+    writeFileSync(versionFile, corrupt);
+    const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
+    rmSync(codexCapture);
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('installed-version');
+    expect(readFileSync(versionFile, 'utf8')).toBe(corrupt);
+    expect(existsSync(codexCapture)).toBe(false);
   });
 
   it('tells Copilot users to commit the .github/ artifacts it actually wrote', async () => {

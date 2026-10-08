@@ -1,8 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { dirname, join, posix, sep } from 'node:path';
+import { dirname, join, posix, resolve, sep } from 'node:path';
 import matter from 'gray-matter';
 import { atomicWriteFile } from './fs-atomic.js';
-import { assertContained, isCanonicalSlug, resolveContainedDir } from './path-safety.js';
+import {
+  assertContained,
+  isCanonicalSlug,
+  isNonDirectory,
+  isWithin,
+  resolveContainedDir,
+} from './path-safety.js';
 
 const FLAT_TO_TREE_SCHEMA_VERSION = 2;
 
@@ -136,6 +142,16 @@ function preflightPlacements(nodesDir: string, placements: Placement[]): Planned
       schema_version: FLAT_TO_TREE_SCHEMA_VERSION,
     });
     plan.push({ placement, target, content });
+  }
+  // Every destination is written before any source is removed, so a folder a
+  // target needs can be neither a file on disk nor another placement's target.
+  const root = resolve(nodesDir);
+  for (const { target } of plan) {
+    for (let dir = dirname(target); dir !== root && isWithin(root, dir); dir = dirname(dir)) {
+      if (targets.has(dir) || isNonDirectory(dir)) {
+        throw new Error(`placement target ${target} needs folder ${dir}, which is a file`);
+      }
+    }
   }
   return plan;
 }

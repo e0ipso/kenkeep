@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import {
   assertConflictWritable,
   computeConflictDefault,
+  conflictsLocation,
   readOpenConflicts,
   writeConflictFile,
   type ConflictRecord,
@@ -85,12 +86,12 @@ export async function runConflictPrepareCommand(
     return 1;
   }
 
-  const conflictsDir = opts.conflictsDir ?? paths.conflictsDir;
+  const conflicts = conflictsLocation(root, paths.conflictsDir, opts.conflictsDir);
   const nodesDir = opts.nodesDir ?? paths.nodesDir;
 
   let open;
   try {
-    open = readOpenConflicts(conflictsDir);
+    open = readOpenConflicts(conflicts.dir);
   } catch (err) {
     log.error(`conflict prepare: cannot read conflicts directory: ${(err as Error).message}`);
     return 1;
@@ -154,7 +155,7 @@ export async function runConflictPrepareCommand(
   // a linked file later in the order cannot leave earlier stamps behind.
   for (const { file } of stamps) {
     try {
-      assertConflictWritable(conflictsDir, file);
+      assertConflictWritable(conflicts, file);
     } catch (err) {
       log.error(`conflict prepare: cannot stamp ${file}: ${(err as Error).message}`);
       return 1;
@@ -162,7 +163,7 @@ export async function runConflictPrepareCommand(
   }
   for (const { file, fm } of stamps) {
     try {
-      writeConflictFile(conflictsDir, file, fm);
+      writeConflictFile(conflicts, file, fm);
     } catch (err) {
       log.error(`conflict prepare: cannot stamp ${file}: ${(err as Error).message}`);
       return 1;

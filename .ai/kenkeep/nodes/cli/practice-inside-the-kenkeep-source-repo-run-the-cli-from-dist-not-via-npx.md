@@ -28,6 +28,6 @@ Applies to: any session inside the `kenkeep` source repo that invokes the CLI di
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-kenkeep-package](/overview/map-kenkeep-package.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-kenkeep-package](../overview/map-kenkeep-package.md)
 <!-- kk:related:end -->

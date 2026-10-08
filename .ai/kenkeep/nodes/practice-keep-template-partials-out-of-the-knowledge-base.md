@@ -27,6 +27,6 @@ Mechanical prompt/skill partials are low risk when rendered output is unchanged.
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-bump-prompt-version-comment](/config-and-prompts/practice-bump-prompt-version-comment.md)
-- Related: [practice-shipped-skills-and-hook-scripts-must-be-self-contained](/hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md)
+- Related: [practice-bump-prompt-version-comment](config-and-prompts/practice-bump-prompt-version-comment.md)
+- Related: [practice-shipped-skills-and-hook-scripts-must-be-self-contained](hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md)
 <!-- kk:related:end -->

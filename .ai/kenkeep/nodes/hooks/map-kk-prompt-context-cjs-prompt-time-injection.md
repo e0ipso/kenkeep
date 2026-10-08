@@ -35,13 +35,13 @@ When nothing relevant is found, the hook emits no context. Cursor, OpenCode, and
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
-- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
-- Related: [map-claude-harness](/harnesses/map-claude-harness.md)
+- Related: [map-session-start-hook](map-session-start-hook.md)
+- Related: [map-codex-harness](../harnesses/map-codex-harness.md)
+- Related: [map-claude-harness](../harnesses/map-claude-harness.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [019f1e24-76c6-7751-a01f-9a408a7e44e8:map:0](019f1e24-76c6-7751-a01f-9a408a7e44e8:map:0)
+[1] 019f1e24-76c6-7751-a01f-9a408a7e44e8:map:0
 <!-- kk:citations:end -->

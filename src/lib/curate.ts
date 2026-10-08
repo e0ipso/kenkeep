@@ -113,9 +113,15 @@ export interface SessionStamp {
  * Copying the file's current hash would mark that newer transcript curated
  * although nobody curated it, and its turns would never reach curation.
  * Writing the consumed version instead leaves such a log `outdated` (see
- * `curationState`): the new turns stay pending for the next run, the prefix
- * up to `curated_transcript_chars` stays out of extraction, and the writes
- * already made are not stranded by refusing the stamp.
+ * `curationState`): the new turns stay pending for the next run, and the
+ * writes already made are not stranded by refusing the stamp.
+ *
+ * The stamp does not re-render the body. That capture rendered the whole
+ * newer transcript under `## Transcript`, because the log was not stamped
+ * yet, and an identical recapture leaves the file alone. So in this race
+ * the consumed prefix stays extractable until a capture with new turns
+ * splits it off: the next run may extract it again, and its dedup sees
+ * nodes that already exist. Nothing is lost.
  *
  * Each read and rename holds the session log lock shared with capture and
  * proposal write-back. Without it, a capture landing between the read and

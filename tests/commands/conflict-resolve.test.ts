@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -226,6 +227,26 @@ describe('kk conflict resolve (built CLI)', () => {
     expect(res.stderr).toContain('symlink');
     expect(readFileSync(targetFile)).toEqual(before);
     expect(readFileSync(join(outside, 'run-1-1.md'))).toEqual(conflictBefore);
+  });
+
+  it('refuses an .ai directory linked outside the repository before touching the target', async () => {
+    const targetFile = writeLeaf(root, 'topic', TARGET);
+    writeConflict(root, { id: 'run-1-1', schemaVersion: 2 });
+    const outside = `${root}-outside`;
+    renameSync(join(root, '.ai'), outside);
+    symlinkSync(outside, join(root, '.ai'), 'dir');
+    const before = readFileSync(targetFile);
+    const conflictBefore = readFileSync(join(root, '.ai/kenkeep/conflicts/run-1-1.md'));
+
+    try {
+      const res = await runCli(root, ['conflict', 'resolve', 'run-1-1', '--decision', 'accept']);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('symlink');
+      expect(readFileSync(targetFile)).toEqual(before);
+      expect(readFileSync(join(root, '.ai/kenkeep/conflicts/run-1-1.md'))).toEqual(conflictBefore);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it('a skipped conflict stays open: prepare lists it and it can be resolved later', async () => {

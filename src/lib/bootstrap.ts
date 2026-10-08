@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
-import { isAbsolute, join, posix, relative, sep } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import picomatch from 'picomatch';
 import ignore, { type Ignore } from 'ignore';
 import lockfile from 'proper-lockfile';
@@ -139,9 +139,11 @@ export async function updateBootstrapStateLocked<T>(
   file: string,
   update: (state: BootstrapState) => { next: BootstrapState | null; result: T }
 ): Promise<T> {
-  // `proper-lockfile` requires the target to exist. Lazy-create an empty
-  // state so the first concurrent writer has something to lock against.
-  if (!existsSync(file)) writeBootstrapState(file, { schema_version: 1, docs: {} });
+  // With `realpath: false` the lock is a sibling directory and the target may
+  // be missing, so the first writer creates the file under the lock. Creating
+  // it before locking would let a slow first writer replace a concurrent
+  // writer's records with an empty state.
+  mkdirSync(dirname(file), { recursive: true });
   const release = await lockfile.lock(file, {
     ...STATE_LOCK_OPTIONS,
     retries: { retries: 10, minTimeout: 25, maxTimeout: 200, factor: 1.5 },

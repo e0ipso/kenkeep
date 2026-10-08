@@ -42,13 +42,13 @@ The OpenCode adapter has no equivalent of Claude's `additionalContext` stdout ch
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [practice-recursion-guard-kenkeep-builder-internal](/hooks/practice-recursion-guard-kenkeep-builder-internal.md)
+- Related: [map-entry-md](../index/map-entry-md.md)
+- Related: [practice-recursion-guard-kenkeep-builder-internal](practice-recursion-guard-kenkeep-builder-internal.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/hooks.md](docs/internals/hooks.md)
-[2] [docs/index.md](docs/index.md)
+[1] [docs/internals/hooks.md](../../../../docs/internals/hooks.md)
+[2] [docs/index.md](../../../../docs/index.md)
 <!-- kk:citations:end -->

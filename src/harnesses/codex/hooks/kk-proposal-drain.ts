@@ -25,7 +25,7 @@ runHookEntry({
     await runProposalDrain({
       binaryName: 'codex',
       startCwd,
-      runner: async (prompt, stdin, schema, opts) => runHeadlessCodex(prompt, stdin, schema, opts),
+      runner: async (prompt, schema, opts) => runHeadlessCodex(prompt, schema, opts),
       buildHarnessOpts: settings => buildCodexHarnessOpts(settings, 'proposal'),
       harnessTag: 'codex:kk-proposal-drain',
     });

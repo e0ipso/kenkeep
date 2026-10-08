@@ -22,5 +22,5 @@ kenkeep does not perform secret scanning or redaction in the capture pipeline. C
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
+- Related: [map-capture-hook](../hooks/map-capture-hook.md)
 <!-- kk:related:end -->

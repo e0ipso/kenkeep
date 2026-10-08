@@ -1,7 +1,7 @@
 # Sub-agent delegation: probe, cap, fallback
 
 <!--
-  Version: 1
+  Version: 2
   Single source of truth for the sub-agent probe / concurrency-cap / inline-
   fallback orchestration contract shared by kk-curate, kk-bootstrap, and kk-add.
   Each skill points at this file and keeps only its skill-specific draft shape
@@ -44,12 +44,16 @@ orchestrator's own tool calls and bounds rate-limit risk.
   sub-agents may not share the orchestrator's cwd.
 - Before delegating a unit, append an `{"event":"issued",...}` line to that
   unit's `${RUN_ID}__<batchN>.jsonl` log.
+- A unit that consumes tracked inputs (kk-curate's session logs) lists the
+  inputs it consumed inside its own draft, so downstream steps act only on
+  inputs from units whose draft survived validation.
 - The **collector turn** runs in the orchestrator's context after every agent in
   the wave returns. For each unit it reads the draft, validates it, records an
   `{"event":"validated",...}` or `{"event":"invalid",...}` line, and on invalid
   output surfaces `batch <batchN> produced invalid output, skipped` and
   continues. **Never abort the whole run** — partial progress across surviving
-  units beats re-running everything.
+  units beats re-running everything. The inputs of a unit that wrote an
+  invalid draft, or none, are not consumed and are retried next run.
 
 The skill defines what goes in each draft and how the collector consumes the
 survivors; this appendix owns only the probe, the cap, and the artefact shape.

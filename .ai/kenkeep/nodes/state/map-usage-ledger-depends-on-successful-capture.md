@@ -28,12 +28,12 @@ The usage layer is best-effort instrumentation. Missing historical usage rows us
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
-- Related: [map-session-log](/state/map-session-log.md)
+- Related: [map-capture-hook](../hooks/map-capture-hook.md)
+- Related: [map-session-log](map-session-log.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [019f1e24-76c6-7751-a01f-9a408a7e44e8:map:1](019f1e24-76c6-7751-a01f-9a408a7e44e8:map:1)
+[1] 019f1e24-76c6-7751-a01f-9a408a7e44e8:map:1
 <!-- kk:citations:end -->

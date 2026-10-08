@@ -1,18 +1,26 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync } from 'node:fs';
 import { hostname as osHostname } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import matter from 'gray-matter';
 import { computeFreshness, type FreshnessReport } from './freshness.js';
-import { computeNodesHash } from './nodes.js';
+import { BudgetExceededError, computeNodesHash } from './nodes.js';
 import { readLintState } from './lint-state.js';
 import { sendOsNotification } from './notifications.js';
 import { notificationIconPath } from './paths.js';
 import { IndexFrontmatterSchema, SessionLogFrontmatterSchema } from './schemas.js';
 import type { EffectiveSettings } from './settings.js';
+import { curationState } from './session-log.js';
 import { readState, writeState } from './state.js';
 
 export const DEFAULT_NUDGE_THRESHOLD = 20;
 export const DEFAULT_STALE_DAYS = 7;
+
+/**
+ * PRD §9.3: the curation nudge fires at most once per hour. Enforced here, in
+ * the shared builder every adapter's SessionStart hook calls, against the
+ * persisted `last_nudged_at`.
+ */
+export const NUDGE_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Hot-path budget for the SessionStart freshness advisory: cap the git history
@@ -28,13 +36,9 @@ export const SESSION_START_FRESHNESS_MAX_COMMITS = 500;
  * computation. `computeFreshness` already fails open (never throws), and the
  * try/catch is a second guard so a probe failure can never break startup.
  */
-function budgetedFreshnessProbe(opts: { root: string; nodesDir: string }): FreshnessReport | null {
+function budgetedFreshnessProbe(opts: FreshnessProbeOptions): FreshnessReport | null {
   try {
-    return computeFreshness({
-      root: opts.root,
-      nodesDir: opts.nodesDir,
-      maxCommits: SESSION_START_FRESHNESS_MAX_COMMITS,
-    });
+    return computeFreshness({ ...opts, maxCommits: SESSION_START_FRESHNESS_MAX_COMMITS });
   } catch {
     return null;
   }
@@ -75,6 +79,12 @@ function freshnessAdvisoryLine(report: FreshnessReport | null): string | null {
 export const KK_NAVIGATION_DIRECTIVE =
   "> kenkeep navigation: the injected body above is the root index node, the top-level catalog of branches and root-level leaves. Do not expect the whole knowledge base here; descend on demand. Read the root index node, pick one or more branches whose intent and tags match your task (several branches can be relevant), and read those branch `index.md` nodes. Descend further only where the task needs it, opening only the leaves you have confirmed are relevant. Follow each leaf's `relates_to` and `depends_on` cross edges to reach related leaves in other branches. You decide how deep to go per branch.";
 
+export interface FreshnessProbeOptions {
+  root: string;
+  nodesDir: string;
+  deadlineAt?: number | undefined;
+}
+
 export interface SessionStartContext {
   kkDir: string;
   nodesDir: string;
@@ -90,7 +100,13 @@ export interface SessionStartContext {
    * Injectable freshness probe (defaults to a budgeted, fail-open git
    * computation). A seam like `now`/`hostName` — not a test-only branch.
    */
-  freshness?: (opts: { root: string; nodesDir: string }) => FreshnessReport | null;
+  freshness?: (opts: FreshnessProbeOptions) => FreshnessReport | null;
+  /**
+   * Epoch-millisecond instant after which the staleness hash and the
+   * freshness probe give up (the hook's `HookBudget.deadlineAt`). Omit to run
+   * unbounded.
+   */
+  deadlineAt?: number | undefined;
 }
 
 export interface SessionStartResult {
@@ -137,8 +153,17 @@ export interface SessionStartResult {
  * 2. Detects staleness by comparing the entry catalog's frontmatter
  *    `nodes_hash` (the global hash over the whole leaf set) against the live hash
  *    of `nodes/`. If mismatched, appends a warning line.
- * 3. Counts the curation backlog and, when >= threshold,
- *    appends a nudge and persists `last_nudged_at` to `state.json`.
+ * 3. Counts the curation backlog and, when >= threshold and no nudge was
+ *    emitted within the last `NUDGE_INTERVAL_MS`, appends a nudge and persists
+ *    `last_nudged_at` to `state.json`. A throttled start drops only the
+ *    attention-grabbing nudge (attention block entry, notification and
+ *    response directive); the queue counts stay in the result and status line.
+ *
+ * Budget (`ctx.deadlineAt`): the hook deadline cannot interrupt synchronous
+ * work, so the leaf walks behind the staleness hash and the freshness probe
+ * check it themselves. The entry catalog, backlog scan and lint state always
+ * run. A walk that runs out of budget reports no signal (not stale, no
+ * advisory) rather than a partial result.
  *
  * Pure-ish: the only side effect is the state.json write when a nudge fires.
  */
@@ -151,14 +176,12 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   const hostName = ctx.hostName ?? osHostname();
 
   const { content: indexBody, frontmatterHash, missing } = loadIndex(ctx.kkDir);
-  const liveHash = computeNodesHash(ctx.nodesDir);
-  const indexStale = !missing && frontmatterHash !== null && frontmatterHash !== liveHash;
 
   const summary = summarizePendingSessions(ctx.sessionsDir);
   const pending = summary.pending;
   const state = readState(ctx.stateFile);
   const nowDate = now();
-  const shouldNudge = pending >= threshold;
+  const shouldNudge = pending >= threshold && !nudgedWithinInterval(state.last_nudged_at, nowDate);
 
   const oldestAgeDays =
     summary.oldestCapturedAt === null
@@ -178,7 +201,7 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   lines.push(
     '> kenkeep nodes are snapshots in time. Before acting on a node that names a specific file path, function, or flag, verify it still exists in the current tree. If the referenced entity is gone, prefer the live code; flag the stale node to the user.'
   );
-  // The generated ENTRY.md body now embeds the descent directive itself, so
+  // The generated ENTRY.md body embeds the descent directive itself, so
   // appending it again would double-print. Append only when the loaded body does
   // NOT already carry it — i.e. the legacy INDEX.md fallback (seeded before the
   // rename, not yet rebuilt) — so the injected catalog always contains the
@@ -191,14 +214,17 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
   let lintNudged = false;
   if (ctx.lintStateFile !== undefined) {
     const lintState = readLintState(ctx.lintStateFile);
-    if (lintState.last_errors > 0 || lintState.last_findings > 0) {
-      lintNudged = true;
-    }
+    lintNudged = lintState.last_errors > 0 || lintState.last_findings > 0;
   }
+
+  const liveHash = nodesHashWithinBudget(ctx.nodesDir, ctx.deadlineAt);
+  const indexStale =
+    !missing && frontmatterHash !== null && liveHash !== null && frontmatterHash !== liveHash;
 
   const freshnessReport = (ctx.freshness ?? budgetedFreshnessProbe)({
     root: repoRoot,
     nodesDir: ctx.nodesDir,
+    deadlineAt: ctx.deadlineAt,
   });
   const freshnessAdvisory = freshnessAdvisoryLine(freshnessReport);
 
@@ -230,6 +256,29 @@ export function buildSessionStartContext(ctx: SessionStartContext): SessionStart
 
   result.additionalContext = lines.join('\n') + '\n';
   return result;
+}
+
+/**
+ * True when the last emitted nudge is less than `NUDGE_INTERVAL_MS` old. A
+ * missing or unparseable timestamp never throttles, and neither does one in the
+ * future (clock skew must not silence the nudge indefinitely).
+ */
+/** The live `nodes/` hash, or null when the budget ran out mid-walk. */
+function nodesHashWithinBudget(nodesDir: string, deadlineAt: number | undefined): string | null {
+  try {
+    return computeNodesHash(nodesDir, { deadlineAt });
+  } catch (err) {
+    if (err instanceof BudgetExceededError) return null;
+    throw err;
+  }
+}
+
+function nudgedWithinInterval(lastNudgedAt: string | null | undefined, now: Date): boolean {
+  if (typeof lastNudgedAt !== 'string') return false;
+  const last = Date.parse(lastNudgedAt);
+  if (!Number.isFinite(last)) return false;
+  const elapsed = now.getTime() - last;
+  return elapsed >= 0 && elapsed < NUDGE_INTERVAL_MS;
 }
 
 interface LoadedIndex {
@@ -298,7 +347,8 @@ export interface PendingSessionsSummary {
  * `captured_at` timestamp. Counts both `proposal_status: 'pending'` (awaiting
  * proposal extraction) and `proposal_status: 'done'` (awaiting curation) logs
  * that have not yet been curator-processed. Only 'done' logs contribute to
- * `candidateCount`.
+ * `candidateCount`. Every field it needs lives in the frontmatter, so only that
+ * block is read from each log (transcript bodies can be large).
  */
 export function summarizePendingSessions(sessionsDir: string): PendingSessionsSummary {
   if (!existsSync(sessionsDir)) {
@@ -311,13 +361,13 @@ export function summarizePendingSessions(sessionsDir: string): PendingSessionsSu
     if (!name.endsWith('.md')) continue;
     const file = join(sessionsDir, name);
     try {
-      const parsed = matter(readFileSync(file, 'utf8'));
+      const parsed = matter(readFrontmatterBlock(file));
       const fm = SessionLogFrontmatterSchema.safeParse(parsed.data);
       if (!fm.success) continue;
       const status = fm.data.proposal_status;
       if (status !== 'pending' && status !== 'done') continue;
-      const data = parsed.data as { curator_processed_at?: unknown };
-      if (typeof data.curator_processed_at === 'string') continue;
+      const state = curationState(parsed.data as Parameters<typeof curationState>[0]);
+      if (state !== 'uncurated' && state !== 'outdated') continue;
       pending += 1;
       if (status === 'done') {
         const proposals = fm.data.proposals;
@@ -335,6 +385,40 @@ export function summarizePendingSessions(sessionsDir: string): PendingSessionsSu
     }
   }
   return { pending, candidateCount, oldestCapturedAt: oldest };
+}
+
+const FRONTMATTER_CHUNK_BYTES = 16 * 1024;
+const FRONTMATTER_OPEN = Buffer.from('---');
+const FRONTMATTER_CLOSE = Buffer.from('\n---');
+
+/**
+ * Reads only the leading `---` frontmatter block of a markdown file, so the
+ * startup backlog scan never loads session transcript bodies. Mirrors
+ * gray-matter's delimiter rule (the block ends at the first `\n---` after the
+ * opening fence) so `matter()` over the returned text yields the same data as
+ * over the whole file. A file without an opening fence yields '' (no data).
+ */
+function readFrontmatterBlock(file: string): string {
+  const fd = openSync(file, 'r');
+  try {
+    let buf = Buffer.alloc(0);
+    for (;;) {
+      const chunk = Buffer.allocUnsafe(FRONTMATTER_CHUNK_BYTES);
+      const read = readSync(fd, chunk, 0, chunk.length, buf.length);
+      const searchFrom = Math.max(FRONTMATTER_OPEN.length, buf.length - FRONTMATTER_CLOSE.length);
+      buf = Buffer.concat([buf, chunk.subarray(0, read)]);
+      if (buf.length >= FRONTMATTER_OPEN.length) {
+        if (!buf.subarray(0, FRONTMATTER_OPEN.length).equals(FRONTMATTER_OPEN)) return '';
+        const close = buf.indexOf(FRONTMATTER_CLOSE, searchFrom);
+        if (close !== -1) {
+          return `${buf.subarray(0, close + FRONTMATTER_CLOSE.length).toString('utf8')}\n`;
+        }
+      }
+      if (read === 0) return buf.toString('utf8');
+    }
+  } finally {
+    closeSync(fd);
+  }
 }
 
 /**

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   pickModelChoice,
   type EffectiveSettings,
+  type ModelChoice,
   type ModelChoiceRole,
 } from '../../lib/settings.js';
 
@@ -39,4 +40,19 @@ export function buildOpenCodeHarnessOpts(
   if (choice.model !== undefined) out['model'] = choice.model;
   if (choice.agent !== undefined) out['agent'] = choice.agent;
   return out;
+}
+
+/**
+ * Launcher argv for an OpenCode model choice. `opencode-ai 1.18.34 run
+ * --help` lists `-m, --model` ("model to use in the format of
+ * provider/model") and `--agent` ("agent to use"); https://opencode.ai/docs/cli/
+ * documents the same two flags for `opencode run`.
+ */
+export function openCodeLaunchModelArgs(choice: ModelChoice): string[] {
+  if (choice.harness !== 'opencode') {
+    throw new Error(`opencode adapter received a model choice for harness '${choice.harness}'`);
+  }
+  const args = ['--model', choice.model];
+  if (choice.agent !== undefined) args.push('--agent', choice.agent);
+  return args;
 }

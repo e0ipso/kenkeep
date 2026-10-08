@@ -24,6 +24,6 @@ When a knowledge base uses an older schema version (e.g., the legacy v1 flat `no
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-strict-schema-version-bump-policy](/node-schema/practice-strict-schema-version-bump-policy.md)
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [practice-strict-schema-version-bump-policy](../node-schema/practice-strict-schema-version-bump-policy.md)
+- Related: [map-node-frontmatter](../node-schema/map-node-frontmatter.md)
 <!-- kk:related:end -->

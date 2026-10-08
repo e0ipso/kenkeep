@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import matter from 'gray-matter';
@@ -70,6 +79,67 @@ async function captureStdout(fn: () => Promise<number>): Promise<{ code: number;
   } finally {
     spy.mockRestore();
   }
+}
+
+interface ProposedNodeInput {
+  title: string;
+  tags?: string[];
+  body?: string;
+  kk_relates_to?: string[];
+}
+
+function proposed(p: ProposedNodeInput) {
+  return {
+    title: p.title,
+    type: 'practice',
+    tags: p.tags ?? ['foo'],
+    description: `summary of ${p.title}`,
+    body: p.body ?? `${p.title} body.`,
+    kk_confidence: 'high',
+    kk_relates_to: p.kk_relates_to ?? [],
+    kk_depends_on: [],
+  };
+}
+
+function addAction(origin: string, homeFolder: string | null, p: ProposedNodeInput) {
+  return {
+    action: 'add',
+    candidate_origin: origin,
+    target_node_id: null,
+    home_folder: homeFolder,
+    proposed_node: proposed(p),
+    rationale: 'r',
+  };
+}
+
+function modifyAction(origin: string, target: string, p: ProposedNodeInput) {
+  return {
+    action: 'modify',
+    candidate_origin: origin,
+    target_node_id: target,
+    proposed_node: proposed(p),
+    rationale: 'r',
+  };
+}
+
+/** Every file under `dir`, keyed by its path relative to `dir`, with its bytes. */
+function treeBytes(dir: string, prefix = ''): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) Object.assign(out, treeBytes(full, rel));
+    else out[rel] = readFileSync(full, 'utf8');
+  }
+  return out;
+}
+
+function leafIds(root: string): string[] {
+  return Object.keys(treeBytes(join(root, '.ai/kenkeep/nodes')))
+    .filter(rel => rel.endsWith('.md') && !rel.endsWith('index.md'))
+    .map(rel => matter(readFileSync(join(root, '.ai/kenkeep/nodes', rel), 'utf8')).data.kk_id)
+    .sort();
 }
 
 describe('curate-persist primitive', () => {
@@ -363,6 +433,22 @@ describe('curate-persist primitive', () => {
     expect(readFileSync(existing, 'utf8')).toBe(before);
   });
 
+  it('never mints an id the redirects ledger has retired', async () => {
+    writeFileSync(
+      join(cwd, '.ai/kenkeep/nodes/.redirects.json'),
+      JSON.stringify({ 'practice-old': ['practice-existing'] })
+    );
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([addAction('s1:practice:0', null, { title: 'Old', tags: ['unshared'] })])
+    );
+    const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(0);
+    expect(JSON.parse(stdout).results[0].id).toBe('practice-old-2');
+    expect(leafIds(cwd)).not.toContain('practice-old');
+  });
+
   it('writes at the root when the tree has no folders', async () => {
     rmSync(join(cwd, '.ai/kenkeep/nodes/topic'), { recursive: true, force: true });
     writeLeaf(cwd, '', 'practice-root-resident', ['harness']);
@@ -396,5 +482,181 @@ describe('curate-persist primitive', () => {
     expect(summary.results[0].path).toBe('practice-fresh-tree.md');
     expect(summary.results[0].placement).toBe('root fallback');
     expect(existsSync(join(cwd, '.ai/kenkeep/nodes/practice-root-resident.md'))).toBe(true);
+  });
+  describe('idempotent retry', () => {
+    it('replays without duplicating an add or repeating a modify, and reports failures each time', async () => {
+      const input = join(cwd, 'survivors.json');
+      writeFileSync(
+        input,
+        JSON.stringify([
+          addAction('s1:practice:0', 'topic', { title: 'Use Foo' }),
+          modifyAction('s2:practice:0', 'practice-existing', { title: 'Existing', tags: ['new'] }),
+          addAction('s3:practice:0', 'missing', { title: 'Missing Folder' }),
+        ])
+      );
+      const run = async () => {
+        const res = await captureStdout(() => runCuratePersistCommand({ input }));
+        return { code: res.code, summary: JSON.parse(res.stdout) };
+      };
+      const statuses = (summary: { results: Array<{ status: string }> }) =>
+        summary.results.map(r => r.status);
+
+      const first = await run();
+      expect(first.code).toBe(1);
+      expect(first.summary).toMatchObject({ written: 2, failed: 1, already_applied: 0 });
+      expect(first.summary.results[2]).toMatchObject({
+        candidate_origin: 's3:practice:0',
+        status: 'failed',
+      });
+      expect(first.summary.results[2].reason).toMatch(/home_folder "missing" does not exist/);
+
+      const modifiedPath = join(cwd, '.ai/kenkeep/nodes/topic/practice-existing.md');
+      const addedPath = join(cwd, '.ai/kenkeep/nodes/topic/practice-use-foo.md');
+      const modifiedAfterFirst = readFileSync(modifiedPath, 'utf8');
+      const addedAfterFirst = readFileSync(addedPath, 'utf8');
+
+      // Replayed before the cause is fixed: the failure is reported again,
+      // and nothing that landed is written twice.
+      const unfixed = await run();
+      expect(unfixed.code).toBe(1);
+      expect(statuses(unfixed.summary)).toEqual(['already-applied', 'already-applied', 'failed']);
+
+      // The human fixes the cause and replays the same file.
+      mkdirSync(join(cwd, '.ai/kenkeep/nodes/missing'));
+      const fixed = await run();
+      expect(fixed.code).toBe(0);
+      expect(statuses(fixed.summary)).toEqual(['already-applied', 'already-applied', 'written']);
+      expect(fixed.summary.results[0]).toMatchObject({
+        id: 'practice-use-foo',
+        path: 'topic/practice-use-foo.md',
+      });
+
+      expect(leafIds(cwd)).toEqual([
+        'practice-existing',
+        'practice-missing-folder',
+        'practice-use-foo',
+      ]);
+      expect(readFileSync(modifiedPath, 'utf8')).toBe(modifiedAfterFirst);
+      expect(readFileSync(addedPath, 'utf8')).toBe(addedAfterFirst);
+    });
+
+    it('applies a body-only modify whose origin the leaf already lists', async () => {
+      // A later transcript version reuses a positional origin the leaf already
+      // carries and changes only the body: every frontmatter field matches, so
+      // only the body shows the modify has not landed.
+      const leafPath = join(cwd, '.ai/kenkeep/nodes/topic/practice-existing.md');
+      const input = join(cwd, 'survivors.json');
+      writeFileSync(
+        input,
+        JSON.stringify([
+          {
+            action: 'modify',
+            candidate_origin: 'old-session:practice:0',
+            target_node_id: 'practice-existing',
+            proposed_node: {
+              title: 'Existing',
+              type: 'practice',
+              tags: ['old'],
+              description: 'old summary',
+              body: 'Newer body.',
+              kk_confidence: 'medium',
+              kk_relates_to: [],
+              kk_depends_on: [],
+            },
+            rationale: 'r',
+          },
+        ])
+      );
+      const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+      expect(code).toBe(0);
+      expect(JSON.parse(stdout).results[0].status).toBe('written');
+      expect(matter(readFileSync(leafPath, 'utf8')).content).toContain('Newer body.');
+    });
+
+    it('fails a modify of a target whose filename is not its id and writes nothing', async () => {
+      const nodes = join(cwd, '.ai/kenkeep/nodes');
+      const canonical = join(nodes, 'topic/practice-existing.md');
+      renameSync(canonical, join(nodes, 'topic/manual.md'));
+      const before = treeBytes(nodes);
+      const input = join(cwd, 'survivors.json');
+      writeFileSync(
+        input,
+        JSON.stringify([modifyAction('s2:practice:0', 'practice-existing', { title: 'Existing' })])
+      );
+      const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+      expect(code).toBe(1);
+      expect(JSON.parse(stdout).results[0]).toMatchObject({ status: 'failed' });
+      expect(treeBytes(nodes)).toEqual(before);
+    });
+
+    it('treats generated-section markers quoted in the body as authored text', async () => {
+      const input = join(cwd, 'survivors.json');
+      const run = async (action: unknown) => {
+        writeFileSync(input, JSON.stringify([action]));
+        const res = await captureStdout(() => runCuratePersistCommand({ input }));
+        return { code: res.code, summary: JSON.parse(res.stdout) };
+      };
+      const quoted = (fact: string): string =>
+        `Quoted \`<!-- kk:related:start -->\` ${fact} \`<!-- kk:related:end -->\` ending.\n\n` +
+        '```md\n<!-- kk:citations:start -->\nFENCED\n<!-- kk:citations:end -->\n```\n';
+      const added = await run(
+        addAction('s:practice:0', 'topic', { title: 'Q', body: quoted('A') })
+      );
+      expect(added.summary.results[0].status).toBe('written');
+      const leafPath = join(cwd, '.ai/kenkeep/nodes', added.summary.results[0].path);
+
+      const change = modifyAction('s:practice:0', 'practice-q', { title: 'Q', body: quoted('B') });
+      const modified = await run(change);
+      expect(modified.code).toBe(0);
+      expect(modified.summary.results[0].status).toBe('written');
+      expect(readFileSync(leafPath, 'utf8')).toContain(' B `');
+
+      const replayed = await run(change);
+      expect(replayed.summary.results[0].status).toBe('already-applied');
+    });
+  });
+
+  it('renders same-batch links to the real path of a leaf written later in the batch', async () => {
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        addAction('s1:practice:0', 'topic', { title: 'Alpha', kk_relates_to: ['practice-beta'] }),
+        modifyAction('s2:practice:0', 'practice-existing', {
+          title: 'Existing',
+          kk_relates_to: ['practice-beta'],
+        }),
+        addAction('s3:practice:0', 'topic', { title: 'Beta' }),
+      ])
+    );
+    const { code } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(0);
+    for (const id of ['practice-alpha', 'practice-existing']) {
+      const body = readFileSync(join(cwd, `.ai/kenkeep/nodes/topic/${id}.md`), 'utf8');
+      expect(body).toContain('](practice-beta.md)');
+      expect(body).not.toContain('](../practice-beta.md)');
+    }
+  });
+
+  it('applies repeated modifies of one target in a run on top of each other', async () => {
+    const input = join(cwd, 'survivors.json');
+    writeFileSync(
+      input,
+      JSON.stringify([
+        modifyAction('s1:practice:0', 'practice-existing', { title: 'Existing', body: 'First.' }),
+        modifyAction('s2:practice:0', 'practice-existing', { title: 'Existing', body: 'Second.' }),
+      ])
+    );
+    const { code } = await captureStdout(() => runCuratePersistCommand({ input }));
+    expect(code).toBe(0);
+    const leaf = matter(
+      readFileSync(join(cwd, '.ai/kenkeep/nodes/topic/practice-existing.md'), 'utf8')
+    );
+    expect(leaf.data.kk_derived_from).toEqual([
+      'old-session:practice:0',
+      's1:practice:0',
+      's2:practice:0',
+    ]);
+    expect(leaf.content).toContain('Second.');
   });
 });

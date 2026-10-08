@@ -196,12 +196,11 @@ function resolvesOnDisk(ref: string, root: string, sessionsDir: string): boolean
 /**
  * Advisory freshness signal: how many nodes may describe source code that
  * changed since they were last curated. Always a warn (never a failure) so it
- * cannot flip doctor's exit code, and reports "no signal" when git history is
- * unavailable rather than warning on a tree it could not analyze.
+ * cannot flip doctor's exit code. An unavailable report names its reason.
  */
 function checkFreshness(root: string, nodesDir: string): CheckResult {
   const report = computeFreshness({ root, nodesDir });
-  if (!report.available) return ok('no signal (needs a git repository with history).');
+  if (!report.available) return ok(`no signal: ${report.reason ?? 'unknown'}.`);
   if (report.flaggedCount === 0) return ok('no nodes appear to describe changed code');
   return warn(
     `${report.flaggedCount} node(s) may describe code changed since curation; run \`npx kenkeep freshness --verbose\`.`

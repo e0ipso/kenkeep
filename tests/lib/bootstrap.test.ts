@@ -103,6 +103,33 @@ describe('discoverMarkdownFiles (skip-list and ignore composition)', () => {
   });
 });
 
+describe('discoverMarkdownFiles (nested .gitignore precedence)', () => {
+  let harness: Harness;
+  beforeEach(() => (harness = makeHarness()));
+  afterEach(() => rmSync(harness.root, { recursive: true, force: true }));
+
+  it('lets a deeper .gitignore override its ancestors and anchors rules to its own directory', () => {
+    const pkg = join(harness.root, 'pkg');
+    mkdirSync(join(pkg, 'local'), { recursive: true });
+    mkdirSync(join(pkg, 'sub'), { recursive: true });
+    // Root rule drops every draft; pkg/ re-admits one, adds its own
+    // directory rule, and anchors `/top.md` to pkg/ only.
+    writeFileSync(join(pkg, '.gitignore'), '!keep.draft.md\nlocal/\n/top.md\n');
+    writeFileSync(join(pkg, 'keep.draft.md'), 'k');
+    writeFileSync(join(pkg, 'other.draft.md'), 'o');
+    writeFileSync(join(pkg, 'local', 'x.md'), 'x');
+    writeFileSync(join(pkg, 'top.md'), 't');
+    writeFileSync(join(pkg, 'sub', 'top.md'), 'st');
+    writeFileSync(join(harness.root, 'top.md'), 'rt');
+    writeFileSync(join(harness.root, 'root.draft.md'), 'rd');
+    const got = discoverMarkdownFiles({
+      repoRoot: harness.root,
+      gitignore: ignore().add('*.draft.md'),
+    });
+    expect(got.files).toEqual(['pkg/keep.draft.md', 'pkg/sub/top.md', 'top.md']);
+  });
+});
+
 describe('readBootstrapState', () => {
   let harness: Harness;
   beforeEach(() => (harness = makeHarness()));

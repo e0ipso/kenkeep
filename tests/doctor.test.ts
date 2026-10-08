@@ -47,6 +47,20 @@ describe('doctor', () => {
     }
   );
 
+  it('names why freshness has no signal instead of a generic git-history hint', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+
+    // Empty knowledge base: the report is unavailable for a reason that has
+    // nothing to do with git history, so the check must say which.
+    const result = await runCli(sandbox, ['doctor']);
+
+    expect(result.exitCode).toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toContain('nodes describe current code');
+    expect(combined).toContain('no signal: the knowledge base has no nodes');
+    expect(combined).not.toContain('needs a git repository with history');
+  });
+
   it('flags nodes with invalid frontmatter and skips the dangling check', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const dir = join(sandbox, '.ai/kenkeep/nodes');

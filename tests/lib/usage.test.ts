@@ -118,6 +118,42 @@ describe('reconcileUsage (monotonic, session-keyed)', () => {
     }
   });
 
+  it('appends to the ledger: prior bytes stay a byte-for-byte prefix of the new file', async () => {
+    // A pre-existing ledger with a malformed line and no trailing newline (a
+    // torn previous append) must be preserved verbatim, never rewritten.
+    mkdirSync(join(root, '.state'), { recursive: true });
+    const prior =
+      JSON.stringify({ document: 'a', type: 'leaf', session_id: 's1', used_at: 't0' }) +
+      '\n\n{not json\n' +
+      JSON.stringify({ document: 'b', type: 'leaf', session_id: 'other', used_at: 't0' });
+    writeFileSync(usageFile, prior);
+
+    // s1 already has one `a`; observing two `a` and one `b` appends one of each.
+    await reconcileUsage(usageFile, 's1', 't1', leafReads(['a', 'a', 'b']));
+    const after = readFileSync(usageFile, 'utf8');
+    expect(after.startsWith(prior)).toBe(true);
+    expect(after.endsWith('\n')).toBe(true);
+    const appended = after
+      .slice(prior.length)
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .map(line => JSON.parse(line) as { document: string; session_id: string });
+    expect(appended.map(r => [r.document, r.session_id])).toEqual([
+      ['a', 's1'],
+      ['b', 's1'],
+    ]);
+
+    // A second identical capture appends nothing; a further read only appends.
+    await reconcileUsage(usageFile, 's1', 't2', leafReads(['a', 'a', 'b']));
+    expect(readFileSync(usageFile, 'utf8')).toBe(after);
+    await reconcileUsage(usageFile, 's1', 't3', leafReads(['a', 'a', 'a', 'b']));
+    const third = readFileSync(usageFile, 'utf8');
+    expect(third.startsWith(after)).toBe(true);
+    expect(third.slice(after.length)).toBe(
+      `${JSON.stringify({ document: 'a', type: 'leaf', session_id: 's1', used_at: 't3' })}\n`
+    );
+  });
+
   it('keys counts by session id so different sessions accumulate independently', async () => {
     await reconcileUsage(usageFile, 's1', 't', leafReads(['x']));
     await reconcileUsage(usageFile, 's2', 't', leafReads(['x']));

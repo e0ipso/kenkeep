@@ -182,6 +182,36 @@ describe('kk conflict resolve (built CLI)', () => {
     expect(readConflict(root, 'run-1-1').data['status']).toBe(status);
   });
 
+  it('accept refuses a target whose filename is not its id and writes no leaf', async () => {
+    // foo is stored as manual.md and bar sits at foo's canonical filename.
+    const fooFile = writeLeaf(root, 'topic', TARGET, 'TARGET ORIGINAL.\n');
+    const manual = join(root, '.ai/kenkeep/nodes/topic/manual.md');
+    renameSync(fooFile, manual);
+    const barFile = writeLeaf(root, 'topic', 'practice-bar', 'UNRELATED FACT MUST SURVIVE.\n');
+    renameSync(barFile, fooFile);
+    const before = new Map(leafFiles(root).map(f => [f, readFileSync(f)]));
+    writeConflict(root, { id: 'run-1-1', schemaVersion: 2 });
+
+    const res = await runCli(root, ['conflict', 'resolve', 'run-1-1', '--decision', 'accept']);
+    expect(res.exitCode).toBe(1);
+    const out = JSON.parse(res.stdout) as Record<string, unknown>;
+    expect(out['status']).toBe('pending');
+    expect(out['error']).toContain('topic/manual.md');
+    expect(new Map(leafFiles(root).map(f => [f, readFileSync(f)]))).toEqual(before);
+    expect(readConflict(root, 'run-1-1').data['status']).toBe('pending');
+  });
+
+  it('accept refuses a renamed target instead of creating a second copy', async () => {
+    const fooFile = writeLeaf(root, 'topic', TARGET);
+    const manual = join(root, '.ai/kenkeep/nodes/topic/manual.md');
+    renameSync(fooFile, manual);
+    writeConflict(root, { id: 'run-1-1', schemaVersion: 2 });
+
+    const res = await runCli(root, ['conflict', 'resolve', 'run-1-1', '--decision', 'accept']);
+    expect(res.exitCode).toBe(1);
+    expect(leafFiles(root)).toEqual([manual]);
+  });
+
   it('refuses a conflicts/ directory linked outside before touching the target', async () => {
     const targetFile = writeLeaf(root, 'topic', TARGET);
     const before = readFileSync(targetFile);

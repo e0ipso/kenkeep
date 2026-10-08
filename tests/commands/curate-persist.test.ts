@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -570,6 +571,22 @@ describe('curate-persist primitive', () => {
       expect(code).toBe(0);
       expect(JSON.parse(stdout).results[0].status).toBe('written');
       expect(matter(readFileSync(leafPath, 'utf8')).content).toContain('Newer body.');
+    });
+
+    it('fails a modify of a target whose filename is not its id and writes nothing', async () => {
+      const nodes = join(cwd, '.ai/kenkeep/nodes');
+      const canonical = join(nodes, 'topic/practice-existing.md');
+      renameSync(canonical, join(nodes, 'topic/manual.md'));
+      const before = treeBytes(nodes);
+      const input = join(cwd, 'survivors.json');
+      writeFileSync(
+        input,
+        JSON.stringify([modifyAction('s2:practice:0', 'practice-existing', { title: 'Existing' })])
+      );
+      const { code, stdout } = await captureStdout(() => runCuratePersistCommand({ input }));
+      expect(code).toBe(1);
+      expect(JSON.parse(stdout).results[0]).toMatchObject({ status: 'failed' });
+      expect(treeBytes(nodes)).toEqual(before);
     });
 
     it('treats generated-section markers quoted in the body as authored text', async () => {

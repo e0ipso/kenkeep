@@ -1,4 +1,4 @@
-import { findNodeById, writeNodeFile, type NodeFile } from './nodes.js';
+import { findNodeById, nodeFilename, writeNodeFile, type NodeFile } from './nodes.js';
 import {
   NODE_SCHEMA_VERSION,
   NodeFrontmatterSchema,
@@ -35,8 +35,10 @@ function mergeDerivedFrom(existing: string[], origin: string): string[] {
  * `modify` action) and `conflict resolve --decision accept` call this, so a
  * human's Accept lands exactly where an unopposed modify would have.
  *
- * Never creates a node: a missing target or a type mismatch is reported as a
- * failure with no write. Frontmatter validation failures are reported the same
+ * Never creates a node: a missing target, a type mismatch, or a target whose
+ * filename is not `<id>.md` is reported as a failure with no write. The writer
+ * always writes `<id>.md` in the target's folder, so for a renamed target that
+ * path is a new file or a different leaf, never the target itself. Frontmatter validation failures are reported the same
  * way; an I/O error propagates as a thrown error.
  */
 export function modifyNodeInPlace(
@@ -52,6 +54,14 @@ export function modifyNodeInPlace(
       : findNodeById(nodesDir, targetId);
   if (!existing) {
     return { ok: false, reason: `target node "${targetId}" does not exist` };
+  }
+  if (existing.filename !== nodeFilename(targetId)) {
+    return {
+      ok: false,
+      reason:
+        `target node "${targetId}" is stored as ${existing.relPath}, not ${nodeFilename(targetId)}; ` +
+        'rename the file to match its kk_id (lint reports it) before modifying it',
+    };
   }
   if (existing.frontmatter.type !== node.type) {
     return {

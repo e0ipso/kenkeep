@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertContained } from './path-safety.js';
 
 /**
  * Returns the absolute path to the npm package root (the directory that
@@ -138,6 +139,18 @@ export function repoPaths(root: string): RepoPaths {
     memoryLedgerFile: join(stateDir, 'memory-ledger.json'),
     usageFile: join(stateDir, 'usage.jsonl'),
   };
+}
+
+/**
+ * Checks the default `.ai/kenkeep/nodes/` root before a command writes into it
+ * and returns it. `assertContained` trusts the root it is given, which suits a
+ * caller-chosen library directory or a symlinked tmpdir. The default root is
+ * not caller-chosen: its `.ai/`, `kenkeep/` and `nodes/` segments are
+ * repository content and can be links, so the check starts at the repository
+ * root and refuses a symlink anywhere on that route.
+ */
+export function assertDefaultNodesRoot(paths: RepoPaths): string {
+  return assertContained(paths.root, paths.nodesDir, 'the repository');
 }
 
 export function readJsonIfExists<T = unknown>(file: string): T | null {

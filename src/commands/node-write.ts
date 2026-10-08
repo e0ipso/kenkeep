@@ -12,7 +12,7 @@ import {
 import { log, stderrLog } from '../lib/log.js';
 import { deriveNodeId, ensureUniqueId, readAllNodes, writeNodeFile } from '../lib/nodes.js';
 import { ledgerIds, readRedirectsLedger } from '../lib/redirects.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import {
   ConfidenceSchema,
   NODE_SCHEMA_VERSION,
@@ -100,6 +100,7 @@ export async function runNodeWriteCommand(
   const writeStdout = deps.writeStdout ?? ((s: string) => process.stdout.write(s));
 
   try {
+    assertDefaultNodesRoot(paths);
     const kind = parseKind(args.kind);
     const slug = (args.slug ?? '').trim();
     if (!slug) {

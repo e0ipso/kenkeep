@@ -9,7 +9,7 @@ import { log } from '../lib/log.js';
 import { detectSchemaVersion } from '../lib/migrate.js';
 import { linkTargetResolver, renderGeneratedNodeSections } from '../lib/node-sections.js';
 import { INDEX_FILENAME } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { readRedirectsLedger } from '../lib/redirects.js';
 import {
   ConfidenceSchema,
@@ -111,6 +111,7 @@ export async function runMigrateOkfV3(): Promise<number> {
 
   let summary: MigrationSummary;
   try {
+    assertDefaultNodesRoot(paths);
     summary = migrateNodesTreeToV3(paths.nodesDir, {
       entryFile: join(paths.kkDir, 'ENTRY.md'),
       graphFile: join(paths.kkDir, 'GRAPH.md'),

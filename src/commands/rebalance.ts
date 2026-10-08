@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { log } from '../lib/log.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { evaluateRebalance } from '../lib/rebalance.js';
 import {
   applyRebalancePlan,
@@ -86,6 +86,7 @@ export async function runRebalanceMove(opts: RebalanceMoveOptions = {}): Promise
 
   let results: RebalanceMoveResult[];
   try {
+    assertDefaultNodesRoot(paths);
     results = applyRebalancePlan(paths.nodesDir, plan);
   } catch (err) {
     log.error(`rebalance move: ${(err as Error).message}`);

@@ -3,7 +3,7 @@ import { join, posix } from 'node:path';
 import { placeLeaf, type PlacementReason, type PlacementResult } from '../lib/leaf-placement.js';
 import { log } from '../lib/log.js';
 import { readAllNodes, resolveLeafDir, type NodeFile } from '../lib/nodes.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { relocateBytes } from '../lib/rebalance-move.js';
 import { runIndexRebuild } from './index-rebuild.js';
 
@@ -85,6 +85,7 @@ export async function runNodeSweep(): Promise<number> {
 
   let summary: SweepSummary;
   try {
+    assertDefaultNodesRoot(paths);
     summary = await sweepRootLeaves(paths.nodesDir);
   } catch (err) {
     log.error(`node sweep: ${(err as Error).message}`);

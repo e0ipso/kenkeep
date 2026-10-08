@@ -50,15 +50,15 @@ The agent-driven `/kk-bootstrap` skill is the exception — there is no separate
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-config-yaml](/config-and-prompts/map-config-yaml.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-bootstrap-incremental-command](/bootstrap/map-bootstrap-incremental-command.md)
+- Related: [map-config-yaml](map-config-yaml.md)
+- Related: [map-proposal-drain-hook](../hooks/map-proposal-drain-hook.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-bootstrap-incremental-command](../bootstrap/map-bootstrap-incremental-command.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/prompts.md](docs/internals/prompts.md)
-[2] [docs/troubleshooting.md](docs/troubleshooting.md)
+[1] [docs/internals/prompts.md](../../../../docs/internals/prompts.md)
+[2] [docs/troubleshooting.md](../../../../docs/troubleshooting.md)
 <!-- kk:citations:end -->

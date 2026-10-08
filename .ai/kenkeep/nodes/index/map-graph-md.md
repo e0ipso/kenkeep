@@ -32,13 +32,13 @@ Regeneration runs alongside `ENTRY.md` at the end of every `curate` run and via 
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [map-entry-md](map-entry-md.md)
+- Related: [map-node-frontmatter](../node-schema/map-node-frontmatter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/how-it-works.md](docs/how-it-works.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

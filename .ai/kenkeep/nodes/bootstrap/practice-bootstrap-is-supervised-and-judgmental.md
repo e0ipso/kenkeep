@@ -38,13 +38,13 @@ For unsupervised re-runs after the first pass, use `bootstrap-incremental` (hash
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+- Related: [map-kk-bootstrap-skill](map-kk-bootstrap-skill.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/daily-use.md](docs/daily-use.md)
-[3] [src/templates-source/skills/kk-bootstrap/SKILL.md](src/templates-source/skills/kk-bootstrap/SKILL.md)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/daily-use.md](../../../../docs/daily-use.md)
+[3] [src/templates-source/skills/kk-bootstrap/SKILL.md](../../../../src/templates-source/skills/kk-bootstrap/SKILL.md)
 <!-- kk:citations:end -->

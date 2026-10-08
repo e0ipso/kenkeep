@@ -44,12 +44,12 @@ When the version is bumped, readers reject older files with a clear error direct
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-node-frontmatter](/node-schema/map-node-frontmatter.md)
+- Related: [map-node-frontmatter](map-node-frontmatter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [CONTRIBUTING.md](CONTRIBUTING.md)
-[2] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+[2] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

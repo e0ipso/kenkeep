@@ -55,13 +55,13 @@ Two body sections are regenerated deterministically from the frontmatter on ever
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-nodes-directory](/node-schema/map-nodes-directory.md)
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [map-graph-md](/index/map-graph-md.md)
+- Related: [map-nodes-directory](map-nodes-directory.md)
+- Related: [map-entry-md](../index/map-entry-md.md)
+- Related: [map-graph-md](../index/map-graph-md.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/schemas.md](docs/internals/schemas.md)
+[1] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
 <!-- kk:citations:end -->

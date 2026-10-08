@@ -34,14 +34,14 @@ CLI binary: `kenkeep` (run via `npx kenkeep ...`). Requires Node 22+. No API key
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [map-kenkeep-directory](/overview/map-kenkeep-directory.md)
+- Related: [map-harness-adapter](../harnesses/map-harness-adapter.md)
+- Related: [map-kenkeep-directory](map-kenkeep-directory.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [README.md](README.md)
-[2] [docs/index.md](docs/index.md)
-[3] [docs/how-it-works.md](docs/how-it-works.md)
+[1] [README.md](../../../../README.md)
+[2] [docs/index.md](../../../../docs/index.md)
+[3] [docs/how-it-works.md](../../../../docs/how-it-works.md)
 <!-- kk:citations:end -->

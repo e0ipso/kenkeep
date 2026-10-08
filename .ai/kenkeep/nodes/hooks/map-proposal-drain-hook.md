@@ -51,20 +51,20 @@ Per-spawn model selection (non-Claude adapters): reads `proposalModel: { name, e
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-session-log](/state/map-session-log.md)
-- Related: [map-proposal-candidate-schema](/curation/map-proposal-candidate-schema.md)
-- Related: [practice-recursion-guard-kenkeep-builder-internal](/hooks/practice-recursion-guard-kenkeep-builder-internal.md)
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-claude-harness](/harnesses/map-claude-harness.md)
-- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
-- Related: [map-copilot-harness-adapter](/harnesses/map-copilot-harness-adapter.md)
-- Related: [map-cursor-harness-adapter](/harnesses/map-cursor-harness-adapter.md)
-- Related: [map-opencode-harness](/harnesses/map-opencode-harness.md)
+- Related: [map-session-log](../state/map-session-log.md)
+- Related: [map-proposal-candidate-schema](../curation/map-proposal-candidate-schema.md)
+- Related: [practice-recursion-guard-kenkeep-builder-internal](practice-recursion-guard-kenkeep-builder-internal.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-claude-harness](../harnesses/map-claude-harness.md)
+- Related: [map-codex-harness](../harnesses/map-codex-harness.md)
+- Related: [map-copilot-harness-adapter](../harnesses/map-copilot-harness-adapter.md)
+- Related: [map-cursor-harness-adapter](../harnesses/map-cursor-harness-adapter.md)
+- Related: [map-opencode-harness](../harnesses/map-opencode-harness.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/hooks.md](docs/internals/hooks.md)
-[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [docs/internals/hooks.md](../../../../docs/internals/hooks.md)
+[2] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

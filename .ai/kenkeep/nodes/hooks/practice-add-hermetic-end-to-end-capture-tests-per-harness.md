@@ -27,6 +27,6 @@ These tests complement the existing parametrized read-extract and transcript-par
 <!-- kk:related:start -->
 # Related
 
-- Related: [practice-testing-philosophy-few-tests-mostly-integration](/conventions/practice-testing-philosophy-few-tests-mostly-integration.md)
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
+- Related: [practice-testing-philosophy-few-tests-mostly-integration](../conventions/practice-testing-philosophy-few-tests-mostly-integration.md)
+- Related: [map-capture-hook](map-capture-hook.md)
 <!-- kk:related:end -->

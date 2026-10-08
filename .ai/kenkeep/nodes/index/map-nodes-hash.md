@@ -41,14 +41,14 @@ Tests rely on this determinism — see `tests/lib/index-gen.test.ts` for golden-
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-entry-md](/index/map-entry-md.md)
-- Related: [map-graph-md](/index/map-graph-md.md)
-- Related: [practice-determinism-contract](/index/practice-determinism-contract.md)
+- Related: [map-entry-md](map-entry-md.md)
+- Related: [map-graph-md](map-graph-md.md)
+- Related: [practice-determinism-contract](practice-determinism-contract.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/schemas.md](docs/internals/schemas.md)
-[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [docs/internals/schemas.md](../../../../docs/internals/schemas.md)
+[2] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

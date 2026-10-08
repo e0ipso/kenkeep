@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import matter from 'gray-matter';
 import { INDEX_FILENAME } from './nodes.js';
 
@@ -35,12 +35,31 @@ function asString(value: unknown): string {
  * `index.md`), extracting the id and the facets the clustering step needs.
  * Leaves without a string `id` are skipped. Returns leaves sorted by id for
  * deterministic prompts and reports.
+ *
+ * Throws when two leaves carry the same id: the placement contract is "every
+ * id placed exactly once", which is undecidable for an ambiguous id, and a
+ * silent last-one-wins read would leave the other file behind as an
+ * unmigrated v1 leaf. The message names every file so the ids can be fixed
+ * before the inventory is clustered.
  */
 export function readAllNodesFlat(nodesDir: string): FlatLeaf[] {
   const out: FlatLeaf[] = [];
   if (!existsSync(nodesDir)) return out;
   walk(nodesDir, out);
   out.sort((a, b) => a.id.localeCompare(b.id));
+  const pathsById = new Map<string, string[]>();
+  for (const leaf of out) {
+    pathsById.set(leaf.id, [...(pathsById.get(leaf.id) ?? []), leaf.sourcePath]);
+  }
+  const duplicates = [...pathsById].filter(([, paths]) => paths.length > 1);
+  if (duplicates.length > 0) {
+    throw new Error(
+      'more than one leaf carries the same id; fix the duplicate ids before migrating: ' +
+        duplicates
+          .map(([id, paths]) => `"${id}" at ${paths.map(p => relative(nodesDir, p)).join(', ')}`)
+          .join('; ')
+    );
+  }
   return out;
 }
 

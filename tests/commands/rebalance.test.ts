@@ -1,5 +1,15 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
@@ -7,6 +17,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
 import { FOLDER_OCCUPANCY_MAX } from '../../src/lib/rebalance.js';
 import { readFolderSummaries } from '../../src/lib/folder-summaries.js';
+import { writeNodeFile } from '../../src/lib/nodes.js';
+import { unresolvedHrefs } from '../helpers/rendered-links.js';
 
 const exec = promisify(execFile);
 
@@ -18,7 +30,13 @@ function writeLeaf(
   sandbox: string,
   relDir: string,
   id: string,
-  opts: { tags?: string[]; body?: string; relates_to?: string[] } = {}
+  opts: {
+    tags?: string[];
+    body?: string;
+    relates_to?: string[];
+    depends_on?: string[];
+    derived_from?: string[];
+  } = {}
 ): void {
   const dir = relDir === '' ? nodesDir(sandbox) : join(nodesDir(sandbox), relDir);
   mkdirSync(dir, { recursive: true });
@@ -29,8 +47,9 @@ function writeLeaf(
     type: 'practice',
     description: 's',
     tags: opts.tags ?? [],
-    kk_derived_from: [],
+    kk_derived_from: opts.derived_from ?? [],
     kk_relates_to: opts.relates_to ?? [],
+    kk_depends_on: opts.depends_on ?? [],
     kk_confidence: 'high',
   };
   writeFileSync(join(dir, `${id}.md`), matter.stringify(opts.body ?? 'Body.', fm));
@@ -48,7 +67,7 @@ async function triggerActions(
 ): Promise<Array<{ branch: string; operation: string }>> {
   const res = await runCli(sandbox, ['rebalance', 'trigger']);
   expect(res.exitCode).toBe(0);
-  return JSON.parse(res.stdout.trim()).actions;
+  return JSON.parse(res.stdout).actions;
 }
 
 async function move(
@@ -59,9 +78,10 @@ async function move(
   writeFileSync(planPath, JSON.stringify(plan));
   const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
   expect(res.exitCode).toBe(0);
-  // The structural-summary JSON is the last stdout line.
-  const lines = res.stdout.trim().split('\n').filter(Boolean);
-  return JSON.parse(lines[lines.length - 1]);
+  // Machine-output contract: the COMPLETE stdout is the structural-summary
+  // JSON; the nested index rebuild reports on stderr.
+  expect(res.stderr).toContain('Regenerated');
+  return JSON.parse(res.stdout);
 }
 
 describe('rebalance trigger and move (integration)', () => {
@@ -146,50 +166,69 @@ describe('rebalance trigger and move (integration)', () => {
     expect(summaries.get('over-full/sub-b')).toBe('the second cluster of split leaves');
   });
 
-  it('split-leaf becomes a folder of an index plus 2+ docs, mints new ids, records a redirect', async () => {
-    writeLeaf(sandbox, 'bloat', 'practice-bloated', { tags: ['a', 'b', 'c'], body: 'Big body.' });
+  it('split-leaf becomes a folder of new leaves with a redirect, kept provenance and reported unassigned edges', async () => {
+    writeLeaf(sandbox, 'home', 'practice-x');
+    writeLeaf(sandbox, 'home', 'practice-y');
+    writeLeaf(sandbox, 'home', 'practice-big', {
+      tags: ['a', 'b', 'c'],
+      derived_from: ['docs/a.md'],
+      depends_on: ['practice-x'],
+      relates_to: ['practice-y'],
+    });
     await runCli(sandbox, ['index', 'rebuild']);
     await gitCommitAll(sandbox, 'baseline');
-
-    const plan = {
+    const summary = await move(sandbox, {
       operations: [
         {
           operation: 'split-leaf',
-          leafId: 'practice-bloated',
-          folder: 'bloat/practice-bloated',
-          summary: 'the two concepts carved out of the bloated leaf',
+          leafId: 'practice-big',
+          folder: 'home/practice-big',
+          summary: 'the two halves',
           children: [
-            { title: 'concept one', summary: 'first', body: 'First.', tags: ['a'], relates_to: [] },
             {
-              title: 'concept two',
-              summary: 'second',
-              body: 'Second.',
-              tags: ['b'],
-              relates_to: [],
+              title: 'first half',
+              summary: 'first',
+              body: 'First.',
+              depends_on: ['practice-x'],
+              relates_to: ['practice-second-half'],
             },
+            { title: 'second half', summary: 'second', body: 'Second.' },
           ],
         },
       ],
-    };
-    const summary = await move(sandbox, plan);
-    const splitMove = summary.moves[0] as { newIds: string[]; redirectFrom: string };
-    expect(splitMove.redirectFrom).toBe('practice-bloated');
-    expect(splitMove.newIds.length).toBeGreaterThanOrEqual(2);
-
-    // Old leaf gone; new folder has an index node plus 2+ docs.
-    expect(existsSync(join(nodesDir(sandbox), 'bloat', 'practice-bloated.md'))).toBe(false);
-    const folderDir = join(nodesDir(sandbox), 'bloat', 'practice-bloated');
-    const docs = readdirSync(folderDir).filter(f => f.endsWith('.md') && f !== 'index.md');
-    expect(docs.length).toBeGreaterThanOrEqual(2);
-    expect(existsSync(join(folderDir, 'index.md'))).toBe(true);
+    });
+    expect(summary.moves).toEqual([
+      {
+        operation: 'split-leaf',
+        redirectFrom: 'practice-big',
+        newIds: ['practice-first-half', 'practice-second-half'],
+        from: 'home/practice-big.md',
+        to: 'home/practice-big',
+        unassignedEdges: { relates_to: ['practice-y'], depends_on: [] },
+      },
+    ]);
+    const folder = join(nodesDir(sandbox), 'home', 'practice-big');
+    expect(existsSync(join(nodesDir(sandbox), 'home', 'practice-big.md'))).toBe(false);
+    expect(existsSync(join(folder, 'index.md'))).toBe(true);
     // The authored new-folder summary persisted through the rebuild.
-    expect(readFolderSummaries(nodesDir(sandbox)).get('bloat/practice-bloated')).toBe(
-      'the two concepts carved out of the bloated leaf'
-    );
+    expect(readFolderSummaries(nodesDir(sandbox)).get('home/practice-big')).toBe('the two halves');
 
-    // Redirect recorded from the old id.
+    const first = matter(readFileSync(join(folder, 'practice-first-half.md'), 'utf8'));
+    const second = matter(readFileSync(join(folder, 'practice-second-half.md'), 'utf8'));
+    // Factual provenance survives; the retired id is never cited.
+    expect(first.data.kk_derived_from).toEqual(['docs/a.md']);
+    expect(second.data.kk_derived_from).toEqual(['docs/a.md']);
+    expect(first.data.kk_depends_on).toEqual(['practice-x']);
+    expect(second.data.kk_depends_on).toEqual([]);
+    expect(first.data.kk_relates_to).toEqual(['practice-second-half']);
+    for (const child of [first, second]) {
+      expect(JSON.stringify(child.data)).not.toContain('practice-big"');
+    }
+    // The sibling link renders the sibling's minted path, not a root fallback.
+    expect(first.content).toContain('](practice-second-half.md)');
+    expect(first.content).not.toContain('../../practice-second-half.md');
     const ledger = JSON.parse(readFileSync(join(nodesDir(sandbox), '.redirects.json'), 'utf8'));
-    expect(ledger['practice-bloated']).toEqual(splitMove.newIds);
+    expect(ledger['practice-big']).toEqual(['practice-first-half', 'practice-second-half']);
   });
 
   it('applies a multi-operation plan against the live tree (no stale snapshot)', async () => {
@@ -325,6 +364,208 @@ describe('rebalance trigger and move (integration)', () => {
     expect(staged.trim()).toBe('');
   });
 
+  it('on an I/O failure after earlier writes, reports the moves that landed', async () => {
+    if (typeof process.getuid === 'function' && process.getuid() === 0) return; // root ignores modes
+    writeLeaf(sandbox, '', 'practice-a');
+    writeLeaf(sandbox, '', 'practice-b');
+    await runCli(sandbox, ['index', 'rebuild']);
+    await gitCommitAll(sandbox, 'baseline');
+    // Inject the failure: the second op's destination is a read-only directory.
+    const locked = join(nodesDir(sandbox), 'locked');
+    mkdirSync(locked);
+    chmodSync(locked, 0o555);
+    const planPath = join(sandbox, 'io-fail.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        operations: [
+          {
+            operation: 'create-branch',
+            folder: 'new-a',
+            summary: 'a new home',
+            ids: ['practice-a'],
+          },
+          {
+            operation: 'create-branch',
+            folder: 'locked',
+            summary: 'unwritable',
+            ids: ['practice-b'],
+          },
+        ],
+      })
+    );
+    try {
+      const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+      expect(res.exitCode).not.toBe(0);
+      // The complete stdout is one JSON document describing the partial state.
+      const report = JSON.parse(res.stdout) as {
+        error: string;
+        moves: Array<Record<string, unknown>>;
+      };
+      expect(report.error).toMatch(/EACCES|permission denied/i);
+      expect(report.moves).toEqual([
+        {
+          operation: 'create-branch',
+          id: 'practice-a',
+          from: 'practice-a.md',
+          to: 'new-a/practice-a.md',
+        },
+      ]);
+      expect(res.stderr).toContain('index rebuild');
+      // The listed moves are the real partial state on disk.
+      expect(existsSync(join(nodesDir(sandbox), 'new-a', 'practice-a.md'))).toBe(true);
+      expect(existsSync(join(nodesDir(sandbox), 'practice-a.md'))).toBe(false);
+      expect(existsSync(join(nodesDir(sandbox), 'practice-b.md'))).toBe(true);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
+  it('refreshes the rendered links of moved leaves and their linkers, and nothing else', async () => {
+    mkdirSync(join(sandbox, 'docs'), { recursive: true });
+    writeFileSync(join(sandbox, 'docs/x.md'), '# x\n');
+    const fm = (id: string, extra: Record<string, string[]> = {}) => ({
+      kk_schema_version: 3 as const,
+      kk_id: id,
+      title: id,
+      type: 'practice' as const,
+      description: 's',
+      tags: [],
+      kk_derived_from: extra.derived_from ?? [],
+      kk_relates_to: extra.relates_to ?? [],
+      kk_depends_on: [],
+      kk_confidence: 'high' as const,
+    });
+    const nd = nodesDir(sandbox);
+    writeNodeFile({
+      nodesDir: nd,
+      frontmatter: fm('practice-target', { derived_from: ['docs/x.md'] }),
+      body: 'T',
+      relDir: 'b',
+    });
+    writeNodeFile({ nodesDir: nd, frontmatter: fm('practice-stay'), body: 'S', relDir: 'b' });
+    const reader = writeNodeFile({
+      nodesDir: nd,
+      frontmatter: fm('practice-reader', { relates_to: ['practice-target'] }),
+      body: 'R',
+      relDir: 'a',
+    });
+    // A hand-staled leaf unrelated to the move: the boundary must not rewrite it.
+    const bystander = writeNodeFile({
+      nodesDir: nd,
+      frontmatter: fm('practice-bystander', { derived_from: ['docs/x.md'] }),
+      body: 'B',
+      relDir: 'a',
+    });
+    writeFileSync(
+      bystander,
+      readFileSync(bystander, 'utf8').replace('../../../../docs/x.md', 'docs/x.md')
+    );
+    const bystanderBytes = readFileSync(bystander, 'utf8');
+    await runCli(sandbox, ['index', 'rebuild']);
+
+    await move(sandbox, {
+      operations: [
+        {
+          operation: 'split-folder',
+          branch: 'b',
+          groups: [{ subfolder: 'sub', summary: 'Sub.', ids: ['practice-target'] }],
+        },
+      ],
+    });
+
+    const moved = join(nd, 'b/sub/practice-target.md');
+    expect(readFileSync(reader, 'utf8')).toContain(
+      '- Related: [practice-target](../b/sub/practice-target.md)'
+    );
+    expect(readFileSync(moved, 'utf8')).toContain('[1] [docs/x.md](../../../../../docs/x.md)');
+    expect(unresolvedHrefs(reader)).toEqual([]);
+    expect(unresolvedHrefs(moved)).toEqual([]);
+    expect(readFileSync(bystander, 'utf8')).toBe(bystanderBytes);
+    const lint = await runCli(sandbox, ['lint', '--verbose']);
+    expect(lint.stdout + lint.stderr).toContain('stale-rendered-link: 1');
+    expect(lint.stdout + lint.stderr).toContain('practice-bystander.md');
+  });
+
+  // A referrer keeps its edge to the retired id (lint: redirected-edge);
+  // its rendered link must follow the ledger to the successors, not point at
+  // the vacated path. A link left at the vacated path is a lint finding.
+  it('split-leaf resolves a referrer link to the retired id through the ledger; lint flags a stale one', async () => {
+    writeLeaf(sandbox, 'home', 'practice-big', { tags: ['a', 'b', 'c'] });
+    // The referrer carries a generated Related section (the writer renders it).
+    const referrer = writeNodeFile({
+      nodesDir: nodesDir(sandbox),
+      frontmatter: {
+        kk_schema_version: 3,
+        kk_id: 'practice-y',
+        title: 'practice-y',
+        type: 'practice',
+        description: 's',
+        tags: [],
+        kk_derived_from: [],
+        kk_relates_to: ['practice-big'],
+        kk_depends_on: [],
+        kk_confidence: 'high',
+      },
+      body: 'Y.',
+      relDir: 'home',
+    });
+    await runCli(sandbox, ['index', 'rebuild']);
+    await gitCommitAll(sandbox, 'baseline');
+    expect(readFileSync(referrer, 'utf8')).toContain('](practice-big.md)');
+
+    await move(sandbox, {
+      operations: [
+        {
+          operation: 'split-leaf',
+          leafId: 'practice-big',
+          folder: 'home/practice-big',
+          summary: 'the two halves',
+          children: [
+            { title: 'first half', summary: 'first', body: 'First.' },
+            { title: 'second half', summary: 'second', body: 'Second.' },
+          ],
+        },
+      ],
+    });
+
+    const refreshed = readFileSync(referrer, 'utf8');
+    expect(refreshed).toContain(
+      '- Related: [practice-big → practice-first-half](practice-big/practice-first-half.md)'
+    );
+    expect(refreshed).toContain(
+      '- Related: [practice-big → practice-second-half](practice-big/practice-second-half.md)'
+    );
+    expect(refreshed).not.toContain('../practice-big.md');
+    expect(matter(refreshed).data.kk_relates_to).toEqual(['practice-big']);
+    expect(unresolvedHrefs(referrer)).toEqual([]);
+    const clean = await runCli(sandbox, ['lint', '--verbose']);
+    expect(clean.exitCode).toBe(0);
+    expect(clean.stdout + clean.stderr).toContain('stale-rendered-link: 0');
+    expect(clean.stdout + clean.stderr).toContain('dangling-edge: 0');
+    expect(clean.stdout + clean.stderr).toContain(
+      `redirected-edge ${referrer}: edge to retired node practice-big`
+    );
+
+    // The pre-fix rendering: a link to the retired leaf's vacated path.
+    writeFileSync(
+      referrer,
+      refreshed
+        .replace(
+          '- Related: [practice-big → practice-first-half](practice-big/practice-first-half.md)\n',
+          ''
+        )
+        .replace(
+          '- Related: [practice-big → practice-second-half](practice-big/practice-second-half.md)',
+          '- Related: [practice-big](../practice-big.md)'
+        )
+    );
+    expect(unresolvedHrefs(referrer)).toEqual(['../practice-big.md']);
+    const stale = await runCli(sandbox, ['lint', '--verbose']);
+    expect(stale.stdout + stale.stderr).toContain('stale-rendered-link: 1');
+    expect(stale.stdout + stale.stderr).toContain('practice-y.md');
+  });
+
   it('rejects an out-of-tree target and makes no move', async () => {
     writeLeaf(sandbox, 'home', 'practice-x');
     await runCli(sandbox, ['index', 'rebuild']);
@@ -347,6 +588,154 @@ describe('rebalance trigger and move (integration)', () => {
     expect(res.stderr + res.stdout).toContain('escapes nodes/');
     // The leaf did not move.
     expect(existsSync(join(nodesDir(sandbox), 'home', 'practice-x.md'))).toBe(true);
+  });
+  it('refuses a malformed AGENTS.md block before moving any leaf', async () => {
+    writeLeaf(sandbox, 'home', 'practice-x');
+    await runCli(sandbox, ['index', 'rebuild']);
+    writeFileSync(
+      join(sandbox, 'AGENTS.md'),
+      '# Instructions\n<!-- >>> kenkeep:kk-index >>> -->\n'
+    );
+    const source = join(nodesDir(sandbox), 'home', 'practice-x.md');
+    const sourceBytes = readFileSync(source, 'utf8');
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        operations: [
+          { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-x'] },
+        ],
+      })
+    );
+
+    const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('kenkeep-managed block is malformed');
+    expect(readFileSync(source, 'utf8')).toBe(sourceBytes);
+    expect(existsSync(join(nodesDir(sandbox), 'new'))).toBe(false);
+  });
+
+  it('refuses a symlinked source leaf before any leaf of the plan moves', async () => {
+    writeLeaf(sandbox, 'home', 'practice-a');
+    writeLeaf(sandbox, 'home', 'practice-linked');
+    const link = join(nodesDir(sandbox), 'home', 'practice-linked.md');
+    const outside = join(sandbox, 'outside.md');
+    writeFileSync(outside, readFileSync(link));
+    rmSync(link);
+    symlinkSync(outside, link);
+    await runCli(sandbox, ['index', 'rebuild']);
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        operations: [
+          { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-a'] },
+          {
+            operation: 'create-branch',
+            folder: 'other',
+            summary: 'Other',
+            ids: ['practice-linked'],
+          },
+        ],
+      })
+    );
+
+    const res = await runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('crosses the symlink');
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(existsSync(join(nodesDir(sandbox), 'home', 'practice-a.md'))).toBe(true);
+    expect(existsSync(join(nodesDir(sandbox), 'new'))).toBe(false);
+    expect(existsSync(join(nodesDir(sandbox), 'other'))).toBe(false);
+  });
+
+  describe('a planned folder that is a leaf file', () => {
+    function treeBytes(): Record<string, string> {
+      return Object.fromEntries(
+        readdirRec(join(sandbox, '.ai/kenkeep')).map(file => [file, readFileSync(file, 'utf8')])
+      );
+    }
+    async function runPlan(operations: unknown[]): Promise<{ exitCode: number; stderr: string }> {
+      const planPath = join(sandbox, 'plan.json');
+      writeFileSync(planPath, JSON.stringify({ operations }));
+      return runCli(sandbox, ['rebalance', 'move', '--input', planPath]);
+    }
+    beforeEach(async () => {
+      for (const id of ['practice-first', 'practice-second', 'practice-anchor']) {
+        writeLeaf(sandbox, 'home', id);
+      }
+      await runCli(sandbox, ['index', 'rebuild']);
+    });
+
+    it('refuses a folder beneath an existing leaf before any leaf moves', async () => {
+      const before = treeBytes();
+      const res = await runPlan([
+        { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-first'] },
+        {
+          operation: 'create-branch',
+          folder: 'home/practice-anchor.md',
+          summary: 'Under a leaf',
+          ids: ['practice-second'],
+        },
+      ]);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('needs folder home/practice-anchor.md, which is a file');
+      expect(treeBytes()).toEqual(before);
+    });
+
+    it('refuses a split-leaf whose folder is the leaf it retires', async () => {
+      const before = treeBytes();
+      const res = await runPlan([
+        {
+          operation: 'split-leaf',
+          leafId: 'practice-anchor',
+          folder: 'home/practice-anchor.md',
+          summary: 'halves',
+          children: [
+            { title: 'first half', summary: 'first', body: 'First.' },
+            { title: 'second half', summary: 'second', body: 'Second.' },
+          ],
+        },
+      ]);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('which is a file');
+      expect(treeBytes()).toEqual(before);
+    });
+
+    it('refuses a leaf destination that an earlier operation made a folder', async () => {
+      const before = treeBytes();
+      const res = await runPlan([
+        {
+          operation: 'create-branch',
+          folder: 'new/practice-anchor.md',
+          summary: 'Odd name',
+          ids: ['practice-first'],
+        },
+        { operation: 'create-branch', folder: 'new', summary: 'New', ids: ['practice-anchor'] },
+      ]);
+      expect(res.exitCode).toBe(1);
+      expect(res.stderr).toContain('is a folder the plan places leaves in');
+      expect(treeBytes()).toEqual(before);
+    });
+
+    it('reuses the path of a leaf an earlier operation moved away as a folder', async () => {
+      await move(sandbox, {
+        operations: [
+          { operation: 'create-branch', folder: 'kept', summary: 'Kept', ids: ['practice-anchor'] },
+          {
+            operation: 'create-branch',
+            folder: 'home/practice-anchor.md',
+            summary: 'Reused path',
+            ids: ['practice-second'],
+          },
+        ],
+      });
+      const home = join(nodesDir(sandbox), 'home');
+      expect(existsSync(join(nodesDir(sandbox), 'kept', 'practice-anchor.md'))).toBe(true);
+      expect(existsSync(join(home, 'practice-anchor.md', 'practice-second.md'))).toBe(true);
+    });
   });
 });
 

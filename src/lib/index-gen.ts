@@ -1,9 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { atomicWriteFile } from './fs-atomic.js';
-import { posix } from 'node:path';
+import { join, posix } from 'node:path';
 import matter from 'gray-matter';
-import { readFolderSummaries } from './folder-summaries.js';
-import { CHARS_PER_TOKEN, computeNodesHash, readAllNodes, type NodeFile } from './nodes.js';
+import { readFolderSummaries, reconcileFolderSummaries } from './folder-summaries.js';
+import {
+  CHARS_PER_TOKEN,
+  computeNodesHash,
+  INDEX_FILENAME,
+  readAllNodes,
+  type NodeFile,
+} from './nodes.js';
 import { GraphFrontmatterSchema, IndexFrontmatterSchema, NODE_SCHEMA_VERSION } from './schemas.js';
 import { KK_NAVIGATION_DIRECTIVE } from './session-start.js';
 
@@ -87,12 +93,84 @@ export interface GeneratedIndex {
    * `ENTRY.md` and is optional).
    */
   foldersMissingSummary: string[];
+  /**
+   * The reconciled `FOLDER_SUMMARIES.md` registry: the on-disk sidecar
+   * restricted to the owned folder set (`folders.keys()`), entries verbatim.
+   * The rebuild writes this back as an owned artifact. Excludes the root
+   * summary harvested from `ENTRY.md`, which stays in that file's frontmatter.
+   */
+  folderSummaries: Map<string, string>;
+  /**
+   * Sidecar keys dropped by the reconciliation because their folder holds no
+   * leaves anymore (sorted). See `reconcileFolderSummaries` for the rule.
+   */
+  prunedSummaries: string[];
 }
 
 export interface GeneratedGraph {
   content: string;
   nodesHash: string;
   nodeCount: number;
+}
+
+/**
+ * One in-process read of the leaf tree: the parsed leaves plus the global
+ * content hash. `index rebuild` takes exactly one snapshot per run and feeds
+ * it to both generators, so the tree is parsed once and hashed once instead
+ * of once per generator plus a validation pass.
+ */
+export interface TreeSnapshot {
+  /** Every leaf, sorted by relPath (the `readAllNodes` contract). */
+  nodes: NodeFile[];
+  /** `computeNodesHash` over the whole leaf set. */
+  nodesHash: string;
+}
+
+export function snapshotTree(nodesDir: string): TreeSnapshot {
+  return { nodes: readAllNodes(nodesDir), nodesHash: computeNodesHash(nodesDir) };
+}
+
+/**
+ * The owned folder set: every directory that must carry a generated
+ * `index.md`: the bundle root, every leaf's directory, and every ancestor
+ * between them (POSIX relDir, `''` = root). Derived purely from the leaf set,
+ * so a branch whose last leaf left is no longer owned. Shared by the generator
+ * (which renders exactly this set), the rebuild (which removes any owned file
+ * outside it) and lint (which flags the stale leftovers).
+ */
+export function computeOwnedFolderDirs(nodes: readonly Pick<NodeFile, 'relDir'>[]): Set<string> {
+  const dirs = new Set<string>(['']);
+  for (const n of nodes) {
+    const segments = n.relDir === '' ? [] : n.relDir.split('/');
+    let acc = '';
+    for (const seg of segments) {
+      acc = acc === '' ? seg : `${acc}/${seg}`;
+      dirs.add(acc);
+    }
+  }
+  return dirs;
+}
+
+/**
+ * Every `index.md` under `nodesDir` whose folder is NOT in the owned set: the
+ * stale owned artifacts a previous generation (or a hand edit, or an import)
+ * left behind in a now-leafless branch. Absolute paths, sorted. A readdir-only
+ * walk: no leaf is read or parsed.
+ */
+export function findStaleFolderIndexes(nodesDir: string, ownedDirs: ReadonlySet<string>): string[] {
+  if (!existsSync(nodesDir)) return [];
+  const stale: string[] = [];
+  const walk = (dir: string, rel: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        walk(join(dir, entry.name), rel === '' ? entry.name : `${rel}/${entry.name}`);
+      } else if (entry.name === INDEX_FILENAME && !ownedDirs.has(rel)) {
+        stale.push(join(dir, entry.name));
+      }
+    }
+  };
+  walk(nodesDir, '');
+  return stale.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /**
@@ -269,9 +347,9 @@ function rankTagCohorts(
  * and summary escaped.
  *
  * The whole-tree candidate pull means a distant tag change can reorder this
- * block; that is intentional. The block's bytes are NOT fed into the per-folder
- * `hashLeaves`, so cross-tree churn never perturbs this folder's stability hash
- * (paired with the Task 1 hash boundary).
+ * block; that is intentional. The block's bytes are NOT part of the leaf
+ * content `computeNodesHash` covers, so cross-tree churn never perturbs the
+ * tree's stability hash.
  */
 export function renderTagIndex(
   leaves: NodeFile[],
@@ -455,34 +533,6 @@ function harvestSummary(file: string): string | undefined {
 }
 
 /**
- * Snapshot every folder's existing `index.md` summary (keyed by POSIX relDir)
- * plus the root entry-catalog summary, BEFORE any file is regenerated. Because
- * `index rebuild` (and the curator/`node add`/rebalance rebuilds) call
- * `generateIndex` and only write the returned bodies afterwards, reading here
- * sees the pre-rebuild on-disk state — the snapshot the self-preserve contract
- * requires (Risk: "self-preserve ordering during a single rebuild").
- *
- * The root summary lives in `ENTRY.md` frontmatter, which sits OUTSIDE
- * `nodesDir` at `<kkDir>/ENTRY.md`; the caller threads its path as `entryFile`.
- * The root folder (`relDir === ''`) maps to that file; every other folder maps
- * to `nodes/<dir>/index.md`.
- */
-function harvestFolderSummaries(
-  nodesDir: string,
-  dirs: Iterable<string>,
-  entryFile?: string
-): Map<string, string> {
-  const summaries = readFolderSummaries(nodesDir);
-  const rootSummary = entryFile ? harvestSummary(entryFile) : undefined;
-  if (rootSummary !== undefined) summaries.set('', rootSummary);
-  const allowed = new Set(dirs);
-  for (const key of [...summaries.keys()]) {
-    if (!allowed.has(key)) summaries.delete(key);
-  }
-  return summaries;
-}
-
-/**
  * Generate one deterministic `index.md` body per directory under `nodesDir`,
  * recursively, as a pure function of the leaf set. Each
  * body rolls up its own directory only: child leaf nodes (title, summary, tags)
@@ -493,38 +543,44 @@ function harvestFolderSummaries(
  * (resolved by id), so later relocation never breaks a reference.
  *
  * The single non-deterministic input is each folder's self-preserved `summary`:
- * harvested from the pre-rebuild on-disk files (`entryFile` for the root,
- * `nodes/<dir>/index.md` for every other folder) and re-stamped verbatim into
- * the regenerated frontmatter. `generateIndex` never invents or mutates a
- * summary; absent it emits no `summary` key.
+ * harvested from the pre-rebuild on-disk state (`entryFile` frontmatter for the
+ * root, the `FOLDER_SUMMARIES.md` sidecar for every other folder) and spliced
+ * verbatim into the parent's descent pointer. `generateIndex` never invents or
+ * mutates a summary; it only reconciles the sidecar registry against the owned
+ * folder set (`folderSummaries` / `prunedSummaries`), and writes nothing.
+ *
+ * `snapshot` lets a caller that already parsed the tree (the rebuild, which
+ * validates and hashes once per run) reuse it; by default the tree is read
+ * here.
  */
-export function generateIndex(nodesDir: string, entryFile?: string): GeneratedIndex {
-  const nodes = readAllNodes(nodesDir);
+export function generateIndex(
+  nodesDir: string,
+  entryFile?: string,
+  snapshot: TreeSnapshot = snapshotTree(nodesDir)
+): GeneratedIndex {
+  const { nodes, nodesHash: hash } = snapshot;
   const inDegree = computeInDegree(nodes);
   // Rank each tag's whole-tree cohort once; every folder's `## By topic` reuses
   // it instead of re-scoring the cohort per folder (was O(folders × cohort²)).
   const rankedCohorts = rankTagCohorts(nodes, inDegree);
   const cmp = makeCatalogComparator(inDegree);
 
-  const hash = computeNodesHash(nodesDir);
   const nodeCount = nodes.length;
 
-  // Every directory that must carry an index.md: the root, every leaf's
-  // directory, and every ancestor directory between them.
-  const dirs = new Set<string>(['']);
-  for (const n of nodes) {
-    const segments = n.relDir === '' ? [] : n.relDir.split('/');
-    let acc = '';
-    for (const seg of segments) {
-      acc = acc === '' ? seg : `${acc}/${seg}`;
-      dirs.add(acc);
-    }
-  }
+  // The owned folder set: every directory that must carry an index.md.
+  const dirs = computeOwnedFolderDirs(nodes);
 
-  // Self-preserve: harvest every folder's existing summary (and the root
-  // catalog's) from the pre-rebuild on-disk files before any body is rendered,
-  // so a folder's one-line description survives the otherwise-total rebuild.
-  const harvestedSummaries = harvestFolderSummaries(nodesDir, dirs, entryFile);
+  // Self-preserve: read the sidecar registry BEFORE any body is rendered (the
+  // caller writes only after this returns, so this is the pre-rebuild state),
+  // reconcile it against the owned set, and overlay the root summary that
+  // lives in the entry catalog's own frontmatter (outside `nodesDir`).
+  const { kept: folderSummaries, pruned: prunedSummaries } = reconcileFolderSummaries(
+    readFolderSummaries(nodesDir),
+    dirs
+  );
+  const harvestedSummaries = new Map(folderSummaries);
+  const rootSummary = entryFile ? harvestSummary(entryFile) : undefined;
+  if (rootSummary !== undefined) harvestedSummaries.set('', rootSummary);
 
   const leavesByDir = new Map<string, NodeFile[]>();
   for (const dir of dirs) leavesByDir.set(dir, []);
@@ -583,7 +639,16 @@ export function generateIndex(nodesDir: string, entryFile?: string): GeneratedIn
     .filter(dir => dir !== '' && !harvestedSummaries.has(dir))
     .sort((a, b) => a.localeCompare(b));
 
-  return { folders, rootCatalog, nodesHash: hash, nodeCount, nodes, foldersMissingSummary };
+  return {
+    folders,
+    rootCatalog,
+    nodesHash: hash,
+    nodeCount,
+    nodes,
+    foldersMissingSummary,
+    folderSummaries,
+    prunedSummaries,
+  };
 }
 
 function distinctTagCount(leaves: NodeFile[]): number {
@@ -674,12 +739,17 @@ function renderFolderIndex(args: RenderFolderArgs): string {
 
 /**
  * Render GRAPH.md, the full unfiltered edge listing by id. Deterministic.
- * References are by id; the listing is the cross-tree DAG overlay.
+ * References are by id; the listing is the cross-tree DAG overlay. Accepts the
+ * rebuild's shared `snapshot` (never mutated: the id ordering is local).
  */
-export function generateGraph(nodesDir: string): GeneratedGraph {
-  const nodes = readAllNodes(nodesDir);
-  nodes.sort((a, b) => a.frontmatter.kk_id.localeCompare(b.frontmatter.kk_id));
-  const hash = computeNodesHash(nodesDir);
+export function generateGraph(
+  nodesDir: string,
+  snapshot: TreeSnapshot = snapshotTree(nodesDir)
+): GeneratedGraph {
+  const nodes = [...snapshot.nodes].sort((a, b) =>
+    a.frontmatter.kk_id.localeCompare(b.frontmatter.kk_id)
+  );
+  const hash = snapshot.nodesHash;
 
   const lines: string[] = [`# kenkeep Graph`, ''];
   if (nodes.length === 0) {

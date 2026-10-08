@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateIndex, writeIndex } from '../../src/lib/index-gen.js';
 import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
+import { writeSlowFsPreload } from '../helpers/slow-fs.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../..');
@@ -20,12 +21,13 @@ function runHook(
   hookPath: string,
   cwd: string,
   hookInput: Record<string, unknown> | null,
-  env: NodeJS.ProcessEnv = {}
+  env: NodeJS.ProcessEnv = {},
+  nodeArgs: string[] = []
 ): Promise<SpawnResult> {
   return new Promise(resolveFn => {
     const proc = execFile(
       'node',
-      [hookPath],
+      [...nodeArgs, hookPath],
       { cwd, env: { ...process.env, NO_COLOR: '1', ...env } },
       (err, stdout, stderr) => {
         const code =
@@ -180,6 +182,51 @@ describe('prompt-time injection hooks (built bundles)', () => {
       cleanSandbox(bare);
     }
   });
+
+  // The 1 s deadline cannot interrupt synchronous work, so retrieval must
+  // observe the budget between leaves. Each of the 12 leaf reads stalls 200 ms
+  // (2.4 s of unbudgeted work); the hook must give up cooperatively and inject
+  // nothing. Margin = one stalled leaf (200 ms) + process start/teardown.
+  it.each(['claude', 'codex'])(
+    '%s abandons retrieval within the budget on a slow filesystem and injects nothing',
+    async harness => {
+      const SLOW_MS = 200;
+      const BUDGET_MS = 1_000;
+      const MARGIN_MS = SLOW_MS + 600;
+      for (let i = 0; i < 12; i += 1) {
+        seedLeaf(sb.nodesDir, `slow-${i}`, `practice-slow-codex-${i}`, 'practice', {
+          title: `Slow codex leaf ${i}`,
+          tags: ['codex'],
+          summary: 'codex hooks on a stalled filesystem',
+          body: 'codex hooks',
+        });
+      }
+      const preload = writeSlowFsPreload(sb.root);
+      const started = performance.now();
+      const res = await runHook(
+        hookPath(harness),
+        sb.root,
+        { cwd: sb.root, prompt: 'wire codex hooks' },
+        { KK_SLOW_FS_DIR: sb.nodesDir, KK_SLOW_FS_MS: String(SLOW_MS) },
+        ['--require', preload]
+      );
+      const elapsed = performance.now() - started;
+      expect(res.exitCode).toBe(0);
+      expect(res.stdout).toBe('');
+      expect(elapsed).toBeLessThan(BUDGET_MS + MARGIN_MS);
+
+      // The abandonment is traceable: a 'budget' diagnostic, never a 'deadline'
+      // one (the timer was cleared on completion).
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const logFile = join(sb.kkDir, '_logs', `hook-errors-${dateStr}.log`);
+      expect(existsSync(logFile)).toBe(true);
+      const phases = readFileSync(logFile, 'utf8')
+        .split('\n')
+        .filter(l => l.length > 0)
+        .map(l => (JSON.parse(l) as { phase: string }).phase);
+      expect(phases).toEqual(['budget']);
+    }
+  );
 
   it('does not re-enter when the recursion guard is set', async () => {
     const res = await runHook(

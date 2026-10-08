@@ -2,9 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWriteFile, copyTree } from '../../lib/fs-atomic.js';
 import { installSharedSkills } from '../../lib/install-skills.js';
-import { log } from '../../lib/log.js';
-import { copySharedHookScripts } from '../../lib/shared-hooks.js';
-import type { HarnessInstallOptions } from '../types.js';
+import { upsertManagedBlock } from '../../lib/managed-block.js';
+import { copySharedHookScripts, sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
+import type { HarnessInstallOptions, HarnessPaths } from '../types.js';
 
 /**
  * Where the OpenCode adapter's template tree lives under the package
@@ -14,13 +14,27 @@ import type { HarnessInstallOptions } from '../types.js';
  */
 export const OPENCODE_TEMPLATE_SUBDIR = 'opencode';
 
-export function openCodePaths(root: string) {
+export interface OpenCodePaths extends HarnessPaths {
+  pluginsDir: string;
+  hooksDir: string;
+  pluginFile: string;
+  /** `.opencode/opencode.json`, where the plugin and instructions entries are registered. */
+  configFile: string;
+  gitignoreFile: string;
+}
+
+/**
+ * On-disk locations the OpenCode adapter owns. The one source for the
+ * adapter's `paths()`, its installer and its doctor checks. OpenCode's
+ * registration is a plugin entry in `configFile`, not a per-event hook file,
+ * so the harness-neutral `settingsFile` stays unset.
+ */
+export function openCodePaths(root: string): OpenCodePaths {
   const dir = join(root, '.opencode');
   return {
     dir,
     pluginsDir: join(dir, 'plugins'),
-    hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'opencode'),
-    kkHooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'opencode'),
+    hooksDir: sharedHarnessHooksDirForRoot(root, 'opencode'),
     skillsDir: join(dir, 'skills'),
     pluginFile: join(dir, 'plugins', 'kk.mjs'),
     configFile: join(dir, 'opencode.json'),
@@ -72,27 +86,33 @@ export const OPENCODE_INSTRUCTIONS_ENTRY = '.opencode/AGENTS.md';
  *
  * Merge semantics: creates the file when absent; appends to existing
  * arrays (or adds the keys) while preserving every other key; no-ops when
- * both entries are already present. An unparseable config is left
- * untouched — destroying a user's config to register ourselves is worse
- * than asking them to add two lines.
+ * both entries are already present. A config that is unparseable, is not a
+ * JSON object, or holds a non-array `plugin` or `instructions` value throws
+ * a diagnostic naming the file and leaves it untouched: replacing a user's
+ * values to register ourselves would destroy them, and skipping the
+ * registration would leave every hook inert.
  */
 export function registerOpenCodePlugin(configFile: string): void {
   let config: Record<string, unknown> = {};
   if (existsSync(configFile)) {
+    let raw: unknown;
     try {
-      config = JSON.parse(readFileSync(configFile, 'utf8')) as Record<string, unknown>;
-    } catch {
-      log.warn(
-        `could not parse ${configFile}; add "${OPENCODE_PLUGIN_ENTRY}" to its "plugin" array ` +
-          `and "${OPENCODE_INSTRUCTIONS_ENTRY}" to its "instructions" array manually.`
-      );
-      return;
+      raw = JSON.parse(readFileSync(configFile, 'utf8'));
+    } catch (err) {
+      throw new Error(`Could not parse existing ${configFile}: ${(err as Error).message}`);
+    }
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw malformedConfig(configFile, '(top level)', 'expected a JSON object');
+    }
+    config = raw as Record<string, unknown>;
+  }
+  for (const key of ['plugin', 'instructions']) {
+    if (key in config && !Array.isArray(config[key])) {
+      throw malformedConfig(configFile, key, 'expected an array');
     }
   }
-  const plugins = Array.isArray(config['plugin']) ? (config['plugin'] as unknown[]) : [];
-  const instructions = Array.isArray(config['instructions'])
-    ? (config['instructions'] as unknown[])
-    : [];
+  const plugins = (config['plugin'] as unknown[] | undefined) ?? [];
+  const instructions = (config['instructions'] as unknown[] | undefined) ?? [];
   const hasPlugin = plugins.includes(OPENCODE_PLUGIN_ENTRY);
   const hasInstructions = instructions.includes(OPENCODE_INSTRUCTIONS_ENTRY);
   if (hasPlugin && hasInstructions) return;
@@ -101,6 +121,13 @@ export function registerOpenCodePlugin(configFile: string): void {
     config['instructions'] = [...instructions, OPENCODE_INSTRUCTIONS_ENTRY];
   }
   atomicWriteFile(configFile, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+function malformedConfig(configFile: string, path: string, problem: string): Error {
+  return new Error(
+    `Malformed OpenCode config in ${configFile}: "${path}": ${problem}. kenkeep left the file ` +
+      'unchanged; fix or remove that entry, then re-run the command.'
+  );
 }
 
 /**
@@ -112,36 +139,23 @@ export function registerOpenCodePlugin(configFile: string): void {
  * the project's root `.gitignore`, consistent with init's "root .gitignore
  * is never touched" policy.
  *
- * Merge semantics mirror `ensureAgentsKkBlock`: creates the file when
- * absent, replaces an existing block in place (so the entries track upgrades),
- * appends when no block exists, and preserves all user content outside the
- * markers.
+ * Merge semantics are the shared `upsertManagedBlock` ones also used by
+ * `ensureAgentsKkBlock`: creates the file when absent, replaces an existing
+ * block in place (so the entries track upgrades), appends when no block
+ * exists, and preserves all user content outside the markers. Orphaned,
+ * duplicated or reversed markers throw a `MalformedManagedBlockError` naming
+ * the file and leave it untouched.
  */
 export function ensureOpenCodeGitignore(gitignoreFile: string): void {
-  const block = `${OPENCODE_GITIGNORE_START}\n${OPENCODE_GITIGNORE_BODY}\n${OPENCODE_GITIGNORE_END}`;
   const existing = existsSync(gitignoreFile) ? readFileSync(gitignoreFile, 'utf8') : '';
-
-  let next: string;
-  if (existing.includes(OPENCODE_GITIGNORE_START)) {
-    const before = existing.slice(0, existing.indexOf(OPENCODE_GITIGNORE_START));
-    const afterStart = existing.indexOf(OPENCODE_GITIGNORE_END);
-    const afterRaw =
-      afterStart >= 0 ? existing.slice(afterStart + OPENCODE_GITIGNORE_END.length) : '';
-    const after = afterRaw.startsWith('\n') ? afterRaw.slice(1) : afterRaw;
-    next = ensureTrailingNewline(`${before}${block}\n${after}`);
-  } else if (existing.length === 0) {
-    next = `${block}\n`;
-  } else {
-    const sep = existing.endsWith('\n') ? '' : '\n';
-    next = `${existing}${sep}\n${block}\n`;
-  }
-
+  const next = upsertManagedBlock(
+    existing,
+    { start: OPENCODE_GITIGNORE_START, end: OPENCODE_GITIGNORE_END },
+    OPENCODE_GITIGNORE_BODY,
+    gitignoreFile
+  );
   if (next === existing) return;
   atomicWriteFile(gitignoreFile, next);
-}
-
-function ensureTrailingNewline(s: string): string {
-  return s.endsWith('\n') ? s : `${s}\n`;
 }
 
 /**
@@ -149,34 +163,24 @@ function ensureTrailingNewline(s: string): string {
  * registers the plugin in `.opencode/opencode.json` (OpenCode does not
  * auto-discover plugin files by location).
  *
- * Skill installation is delegated to the shared installer (Plan 23
- * Task 8) so the same SKILL.md bytes land in every configured
- * harness's native skills dir.
+ * Skill installation is delegated to the shared installer so the same
+ * SKILL.md bytes land in every configured harness's native skills dir.
  *
  * Idempotent: called from both first-time install and `init --upgrade`.
  */
 export async function installOpenCode(opts: HarnessInstallOptions): Promise<void> {
   const templateDir = join(opts.templatesDir, OPENCODE_TEMPLATE_SUBDIR);
   const paths = openCodePaths(opts.root);
+  // The managed .gitignore block and the config registration go first: either
+  // writer refuses a malformed user file before any runtime file of this
+  // adapter lands.
+  ensureOpenCodeGitignore(paths.gitignoreFile);
+  registerOpenCodePlugin(paths.configFile);
 
   const pluginSrc = join(templateDir, 'plugins');
   if (existsSync(pluginSrc)) {
     copyTree(pluginSrc, paths.pluginsDir);
   }
-
-  const kkHooksSrc = join(templateDir, 'kk-hooks');
-  if (existsSync(kkHooksSrc)) {
-    copySharedHookScripts(
-      opts.templatesDir,
-      opts.paths,
-      'opencode',
-      OPENCODE_TEMPLATE_SUBDIR,
-      'kk-hooks'
-    );
-  }
-
-  registerOpenCodePlugin(paths.configFile);
-  ensureOpenCodeGitignore(paths.gitignoreFile);
-
+  copySharedHookScripts(opts.templatesDir, opts.paths, 'opencode');
   installSharedSkills(opts.templatesDir, paths.skillsDir);
 }

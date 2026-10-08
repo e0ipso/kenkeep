@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { INDEX_FILENAME } from './nodes.js';
@@ -37,19 +37,12 @@ export const MIGRATION_STEPS: readonly MigrationStep[] = [
   { id: 'okf-v3', from: 2, to: 3, primitives: ['migrate okf-v3'] },
 ];
 
-const LEGACY_KIND_DIRS = ['practice', 'map'];
-
 function isDirectory(p: string): boolean {
   try {
     return statSync(p).isDirectory();
   } catch {
     return false;
   }
-}
-
-function listLeafMarkdown(dir: string): string[] {
-  if (!isDirectory(dir)) return [];
-  return readdirSync(dir).filter(name => name.endsWith('.md') && name !== INDEX_FILENAME);
 }
 
 function collectLeafPaths(rootDir: string): string[] {
@@ -86,19 +79,16 @@ function readSchemaVersion(file: string): number | null {
  * Reads the schema_version the knowledge base is currently stored at, so the
  * caller can compare it against the code's target version. Returns the lowest
  * version found across leaves (a mixed tree advances from its oldest leaf), or
- * `null` when there is nothing to act on. The legacy two-bucket `nodes/<kind>/`
- * layout (leaf docs with no generated index.md) reads as version 1.
+ * `null` when there is nothing to act on.
+ *
+ * The version comes from each leaf's own schema evidence only: the legacy
+ * two-bucket `nodes/<kind>/` layout reads as version 1 because its leaves carry
+ * `schema_version: 1`, not because of where they sit. A v3 topical folder named
+ * `map/` or `practice/` (written by `node write --folder`, a rebalance or a
+ * pack import before its index.md is generated) is never mistaken for it.
  */
 export function detectSchemaVersion(nodesDir: string): number | null {
   if (!isDirectory(nodesDir)) return null;
-
-  for (const kind of LEGACY_KIND_DIRS) {
-    const dir = join(nodesDir, kind);
-    if (!isDirectory(dir)) continue;
-    if (listLeafMarkdown(dir).length > 0 && !existsSync(join(dir, INDEX_FILENAME))) {
-      return 1;
-    }
-  }
 
   let min = Infinity;
   for (const leaf of collectLeafPaths(nodesDir)) {

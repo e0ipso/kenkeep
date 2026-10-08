@@ -51,7 +51,7 @@ process.exit(${exitCode});
 
   it('parses the fenced JSON payload, sets the guard, and maps the required flags', async () => {
     const shim = writeShim();
-    const out = await runHeadlessCopilot('prompt body', '', Schema, {
+    const out = await runHeadlessCopilot('prompt body', Schema, {
       copilotCli: shim,
       repoRoot: '/some/repo',
       harnessOpts: { model: 'claude-sonnet-4.5' },
@@ -71,36 +71,34 @@ process.exit(${exitCode});
     expect(dump.argv).toContain('claude-sonnet-4.5');
   });
 
-  it('appends the stdin payload to the prompt and omits --model when none is configured', async () => {
+  it('omits --model when none is configured', async () => {
     const shim = writeShim();
-    await runHeadlessCopilot('prompt body', 'EXTRA STDIN', Schema, { copilotCli: shim });
+    await runHeadlessCopilot('prompt body', Schema, { copilotCli: shim });
     const dump = JSON.parse(readFileSync(join(dir, 'dump.json'), 'utf8')) as { argv: string[] };
-    const promptArg = dump.argv[dump.argv.indexOf('-p') + 1];
-    expect(promptArg).toContain('prompt body');
-    expect(promptArg).toContain('EXTRA STDIN');
+    expect(dump.argv[dump.argv.indexOf('-p') + 1]).toBe('prompt body');
     expect(dump.argv).not.toContain('--model');
   });
 
   it('mirrors raw stdout to logFile when provided', async () => {
     const shim = writeShim();
     const logFile = join(dir, 'logs', 'copilot', 'a.log');
-    await runHeadlessCopilot('p', '', Schema, { copilotCli: shim, logFile });
+    await runHeadlessCopilot('p', Schema, { copilotCli: shim, logFile });
     expect(readFileSync(logFile, 'utf8')).toContain('"ok": true');
   });
 
   it('throws when no JSON payload is present, on non-zero exit, and on schema mismatch', async () => {
     const noJson = writeShim({ body: 'No JSON here at all.\n' });
-    await expect(runHeadlessCopilot('p', '', Schema, { copilotCli: noJson })).rejects.toThrow(
-      /did not contain a parseable JSON payload/
+    await expect(runHeadlessCopilot('p', Schema, { copilotCli: noJson })).rejects.toThrow(
+      /was not valid JSON/
     );
 
     const failExit = writeShim({ exitCode: 1, body: '' });
-    await expect(runHeadlessCopilot('p', '', Schema, { copilotCli: failExit })).rejects.toThrow(
+    await expect(runHeadlessCopilot('p', Schema, { copilotCli: failExit })).rejects.toThrow(
       /copilot subprocess failed/
     );
 
     const badSchema = writeShim({ body: '```json\n{"ok":"yes"}\n```\n' });
-    await expect(runHeadlessCopilot('p', '', Schema, { copilotCli: badSchema })).rejects.toThrow(
+    await expect(runHeadlessCopilot('p', Schema, { copilotCli: badSchema })).rejects.toThrow(
       /did not match schema/
     );
   });

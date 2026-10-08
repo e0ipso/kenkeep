@@ -1,7 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import lockfile from 'proper-lockfile';
-import { atomicWriteFile } from './fs-atomic.js';
 
 /**
  * Records knowledge-base document usage during capture. The signal is the set of
@@ -99,6 +98,11 @@ interface UsageLine {
  * session. Existing lines are never rewritten or removed; for each document the
  * recorded line count for this session becomes `max(existing, observed)`.
  * Serialized with a `.state` lock so concurrent captures cannot lose appends.
+ *
+ * Only the delta is written, as a single append: the existing bytes of the
+ * ledger are left untouched (no whole-file rewrite). A torn final line from an
+ * interrupted earlier append is terminated first so the new records always
+ * start on their own line; the malformed fragment is skipped when counting.
  */
 export async function reconcileUsage(
   usageFile: string,
@@ -121,11 +125,11 @@ export async function reconcileUsage(
 
   const release = await lockfile.lock(usageFile, USAGE_LOCK_OPTIONS);
   try {
-    const raw = existsSync(usageFile) ? readFileSync(usageFile, 'utf8') : '';
-    const lines = raw.split('\n').filter(line => line.trim().length > 0);
+    const raw = readFileSync(usageFile, 'utf8');
 
     const existing = new Map<string, number>();
-    for (const line of lines) {
+    for (const line of raw.split('\n')) {
+      if (line.trim().length === 0) continue;
       let rec: UsageLine;
       try {
         rec = JSON.parse(line) as UsageLine;
@@ -145,7 +149,8 @@ export async function reconcileUsage(
       }
     }
     if (appended.length === 0) return;
-    atomicWriteFile(usageFile, `${[...lines, ...appended].join('\n')}\n`);
+    const separator = raw.length > 0 && !raw.endsWith('\n') ? '\n' : '';
+    appendFileSync(usageFile, `${separator}${appended.join('\n')}\n`);
   } finally {
     await release();
   }

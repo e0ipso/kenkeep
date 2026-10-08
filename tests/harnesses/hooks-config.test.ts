@@ -6,6 +6,7 @@ import { writeClaudeHookConfig } from '../../src/harnesses/claude/hooks-config.j
 import { writeCodexHooks } from '../../src/harnesses/codex/hooks-config.js';
 import { writeCursorHooksConfig } from '../../src/harnesses/cursor/hooks-config.js';
 import {
+  COPILOT_INSTRUCTIONS_POINTER,
   SENTINEL_END,
   SENTINEL_START,
   writeCopilotHookConfig,
@@ -16,7 +17,7 @@ import type { HarnessPaths } from '../../src/harnesses/types.js';
 
 function copilotPaths(root: string): HarnessPaths {
   return {
-    dir: join(root, '.copilot'),
+    dir: join(root, '.github'),
     hooksDir: join(root, '.ai', 'kenkeep', 'hooks', 'copilot'),
     skillsDir: join(root, '.github', 'skills'),
     settingsFile: join(root, '.github', 'hooks', 'kk.json'),
@@ -336,11 +337,15 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     expect(existsSync(join(root, '.copilot', 'hooks', 'kk.json'))).toBe(false);
   });
 
-  it('appends a sentinel block, preserves user content, and is zero-diff on re-run', async () => {
+  it('appends a static pointer block, preserves user content, and is zero-diff on re-run', async () => {
+    // A27: the tracked .github/copilot-instructions.md must carry only static
+    // shared content. The catalog body, directive and per-user state travel
+    // through the sessionStart hook's additionalContext instead, so the
+    // installer's block must not embed ENTRY.md.
     mkdirSync(join(root, '.ai', 'kenkeep'), { recursive: true });
     writeFileSync(
       join(root, '.ai', 'kenkeep', 'ENTRY.md'),
-      '# Knowledge base index\n\n_0 nodes_\n'
+      `# Knowledge base index\n\n${KK_NAVIGATION_DIRECTIVE}\n\n## Branches\n_0 nodes_\n`
     );
     const instructionsFile = join(root, '.github', 'copilot-instructions.md');
     mkdirSync(join(root, '.github'), { recursive: true });
@@ -351,7 +356,11 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     expect(first).toContain('USER CONTENT HERE');
     expect(first).toContain(SENTINEL_START);
     expect(first).toContain(SENTINEL_END);
-    expect(first).toContain('Knowledge base index');
+    expect(first).toContain(COPILOT_INSTRUCTIONS_POINTER);
+    expect(first).toContain('.ai/kenkeep/ENTRY.md');
+    expect(first).not.toContain('Knowledge base index');
+    expect(first).not.toContain('## Branches');
+    expect(first).not.toContain(KK_NAVIGATION_DIRECTIVE);
     expect(first.split(SENTINEL_START)).toHaveLength(2);
 
     await writeCopilotInstructionsSentinel(copilotPaths(root));
@@ -360,18 +369,24 @@ describe('writeCopilotHookConfig and sentinel (Copilot specifics)', () => {
     expect(second.split(SENTINEL_START)).toHaveLength(2);
   });
 
-  it('does not double-print the descent directive when ENTRY.md already embeds it', async () => {
-    // Post-Task-2 ENTRY.md embeds the directive in its body. The copilot bridge
-    // must NOT append it again — the sentinel block carries it exactly once.
-    mkdirSync(join(root, '.ai', 'kenkeep'), { recursive: true });
-    writeFileSync(
-      join(root, '.ai', 'kenkeep', 'ENTRY.md'),
-      `# kenkeep\n\n${KK_NAVIGATION_DIRECTIVE}\n\n## Branches\n_None._\n`
-    );
+  it('replaces a legacy catalog-carrying block with the static pointer on upgrade', async () => {
+    // Repos installed before A27 carry the full catalog (and possibly a
+    // teammate's hostname) between the markers. The upsert must swap that
+    // block for the static pointer in place, keeping user text around it.
+    const instructionsFile = join(root, '.github', 'copilot-instructions.md');
     mkdirSync(join(root, '.github'), { recursive: true });
+    writeFileSync(
+      instructionsFile,
+      `HEAD\n\n${SENTINEL_START}\nkenkeep: repo on some-host. Curation queue: 3\n\n# kenkeep\n## Branches\n${SENTINEL_END}\n\nTAIL\n`
+    );
 
     await writeCopilotInstructionsSentinel(copilotPaths(root));
-    const body = readFileSync(join(root, '.github', 'copilot-instructions.md'), 'utf8');
-    expect(body.split(KK_NAVIGATION_DIRECTIVE)).toHaveLength(2); // exactly one occurrence
+    const body = readFileSync(instructionsFile, 'utf8');
+    expect(body.startsWith('HEAD\n')).toBe(true);
+    expect(body.endsWith('\nTAIL\n')).toBe(true);
+    expect(body).toContain(COPILOT_INSTRUCTIONS_POINTER);
+    expect(body).not.toContain('some-host');
+    expect(body).not.toContain('## Branches');
+    expect(body.split(SENTINEL_START)).toHaveLength(2);
   });
 });

@@ -180,6 +180,116 @@ describe('launchSkill', () => {
   });
 });
 
+/**
+ * Writes `.ai/kenkeep/config.yaml` in the sandbox so `resolveSettings` picks
+ * up a per-role model choice. The launcher must translate that choice into
+ * the active adapter's native model flags; the per-host flags were verified
+ * against `claude 2.1.285 --help`, `codex 0.159.3 exec --help`, Cursor
+ * `agent 2026.09.28 --help`, `@github/copilot 1.0.91 --help` and
+ * `opencode-ai 1.18.34 run --help`.
+ */
+function writeConfig(root: string, yamlBody: string): void {
+  writeFileSync(join(root, '.ai/kenkeep/config.yaml'), `schema_version: 1\n${yamlBody}`);
+}
+
+describe('launchSkill model selection', () => {
+  let original: string;
+  let sandbox: string;
+
+  beforeEach(() => {
+    original = process.cwd();
+    sandbox = makeRepoSandbox();
+    process.chdir(sandbox);
+  });
+
+  afterEach(() => {
+    process.chdir(original);
+    rmSync(sandbox, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  const matrix: Array<{
+    harness: string;
+    skill: 'kk-bootstrap' | 'kk-curate' | 'kk-add';
+    config: string;
+    expectedArgs: string[];
+  }> = [
+    {
+      harness: 'claude',
+      skill: 'kk-bootstrap',
+      config: 'bootstrapModel:\n  harness: claude\n  name: opus\n  effort: high\n',
+      expectedArgs: ['--model', 'opus', '--effort', 'high', '-p', '/kk-bootstrap --from docs'],
+    },
+    {
+      harness: 'codex',
+      skill: 'kk-curate',
+      config: 'curatorModel:\n  harness: codex\n  model: gpt-5-codex\n  reasoningEffort: high\n',
+      expectedArgs: [
+        'exec',
+        '--model',
+        'gpt-5-codex',
+        '-c',
+        'model_reasoning_effort=high',
+        '/kk-curate',
+      ],
+    },
+    {
+      harness: 'cursor',
+      skill: 'kk-add',
+      config: 'curatorModel:\n  harness: cursor\n  model: sonnet-4-thinking\n',
+      expectedArgs: ['--model', 'sonnet-4-thinking', '-p', '/kk-add'],
+    },
+    {
+      // Copilot's `-p` takes the prompt as its value, so the model
+      // flags must not sit between the two.
+      harness: 'copilot',
+      skill: 'kk-curate',
+      config: 'curatorModel:\n  harness: copilot\n  model: gpt-5\n',
+      expectedArgs: ['--model', 'gpt-5', '-p', '/kk-curate'],
+    },
+    {
+      harness: 'opencode',
+      skill: 'kk-curate',
+      config:
+        'curatorModel:\n  harness: opencode\n  model: anthropic/claude-sonnet-4\n  agent: curator\n',
+      expectedArgs: [
+        'run',
+        '--model',
+        'anthropic/claude-sonnet-4',
+        '--agent',
+        'curator',
+        '/kk-curate',
+      ],
+    },
+  ];
+
+  it.each(matrix)(
+    '$harness: passes the configured $skill role model through the native model flags',
+    ({ harness, skill, config, expectedArgs }) => {
+      writeConfig(sandbox, config);
+      const { spawnFn, captured } = makeFakeSpawn();
+      const exitFn = vi.fn((_code: number) => undefined as never);
+      const passedArgs = skill === 'kk-bootstrap' ? '--from docs' : '';
+      launchSkill({ skill, passedArgs, harness, spawnFn, exitFn });
+      expect(captured, harness).toHaveLength(1);
+      expect(captured[0]!.args.args, harness).toEqual(expectedArgs);
+    }
+  );
+
+  it('launches with the host default and warns when the configured model targets another harness', () => {
+    writeConfig(sandbox, 'curatorModel:\n  harness: codex\n  model: gpt-5-codex\n');
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { spawnFn, captured } = makeFakeSpawn();
+    const exitFn = vi.fn((_code: number) => undefined as never);
+    launchSkill({ skill: 'kk-curate', harness: 'claude', spawnFn, exitFn });
+    expect(captured[0]!.args.args).toEqual(['-p', '/kk-curate']);
+    const lines = stderr.mock.calls.map(call => call.join(' ')).join('\n');
+    expect(lines).toMatch(/curatorModel/);
+    expect(lines).toMatch(/codex/);
+    expect(lines).toMatch(/claude/);
+  });
+});
+
 describe('runBootstrapLauncher / runCurateLauncher / runNodeAddLauncher', () => {
   let original: string;
   let sandbox: string;

@@ -1,27 +1,35 @@
 import {
   existsSync,
+  lstatSync,
   mkdtempSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
+  type Stats,
 } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
-import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
+import { z } from 'zod';
+import {
+  folderSummariesFileForNodesDir,
+  readFolderSummaries,
+  writeFolderSummaries,
+} from '../lib/folder-summaries.js';
 import { copyTree } from '../lib/fs-atomic.js';
 import { runLint, type LintEntry } from '../lib/lint.js';
 import { log } from '../lib/log.js';
 import { PACK_KNOWLEDGE_DIRNAME, PACK_MANIFEST_FILENAME } from '../lib/pack.js';
 import { InvalidNodeFrontmatterError, OldLayoutError, readAllNodes } from '../lib/nodes.js';
-import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
+import { findKenkeepRoot, repoPaths, type RepoPaths } from '../lib/paths.js';
+import { isWithin, PACK_NAME_PATTERN } from '../lib/path-safety.js';
 import { NODE_SCHEMA_VERSION, PackManifestSchema, type PackManifest } from '../lib/schemas.js';
-
-const PACK_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 export type PromptFn = (label: string) => Promise<string>;
 
@@ -56,6 +64,7 @@ export async function runPackExportCommand(opts: PackExportOptions = {}): Promis
 
     const nodes = readAllNodes(paths.nodesDir);
     const resolved = await resolveExportOptions(opts);
+    assertWritableOutput(resolved.outDir, paths);
     mkdirSync(dirname(resolved.outDir), { recursive: true });
     const tmpOut = mkdtempSync(
       join(dirname(resolved.outDir), `.${basename(resolved.outDir)}-tmp-`)
@@ -76,8 +85,8 @@ export async function runPackExportCommand(opts: PackExportOptions = {}): Promis
         return 1;
       }
 
-      rmSync(resolved.outDir, { recursive: true, force: true });
-      renameSync(tmpOut, resolved.outDir);
+      publishOwnedEntries(tmpOut, resolved.outDir);
+      rmSync(tmpOut, { recursive: true, force: true });
 
       log.plain('Manifest:');
       log.plain(
@@ -105,6 +114,112 @@ export async function runPackExportCommand(opts: PackExportOptions = {}): Promis
     }
     log.error(`pack export: ${(err as Error).message}`);
     return 1;
+  }
+}
+
+/**
+ * The paths export owns inside an output directory, manifest last. Export
+ * replaces exactly these and never touches anything else there, so a pack
+ * repository's `.git`, license or CI files survive a re-export.
+ */
+function ownedEntries(dir: string): string[] {
+  const knowledge = join(dir, PACK_KNOWLEDGE_DIRNAME);
+  return [
+    knowledge,
+    folderSummariesFileForNodesDir(knowledge),
+    join(dir, 'README.md'),
+    join(dir, PACK_MANIFEST_FILENAME),
+  ];
+}
+
+/**
+ * Export writes to a missing or empty directory, or to one that already holds
+ * a pack. It refuses a symlink, a file, any other non-empty directory, and an
+ * output whose entries would land inside or over the kenkeep directory.
+ */
+function assertWritableOutput(outDir: string, paths: RepoPaths): void {
+  const refuse = (why: string): never => {
+    throw new Error(`refusing to write to ${outDir}: ${why}`);
+  };
+  const outStat = lstatOrNull(outDir);
+  if (outStat?.isSymbolicLink()) refuse('it is a symlink; point --out at a real directory.');
+  if (outStat && !outStat.isDirectory()) refuse('it is not a directory.');
+
+  const kkDir = canonicalPath(paths.kkDir);
+  for (const entry of ownedEntries(canonicalPath(outDir))) {
+    if (isWithin(kkDir, entry) || isWithin(entry, kkDir)) {
+      refuse('the pack would be written inside or over the kenkeep directory.');
+    }
+  }
+
+  if (outStat && readdirSync(outDir).length > 0 && !isPackOutput(outDir)) {
+    refuse(
+      `it is not empty and holds no kenkeep pack (${PACK_MANIFEST_FILENAME}). Use a new or empty directory, or a previous pack export.`
+    );
+  }
+}
+
+/**
+ * Moves the staged entries into the output. A file rename replaces its target
+ * in one step; a directory cannot be renamed over, so the old one goes first.
+ */
+function publishOwnedEntries(stagedDir: string, outDir: string): void {
+  mkdirSync(outDir, { recursive: true });
+  const targets = ownedEntries(outDir);
+  ownedEntries(stagedDir).forEach((source, i) => {
+    const target = targets[i]!;
+    const existing = lstatOrNull(target);
+    if (existing && (existing.isDirectory() || lstatSync(source).isDirectory())) {
+      rmSync(target, { recursive: true, force: true });
+    }
+    renameSync(source, target);
+  });
+}
+
+/**
+ * Any positive `schema_version`, so a pack exported before a node-schema bump
+ * still counts as one.
+ */
+const PriorPackManifestSchema = PackManifestSchema.extend({
+  schema_version: z.number().int().positive(),
+});
+
+/** A directory holds a pack when its `kenkeep-pack.yaml` is a regular file that parses as a manifest. */
+function isPackOutput(dir: string): boolean {
+  const manifestFile = join(dir, PACK_MANIFEST_FILENAME);
+  if (!lstatOrNull(manifestFile)?.isFile()) return false;
+  try {
+    return PriorPackManifestSchema.safeParse(yaml.load(readFileSync(manifestFile, 'utf8'))).success;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `path` with its deepest existing ancestor resolved through `realpath`, so
+ * `.`/`..`, symlinked parents and tmpdir aliases compare by real location.
+ */
+function canonicalPath(path: string): string {
+  const abs = resolve(path);
+  const missing: string[] = [];
+  let cursor = abs;
+  while (true) {
+    try {
+      return join(realpathSync(cursor), ...missing.reverse());
+    } catch {
+      const parent = dirname(cursor);
+      if (parent === cursor) return abs;
+      missing.push(basename(cursor));
+      cursor = parent;
+    }
+  }
+}
+
+function lstatOrNull(path: string): Stats | null {
+  try {
+    return lstatSync(path);
+  } catch {
+    return null;
   }
 }
 

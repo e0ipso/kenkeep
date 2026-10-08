@@ -41,15 +41,15 @@ The `HookEvent` type is opaque `string`. Each harness adapter declares the event
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [map-claude-harness](/harnesses/map-claude-harness.md)
-- Related: [map-codex-harness](/harnesses/map-codex-harness.md)
-- Related: [map-opencode-harness](/harnesses/map-opencode-harness.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [map-claude-harness](map-claude-harness.md)
+- Related: [map-codex-harness](map-codex-harness.md)
+- Related: [map-opencode-harness](map-opencode-harness.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [CONTRIBUTING.md](CONTRIBUTING.md)
-[2] [docs/internals/architecture.md](docs/internals/architecture.md)
+[1] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+[2] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
 <!-- kk:citations:end -->

@@ -1,12 +1,10 @@
-import { join } from 'node:path';
-import { sharedHarnessHooksDirForRoot } from '../../lib/shared-hooks.js';
 import type { EffectiveSettings } from '../../lib/settings.js';
-import type { HarnessAdapter, HarnessPaths, ModelChoiceRole } from '../types.js';
+import type { HarnessAdapter, ModelChoiceRole } from '../types.js';
 import { copilotDoctorChecks } from './doctor.js';
 import { runHeadlessCopilot } from './headless.js';
 import { copilotHookSpecs } from './hook-spec.js';
-import { installCopilot } from './install.js';
-import { buildCopilotHarnessOpts } from './opts.js';
+import { copilotPaths, installCopilot } from './install.js';
+import { buildCopilotHarnessOpts, copilotLaunchModelArgs } from './opts.js';
 import { parseCopilotTranscript, renderCopilotTranscript } from './transcript.js';
 
 /**
@@ -24,30 +22,20 @@ import { parseCopilotTranscript, renderCopilotTranscript } from './transcript.js
  * `--hint copilot` (skill helper), or `cliDefaultHarness: copilot` in
  * `config.yaml`.
  */
-function copilotAdapterPaths(root: string): HarnessPaths {
-  const dir = join(root, '.copilot');
-  return {
-    dir,
-    hooksDir: sharedHarnessHooksDirForRoot(root, 'copilot'),
-    skillsDir: join(root, '.github', 'skills'),
-    settingsFile: join(root, '.github', 'hooks', 'kk.json'),
-  };
-}
-
 export const copilotAdapter: HarnessAdapter = {
   id: 'copilot',
   launchBinary: 'copilot',
   launchArgsPrefix: ['-p'],
   hooks: copilotHookSpecs,
-  paths: copilotAdapterPaths,
+  paths: copilotPaths,
   install: opts => installCopilot(opts),
   upgrade: opts => installCopilot(opts),
   parseTranscript: parseCopilotTranscript,
   renderTranscript: renderCopilotTranscript,
-  runHeadless: (promptBody, stdin, schema, opts) =>
-    runHeadlessCopilot(promptBody, stdin, schema, opts ?? {}),
+  runHeadless: (promptBody, schema, opts) => runHeadlessCopilot(promptBody, schema, opts ?? {}),
   buildHarnessOpts: (settings: EffectiveSettings, role: ModelChoiceRole) =>
     buildCopilotHarnessOpts(settings, role),
+  launchModelArgs: copilotLaunchModelArgs,
   doctorChecks: paths => copilotDoctorChecks(paths),
   // Copilot CLI has no native auto-memory feature today; return [] without
   // spawning a child. The interface stays uniform across adapters.

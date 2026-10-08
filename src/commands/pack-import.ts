@@ -17,6 +17,7 @@ import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { preflightIndexRebuild, rebuildOutputFiles, runIndexRebuild } from './index-rebuild.js';
 import { LEGACY_NODE_SCHEMA_VERSION, migrateNodesTreeToV3 } from './migrate-okf-v3.js';
+import { agentsKkBlockNeedsWrite } from '../lib/agents-block.js';
 import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
 import { atomicWriteFile, copyTree } from '../lib/fs-atomic.js';
 import { log } from '../lib/log.js';
@@ -390,8 +391,9 @@ function planGraft(args: {
 /**
  * Runs every file the graft and its rebuild would write through the
  * containment boundary: the merged ledger, the consumer leaves the
- * rendered-link refresh will rewrite (planned over the grafted tree), and the
- * rebuild's catalogs, indexes and sidecar. A symlink at any of them would be
+ * rendered-link refresh will rewrite (planned over the grafted tree), the
+ * rebuild's catalogs, indexes and sidecar, and `AGENTS.md` under the repo root
+ * when its pointer block needs rewriting. A symlink at any of them would be
  * replaced by a regular file, so all refusals are aggregated and thrown.
  * Leaf destinations were checked when the plan was minted.
  */
@@ -418,6 +420,8 @@ function refuseUnsafeOutputs(
   };
   for (const file of nodeWrites) check(nodesDir, file, 'nodes/');
   for (const file of rebuildOutputFiles(root, tree)) check(kkDir, file, '.ai/kenkeep/');
+  const agentsFile = join(root, 'AGENTS.md');
+  if (agentsKkBlockNeedsWrite(agentsFile)) check(root, agentsFile, 'the repository root');
   if (failures.length > 0) {
     throw new Error(`refusing to replace a symlink:\n${[...new Set(failures)].join('\n')}`);
   }
@@ -457,6 +461,8 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
         'commit the knowledge base to a git repository first.'
     );
   }
+  const quote = (arg: string): string =>
+    /^[\w./@:+=-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
   const realRoot = realpathSync(root);
   const toTop = (path: string): string => relative(top, path).split(sep).join(posix.sep);
   const kkSpec = toTop(join(realRoot, relative(root, kkDir)));
@@ -487,12 +493,20 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
   const flagged = git(top, ['ls-files', '-v', '-z', '--', kkSpec, agentsSpec])
     .split('\0')
     .filter(entry => entry !== '' && !entry.startsWith('H '))
-    .map(entry => entry.slice(2));
+    .map(entry => ({ tag: entry[0]!, path: entry.slice(2) }));
   if (flagged.length > 0) {
+    // One command per flag: `git update-index` applies only the first of
+    // `--no-assume-unchanged --no-skip-worktree` and ignores the second.
+    const clear = flagged.flatMap(({ tag, path }) =>
+      [
+        ...(tag !== tag.toUpperCase() ? [`--no-assume-unchanged`] : []),
+        ...(tag.toUpperCase() === 'S' ? [`--no-skip-worktree`] : []),
+      ].map(option => `\`git -C ${quote(top)} update-index ${option} -- ${quote(path)}\``)
+    );
     throw new Error(
-      `${flagged.join(', ')} flagged assume-unchanged or skip-worktree, so git can neither ` +
-        'report nor undo changes to them. Clear the flag (`git update-index ' +
-        '--no-assume-unchanged --no-skip-worktree -- <path>`) and commit first.'
+      `${flagged.map(entry => entry.path).join(', ')} flagged assume-unchanged or ` +
+        'skip-worktree, so git can neither report nor undo changes to them. Clear the ' +
+        `flags with ${clear.join(', ')}, then commit first.`
     );
   }
   let agentsInHead: boolean;
@@ -502,8 +516,6 @@ function requireRestorableTree(root: string, kkDir: string): string[] {
     throw new Error('the repository has no commit yet. Commit the knowledge base first.');
   }
 
-  const quote = (arg: string): string =>
-    /^[\w./@:+=-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
   const restorable = agentsInHead ? [kkSpec, agentsSpec] : [kkSpec];
   return [
     `git -C ${quote(top)} restore --source=HEAD --staged --worktree -- ${restorable.map(quote).join(' ')}`,

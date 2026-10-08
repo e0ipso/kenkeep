@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -1038,6 +1039,37 @@ describe('pack import command', () => {
     }
   );
 
+  // The refusal prints one command per flag actually set: `git update-index`
+  // applies only the first of `--no-assume-unchanged --no-skip-worktree`, so a
+  // combined command would leave a skip-worktree flag in place. Running the
+  // printed commands verbatim must clear every flag.
+  it.each(['--assume-unchanged', '--skip-worktree', '--assume-unchanged --skip-worktree'])(
+    'prints commands that clear %s',
+    async spec => {
+      const flags = spec.split(' ');
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+      await commitAll(sandbox);
+      for (const flag of flags) await git(sandbox, ['update-index', flag, '--', 'AGENTS.md']);
+      expect(await git(sandbox, ['ls-files', '-v', '--', 'AGENTS.md'])).not.toMatch(/^H /);
+
+      const result = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+
+      expect(result.code).toBe(1);
+      const commands = [...result.stderr.matchAll(/`(git [^`]+)`/g)].map(match => match[1]!);
+      expect(commands).toHaveLength(flags.length);
+      for (const command of commands) {
+        expect(command).not.toContain('&&');
+        const argv = command.split(' ').slice(1);
+        expect(argv.slice(0, 3)).toEqual(['-C', realpathSync(sandbox), 'update-index']);
+        await git(sandbox, argv);
+      }
+      expect(await git(sandbox, ['ls-files', '-v', '--', 'AGENTS.md'])).toBe('H AGENTS.md\n');
+
+      const retry = await capture(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
+    }
+  );
+
   // Every file the graft and its rebuild would write is checked against the
   // containment boundary first: a symlink at any of them is refused before
   // the first byte lands, instead of being replaced by a regular file.
@@ -1089,6 +1121,68 @@ describe('pack import command', () => {
     expect(readFileSync(external)).toEqual(target);
     expect(existsSync(join(consumerNodes, 'drupal'))).toBe(false);
     expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+  });
+
+  // AGENTS.md is the one rebuild output outside .ai/kenkeep/. When the rebuild
+  // would rewrite its pointer block, a symlink there (live or dangling) is
+  // refused before the graft, so the link and its target survive and a later
+  // import without the link goes through.
+  it.each(['live', 'dangling'])(
+    'refuses to graft when AGENTS.md is a %s symlink the rebuild would rewrite',
+    async kind => {
+      const kkDir = join(sandbox, '.ai/kenkeep');
+      const agents = join(sandbox, 'AGENTS.md');
+      const external = join(sandbox, 'user-owned', 'AGENTS.md');
+      mkdirSync(dirname(external), { recursive: true });
+      if (kind === 'live') writeFileSync(external, '# User instructions\n');
+      rmSync(agents);
+      symlinkSync(external, agents);
+      const target = kind === 'live' ? readFileSync(external) : null;
+      const acquireSource = async (): Promise<AcquiredPack> => ({ packRoot, resolvedSource: 'p' });
+
+      const result = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('nothing was imported');
+      expect(result.stderr).toContain(agents);
+      expect(lstatSync(agents).isSymbolicLink()).toBe(true);
+      if (target === null) expect(existsSync(external)).toBe(false);
+      else expect(readFileSync(external)).toEqual(target);
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(false);
+      expect(await git(sandbox, ['status', '--porcelain', '--untracked-files=all'])).toBe('');
+
+      rmSync(agents);
+      writeFileSync(agents, '# Test repo\n');
+      const retry = await afterCommit(() => runPackImportCommand('fixture', { acquireSource }));
+      expect(retry.code).toBe(0);
+      expect(lstatSync(agents).isFile()).toBe(true);
+      expect(readFileSync(agents, 'utf8')).toContain('kenkeep:kk-index');
+      expect(existsSync(join(kkDir, 'nodes/drupal'))).toBe(true);
+    }
+  );
+
+  // A symlinked AGENTS.md that already carries the current pointer block is
+  // left alone by the rebuild, so it does not block the import.
+  it('grafts through a symlinked AGENTS.md the rebuild leaves untouched', async () => {
+    const agents = join(sandbox, 'AGENTS.md');
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    const external = join(sandbox, 'user-owned', 'AGENTS.md');
+    mkdirSync(dirname(external), { recursive: true });
+    writeFileSync(external, readFileSync(agents));
+    rmSync(agents);
+    symlinkSync(external, agents);
+    const target = readFileSync(external);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(0);
+    expect(lstatSync(agents).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external)).toEqual(target);
+    expect(existsSync(join(sandbox, '.ai/kenkeep/nodes/drupal'))).toBe(true);
   });
 
   /**

@@ -131,6 +131,15 @@ function lstatOrNull(p: string): Stats | null {
 }
 
 /**
+ * True when an entry other than a real directory sits at `path`, so a writer
+ * cannot create files below it. A missing path is not one.
+ */
+export function isNonDirectory(path: string): boolean {
+  const stat = lstatOrNull(path);
+  return stat !== null && !stat.isDirectory();
+}
+
+/**
  * Asserts that `target` lies within `root` on the real filesystem and returns
  * the absolute target. Rejects:
  *

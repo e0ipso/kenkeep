@@ -9,6 +9,7 @@ import lockfile from 'proper-lockfile';
 import { findRepoRoot, packageTemplatesDir, repoPaths, type RepoPaths } from './paths.js';
 import { resolveSettings, type EffectiveSettings } from './settings.js';
 import { compactStamp } from './time.js';
+import { withSessionLogLock } from './session-log.js';
 
 export const DEFAULT_MAX_ENTRIES = Infinity;
 export const DEFAULT_TIMEOUT_MS = 60_000;
@@ -269,7 +270,7 @@ async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
     };
     outcome = { sessionId: entry.sessionId, status: 'failed', error: truncated, logFile };
   }
-  const written = writeSessionLogFrontmatter(entry.file, expectedHash, patch);
+  const written = await writeSessionLogFrontmatter(entry.file, expectedHash, patch);
   if (!written.ok) {
     return { sessionId: entry.sessionId, status: 'stale' };
   }
@@ -330,33 +331,36 @@ export type SessionLogWriteResult = { ok: true } | { ok: false; currentHash: str
 
 /**
  * Writes an extraction outcome into a session log, bound to the transcript
- * version it was produced from. The file is re-read immediately before the
- * write and compared against `expectedHash`; a mismatch means a newer capture
- * landed meanwhile, so nothing is written and the newer version keeps its
- * own (pending) state. Returns the current hash on refusal so callers can
- * report it.
+ * version it was produced from. Under the session log lock shared with
+ * capture, the file is re-read and compared against `expectedHash`; a
+ * mismatch means a newer capture landed meanwhile, so nothing is written and
+ * the newer version keeps its own (pending) state. Holding the lock across
+ * the read and the rename keeps a capture from landing between the check and
+ * the write. Returns the current hash on refusal so callers can report it.
  */
-export function writeSessionLogFrontmatter(
+export async function writeSessionLogFrontmatter(
   file: string,
   expectedHash: string,
   patch: FrontmatterPatch
-): SessionLogWriteResult {
-  const parsed = matter(readFileSync(file, 'utf8'));
-  const data = { ...(parsed.data as Record<string, unknown>) };
-  const currentHash =
-    typeof data['transcript_hash'] === 'string' ? data['transcript_hash'] : undefined;
-  if (currentHash !== expectedHash) return { ok: false, currentHash };
-  data['proposal_status'] = patch.proposal_status;
-  data['proposal_completed_at'] = patch.proposal_completed_at;
-  data['proposal_error'] = patch.proposal_error;
-  data['proposal_log'] = patch.proposal_log;
-  if (patch.proposals) data['proposals'] = patch.proposals;
-  const body = updateProposalBody(parsed.content, patch);
-  const serialized = matter.stringify(body, data);
-  // tmp+rename: a crash mid-write must not truncate the session log into an
-  // unparseable file the next sweep would silently drop.
-  atomicWriteFile(file, serialized);
-  return { ok: true };
+): Promise<SessionLogWriteResult> {
+  return withSessionLogLock(file, () => {
+    const parsed = matter(readFileSync(file, 'utf8'));
+    const data = { ...(parsed.data as Record<string, unknown>) };
+    const currentHash =
+      typeof data['transcript_hash'] === 'string' ? data['transcript_hash'] : undefined;
+    if (currentHash !== expectedHash) return { ok: false, currentHash };
+    data['proposal_status'] = patch.proposal_status;
+    data['proposal_completed_at'] = patch.proposal_completed_at;
+    data['proposal_error'] = patch.proposal_error;
+    data['proposal_log'] = patch.proposal_log;
+    if (patch.proposals) data['proposals'] = patch.proposals;
+    const body = updateProposalBody(parsed.content, patch);
+    const serialized = matter.stringify(body, data);
+    // tmp+rename: a crash mid-write must not truncate the session log into an
+    // unparseable file the next sweep would silently drop.
+    atomicWriteFile(file, serialized);
+    return { ok: true };
+  });
 }
 
 export function updateProposalBody(content: string, patch: FrontmatterPatch): string {

@@ -666,6 +666,33 @@ describe('kk-capture hook (spawned) [opencode temp-file hygiene]', () => {
     expect(sessionLogs(sandbox)).toHaveLength(0);
     expect(readdirSync(tmp)).toEqual([]);
   });
+
+  it('timeout: a SIGTERM-ignoring export is still cut off inside the deadline', async () => {
+    writeOpenCodeBinary(home, 'trap "" TERM; exec sleep 12');
+    const started = performance.now();
+    const result = await runHook(hookPath, sandbox, input(), env());
+    const elapsed = performance.now() - started;
+    expect(result.exitCode).toBe(0);
+    expect(elapsed).toBeLessThan(8_000);
+    expect(result.stderr).toContain('skipped');
+    expect(sessionLogs(sandbox)).toHaveLength(0);
+    expect(readdirSync(tmp)).toEqual([]);
+  });
+
+  it('timeout: a SIGTERM-ignoring version probe is still cut off inside the deadline', async () => {
+    mkdirSync(join(home, 'bin'), { recursive: true });
+    writeFileSync(join(home, 'bin', 'opencode'), '#!/bin/sh\ntrap "" TERM\nexec sleep 12\n', {
+      mode: 0o755,
+    });
+    const started = performance.now();
+    const result = await runHook(hookPath, sandbox, input(), env());
+    const elapsed = performance.now() - started;
+    expect(result.exitCode).toBe(0);
+    expect(elapsed).toBeLessThan(8_000);
+    expect(result.stderr).toContain('skipped');
+    expect(sessionLogs(sandbox)).toHaveLength(0);
+    expect(readdirSync(tmp)).toEqual([]);
+  });
 });
 
 describe('kk-capture hook (spawned) [codex PreCompact]', () => {

@@ -4,6 +4,7 @@ import {
   assertSourceDoc,
   bootstrapStateFile,
   completeDocument,
+  liveNodeIds,
   updateBootstrapStateLocked,
 } from '../lib/bootstrap.js';
 import { stderrLog } from '../lib/log.js';
@@ -32,7 +33,8 @@ export interface BootstrapCompleteDocDeps {
  * document listed for the next run.
  *
  * Moves the attempt's written ids into `docs[<relpath>]` of
- * `bootstrap-state.json` under the state lock. Idempotent at the same hash.
+ * `bootstrap-state.json` under the state lock, leaving out any leaf that is no
+ * longer in the tree. Idempotent at the same hash.
  * Refuses, changing nothing, an invalid path or hash, or an unfinished attempt
  * recorded at a different hash (the document changed mid-run).
  *
@@ -55,7 +57,12 @@ export async function runBootstrapCompleteDocCommand(
     const doc = assertSourceDoc(root, args.doc);
     const hash = assertContentHash(args.hash);
     const entry = await updateBootstrapStateLocked(bootstrapStateFile(paths.stateDir), state => {
-      const { next, entry } = completeDocument(state, { doc, hash, now: new Date().toISOString() });
+      const { next, entry } = completeDocument(state, {
+        doc,
+        hash,
+        now: new Date().toISOString(),
+        liveIds: liveNodeIds(paths.nodesDir),
+      });
       return { next, result: entry };
     });
     writeStdout(

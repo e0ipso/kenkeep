@@ -505,6 +505,48 @@ describe('bootstrap provenance and resumable document completion', () => {
     });
   });
 
+  it('writes a recorded draft again when its leaf was removed before the retry', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo.\n');
+    const leaf = join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md');
+    expect(await writeFromDoc('use-foo', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo\n',
+    });
+    rmSync(leaf);
+
+    // The attempt record alone does not prove the node exists: the retry
+    // writes it again instead of reporting an id that is not in the tree.
+    expect(await writeFromDoc('use-foo', 'docs/a.md', hash)).toEqual({
+      code: 0,
+      stdout: 'practice-use-foo\n',
+    });
+    expect(matter(readFileSync(leaf, 'utf8')).data['kk_derived_from']).toEqual(['docs/a.md']);
+    expect(readState(cwd).in_progress?.['docs/a.md']?.written).toEqual({
+      'practice-use-foo': 'practice-use-foo',
+    });
+
+    const done = await completeDoc('docs/a.md', hash);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toMatchObject({ produced_nodes: ['practice-use-foo'] });
+  });
+
+  it('completes a document without listing a node removed after it was written', async () => {
+    const hash = writeDoc(cwd, 'docs/a.md', '# A\n\nUse foo. Avoid bar.\n');
+    await writeFromDoc('use-foo', 'docs/a.md', hash);
+    await writeFromDoc('avoid-bar', 'docs/a.md', hash);
+    rmSync(join(cwd, '.ai/kenkeep/nodes/practice-use-foo.md'));
+
+    const done = await completeDoc('docs/a.md', hash);
+    expect(done.code).toBe(0);
+    expect(JSON.parse(done.stdout)).toEqual({
+      doc: 'docs/a.md',
+      content_sha256: hash,
+      produced_nodes: ['practice-avoid-bar'],
+    });
+    expect(readState(cwd).docs['docs/a.md']?.produced_nodes).toEqual(['practice-avoid-bar']);
+    expect(leafFiles(cwd)).toEqual(['practice-avoid-bar.md']);
+  });
+
   it('finalizes a zero-node document so it is not re-listed', async () => {
     const hash = writeDoc(cwd, 'docs/empty.md', '# Nothing durable here\n');
     expect(await pendingDiscovery(cwd)).toEqual(['docs/empty.md']);

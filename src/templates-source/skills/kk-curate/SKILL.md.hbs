@@ -25,7 +25,7 @@ For each session log with `proposal_status: pending`, extract proposals inline i
 
 4. **Process each pending log sequentially** (in `captured_at` order). Failure on one log does not abort the rest:
    a. Read the file in full and note its frontmatter `transcript_hash`: it names the transcript version you are extracting from.
-   b. Extract the transcript section (content between `## Transcript` and `## Proposal`). A log that was curated before and then grew keeps its already-curated turns under `## Curated prefix`; read them for context if you like, but never extract from them, because only `## Transcript` holds uncurated content.
+   b. Extract the transcript section (content between `## Transcript` and `## Proposal`). A log that was curated before and then grew keeps its already-curated turns under `## Curated prefix`; read them for context if you like, but never extract from them. `## Transcript` usually holds only uncurated turns. The exception is a capture that landed while an earlier curate run was finishing: the log then shows that run's turns under `## Transcript` too, so extraction may repeat knowledge already in the tree. Extract the section as it is: in Step 2, a candidate an existing node already covers is a `drop`, or a `modify` when it changes something.
    c. Apply the extraction rules from the prompt to produce a JSON object matching `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has `{ type, tags, title, description, body, kk_confidence }`.
    d. Pipe the JSON into the CLI primitive, passing the hash from (a):
 

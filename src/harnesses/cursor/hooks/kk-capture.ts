@@ -8,6 +8,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
+import { captureOutcomeMessage } from '../../../lib/capture-report.js';
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
@@ -70,7 +71,7 @@ runHookEntry({
         cwd: startCwd,
       };
       process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-      await captureSession(input, {
+      const result = await captureSession(input, {
         sessionsDir: paths.sessionsDir,
         parseTranscript: parseCursorTranscript,
         usage: {
@@ -80,7 +81,7 @@ runHookEntry({
           extractReads: extractCursorReads,
         },
       });
-      process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
+      process.stderr.write(`${captureOutcomeMessage(result)}\n`);
     } catch (err) {
       process.stderr.write(
         `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

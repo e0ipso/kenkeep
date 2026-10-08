@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   pickModelChoice,
   type EffectiveSettings,
+  type ModelChoice,
   type ModelChoiceRole,
 } from '../../lib/settings.js';
 
@@ -32,4 +33,16 @@ export function buildCursorHarnessOpts(
   if (!choice || choice.harness !== 'cursor') return {};
   const out: Record<string, unknown> = { model: choice.model };
   return out;
+}
+
+/**
+ * Launcher argv for a Cursor model choice. `agent --help`
+ * (2026.09.28-64d2043) lists `--model <model>` ("Model to use (e.g., gpt-5,
+ * sonnet-4-thinking)") as a global option usable with `-p`.
+ */
+export function cursorLaunchModelArgs(choice: ModelChoice): string[] {
+  if (choice.harness !== 'cursor') {
+    throw new Error(`cursor adapter received a model choice for harness '${choice.harness}'`);
+  }
+  return ['--model', choice.model];
 }

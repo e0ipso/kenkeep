@@ -17,6 +17,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { captureSession, type HookInput } from '../../../lib/capture.js';
+import { captureOutcomeMessage, captureSkippedMessage } from '../../../lib/capture-report.js';
 import { runHookEntry } from '../../../lib/hook-entry.js';
 import { findRepoRoot, repoPaths } from '../../../lib/paths.js';
 import { assertValidSessionId } from '../../../lib/session-log.js';
@@ -60,6 +61,9 @@ runHookEntry({
       const eventsFile = join(copilotHome(), 'session-state', sessionId, 'events.jsonl');
       if (!existsSync(eventsFile)) {
         // The transcript may not be flushed yet, or the session ran elsewhere.
+        process.stderr.write(
+          `${captureSkippedMessage('no events.jsonl found for this session')}\n`
+        );
         return;
       }
       const event = pickString(payload, 'hook_event_name', 'event', 'type');
@@ -74,7 +78,7 @@ runHookEntry({
         cwd: startCwd,
       };
       process.stderr.write('📸 kenkeep Capture: Saving session transcript…\n');
-      await captureSession(input, {
+      const result = await captureSession(input, {
         sessionsDir: paths.sessionsDir,
         parseTranscript: parseCopilotTranscript,
         usage: {
@@ -84,7 +88,7 @@ runHookEntry({
           extractReads: extractCopilotReads,
         },
       });
-      process.stderr.write('💾 kenkeep Capture: Session transcript saved.\n');
+      process.stderr.write(`${captureOutcomeMessage(result)}\n`);
     } catch (err) {
       process.stderr.write(
         `${PACKAGE_TAG} capture error: ${err instanceof Error ? err.message : String(err)}\n`

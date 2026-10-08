@@ -37,12 +37,12 @@ Two related calibrations from the curator prompt (v3):
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curator-action](/curation/map-curator-action.md)
-- Related: [map-proposal-candidate-schema](/curation/map-proposal-candidate-schema.md)
+- Related: [map-curator-action](map-curator-action.md)
+- Related: [map-proposal-candidate-schema](map-proposal-candidate-schema.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/internals/prompts.md](docs/internals/prompts.md)
+[1] [docs/internals/prompts.md](../../../../docs/internals/prompts.md)
 <!-- kk:citations:end -->

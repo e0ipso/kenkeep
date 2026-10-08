@@ -23,8 +23,7 @@ runHookEntry({
     await runProposalDrain({
       binaryName: 'copilot',
       startCwd,
-      runner: async (prompt, stdin, schema, opts) =>
-        runHeadlessCopilot(prompt, stdin, schema, opts),
+      runner: async (prompt, schema, opts) => runHeadlessCopilot(prompt, schema, opts),
       buildHarnessOpts: settings => buildCopilotHarnessOpts(settings, 'proposal'),
       harnessTag: 'copilot:kk-proposal-drain',
     });

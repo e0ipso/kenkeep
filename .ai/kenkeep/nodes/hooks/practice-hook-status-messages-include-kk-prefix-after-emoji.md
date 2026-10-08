@@ -26,8 +26,8 @@ This convention applies across all five harness adapters (Claude, Codex, Copilot
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
-- Related: [map-claude-harness](/harnesses/map-claude-harness.md)
+- Related: [map-capture-hook](map-capture-hook.md)
+- Related: [map-session-start-hook](map-session-start-hook.md)
+- Related: [map-proposal-drain-hook](map-proposal-drain-hook.md)
+- Related: [map-claude-harness](../harnesses/map-claude-harness.md)
 <!-- kk:related:end -->

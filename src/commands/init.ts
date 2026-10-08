@@ -1,13 +1,21 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { refreshClaudeTemplates } from '../harnesses/claude/install.js';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
+import type { HarnessAdapter } from '../harnesses/types.js';
 import { ensureAgentsKkBlock } from '../lib/agents-block.js';
-import { copyTree } from '../lib/fs-atomic.js';
+import { copyMissingEntries, copyTree } from '../lib/fs-atomic.js';
+import { planHarnessRuntimeRepair, repairHarnessRuntime } from '../lib/harness-install-status.js';
+import {
+  installedVersionRecord,
+  mergeHarnessInventory,
+  readInstalledVersion,
+  writeInstalledVersion,
+  type InstalledVersion,
+} from '../lib/installed-version.js';
 import { log } from '../lib/log.js';
 import { detectSchemaVersion } from '../lib/migrate.js';
 import { MIGRATE_COMMAND_HINT } from '../lib/migrate-guidance.js';
-import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
+import { findRepoRoot, packageTemplatesDir, repoPaths, type RepoPaths } from '../lib/paths.js';
 import { ensureKbignore } from '../lib/kkignore-stub.js';
 import { sweepRootLeaves } from './node-sweep.js';
 import { NODE_SCHEMA_VERSION } from '../lib/schemas.js';
@@ -19,21 +27,25 @@ export interface InitOptions {
   upgrade?: boolean;
 }
 
-interface InstalledVersion {
-  schema_version: 1;
-  package: string;
-  version: string;
-  installed_at: string;
-  harnesses: string[];
-}
+const SESSIONS_IGNORE_LINE = '/_sessions/';
 
 const KENKEEP_GITIGNORE_LINES = [
-  '/_sessions/',
+  SESSIONS_IGNORE_LINE,
+  '/_sessions/*.lock/',
   '/_logs/',
   '/hooks/',
   '.state/*',
   '!.state/installed-version',
 ];
+
+/**
+ * The supported session-retention opt-in: a team that wants session logs
+ * committed (so `derived_from` provenance resolves for every reviewer)
+ * replaces the `/_sessions/` rule in `.ai/kenkeep/.gitignore` with its
+ * negation. `ensureKbGitignore` recognizes that line and stops re-emitting
+ * the ignore rule, so an upgrade never silently reverses the decision.
+ */
+const SESSIONS_RETENTION_OPT_IN = /^!\/?_sessions\/?$/;
 
 // Unanchored variants kenkeep shipped before the directory patterns were
 // anchored to the bundle root. An unanchored `hooks/` also matches the
@@ -53,24 +65,30 @@ export async function runInit(opts: InitOptions): Promise<void> {
     );
   }
 
+  const recorded = readInstalledVersion(paths.installedVersionFile);
   if (opts.upgrade) {
-    await runUpgrade(opts, root, paths, templatesDir);
+    if (!recorded) {
+      throw new Error(
+        'Not initialized. Run `npx kenkeep init --harnesses <id[,id,...]>` for a first-time install.'
+      );
+    }
+    await runUpgrade(opts, recorded, root, paths, templatesDir);
     return;
   }
+  if (recorded) {
+    await runRepair(opts, recorded, root, paths, templatesDir);
+    return;
+  }
+  await runFreshInstall(opts, root, paths, templatesDir);
+}
 
+async function runFreshInstall(
+  opts: InitOptions,
+  root: string,
+  paths: RepoPaths,
+  templatesDir: string
+): Promise<void> {
   log.info(`Initializing in ${root}`);
-
-  // Already initialized?
-  if (existsSync(paths.installedVersionFile)) {
-    const existing = JSON.parse(
-      readFileSync(paths.installedVersionFile, 'utf8')
-    ) as InstalledVersion;
-    log.warn(
-      `Already initialized (version ${existing.version}). Use \`init --upgrade\` to refresh templates while preserving local prompt overrides and \`config.yaml\`.`
-    );
-    reportSchemaMismatch(paths.nodesDir);
-    return;
-  }
 
   // 1. Kenkeep skeleton.
   copyTree(join(templatesDir, 'kenkeep'), paths.kkDir);
@@ -101,30 +119,140 @@ export async function runInit(opts: InitOptions): Promise<void> {
 
   // 5. Write default settings file unless one is already present. Users edit
   // config.yaml; init never overwrites it.
-  if (!existsSync(paths.projectConfigFile)) {
-    mkdirSync(paths.kkDir, { recursive: true });
-    writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
-  }
+  ensureProjectConfig(paths);
 
   // 6. Write installed-version marker.
-  writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.harnesses);
+  writeInstalledVersion(
+    paths.installedVersionFile,
+    paths.stateDir,
+    installedVersionRecord(opts.harnesses)
+  );
 
   log.success('Initialized.');
-  log.plain('');
-  log.plain('Next steps:');
-  const harnessDirs = opts.harnesses
-    .map(id => {
-      const adapter = getHarness(id);
-      const dir = adapter.paths(root).dir;
-      const rel = dir.startsWith(root) ? dir.slice(root.length).replace(/^\//, '') : dir;
-      if (id === 'codex') {
-        return `\`${rel}/\` and \`.agents/skills/\``;
-      }
-      return `\`${rel}/\``;
-    })
-    .join(', ');
-  log.plain(`  1. Review and commit \`.ai/kenkeep/\` and ${harnessDirs}.`);
-  log.plain('  2. Run `npx kenkeep doctor` to verify the setup.');
+  printNextSteps(root, opts.harnesses);
+
+  reportSchemaMismatch(paths.nodesDir);
+}
+
+/**
+ * `init` on an already-initialized repository (the documented teammate flow:
+ * commit, clone, run `init`). The hook scripts the committed host configs
+ * reference are gitignored, so a fresh clone has none; this restores every
+ * recorded harness's missing scripts without rewriting any that exist.
+ * Everything else arrives with the clone and is left byte-identical.
+ *
+ * A requested harness that is not yet recorded is a new installation: it is
+ * installed in full and merged into the inventory. Recorded harnesses are
+ * never dropped, whatever `--harnesses` names.
+ */
+async function runRepair(
+  opts: InitOptions,
+  recorded: InstalledVersion,
+  root: string,
+  paths: RepoPaths,
+  templatesDir: string
+): Promise<void> {
+  log.info(
+    `Already initialized (version ${recorded.version}) in ${root}; restoring missing hook scripts. ` +
+      'Use `init --upgrade` to refresh templates while preserving local prompt overrides and `config.yaml`.'
+  );
+  const known = recorded.harnesses.filter(hasHarness);
+  for (const id of recorded.harnesses) {
+    if (!hasHarness(id)) log.warn(`Recorded harness '${id}' is unknown to this kenkeep; skipped.`);
+  }
+  const added = opts.harnesses.filter(id => !recorded.harnesses.includes(id));
+  // Every restore target is checked before anything is written, so a refused
+  // one (a symlinked hooks directory) leaves the whole repository as it was.
+  const repairs = known.map(id => ({
+    id,
+    plan: planHarnessRuntimeRepair(root, templatesDir, getHarness(id)),
+  }));
+
+  for (const id of added) {
+    await getHarness(id).install({ root, paths, templatesDir, upgrade: false });
+    log.success(`Installed ${id}.`);
+  }
+
+  let restoredAnything = false;
+  for (const { id, plan } of repairs) {
+    const restored = plan ? repairHarnessRuntime(plan) : [];
+    if (restored.length === 0) continue;
+    restoredAnything = true;
+    log.success(`Restored ${plural(restored.length, 'hook script', 'hook scripts')} for ${id}:`);
+    for (const name of restored) log.plain(`  ${name}`);
+  }
+
+  if (added.length > 0) {
+    writeInstalledVersion(paths.installedVersionFile, paths.stateDir, {
+      ...recorded,
+      harnesses: mergeHarnessInventory(recorded.harnesses, added),
+    });
+    printNextSteps(root, added);
+  } else if (!restoredAnything) {
+    log.success('Hook scripts are in place; nothing to restore.');
+  }
+
+  reportSchemaMismatch(paths.nodesDir);
+}
+
+/**
+ * Refreshes templates, skills and hook registrations for every recorded
+ * harness plus any newly requested one, then records the merged inventory at
+ * the current package version. Refreshing the whole inventory (not only the
+ * harnesses named on the command line) keeps the single recorded version
+ * truthful for every registration in the repo. Nothing is removed: a harness
+ * leaves the inventory only when a human deletes its host registration and
+ * edits `.ai/kenkeep/.state/installed-version`.
+ */
+async function runUpgrade(
+  opts: InitOptions,
+  recorded: InstalledVersion,
+  root: string,
+  paths: RepoPaths,
+  templatesDir: string
+): Promise<void> {
+  const current = packageVersion();
+  const inventory = mergeHarnessInventory(recorded.harnesses, opts.harnesses);
+  const harnesses = inventory.filter(hasHarness);
+  for (const id of inventory) {
+    if (!hasHarness(id)) log.warn(`Recorded harness '${id}' is unknown to this kenkeep; skipped.`);
+  }
+  log.info(`Upgrading in ${root} to ${current} (harnesses: ${harnesses.join(', ')})`);
+
+  for (const id of harnesses) {
+    const adapter = getHarness(id);
+    await adapter.upgrade({ root, paths, templatesDir, upgrade: true });
+  }
+
+  // An existing prompt is a local override and stays.
+  copyMissingEntries(join(templatesDir, 'prompts'), paths.promptsDir);
+
+  // Ship skeleton scripts (e.g. the shared kk-detect-root helper the kk
+  // skills invoke) into existing repos. Upgrade does not re-copy the whole
+  // skeleton, so copy any missing script without clobbering user-owned files.
+  copyMissingEntries(join(templatesDir, 'kenkeep', 'scripts'), join(paths.kkDir, 'scripts'));
+  copyMissingEntries(join(templatesDir, 'kenkeep', 'assets'), join(paths.kkDir, 'assets'));
+
+  ensureKbGitignore(paths.kkGitignoreFile);
+  ensureAgentsKkBlock(join(root, 'AGENTS.md'));
+
+  const kkignore = ensureKbignore(root);
+  if (kkignore.written) {
+    log.info(`Wrote default .kkignore at ${kkignore.path}`);
+  }
+
+  ensureProjectConfig(paths);
+
+  writeInstalledVersion(
+    paths.installedVersionFile,
+    paths.stateDir,
+    installedVersionRecord(inventory)
+  );
+
+  await sweepRootDuringUpgrade(paths);
+
+  log.success(`Upgraded to ${current}.`);
+  log.plain('Run `npx kenkeep doctor` to verify.');
 
   reportSchemaMismatch(paths.nodesDir);
 }
@@ -140,6 +268,40 @@ function validateHarnesses(harnesses: string[]): void {
       throw new Error(`Unsupported harness '${h}'. Supported: ${listHarnessIds().join(', ')}.`);
     }
   }
+}
+
+function ensureProjectConfig(paths: RepoPaths): void {
+  if (existsSync(paths.projectConfigFile)) return;
+  mkdirSync(paths.kkDir, { recursive: true });
+  writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
+}
+
+function printNextSteps(root: string, harnesses: string[]): void {
+  const artifacts = [...new Set(harnesses.flatMap(id => committedArtifacts(root, getHarness(id))))];
+  log.plain('');
+  log.plain('Next steps:');
+  const list = artifacts.map(a => `\`${a}\``).join(', ');
+  log.plain(`  1. Review and commit \`.ai/kenkeep/\`${list ? ` and ${list}` : ''}.`);
+  log.plain('  2. Run `npx kenkeep doctor` to verify the setup.');
+}
+
+/**
+ * Repo-relative locations an adapter's install wrote and the team should
+ * commit: its root directory when it exists, plus any registration, skills or
+ * plugin location that lives outside that directory (Codex's
+ * `.agents/skills/`). Derived from the adapter's declared paths so the
+ * message cannot name a directory the adapter never creates.
+ */
+function committedArtifacts(root: string, adapter: HarnessAdapter): string[] {
+  const locs = adapter.paths(root);
+  const rel = (p: string): string => relative(root, p).split(sep).join('/');
+  const out: string[] = [];
+  if (existsSync(locs.dir)) out.push(`${rel(locs.dir)}/`);
+  for (const p of [locs.settingsFile, locs.skillsDir, locs.pluginsDir]) {
+    if (!p || !existsSync(p) || p.startsWith(`${locs.dir}${sep}`)) continue;
+    out.push(statSync(p).isDirectory() ? `${rel(p)}/` : rel(p));
+  }
+  return out;
 }
 
 /**
@@ -162,64 +324,6 @@ function reportSchemaMismatch(nodesDir: string): void {
       `schema_version ${NODE_SCHEMA_VERSION}. nodes/ was left untouched and commands that ` +
       `read it will fail until you migrate it: use ${MIGRATE_COMMAND_HINT}.`
   );
-}
-
-async function runUpgrade(
-  opts: InitOptions,
-  root: string,
-  paths: ReturnType<typeof repoPaths>,
-  templatesDir: string
-): Promise<void> {
-  if (!existsSync(paths.installedVersionFile)) {
-    throw new Error(
-      'Not initialized. Run `npx kenkeep init --harnesses <id[,id,...]>` for a first-time install.'
-    );
-  }
-  const current = packageVersion();
-  log.info(`Upgrading in ${root} to ${current}`);
-
-  // Force-refresh shipped templates for the Claude adapter before re-running
-  // its installer — only when Claude is actually selected; a codex-only repo
-  // must not grow a .claude/ directory on upgrade. Other adapters that need a
-  // similar pre-step can expose it through their own modules.
-  if (opts.harnesses.includes('claude')) {
-    refreshClaudeTemplates({ root, paths, templatesDir, upgrade: true });
-  }
-
-  for (const id of opts.harnesses) {
-    const adapter = getHarness(id);
-    await adapter.upgrade({ root, paths, templatesDir, upgrade: true });
-  }
-
-  copyPromptsPreservingLocal(join(templatesDir, 'prompts'), paths.promptsDir);
-
-  // Ship skeleton scripts (e.g. the shared kk-detect-harness helper the kk
-  // skills invoke) into existing repos. Upgrade does not re-copy the whole
-  // skeleton, so copy any missing script without clobbering user-owned files.
-  ensureKkScripts(join(templatesDir, 'kenkeep', 'scripts'), join(paths.kkDir, 'scripts'));
-  ensureKkAssets(join(templatesDir, 'kenkeep', 'assets'), join(paths.kkDir, 'assets'));
-
-  ensureKbGitignore(paths.kkGitignoreFile);
-  ensureAgentsKkBlock(join(root, 'AGENTS.md'));
-
-  const kkignore = ensureKbignore(root);
-  if (kkignore.written) {
-    log.info(`Wrote default .kkignore at ${kkignore.path}`);
-  }
-
-  if (!existsSync(paths.projectConfigFile)) {
-    mkdirSync(paths.kkDir, { recursive: true });
-    writeFileSync(paths.projectConfigFile, defaultProjectConfigBody());
-  }
-
-  writeInstalledVersion(paths.installedVersionFile, paths.stateDir, opts.harnesses);
-
-  await sweepRootDuringUpgrade(paths);
-
-  log.success(`Upgraded to ${current}.`);
-  log.plain('Run `npx kenkeep doctor` to verify.');
-
-  reportSchemaMismatch(paths.nodesDir);
 }
 
 /**
@@ -288,63 +392,16 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /**
- * Copies skeleton script files into `.ai/kenkeep/scripts/` for an existing
- * install. First-time `init` already lands the whole `templates/kenkeep`
- * skeleton; upgrade only fills in scripts that are missing and never
- * overwrites a file the user may have edited.
- */
-function ensureKkScripts(src: string, dst: string): void {
-  if (!existsSync(src)) return;
-  mkdirSync(dst, { recursive: true });
-  for (const name of readdirSync(src)) {
-    const dstPath = join(dst, name);
-    if (existsSync(dstPath)) continue;
-    cpSync(join(src, name), dstPath);
-  }
-}
-
-function ensureKkAssets(src: string, dst: string): void {
-  if (!existsSync(src)) return;
-  mkdirSync(dst, { recursive: true });
-  for (const name of readdirSync(src)) {
-    const dstPath = join(dst, name);
-    if (existsSync(dstPath)) continue;
-    cpSync(join(src, name), dstPath);
-  }
-}
-
-function copyPromptsPreservingLocal(src: string, dst: string): void {
-  if (!existsSync(src)) return;
-  mkdirSync(dst, { recursive: true });
-  for (const name of readdirSync(src)) {
-    const srcPath = join(src, name);
-    const dstPath = join(dst, name);
-    if (existsSync(dstPath)) {
-      // Preserve any existing prompt (treat as local override).
-      continue;
-    }
-    cpSync(srcPath, dstPath);
-  }
-}
-
-function writeInstalledVersion(file: string, stateDir: string, harnesses: string[]): void {
-  const installed: InstalledVersion = {
-    schema_version: 1,
-    package: 'kenkeep',
-    version: packageVersion(),
-    installed_at: new Date().toISOString(),
-    harnesses,
-  };
-  mkdirSync(stateDir, { recursive: true });
-  writeFileSync(file, `${JSON.stringify(installed, null, 2)}\n`);
-}
-
-/**
  * Ensures `.ai/kenkeep/.gitignore` carries every canonical generated-state
  * entry, anchored to the bundle root. User-owned content is preserved; the
  * canonical lines are re-emitted in order and the legacy unanchored variants
  * (the `hooks/` footgun that also ignored `nodes/hooks/`) are dropped, so an
  * upgrade converts an existing gitignore rather than leaving both forms.
+ *
+ * One canonical line is conditional: when the file carries the
+ * session-retention opt-in (`!/_sessions/`, see `SESSIONS_RETENTION_OPT_IN`)
+ * the `/_sessions/` rule is not re-added, so the team's decision to commit
+ * session logs survives every upgrade.
  */
 function ensureKbGitignore(file: string): void {
   mkdirSync(dirname(file), { recursive: true });
@@ -363,7 +420,11 @@ function ensureKbGitignore(file: string): void {
       const trimmed = line.trim();
       return !canonical.has(trimmed) && !LEGACY_UNANCHORED_GITIGNORE_LINES.has(trimmed);
     });
-  const next = `${[...KENKEEP_GITIGNORE_LINES, ...userLines].join('\n')}\n`;
+  const retainsSessions = userLines.some(line => SESSIONS_RETENTION_OPT_IN.test(line.trim()));
+  const canonicalLines = retainsSessions
+    ? KENKEEP_GITIGNORE_LINES.filter(line => line !== SESSIONS_IGNORE_LINE)
+    : KENKEEP_GITIGNORE_LINES;
+  const next = `${[...canonicalLines, ...userLines].join('\n')}\n`;
   if (next === existing) return;
   writeFileSync(file, next);
 }

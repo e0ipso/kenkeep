@@ -1,10 +1,9 @@
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RepoPaths } from '../../lib/paths.js';
-import { EXPECTED_SKILLS } from '../../lib/install-skills.js';
-import { sharedHookScriptPath } from '../../lib/shared-hooks.js';
+import { sharedSkillsDoctorCheck } from '../../lib/install-skills.js';
+import { hookRegistrationDoctorCheck, sharedHookScriptPath } from '../../lib/shared-hooks.js';
 import { errCheck, ok, type DoctorCheckResult, type NamedDoctorCheck } from '../types.js';
 import { cursorHookSpecs } from './hook-spec.js';
 import { cursorPaths } from './install.js';
@@ -19,7 +18,10 @@ export async function cursorDoctorChecks(paths: RepoPaths): Promise<NamedDoctorC
       name: 'Cursor hooks registered',
       result: checkCursorHooks(locs.hooksFile, locs.hooksDir),
     },
-    { name: 'Cursor skills installed', result: checkCursorSkills(locs.skillsDir) },
+    {
+      name: 'Cursor skills installed',
+      result: sharedSkillsDoctorCheck(locs.skillsDir, '.cursor/skills/', 'cursor'),
+    },
   ];
 }
 
@@ -50,7 +52,6 @@ function checkCursorHooks(hooksFile: string, hooksDir: string): DoctorCheckResul
   }
   const eventTable = parsed.hooks ?? {};
   const missingRegs: string[] = [];
-  const missingFiles = new Set<string>();
   for (const spec of cursorHookSpecs) {
     const expectedScriptPath = sharedHookScriptPath('cursor', spec.scriptPath);
     const entries = eventTable[spec.event] ?? [];
@@ -58,27 +59,6 @@ function checkCursorHooks(hooksFile: string, hooksDir: string): DoctorCheckResul
       entry => typeof entry?.command === 'string' && entry.command.includes(expectedScriptPath)
     );
     if (!found) missingRegs.push(`${spec.event} -> ${expectedScriptPath}`);
-    if (!existsSync(join(hooksDir, spec.scriptPath))) missingFiles.add(spec.scriptPath);
   }
-  if (missingRegs.length === 0 && missingFiles.size === 0) {
-    return ok('all expected hook entries and scripts present');
-  }
-  const parts: string[] = [];
-  if (missingRegs.length > 0) parts.push(`missing registrations: ${missingRegs.join(', ')}`);
-  if (missingFiles.size > 0) parts.push(`missing scripts: ${[...missingFiles].join(', ')}`);
-  return errCheck(`${parts.join('; ')}. Re-run \`npx kenkeep init --harnesses cursor --upgrade\`.`);
-}
-
-function checkCursorSkills(skillsDir: string): DoctorCheckResult {
-  if (!existsSync(skillsDir)) {
-    return errCheck(
-      'no .cursor/skills/ directory. Re-run `npx kenkeep init --harnesses cursor --upgrade`.'
-    );
-  }
-  const missing = EXPECTED_SKILLS.filter(name => !existsSync(join(skillsDir, name, 'SKILL.md')));
-  return missing.length === 0
-    ? ok(EXPECTED_SKILLS.join(', '))
-    : errCheck(
-        `missing SKILL.md for: ${missing.join(', ')}. Re-run \`npx kenkeep init --upgrade\`.`
-      );
+  return hookRegistrationDoctorCheck(missingRegs, hooksDir, cursorHookSpecs, 'cursor');
 }

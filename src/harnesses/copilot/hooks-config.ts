@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { KK_NAVIGATION_DIRECTIVE } from '../../lib/session-start.js';
+import { atomicWriteFile } from '../../lib/fs-atomic.js';
+import { splitManagedBlock } from '../../lib/managed-block.js';
 import type { HarnessPaths } from '../types.js';
 import { copilotHookSpecs } from './hook-spec.js';
 
@@ -84,14 +85,6 @@ function renderHookConfig(): CopilotHookConfig {
   return { version: HOOK_CONFIG_VERSION, hooks };
 }
 
-/** Atomic write: tmp file then rename. Creates the parent directory. */
-function atomicWriteText(file: string, body: string): void {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, body);
-  renameSync(tmp, file);
-}
-
 /**
  * Renders the aggregated Copilot hook JSON and atomically writes it to the
  * **repo-level** file Copilot reads (`paths.settingsFile`, i.e.
@@ -108,48 +101,43 @@ export async function writeCopilotHookConfig(paths: HarnessPaths): Promise<void>
   }
   const config = renderHookConfig();
   const body = `${JSON.stringify(config, null, 2)}\n`;
-  atomicWriteText(paths.settingsFile, body);
+  atomicWriteFile(paths.settingsFile, body);
 }
 
 /**
- * Reads the current entry-catalog content the sentinel block should carry. The
- * catalog lives at `<root>/.ai/kenkeep/ENTRY.md`; the repo root is the parent
- * of `paths.dir` (`<root>/.copilot`). Repos seeded before the rename are read
- * from the legacy `INDEX.md`. Falls back to a short placeholder when neither
- * exists (a fresh repo before the first index rebuild).
+ * The static, team-shared block the installer keeps in the tracked
+ * `.github/copilot-instructions.md`. It only points at the entry catalog
+ * and names the private channel that carries the live content: the
+ * `sessionStart` hook's stdout `additionalContext`, which Copilot CLI injects
+ * into the session (hooks reference; CLI 1.0.11+). Byte-identical for every
+ * user and every run, so it never carries a hostname, queue counts or the
+ * nudge directive and never dirties the committed file. The descent directive
+ * itself is not repeated here: the hook injects it with the catalog, and the
+ * AGENTS.md pointer block (which Copilot also reads) already carries it.
  */
-function readIndexContent(repoRoot: string): string {
-  const kkDir = join(repoRoot, '.ai', 'kenkeep');
-  const entryFile = join(kkDir, 'ENTRY.md');
-  const indexFile = existsSync(entryFile) ? entryFile : join(kkDir, 'INDEX.md');
-  if (existsSync(indexFile)) {
-    // The entry catalog is the whole-tree launchpad. The generated ENTRY.md now
-    // embeds the descent directive itself, so append it only when the body does
-    // NOT already carry it — i.e. the legacy INDEX.md fallback — so Copilot gets
-    // the same enter-at-the-root, descend-on-demand guidance exactly once,
-    // sourced from the one KK_NAVIGATION_DIRECTIVE constant.
-    const body = readFileSync(indexFile, 'utf8').trimEnd();
-    if (body.includes(KK_NAVIGATION_DIRECTIVE)) return body;
-    return `${body}\n\n${KK_NAVIGATION_DIRECTIVE}`;
-  }
-  return 'Curated project knowledge lives in .ai/kenkeep/ENTRY.md (not yet generated). Run `npx kenkeep index rebuild` to populate it.';
-}
+export const COPILOT_INSTRUCTIONS_POINTER = [
+  'You are required to load [.ai/kenkeep/ENTRY.md](.ai/kenkeep/ENTRY.md), the small curated entry catalog for this repo. Enter there and descend using progressive disclosure principles.',
+  '',
+  'The kenkeep `sessionStart` hook registered in `.github/hooks/kk.json` injects the live catalog, its navigation directive and the curation status into each session as `additionalContext`. This block is static and safe to commit; it never carries per-user session state.',
+].join('\n');
 
 /**
  * Builds the file body with exactly one sentinel block at the end, carrying
- * `indexContent`. Any content outside an existing block is preserved; an
+ * `blockContent`. Any content outside an existing block is preserved; an
  * existing block is replaced in place. When no block exists the new block is
- * appended after the existing content.
+ * appended after the existing content. Marker detection follows the shared
+ * malformed-sentinel policy (`managed-block.ts`): orphaned, duplicated or
+ * reversed markers throw a `MalformedManagedBlockError` naming `file` instead
+ * of rewriting it.
  */
-function withSentinelBlock(existing: string, indexContent: string): string {
-  const block = `${SENTINEL_START}\n${indexContent}\n${SENTINEL_END}`;
-  const startIdx = existing.indexOf(SENTINEL_START);
-  const endIdx = existing.indexOf(SENTINEL_END);
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const before = existing.slice(0, startIdx);
-    const after = existing.slice(endIdx + SENTINEL_END.length);
-    const trimmedBefore = before.replace(/\s+$/, '');
-    const trimmedAfter = after.replace(/^\s+/, '');
+function withSentinelBlock(existing: string, blockContent: string, file: string): string {
+  const block = `${SENTINEL_START}\n${blockContent}\n${SENTINEL_END}`;
+  const split = splitManagedBlock(existing, { start: SENTINEL_START, end: SENTINEL_END }, file);
+  if (split.found) {
+    const trimmedBefore = split.before.replace(/\s+$/, '');
+    // Trim both ends: the tail is re-terminated below, so a kept trailing
+    // newline would grow by one on every run (the file was not idempotent).
+    const trimmedAfter = split.after.trim();
     const head = trimmedBefore.length > 0 ? `${trimmedBefore}\n\n` : '';
     const tail = trimmedAfter.length > 0 ? `\n\n${trimmedAfter}` : '';
     return `${head}${block}${tail}\n`;
@@ -160,25 +148,22 @@ function withSentinelBlock(existing: string, indexContent: string): string {
 }
 
 /**
- * Idempotently injects the kenkeep entry-catalog sentinel block into
- * `<root>/.github/copilot-instructions.md`. Copilot reads that file on
- * session start, so the sentinel block is the v1 channel for session-start
- * context injection. User-authored content outside the block is preserved
- * verbatim. The write is atomic and skipped when the resulting content is
- * byte-identical to the existing file (no mtime churn).
+ * Idempotently writes the static kenkeep pointer block
+ * (`COPILOT_INSTRUCTIONS_POINTER`) into `<root>/.github/copilot-instructions.md`,
+ * the repo-wide instructions file Copilot reads. Called by install and
+ * `init --upgrade` only, never by a hook: the live catalog and per-user
+ * state go through the sessionStart hook's `additionalContext`. A legacy
+ * catalog-carrying block is replaced in place on upgrade. User-authored
+ * content outside the block is preserved verbatim. The write is atomic and
+ * skipped when the resulting content is byte-identical to the existing file
+ * (no mtime churn). The repo root is the parent of `paths.dir`
+ * (`<root>/.github`).
  */
 export async function writeCopilotInstructionsSentinel(paths: HarnessPaths): Promise<void> {
-  await writeCopilotInstructionsSentinelWithContent(paths);
-}
-
-export async function writeCopilotInstructionsSentinelWithContent(
-  paths: HarnessPaths,
-  content?: string
-): Promise<void> {
   const repoRoot = dirname(paths.dir);
   const instructionsFile = join(repoRoot, '.github', 'copilot-instructions.md');
   const existing = existsSync(instructionsFile) ? readFileSync(instructionsFile, 'utf8') : '';
-  const next = withSentinelBlock(existing, content ?? readIndexContent(repoRoot));
+  const next = withSentinelBlock(existing, COPILOT_INSTRUCTIONS_POINTER, instructionsFile);
   if (next === existing) return;
-  atomicWriteText(instructionsFile, next);
+  atomicWriteFile(instructionsFile, next);
 }

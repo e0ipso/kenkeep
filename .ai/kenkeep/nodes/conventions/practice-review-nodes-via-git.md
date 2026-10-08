@@ -41,15 +41,15 @@ Every path that writes to `nodes/` (the curator, `/kk-bootstrap`, `bootstrap-inc
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-curate-command](/curation/map-curate-command.md)
-- Related: [map-kk-bootstrap-skill](/bootstrap/map-kk-bootstrap-skill.md)
+- Related: [map-curate-command](../curation/map-curate-command.md)
+- Related: [map-kk-bootstrap-skill](../bootstrap/map-kk-bootstrap-skill.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [README.md](README.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
-[3] [docs/daily-use.md](docs/daily-use.md)
-[4] [docs/troubleshooting.md](docs/troubleshooting.md)
+[1] [README.md](../../../../README.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[3] [docs/daily-use.md](../../../../docs/daily-use.md)
+[4] [docs/troubleshooting.md](../../../../docs/troubleshooting.md)
 <!-- kk:citations:end -->

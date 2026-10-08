@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   pickModelChoice,
   type EffectiveSettings,
+  type ModelChoice,
   type ModelChoiceRole,
 } from '../../lib/settings.js';
 import { EffortLevelSchema, ModelFamilySchema } from '../../lib/schemas.js';
@@ -51,4 +52,17 @@ export function buildClaudeHarnessOpts(
     out['effort'] = choice.effort;
   }
   return out;
+}
+
+/**
+ * Launcher argv for a Claude model choice. `claude --help` (2.1.285) lists
+ * `--model <model>` (alias such as `opus`/`sonnet`, or a full name) and
+ * `--effort <level>` (`low|medium|high|xhigh|max`); both are session options
+ * accepted alongside `-p`.
+ */
+export function claudeLaunchModelArgs(choice: ModelChoice): string[] {
+  if (choice.harness !== 'claude') {
+    throw new Error(`claude adapter received a model choice for harness '${choice.harness}'`);
+  }
+  return ['--model', choice.name, '--effort', choice.effort];
 }

@@ -49,7 +49,6 @@ describe('session-log update-proposals CLI', () => {
         capturedBy: 'stop',
         capturedAt: '2026-05-11T10:00:00Z',
         transcriptHash: 'sha256:abc',
-        secretScanStatus: 'clean',
         body: '[USER]: hello',
       })
     );
@@ -76,7 +75,15 @@ describe('session-log update-proposals CLI', () => {
 
     const result = await runCliWithStdin(
       sandbox,
-      ['session-log', 'update-proposals', sessionPath, '--status', 'done'],
+      [
+        'session-log',
+        'update-proposals',
+        sessionPath,
+        '--status',
+        'done',
+        '--expected-hash',
+        'sha256:abc',
+      ],
       payload
     );
 
@@ -96,7 +103,15 @@ describe('session-log update-proposals CLI', () => {
   it('exits non-zero on invalid JSON with --status done', async () => {
     const result = await runCliWithStdin(
       sandbox,
-      ['session-log', 'update-proposals', sessionPath, '--status', 'done'],
+      [
+        'session-log',
+        'update-proposals',
+        sessionPath,
+        '--status',
+        'done',
+        '--expected-hash',
+        'sha256:abc',
+      ],
       'not valid json'
     );
 
@@ -115,6 +130,8 @@ describe('session-log update-proposals CLI', () => {
         'failed',
         '--error',
         'extraction timed out',
+        '--expected-hash',
+        'sha256:abc',
       ],
       ''
     );
@@ -125,5 +142,104 @@ describe('session-log update-proposals CLI', () => {
     const after = matter(readFileSync(sessionPath, 'utf8'));
     expect(after.data['proposal_status']).toBe('failed');
     expect(after.data['proposal_error']).toBe('extraction timed out');
+  });
+});
+
+describe('session-log update-proposals transcript-version binding', () => {
+  let sandbox: string;
+  let sessionPath: string;
+  const v1 = renderSessionLog({
+    sessionId: 'test-session',
+    capturedBy: 'stop',
+    capturedAt: '2026-05-11T10:00:00Z',
+    transcriptHash: 'sha256:v1',
+    body: '[USER]: version one',
+  });
+  const v2 = renderSessionLog({
+    sessionId: 'test-session',
+    capturedBy: 'stop',
+    capturedAt: '2026-05-11T10:01:00Z',
+    transcriptHash: 'sha256:v2',
+    body: '[USER]: version one\n\n[USER]: NEWER-TURN',
+  });
+  const payload = JSON.stringify({ practice: [], map: [] });
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'kk-session-log-version-'));
+    sessionPath = join(sandbox, '20260511-1000-test-session.md');
+    writeFileSync(sessionPath, v1);
+  });
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('refuses to write without --expected-hash', async () => {
+    const result = await runCliWithStdin(
+      sandbox,
+      ['session-log', 'update-proposals', sessionPath, '--status', 'done'],
+      payload
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toMatch(/expected-hash/);
+    expect(readFileSync(sessionPath, 'utf8')).toBe(v1);
+  });
+
+  it('refuses stale proposals when a newer capture landed during inline extraction', async () => {
+    // The in-host extractor read v1 and is still "thinking" (stdin open) when
+    // the capture hook writes v2; its result must not attach to the newer body.
+    const proc = spawn(
+      'node',
+      [
+        cliPath,
+        'session-log',
+        'update-proposals',
+        sessionPath,
+        '--status',
+        'done',
+        '--expected-hash',
+        'sha256:v1',
+      ],
+      { cwd: sandbox, env: { ...process.env, NO_COLOR: '1' } }
+    );
+    let stderr = '';
+    proc.stderr?.on('data', (chunk: Buffer | string) => {
+      stderr += chunk.toString();
+    });
+    const exit = new Promise<number>(res => proc.on('close', code => res(code ?? 1)));
+    await new Promise(res => setTimeout(res, 300));
+    writeFileSync(sessionPath, v2);
+    proc.stdin?.write(payload);
+    proc.stdin?.end();
+
+    expect(await exit).not.toBe(0);
+    expect(stderr).toMatch(/sha256:v1/);
+    expect(stderr).toMatch(/sha256:v2/);
+    expect(readFileSync(sessionPath, 'utf8')).toBe(v2);
+    const after = matter(v2);
+    expect(after.data['proposal_status']).toBe('pending');
+  });
+
+  it('refuses a stale failure mark the same way', async () => {
+    writeFileSync(sessionPath, v2);
+    const result = await runCliWithStdin(
+      sandbox,
+      [
+        'session-log',
+        'update-proposals',
+        sessionPath,
+        '--status',
+        'failed',
+        '--error',
+        'boom',
+        '--expected-hash',
+        'sha256:v1',
+      ],
+      ''
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(
+      'transcript changed since extraction (expected sha256:v1, found sha256:v2)'
+    );
+    expect(readFileSync(sessionPath, 'utf8')).toBe(v2);
   });
 });

@@ -40,17 +40,17 @@ Install command: `npx kenkeep init --harnesses claude`. Doctor checks Node versi
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-harness-adapter](/harnesses/map-harness-adapter.md)
-- Related: [map-capture-hook](/hooks/map-capture-hook.md)
-- Related: [map-proposal-drain-hook](/hooks/map-proposal-drain-hook.md)
-- Related: [map-session-start-hook](/hooks/map-session-start-hook.md)
+- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [map-capture-hook](../hooks/map-capture-hook.md)
+- Related: [map-proposal-drain-hook](../hooks/map-proposal-drain-hook.md)
+- Related: [map-session-start-hook](../hooks/map-session-start-hook.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](docs/installation.md)
-[2] [docs/how-it-works.md](docs/how-it-works.md)
-[3] [docs/internals/hooks.md](docs/internals/hooks.md)
-[4] [696e9b15-ef7a-409d-8445-493a3ee76eaa:map:0](696e9b15-ef7a-409d-8445-493a3ee76eaa:map:0)
+[1] [docs/installation.md](../../../../docs/installation.md)
+[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[3] [docs/internals/hooks.md](../../../../docs/internals/hooks.md)
+[4] 696e9b15-ef7a-409d-8445-493a3ee76eaa:map:0
 <!-- kk:citations:end -->

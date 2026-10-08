@@ -25,7 +25,7 @@ runHookEntry({
   tag: 'codex:kk-session-start',
   deadlineMs: 1000,
   invalidJson: 'ignore',
-  main: async payload => {
+  main: async (payload, _raw, budget) => {
     const startCwd =
       typeof payload['cwd'] === 'string' && (payload['cwd'] as string).length > 0
         ? (payload['cwd'] as string)
@@ -44,6 +44,7 @@ runHookEntry({
         stateFile: join(paths.stateDir, 'state.json'),
         lintStateFile: lintStateFile(paths.stateDir),
         threshold: settings.curationThreshold,
+        deadlineAt: budget.deadlineAt,
       });
       sendSessionStartNotifications(settings, result, paths.kkDir);
       const { statusLine, content } = buildNudgeContent(result);

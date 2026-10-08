@@ -9,6 +9,7 @@ import lockfile from 'proper-lockfile';
 import { findRepoRoot, packageTemplatesDir, repoPaths, type RepoPaths } from './paths.js';
 import { resolveSettings, type EffectiveSettings } from './settings.js';
 import { compactStamp } from './time.js';
+import { withSessionLogLock } from './session-log.js';
 
 export const DEFAULT_MAX_ENTRIES = Infinity;
 export const DEFAULT_TIMEOUT_MS = 60_000;
@@ -34,7 +35,6 @@ export const PROPOSAL_DRAIN_LOCK_OPTIONS = { stale: 60_000, realpath: false } as
 
 export type ProposalRunner = <T>(
   promptBody: string,
-  stdin: string,
   schema: ZodSchema<T>,
   opts: {
     timeoutMs: number;
@@ -54,7 +54,11 @@ export interface DrainContext {
   harnessOpts?: Record<string, unknown>;
 }
 
-export type DrainEntryStatus = 'done' | 'failed';
+/**
+ * `stale`: a newer capture replaced the transcript while extraction ran, so
+ * the result was discarded and the log left pending for the next drain.
+ */
+export type DrainEntryStatus = 'done' | 'failed' | 'stale';
 
 export interface DrainEntryResult {
   sessionId: string;
@@ -227,44 +231,62 @@ interface ProcessArgs {
 async function processSessionLog(args: ProcessArgs): Promise<DrainEntryResult> {
   const { entry, sessionsDir, logsDir, promptTemplate, runner, timeoutMs, harnessOpts } = args;
   const parsed = matter(readFileSync(entry.file, 'utf8'));
+  // The version this extraction is for. Write-back is bound to it so a
+  // capture that lands while the extractor runs is never overwritten.
+  const expectedHash = String(parsed.data['transcript_hash']);
   const transcript = extractTranscript(parsed.content);
   const prompt = buildProposalPrompt(promptTemplate, transcript);
   const startedAt = new Date();
   const logFile = proposalLogPath(logsDir, entry.sessionId, startedAt);
 
+  let patch: FrontmatterPatch;
+  let outcome: DrainEntryResult;
   try {
-    const out = await runner(prompt, '', ProposalOutputSchema, {
+    const out = await runner(prompt, ProposalOutputSchema, {
       timeoutMs,
       logFile,
       role: 'proposal',
       ...(harnessOpts !== undefined ? { harnessOpts } : {}),
     });
-    writeSessionLogFrontmatter(entry.file, parsed, {
+    patch = {
       proposal_status: 'done',
       proposal_completed_at: new Date().toISOString(),
       proposal_error: null,
       proposal_log: relativeLogPath(sessionsDir, logFile),
       proposals: { practice: out.practice, map: out.map },
-    });
-    return { sessionId: entry.sessionId, status: 'done', logFile };
+    };
+    outcome = { sessionId: entry.sessionId, status: 'done', logFile };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const truncated =
       message.length > MAX_PROPOSAL_ERROR_LEN
         ? `${message.slice(0, MAX_PROPOSAL_ERROR_LEN)}...`
         : message;
-    writeSessionLogFrontmatter(entry.file, parsed, {
+    patch = {
       proposal_status: 'failed',
       proposal_completed_at: new Date().toISOString(),
       proposal_error: truncated,
       proposal_log: relativeLogPath(sessionsDir, logFile),
-    });
-    return { sessionId: entry.sessionId, status: 'failed', error: truncated, logFile };
+    };
+    outcome = { sessionId: entry.sessionId, status: 'failed', error: truncated, logFile };
   }
+  const written = await writeSessionLogFrontmatter(entry.file, expectedHash, patch);
+  if (!written.ok) {
+    return { sessionId: entry.sessionId, status: 'stale' };
+  }
+  return outcome;
 }
 
+/**
+ * The extractable transcript: the `## Transcript` section only. A log that
+ * grew after curation keeps its consumed turns under `## Curated prefix`
+ * (see `renderSessionLog`), which is deliberately not matched here so the
+ * extractor does not re-propose curated knowledge. A capture that lands while
+ * a curate run is stamping the log is the exception (see
+ * `markSessionsProcessed`).
+ */
 function extractTranscript(body: string): string {
-  const startMatch = body.match(/## Transcript\s*\n+/);
+  const startMatch = body.match(/^## Transcript\s*\n+/m);
   if (!startMatch || startMatch.index === undefined) return body.trim();
   const start = startMatch.index + startMatch[0].length;
   const rest = body.slice(start);
@@ -279,7 +301,9 @@ export function buildProposalPrompt(template: string, transcript: string): strin
       `proposal-extract prompt is missing the ${TRANSCRIPT_PLACEHOLDER} placeholder; the prompt template must contain it verbatim`
     );
   }
-  return template.replace(TRANSCRIPT_PLACEHOLDER, transcript);
+  // Callback form: a string replacement expands `$$`, `$&`, `$'` and the
+  // dollar-backtick token, which would rewrite shell text in the transcript.
+  return template.replace(TRANSCRIPT_PLACEHOLDER, () => transcript);
 }
 
 export function proposalLogPath(logsDir: string, sessionId: string, when: Date): string {
@@ -305,22 +329,40 @@ export interface FrontmatterPatch {
   proposals?: { practice: unknown[]; map: unknown[] };
 }
 
-export function writeSessionLogFrontmatter(
+export type SessionLogWriteResult = { ok: true } | { ok: false; currentHash: string | undefined };
+
+/**
+ * Writes an extraction outcome into a session log, bound to the transcript
+ * version it was produced from. Under the session log lock shared with
+ * capture, the file is re-read and compared against `expectedHash`; a
+ * mismatch means a newer capture landed meanwhile, so nothing is written and
+ * the newer version keeps its own (pending) state. Holding the lock across
+ * the read and the rename keeps a capture from landing between the check and
+ * the write. Returns the current hash on refusal so callers can report it.
+ */
+export async function writeSessionLogFrontmatter(
   file: string,
-  parsed: matter.GrayMatterFile<string>,
+  expectedHash: string,
   patch: FrontmatterPatch
-): void {
-  const data = { ...(parsed.data as Record<string, unknown>) };
-  data['proposal_status'] = patch.proposal_status;
-  data['proposal_completed_at'] = patch.proposal_completed_at;
-  data['proposal_error'] = patch.proposal_error;
-  data['proposal_log'] = patch.proposal_log;
-  if (patch.proposals) data['proposals'] = patch.proposals;
-  const body = updateProposalBody(parsed.content, patch);
-  const serialized = matter.stringify(body, data);
-  // tmp+rename: a crash mid-write must not truncate the session log into an
-  // unparseable file the next sweep would silently drop.
-  atomicWriteFile(file, serialized);
+): Promise<SessionLogWriteResult> {
+  return withSessionLogLock(file, () => {
+    const parsed = matter(readFileSync(file, 'utf8'));
+    const data = { ...(parsed.data as Record<string, unknown>) };
+    const currentHash =
+      typeof data['transcript_hash'] === 'string' ? data['transcript_hash'] : undefined;
+    if (currentHash !== expectedHash) return { ok: false, currentHash };
+    data['proposal_status'] = patch.proposal_status;
+    data['proposal_completed_at'] = patch.proposal_completed_at;
+    data['proposal_error'] = patch.proposal_error;
+    data['proposal_log'] = patch.proposal_log;
+    if (patch.proposals) data['proposals'] = patch.proposals;
+    const body = updateProposalBody(parsed.content, patch);
+    const serialized = matter.stringify(body, data);
+    // tmp+rename: a crash mid-write must not truncate the session log into an
+    // unparseable file the next sweep would silently drop.
+    atomicWriteFile(file, serialized);
+    return { ok: true };
+  });
 }
 
 export function updateProposalBody(content: string, patch: FrontmatterPatch): string {
@@ -387,6 +429,12 @@ export async function runProposalDrain(opts: ProposalDrainOpts): Promise<void> {
     if (summary.recoveredStaleLock) {
       process.stderr.write(
         `${PACKAGE_TAG} proposal drain: recovered a stale lock from an interrupted prior run.\n`
+      );
+    }
+    const stale = summary.processed.filter(p => p.status === 'stale');
+    if (stale.length > 0) {
+      process.stderr.write(
+        `${PACKAGE_TAG} proposal drain: ${stale.length} session(s) were recaptured during extraction; they stay pending for the next drain.\n`
       );
     }
     const failed = summary.processed.filter(p => p.status === 'failed');

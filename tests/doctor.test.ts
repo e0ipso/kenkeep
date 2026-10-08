@@ -147,6 +147,24 @@ describe('doctor', () => {
     expect(fullOut).toContain('.codex/hooks.json');
   });
 
+  it('flags registered harnesses with missing scripts when the recorded inventory is empty', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude,codex'], env);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as { harnesses: string[] };
+    installed.harnesses = [];
+    writeFileSync(versionFile, `${JSON.stringify(installed, null, 2)}\n`);
+    rmSync(join(sandbox, '.ai/kenkeep/hooks'), { recursive: true });
+
+    const result = await runCli(sandbox, ['doctor'], env);
+    expect(result.exitCode).toBe(1);
+    const out = result.stdout + result.stderr;
+    expect(out).toMatch(/claude[^\n]*not recorded/);
+    expect(out).toMatch(/codex[^\n]*not recorded/);
+    expect(out).not.toContain('All checks passed');
+  });
+
   it('reports a malformed inventory instead of crashing', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');

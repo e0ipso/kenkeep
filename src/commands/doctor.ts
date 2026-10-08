@@ -297,7 +297,6 @@ function scopeHarnesses(
   }
 
   const scoped = installed.filter(hasHarness);
-  if (installed.length === 0) return { scoped, inventoryChecks };
   const unrecorded = listHarnessIds().filter(id => !installed.includes(id));
   const drift: string[] = [];
   let broken = false;
@@ -317,7 +316,7 @@ function scopeHarnesses(
   }
   const detail =
     drift.length === 0
-      ? `recorded: ${installed.join(', ')}`
+      ? `recorded: ${installed.join(', ') || 'none'}`
       : `${drift.join('; ')}. Run \`npx kenkeep init --harnesses <id>\` for each to repair it and record it.`;
   inventoryChecks.push({
     name: 'harness inventory',

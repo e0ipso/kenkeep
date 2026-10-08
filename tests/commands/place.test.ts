@@ -628,4 +628,30 @@ describe('place (deterministic migration primitive)', () => {
     expect([...snapshotTree(nodesDir).entries()].sort()).toEqual([...before.entries()].sort());
     expect(existsSync(join(nodesDir, 'core'))).toBe(false);
   });
+
+  it.each([
+    ['a source leaf on disk', 'practice/practice-alpha.md'],
+    ['another placement target', 'core/practice-alpha.md'],
+  ])('apply refuses a target folder that is %s before any file moves', async (_label, folder) => {
+    const nodesDir = await makeFlatKb(sandbox);
+    const before = snapshotTree(nodesDir);
+    const planPath = join(sandbox, 'plan.json');
+    writeFileSync(
+      planPath,
+      JSON.stringify({
+        placements: [
+          { id: 'practice-alpha', targetFolder: 'core' },
+          { id: 'map-beta', targetFolder: 'core' },
+          { id: 'practice-gamma', targetFolder: folder },
+        ],
+      })
+    );
+
+    const res = await runCli(sandbox, ['place', 'apply', '--input', planPath]);
+    expect(res.exitCode).toBe(1);
+    expect(res.stdout.trim()).toBe('');
+    expect(res.stderr).toContain(`practice-alpha.md, which is a file`);
+    expect([...snapshotTree(nodesDir).entries()].sort()).toEqual([...before.entries()].sort());
+    expect(existsSync(join(nodesDir, 'core'))).toBe(false);
+  });
 });

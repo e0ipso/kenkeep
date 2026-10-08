@@ -11,7 +11,7 @@ import {
   type TranscriptParser,
 } from '../../src/lib/capture.js';
 import { markSessionsProcessed } from '../../src/lib/curate.js';
-import { renderSessionLog } from '../../src/lib/session-log.js';
+import { renderSessionLog, withSessionLogLock } from '../../src/lib/session-log.js';
 import type { RoleTaggedTranscript } from '../../src/harnesses/types.js';
 
 const SESSION_ID = '11111111-2222-4333-8444-555555555555';
@@ -165,7 +165,7 @@ describe('captureSession transcript-version binding', () => {
     const v1Hash = v1.data['transcript_hash'] as string;
     const v1Chars = v1.data['transcript_chars'] as number;
     expect(typeof v1Chars).toBe('number');
-    markSessionsProcessed(
+    await markSessionsProcessed(
       [{ path, transcript_hash: v1Hash, transcript_chars: v1Chars }],
       'run-1',
       new Date('2026-06-20T11:00:00.000Z')
@@ -217,7 +217,7 @@ describe('captureSession transcript-version binding', () => {
     markDone(path);
     const v1 = readLog(path).data;
     const v1Hash = v1['transcript_hash'] as string;
-    markSessionsProcessed(
+    await markSessionsProcessed(
       [{ path, transcript_hash: v1Hash, transcript_chars: v1['transcript_chars'] as number }],
       'run-1',
       new Date('2026-06-20T11:00:00.000Z')
@@ -234,6 +234,44 @@ describe('captureSession transcript-version binding', () => {
     expect(log.data['curated_transcript_hash']).toBe(v1Hash);
     expect(log.content).not.toContain('## Curated prefix');
     expect(log.content).toContain('REWRITTEN-ANSWER');
+  });
+
+  it('the curator stamp waits for a capture holding the lock and keeps its newer transcript', async () => {
+    const first = await capture(turnsV1);
+    const path = first.sessionLogPath as string;
+    markDone(path);
+    const v1 = readLog(path).data;
+    const v1Hash = v1['transcript_hash'] as string;
+    const v1Chars = v1['transcript_chars'] as number;
+
+    let stamp: Promise<void> | undefined;
+    await withSessionLogLock(path, async () => {
+      // The stamp starts while a capture owns the log and must not write yet.
+      stamp = markSessionsProcessed(
+        [{ path, transcript_hash: v1Hash, transcript_chars: v1Chars }],
+        'run-1',
+        new Date('2026-06-20T11:00:00.000Z')
+      );
+      await new Promise(resolve => setTimeout(resolve, 50));
+      writeFileSync(
+        path,
+        renderSessionLog({
+          sessionId: SESSION_ID,
+          capturedBy: 'stop',
+          capturedAt: '2026-06-20T11:00:01.000Z',
+          transcriptHash: 'sha256:newer',
+          body: 'NEWER-DURABLE-FACT',
+        })
+      );
+    });
+    await stamp;
+
+    const log = readLog(path);
+    expect(log.content).toContain('NEWER-DURABLE-FACT');
+    expect(log.data['transcript_hash']).toBe('sha256:newer');
+    expect(log.data['curated_transcript_hash']).toBe(v1Hash);
+    expect(log.data['curated_transcript_chars']).toBe(v1Chars);
+    expect(log.data['curator_run_id']).toBe('run-1');
   });
 
   it('a changed capture over an unversioned (pre-binding) stamp starts a fresh lifecycle', async () => {

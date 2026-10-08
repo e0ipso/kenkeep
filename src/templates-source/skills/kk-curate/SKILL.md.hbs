@@ -7,7 +7,7 @@ description: Curate pending session logs into kenkeep nodes by reading sessions 
 
 # kk-curate
 
-You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `curate-persist`, resolve every open contradiction interactively with the user (applied only through `conflict resolve`), then regenerate indices and rebalance. There is no sub-agent and no runner — **you** are the LLM doing the curation.
+You are the curator. Read pending session logs in this session, decide an action per candidate, run a single dedup pass via the CLI primitive, persist surviving actions via `curate-persist`, resolve every open contradiction interactively with the user (applied only through `conflict resolve`), then regenerate indices and rebalance. There is no sub-agent and no runner: **you** are the LLM doing the curation.
 
 **A no-op run is a correct outcome.** When every candidate is a rephrasing, low-signal, or already covered, the right result is zero writes and the existing nodes left untouched. Never manufacture edits to justify the run; report "no changes; the knowledge base is current" plainly.
 
@@ -25,7 +25,7 @@ For each session log with `proposal_status: pending`, extract proposals inline i
 
 4. **Process each pending log sequentially** (in `captured_at` order). Failure on one log does not abort the rest:
    a. Read the file in full and note its frontmatter `transcript_hash`: it names the transcript version you are extracting from.
-   b. Extract the transcript section (content between `## Transcript` and `## Proposal`). A log that was curated before and then grew keeps its already-curated turns under `## Curated prefix`; read them for context if you like, but never extract from them — only `## Transcript` holds uncurated content.
+   b. Extract the transcript section (content between `## Transcript` and `## Proposal`). A log that was curated before and then grew keeps its already-curated turns under `## Curated prefix`; read them for context if you like, but never extract from them, because only `## Transcript` holds uncurated content.
    c. Apply the extraction rules from the prompt to produce a JSON object matching `ProposalOutputSchema`: `{ "practice": [...], "map": [...] }` where each entry has `{ type, tags, title, description, body, kk_confidence }`.
    d. Pipe the JSON into the CLI primitive, passing the hash from (a):
 
@@ -90,7 +90,7 @@ If `conflict prepare` then reports `count: 0`, print `Nothing to do.` and stop.
 
 The cost of giving you too much context at once is bad output quality, so batch the work. Process up to **10 sessions per batch**. Partition the sorted pending sessions into consecutive batches of ≤10 (preserving `captured_at` order). Number the batches `1..N`.
 
-Mint the run id once, up-front — every per-batch file and the dedup call in Step 4 reuse it:
+Mint the run id once, up-front. Every per-batch file and the dedup call in Step 4 reuse it:
 
 ```bash
 RUN_ID=$(uuidgen 2>/dev/null || date -u +"curate-%Y%m%dT%H%M%SZ")
@@ -154,7 +154,7 @@ npx --yes kenkeep@latest drafts collect --run-id "$RUN_ID" > "$COLLECTED"
 {"runId":"...","batches":[{"batch":N,"status":"valid|invalid","reason":"..."}, ...],"consumed":[{"session_id":"...","file":"...","transcript_hash":"..."}, ...],"actions":[ ... ]}
 ```
 
-Only **valid** drafts contribute to `consumed` and `actions`: the draft parses, matches `curator-draft`, and every `candidate_origin` names one of its own `sessions`. An **invalid** draft is flagged in `batches` with a `reason` and reported on stderr (`batch <N> produced invalid output, skipped`); a batch you dispatched that is absent from `batches` wrote no draft. Neither consumes its sessions: they stay pending and the next `/kk-curate` picks them up. One bad batch never aborts the run. The collector exits non-zero only when no draft survived — then nothing is consumed: report the skipped batches, skip Steps 3–5, and continue at Step 6 (conflicts left open by earlier runs still need review). Note every invalid or missing batch and its session count for the Step 6 report.
+Only **valid** drafts contribute to `consumed` and `actions`: the draft parses, matches `curator-draft`, and every `candidate_origin` names one of its own `sessions`. An **invalid** draft is flagged in `batches` with a `reason` and reported on stderr (`batch <N> produced invalid output, skipped`); a batch you dispatched that is absent from `batches` wrote no draft. Neither consumes its sessions: they stay pending and the next `/kk-curate` picks them up. One bad batch never aborts the run. The collector exits non-zero only when no draft survived. Then nothing is consumed: report the skipped batches, skip Steps 3–5, and continue at Step 6 (conflicts left open by earlier runs still need review). Note every invalid or missing batch and its session count for the Step 6 report.
 
 ### Action rules
 
@@ -252,7 +252,7 @@ Each action conforms to `CuratorActionSchema`; an array of them is the `curator-
 - `npx --yes kenkeep@latest schema curator-draft` prints the JSON Schema of a draft (its `sessions`, and the action object with its nested `proposed_node`).
 - After you write a batch's draft on the inline path, run `npx --yes kenkeep@latest validate curator-draft "<draft path>"`; on a non-zero exit, read the path-referenced errors, fix the offending entries, and re-validate until it passes. (`drafts collect` re-validates every draft and invalidates the batch instead of aborting the run.)
 
-The operative semantics stay above and are yours to apply: which action to choose (add/modify/contradict/drop), the end-state rewrite rule, tightest-scope contradiction, and `home_folder` placement — only `add` sets `home_folder`; `modify`, `contradict`, and `drop` omit it; `drop` needs only `candidate_origin` and `rationale`; `contradict` may omit `proposed_node` when no replacement rule emerged but always needs a non-empty `rationale`. The schema enforces the rest, including rejecting any unknown `proposed_node` key.
+The operative semantics stay above and are yours to apply: which action to choose (add/modify/contradict/drop), the end-state rewrite rule, tightest-scope contradiction, and `home_folder` placement. Only `add` sets `home_folder`; `modify`, `contradict`, and `drop` omit it; `drop` needs only `candidate_origin` and `rationale`; `contradict` may omit `proposed_node` when no replacement rule emerged but always needs a non-empty `rationale`. The schema enforces the rest, including rejecting any unknown `proposed_node` key.
 
 ## 3. Mint the survivors tmpfile
 
@@ -273,13 +273,18 @@ npx --yes kenkeep@latest curate-dedup \
 
 Dedupe ranges over the whole tree: existing leaves are read from every folder under `nodes/` (at any depth), so a duplicate is matched wherever it currently lives. The behavior is unchanged from a flat space; only the search surface is the whole tree. A duplicate updates the existing leaf in place at its current path by id (a `modify`), with no relocation.
 
-The primitive validates the document **before any write**: it must be `{ actions, consumed }`, every action's `candidate_origin` must belong to a consumed session, and every consumed session must still be a done, unprocessed log under `_sessions/` at the same `transcript_hash` its draft recorded. A non-zero exit means nothing was written; read the message. `already processed` means another run stamped that session meanwhile; `changed since it was drafted` means a capture hook grew that session after you read it. In either case do not retry with the same document; start over from Step 1 (the grown session comes back as pending with only its new turns to extract).
+The primitive validates the document **before any write**: it must be `{ actions, consumed }`, every action's `candidate_origin` must belong to a consumed session, and every consumed session must still be a done, unprocessed log under `_sessions/` at the same `transcript_hash` its draft recorded. A refusal from these checks exits non-zero with nothing written; read the message. `already processed` means another run stamped that session meanwhile; `changed since it was drafted` means a capture hook grew that session after you read it. In either case do not retry with the same document; start over from Step 1 (the grown session comes back as pending with only its new turns to extract).
 
-This single call then atomically:
+Once validation passes, the call writes in a fixed order: the survivors file, then the conflict files, then the session stamps. Each file is replaced in one rename, but the sequence as a whole is not undone on failure. A message starting with `write failed:` means an I/O error (a full disk, a session log another process kept locked) stopped the sequence partway, and the writes before it are already on disk. Do not start over from Step 1 and do not run Step 5 yet. Check which sessions in `consumed` already carry `curator_run_id: $RUN_ID`:
+
+- None of them: fix the cause and rerun the same `curate-dedup` command with the same `--run-id`. It rewrites the same survivors and conflict files.
+- Some of them: the survivors file and every conflict file are complete, because stamps come last. Continue with Step 5. Sessions left unstamped stay pending and come back in the next run; report them in Step 6.
+
+This single call then:
 
 - Dedups the actions (cross-batch overlaps collapse; higher confidence wins). A surviving `add` keeps its `home_folder` through dedup untouched.
 - Mints `${RUN_ID}-N` conflict ids for each surviving `contradict` action and writes `.ai/kenkeep/conflicts/<id>.md` files.
-- Stamps `curator_processed_at` / `curator_run_id` plus `curated_transcript_hash` / `curated_transcript_chars` (the version consumed) into **exactly** the sessions listed in `consumed` — including a session that yielded no action — and into no other log. Sessions from invalid or missing batches, and logs that arrived after the batches were formed, are never stamped.
+- Stamps `curator_processed_at` / `curator_run_id` plus `curated_transcript_hash` / `curated_transcript_chars` (the version consumed) into **exactly** the sessions listed in `consumed`, including a session that yielded no action, and into no other log. Sessions from invalid or missing batches, and logs that arrived after the batches were formed, are never stamped.
 - Writes the non-conflict survivors (the actions you still need to persist as nodes) to `$SURVIVORS`.
 
 It prints one line of JSON on stdout:
@@ -322,9 +327,9 @@ npx --yes kenkeep@latest memory mark "<iri>" --hash "<sha256>" --run-id "$RUN_ID
 
 ## 6. Report the content summary, then resolve conflicts
 
-Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, the count of drops, and the harness memory files marked in Step 5b (and any left unmarked, with the reason). If the collector flagged any batch as `invalid` or `missing`, say so explicitly — `Batch <N> skipped (<reason>): <count> session(s) stay pending for the next run` — so the user knows those captures were not lost but also not curated. Also list the **placement decision per written leaf**, reading the `placement` value `curate-persist` reported: for each `add` you persisted, report its id and where it landed, a folder you chose, `derived: <folder>` when the writer derived it from the leaf's own edges and tags, or `root fallback` when neither found one; for each `modify`, `placement` reads `in place`. This distinguishes your choice from the writer's derivation so the human can review both alongside content.
+Tell the user the headline numbers (`kept`, `conflicts`, `stamped`, `runId`), the count of nodes written, the count of drops, and the harness memory files marked in Step 5b (and any left unmarked, with the reason). If the collector flagged any batch as `invalid` or `missing`, say so explicitly (`Batch <N> skipped (<reason>): <count> session(s) stay pending for the next run`) so the user knows those captures were not lost but also not curated. Also list the **placement decision per written leaf**, reading the `placement` value `curate-persist` reported: for each `add` you persisted, report its id and where it landed, a folder you chose, `derived: <folder>` when the writer derived it from the leaf's own edges and tags, or `root fallback` when neither found one; for each `modify`, `placement` reads `in place`. This distinguishes your choice from the writer's derivation so the human can review both alongside content.
 
-**No-op is a correct outcome.** When `nodes_written == 0` (every candidate was dropped), the knowledge base was already current — say so plainly ("no changes; the knowledge base is current") rather than apologising for an empty write set. An empty write set is the preferred result when nothing proposed real new information.
+**No-op is a correct outcome.** When `nodes_written == 0` (every candidate was dropped), the knowledge base was already current. Say so plainly ("no changes; the knowledge base is current") rather than apologising for an empty write set. An empty write set is the preferred result when nothing proposed real new information.
 
 **Conflicts are reviewed on every run, not only when this run minted some.** A conflict left open by an earlier run (pending, or skipped by the human) is still a decision the human has not made. Always continue to 6a, even when `conflicts == 0` for this run and even when Step 1 found no pending session logs.
 
@@ -346,7 +351,7 @@ It reads every open conflict file (`status: pending` or `status: skipped`, from 
 For every conflict in the prepared list:
 
 1. If `first_in_group` and `existing` is non-null, show the existing node's `title`, `description`, and the relevant body excerpt ONCE for the group. When `existing` is `null`, say the target `target_node_id` is missing on disk: Accept cannot apply, and the primitive already made `skip` the default.
-2. Show the proposed contradiction concisely: the `rationale`, and when `has_proposal` is true the proposal's `title`, `kk_confidence`, `description`, `tags` and `body`. When `has_proposal` is false, say there is nothing to accept — the human only decides whether the existing node stands (`reject`), is kept under review as a record (`keep`) or is deferred (`skip`).
+2. Show the proposed contradiction concisely: the `rationale`, and when `has_proposal` is true the proposal's `title`, `kk_confidence`, `description`, `tags` and `body`. When `has_proposal` is false, say there is nothing to accept: the human only decides whether the existing node stands (`reject`), is kept under review as a record (`keep`) or is deferred (`skip`).
 
 ### 6c. Ask the user and parse the reply
 
@@ -369,7 +374,7 @@ Parse the reply with these rules:
 
 ### 6d. Apply the decision via the primitive
 
-Apply every decision through the deterministic primitive — never by writing or deleting a node or a conflict file yourself:
+Apply every decision through the deterministic primitive, never by writing or deleting a node or a conflict file yourself:
 
 ```bash
 npx --yes kenkeep@latest conflict resolve <id> --decision <accept|reject|keep|skip>
@@ -463,7 +468,7 @@ Curated <nodes_written> nodes; <drops> dropped; <accepted> conflict(s) accepted,
 
 ## Constraints
 
-- The reply contract for conflict resolution is strictly `y`/`n`/`s`/`k` (or their long forms / empty for the displayed default). Do not accept paraphrased prose as an answer — re-prompt instead.
+- The reply contract for conflict resolution is strictly `y`/`n`/`s`/`k` (or their long forms / empty for the displayed default). Do not accept paraphrased prose as an answer; re-prompt instead.
 - If no session logs are pending, print the Step 1 one-line message and still run `conflict prepare` (Step 6a): conflicts left open by earlier runs are reviewed independently of new sessions. Stop only when it reports `count: 0`.
 - Every conflict decision is applied through `conflict resolve`, never by writing a node, editing a conflict file or deleting one by hand. Accept rewrites the existing target in place (same id, same path); a missing target makes Accept fail explicitly and the default `skip`. Keep (`kept`, decided) and Skip (`skipped`, still open) are distinct outcomes.
 - If `.ai/kenkeep/conflicts/` is empty or every file has a decided `status` (`accepted`, `rejected`, `kept`), `conflict prepare` reports `count: 0` and there is nothing to resolve.
@@ -471,4 +476,4 @@ Curated <nodes_written> nodes; <drops> dropped; <accepted> conflict(s) accepted,
 - On both paths every batch writes a draft that lists the sessions it consumed; those lists, from valid drafts only, are the only thing that decides which sessions `curate-dedup` stamps. Never stamp, edit, or delete a session log by hand, and never list a session the batch did not read.
 - Survivors are persisted only through `curate-persist`. A failed action is retried by rerunning that same command on the same `$SURVIVORS` after fixing its cause; it never falls back to writing a leaf by hand.
 - Harness memory files enter the run only through `memory list` and `session-log stage-live` (Step 0b) and leave the queue only through `memory mark` after their actions landed (Step 5b). Never edit `memory-ledger.json` by hand and never mark a file whose actions failed.
-- The dedup primitive is non-locking and refuses a document whose consumed sessions are already stamped, so a re-run with the same `$COLLECTED` and a different `runId` fails closed rather than double-stamping — but it would still be a wasted run. One `curate-dedup` call per run.
+- The dedup primitive takes no run-level lock and refuses a document whose consumed sessions are already stamped, so a re-run with the same `$COLLECTED` and a different `runId` fails closed rather than double-stamping, but it would still be a wasted run. One `curate-dedup` call per run.

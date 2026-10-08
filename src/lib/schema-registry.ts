@@ -15,7 +15,7 @@ import {
  * already validates the corresponding JSON in `src/commands/`. The skills
  * reference these names via `kk schema <name>` (print the JSON Schema) and
  * `kk validate <name> [file]` (validate an artifact). Zod stays
- * authoritative — the JSON Schema is always derived here, never hand-authored.
+ * authoritative: the JSON Schema is always derived here, never hand-authored.
  *
  * Keep this minimal (YAGNI): add a name only when a skill or primitive needs
  * to reference that exact contract.

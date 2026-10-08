@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -560,6 +561,36 @@ describe('runCurateDedupCommand (contradictions survive dedup)', () => {
     expect(only.content).toContain('## Rationale');
     expect(only.content).toContain('no replacement rule emerged');
     expect(only.content).not.toContain('## Proposed node');
+  });
+
+  it('refuses a conflicts/ directory linked outside before writing anything', async () => {
+    const contradictFile = seedPendingSession(
+      sandbox.sessionsDir,
+      's-contradict',
+      '2026-05-12T10:01:00Z'
+    );
+    const outside = join(sandbox.root, 'outside');
+    mkdirSync(outside);
+    symlinkSync(outside, sandbox.conflictsDir, 'dir');
+    const sessionPath = join(sandbox.sessionsDir, contradictFile);
+    const sessionBefore = readFileSync(sessionPath);
+    const input = writeDedupInput(
+      sandbox,
+      [contradictAt('high')],
+      [{ session_id: 's-contradict', file: contradictFile }]
+    );
+    const code = await runCurateDedupCommand({
+      input,
+      output: sandbox.outputPath,
+      runId: FIXED_RUN_ID,
+      sessionsDir: sandbox.sessionsDir,
+      conflictsDir: sandbox.conflictsDir,
+      now: FIXED_NOW,
+    });
+    expect(code).toBe(1);
+    expect(readdirSync(outside)).toEqual([]);
+    expect(existsSync(sandbox.outputPath)).toBe(false);
+    expect(readFileSync(sessionPath)).toEqual(sessionBefore);
   });
 });
 

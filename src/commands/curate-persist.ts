@@ -9,7 +9,7 @@ import {
 } from '../lib/nodes.js';
 import { placeLeaf } from '../lib/leaf-placement.js';
 import { log } from '../lib/log.js';
-import { findRepoRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findRepoRoot, repoPaths } from '../lib/paths.js';
 import { readStdin } from '../lib/stdin.js';
 import {
   CuratorOutputSchema,
@@ -154,6 +154,7 @@ export async function runCuratePersistCommand(opts: CuratePersistOptions = {}): 
 
   let existingNodes;
   try {
+    assertDefaultNodesRoot(paths);
     existingNodes = readAllNodes(paths.nodesDir);
   } catch (err) {
     log.error(`curate persist: cannot read nodes: ${(err as Error).message}`);

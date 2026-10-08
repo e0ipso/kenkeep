@@ -35,7 +35,7 @@ import {
 } from '../lib/nodes.js';
 import { assertContained, PACK_NAME_PATTERN } from '../lib/path-safety.js';
 import { planRenderedLinkRefresh, refreshRenderedLinks } from '../lib/rendered-links.js';
-import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
+import { assertDefaultNodesRoot, findKenkeepRoot, repoPaths } from '../lib/paths.js';
 import {
   mergeRedirectsLedgers,
   readRedirectsLedger,
@@ -98,6 +98,7 @@ export async function runPackImportCommand(
   const paths = repoPaths(root);
   let undo: string[];
   try {
+    assertDefaultNodesRoot(paths);
     undo = requireRestorableTree(root, paths.kkDir);
   } catch (err) {
     log.error(`pack import: ${(err as Error).message}`);

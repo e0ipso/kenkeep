@@ -332,6 +332,27 @@ describe('init', () => {
     }
   });
 
+  it.each([
+    ['an object of harnesses', { claude: true, codex: true }],
+    ['a non-string harness entry', ['claude', 5]],
+  ])('stops on a corrupt inventory holding %s', async (_label, harnesses) => {
+    const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    expect(first.exitCode).toBe(0);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
+    installed['harnesses'] = harnesses;
+    const corrupt = `${JSON.stringify(installed, null, 2)}\n`;
+    writeFileSync(versionFile, corrupt);
+    const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
+    rmSync(codexCapture);
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('installed-version');
+    expect(readFileSync(versionFile, 'utf8')).toBe(corrupt);
+    expect(existsSync(codexCapture)).toBe(false);
+  });
+
   it('tells Copilot users to commit the .github/ artifacts it actually wrote', async () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'copilot'], {
       COPILOT_HOME: join(sandbox, 'copilot-home'),

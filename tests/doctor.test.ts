@@ -147,6 +147,20 @@ describe('doctor', () => {
     expect(fullOut).toContain('.codex/hooks.json');
   });
 
+  it('reports a malformed inventory instead of crashing', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
+    installed['harnesses'] = { claude: true };
+    writeFileSync(versionFile, `${JSON.stringify(installed, null, 2)}\n`);
+
+    const result = await runCli(sandbox, ['doctor']);
+    expect(result.exitCode).toBe(1);
+    const out = result.stdout + result.stderr;
+    expect(out).toMatch(/installed-version[^\n]*harnesses/);
+    expect(out).toContain('node frontmatter valid');
+  });
+
   it('rejects --harness for an unknown harness id', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const result = await runCli(sandbox, ['doctor', '--harness', 'bogus']);

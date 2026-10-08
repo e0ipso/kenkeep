@@ -5,7 +5,7 @@ import yaml from 'js-yaml';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { computeFreshness } from '../lib/freshness.js';
 import { missingRuntimeScripts, registrationEvidence } from '../lib/harness-install-status.js';
-import { readInstalledVersion } from '../lib/installed-version.js';
+import { readInstalledVersion, type InstalledVersion } from '../lib/installed-version.js';
 import { runLint } from '../lib/lint.js';
 import { log } from '../lib/log.js';
 import {
@@ -327,21 +327,19 @@ function scopeHarnesses(
 }
 
 function checkInstalled(file: string): CheckResult {
-  if (!existsSync(file)) {
+  let installed: InstalledVersion | null;
+  try {
+    installed = readInstalledVersion(file);
+  } catch (e) {
+    return err((e as Error).message);
+  }
+  if (installed === null) {
     return err('missing. Run `npx kenkeep init --harnesses <id[,id,...]>` from the repo root.');
   }
-  let parsed: { version?: string };
-  try {
-    parsed = JSON.parse(readFileSync(file, 'utf8')) as { version?: string };
-  } catch (e) {
-    return err(`unreadable: ${(e as Error).message}`);
-  }
-  const installed = typeof parsed.version === 'string' ? parsed.version : null;
   const current = packageVersion();
-  if (installed === null) return warn('installed-version has no `version` field.');
-  if (installed === current) return ok(current);
+  if (installed.version === current) return ok(current);
   return warn(
-    `installed ${installed}, package ${current}. Run \`npx kenkeep init --upgrade\` to refresh templates.`
+    `installed ${installed.version}, package ${current}. Run \`npx kenkeep init --upgrade\` to refresh templates.`
   );
 }
 

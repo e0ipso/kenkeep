@@ -1038,6 +1038,59 @@ describe('pack import command', () => {
     }
   );
 
+  // Every file the graft and its rebuild would write is checked against the
+  // containment boundary first: a symlink at any of them is refused before
+  // the first byte lands, instead of being replaced by a regular file.
+  it.each([
+    'nodes/.redirects.json',
+    'FOLDER_SUMMARIES.md',
+    'ENTRY.md',
+    'GRAPH.md',
+    'nodes/index.md',
+    'nodes/base/index.md',
+    'nodes/base/practice-consumer-base.md',
+  ])('refuses to graft when %s is a symlink', async artifact => {
+    const kkDir = join(sandbox, '.ai/kenkeep');
+    const consumerNodes = join(kkDir, 'nodes');
+    writeNodeFile({
+      nodesDir: consumerNodes,
+      frontmatter: leafFrontmatter('practice', 'practice-consumer-base', {
+        kk_relates_to: ['practice-retired'],
+      }),
+      body: '# Base',
+      relDir: 'base',
+    });
+    expect((await capture(() => runIndexRebuild())).code).toBe(0);
+    writePackNode(packRoot, 'framework', 'practice', 'practice-new');
+    writeRedirectsLedger(join(packRoot, PACK_KNOWLEDGE_DIRNAME), {
+      'practice-retired': ['practice-new'],
+    });
+    const link = join(kkDir, artifact);
+    const external = join(sandbox, 'user-owned', basename(artifact));
+    mkdirSync(dirname(external), { recursive: true });
+    const absent = artifact.endsWith('.json')
+      ? '{}\n'
+      : '---\nschema_version: 1\nsummaries: {}\n---\n# Summaries\n';
+    writeFileSync(external, existsSync(link) ? readFileSync(link) : absent);
+    rmSync(link, { force: true });
+    symlinkSync(external, link);
+    const target = readFileSync(external);
+
+    const result = await afterCommit(() =>
+      runPackImportCommand('fixture', {
+        acquireSource: async () => ({ packRoot, resolvedSource: 'p' }),
+      })
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('nothing was imported');
+    expect(result.stderr).toContain(link);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readFileSync(external)).toEqual(target);
+    expect(existsSync(join(consumerNodes, 'drupal'))).toBe(false);
+    expect(await git(sandbox, ['status', '--porcelain'])).toBe('');
+  });
+
   /**
    * A consumer with generated catalogs and a stale owned index the next
    * rebuild would remove: the state a failed nested rebuild must put back.

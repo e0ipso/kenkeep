@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
-import { preflightIndexRebuild, runIndexRebuild } from './index-rebuild.js';
+import { preflightIndexRebuild, rebuildOutputFiles, runIndexRebuild } from './index-rebuild.js';
 import { LEGACY_NODE_SCHEMA_VERSION, migrateNodesTreeToV3 } from './migrate-okf-v3.js';
 import { readFolderSummaries, writeFolderSummaries } from '../lib/folder-summaries.js';
 import { atomicWriteFile, copyTree } from '../lib/fs-atomic.js';
@@ -33,11 +33,12 @@ import {
   type NodeFile,
 } from '../lib/nodes.js';
 import { assertContained, PACK_NAME_PATTERN } from '../lib/path-safety.js';
-import { refreshRenderedLinks } from '../lib/rendered-links.js';
+import { planRenderedLinkRefresh, refreshRenderedLinks } from '../lib/rendered-links.js';
 import { findKenkeepRoot, repoPaths } from '../lib/paths.js';
 import {
   mergeRedirectsLedgers,
   readRedirectsLedger,
+  REDIRECTS_FILENAME,
   writeRedirectsLedger,
   type RedirectsLedger,
 } from '../lib/redirects.js';
@@ -67,6 +68,8 @@ export interface PackImportOptions {
 interface GraftPlan {
   destinationDir: string;
   leaves: Array<{ src: string; dest: string }>;
+  /** The validated pack leaves as they will sit under `nodes/` once grafted. */
+  grafted: NodeFile[];
   /** Ids of the grafted leaves: the scope of the rendered-link refresh. */
   ids: Set<string>;
   folderSummaries: Map<string, string>;
@@ -184,7 +187,8 @@ export async function runPackImportCommand(
 
     // The rebuild that follows the graft refuses a malformed project config
     // or AGENTS.md pointer block, and does so on its last step. Both are
-    // known now, so they are checked before the first byte lands.
+    // known now, so they are checked before the first byte lands, as is every
+    // existing file the graft and the rebuild would replace.
     try {
       preflightIndexRebuild(root);
     } catch (err) {
@@ -192,6 +196,12 @@ export async function runPackImportCommand(
         `pack import: the index rebuild after the graft would fail, so nothing was imported.\n` +
           `  ${(err as Error).message}`
       );
+      return 1;
+    }
+    try {
+      refuseUnsafeOutputs(root, plan, consumerNodes, consumerLedger);
+    } catch (err) {
+      log.error(`pack import: nothing was imported, ${(err as Error).message}`);
       return 1;
     }
 
@@ -360,14 +370,57 @@ function planGraft(args: {
   const ledger =
     redirectsMerged > 0 ? mergeRedirectsLedgers(args.consumerLedger, args.packLedger).merged : null;
   const ids = new Set(args.nodes.map(node => node.frontmatter.kk_id));
+  const grafted = args.nodes.map((node, i) => ({
+    ...node,
+    path: leaves[i]!.dest,
+    relPath: posix.join(args.destinationName, node.relPath),
+    relDir: posix.join(args.destinationName, node.relDir),
+  }));
   return {
     destinationDir: args.destinationDir,
     leaves,
+    grafted,
     ids,
     folderSummaries,
     ledger,
     redirectsMerged,
   };
+}
+
+/**
+ * Runs every file the graft and its rebuild would write through the
+ * containment boundary: the merged ledger, the consumer leaves the
+ * rendered-link refresh will rewrite (planned over the grafted tree), and the
+ * rebuild's catalogs, indexes and sidecar. A symlink at any of them would be
+ * replaced by a regular file, so all refusals are aggregated and thrown.
+ * Leaf destinations were checked when the plan was minted.
+ */
+function refuseUnsafeOutputs(
+  root: string,
+  plan: GraftPlan,
+  consumerNodes: readonly NodeFile[],
+  consumerLedger: RedirectsLedger
+): void {
+  const { kkDir, nodesDir } = repoPaths(root);
+  const tree = [...consumerNodes, ...plan.grafted];
+  const scope = new Set([...plan.ids, ...Object.keys(plan.ledger ?? {})]);
+  const refreshed = planRenderedLinkRefresh(tree, plan.ledger ?? consumerLedger, scope);
+  const nodeWrites = refreshed.map(({ node }) => node.path);
+  if (plan.ledger !== null) nodeWrites.push(join(nodesDir, REDIRECTS_FILENAME));
+
+  const failures: string[] = [];
+  const check = (base: string, file: string, label: string): void => {
+    try {
+      assertContained(base, file, label);
+    } catch (err) {
+      failures.push(`  ${(err as Error).message}`);
+    }
+  };
+  for (const file of nodeWrites) check(nodesDir, file, 'nodes/');
+  for (const file of rebuildOutputFiles(root, tree)) check(kkDir, file, '.ai/kenkeep/');
+  if (failures.length > 0) {
+    throw new Error(`refusing to replace a symlink:\n${[...new Set(failures)].join('\n')}`);
+  }
 }
 
 /**

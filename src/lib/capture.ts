@@ -9,6 +9,7 @@ import {
   curationState,
   findSessionLogBySessionId,
   renderSessionLog,
+  withSessionLogLock,
   writeSessionLog,
 } from './session-log.js';
 import {
@@ -138,41 +139,40 @@ export async function captureSession(
   //    the consumed prefix apart so only the delta is extracted.
   //  - otherwise (never curated, rewritten/compacted transcript, or an
   //    unversioned pre-binding stamp): the whole version is pending.
-  const existing = existingFilename
-    ? readExistingFrontmatter(join(ctx.sessionsDir, existingFilename))
-    : null;
-  if (existing && existing['transcript_hash'] === hash) {
-    await trackUsage(ctx, transcriptText, sessionId, capturedAt);
-    return {
-      status: 'unchanged',
-      sessionLogPath: join(ctx.sessionsDir, existingFilename as string),
-    };
-  }
-  const carried = existing ? carriedCurationStamp(existing, slice) : undefined;
+  // The read and the write share the session log lock with proposal
+  // write-back, so a write-back checked against the previous version can
+  // never replace this one afterwards.
+  const target = join(ctx.sessionsDir, filename);
+  const written = await withSessionLogLock(target, () => {
+    const existing = existingFilename ? readExistingFrontmatter(target) : null;
+    if (existing && existing['transcript_hash'] === hash) return false;
+    const carried = existing ? carriedCurationStamp(existing, slice) : undefined;
 
-  const body = renderSessionLog({
-    sessionId,
-    capturedBy: trigger,
-    capturedAt,
-    transcriptHash: hash,
-    body: slice,
-    ...(carried ?? {}),
-    ...(isCursory && !carried
-      ? {
-          proposalStatus: 'skipped' as const,
-          proposalError: 'cursory_session',
-          proposalCompletedAt: capturedAt,
-        }
-      : {}),
+    const body = renderSessionLog({
+      sessionId,
+      capturedBy: trigger,
+      capturedAt,
+      transcriptHash: hash,
+      body: slice,
+      ...(carried ?? {}),
+      ...(isCursory && !carried
+        ? {
+            proposalStatus: 'skipped' as const,
+            proposalError: 'cursory_session',
+            proposalCompletedAt: capturedAt,
+          }
+        : {}),
+    });
+
+    writeSessionLog(ctx.sessionsDir, filename, body);
+    return true;
   });
-
-  const sessionLogPath = writeSessionLog(ctx.sessionsDir, filename, body);
 
   await trackUsage(ctx, transcriptText, sessionId, capturedAt);
 
   return {
-    status: 'written',
-    sessionLogPath,
+    status: written ? 'written' : 'unchanged',
+    sessionLogPath: target,
   };
 }
 

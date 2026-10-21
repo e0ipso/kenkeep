@@ -1,3 +1,9 @@
+## [1.19.3](https://github.com/e0ipso/kenkeep/compare/v1.19.2...v1.19.3) (2026-10-21)
+
+### Bug Fixes
+
+* resolve candidate provenance in doctor ([#147](https://github.com/e0ipso/kenkeep/issues/147)) ([66fec53](https://github.com/e0ipso/kenkeep/commit/66fec53a19fd84adcf4a3865b7ca30fbd4369efb)), closes [#146](https://github.com/e0ipso/kenkeep/issues/146)
+
 ## [1.19.2](https://github.com/e0ipso/kenkeep/compare/v1.19.1...v1.19.2) (2026-10-21)
 
 ### Bug Fixes

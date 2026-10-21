@@ -1,3 +1,9 @@
+## [1.19.2](https://github.com/e0ipso/kenkeep/compare/v1.19.1...v1.19.2) (2026-10-21)
+
+### Bug Fixes
+
+* correct KB README commit-time claims ([#145](https://github.com/e0ipso/kenkeep/issues/145)) ([7a376ec](https://github.com/e0ipso/kenkeep/commit/7a376ec00af134b2b8a8079d0709fe03fa21782d))
+
 ## [1.19.1](https://github.com/e0ipso/kenkeep/compare/v1.19.0...v1.19.1) (2026-10-08)
 
 ### Bug Fixes

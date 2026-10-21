@@ -81,6 +81,8 @@ Committed: `nodes/`, `ENTRY.md`, `GRAPH.md`, `FOLDER_SUMMARIES.md`, `.config/pro
 
 Per-run curator state lives under `_logs/curator/`: `<run>__<n>.draft.json` (a batch's actions and the sessions it consumed, with their transcript hashes) and the JSONL traces. `logs prune` deletes only the `.jsonl` files.
 
+`doctor` resolves candidate provenance (`<session_id>:<practice|map>:<index>`) against the referenced session log's frontmatter and indexed proposal, including processed logs staged by `session-log stage-live`. It preserves node metadata. Session logs are gitignored by default, so a missing source on another clone or after manual deletion still produces an advisory dangling-reference warning. `logsRetentionDays` applies only to `_logs/*.jsonl`, not `_sessions/*.md`.
+
 ## Locking
 
 Only the proposal-drain hook locks, with `proper-lockfile` on `state.json`, a heartbeat, and a 60 second stale threshold. A drain the host kills is reclaimed by the next drain within a minute.

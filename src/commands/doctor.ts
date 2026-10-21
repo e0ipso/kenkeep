@@ -18,7 +18,13 @@ import {
 } from '../lib/nodes.js';
 import { findRepoRoot, packageTemplatesDir, repoPaths } from '../lib/paths.js';
 import { readRedirectsLedger, resolveRedirect } from '../lib/redirects.js';
-import { IndexFrontmatterSchema, SettingsSchema } from '../lib/schemas.js';
+import {
+  IndexFrontmatterSchema,
+  ProposalCandidateSchema,
+  SessionLogFrontmatterSchema,
+  SettingsSchema,
+} from '../lib/schemas.js';
+import { findSessionLogBySessionId } from '../lib/session-log.js';
 import { packageVersion } from '../lib/version.js';
 
 const EXPECTED_PROMPTS = ['proposal-extract.md'];
@@ -168,6 +174,8 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
  *   - It is a bare filename and exists under `_sessions/`.
  *   - It is a repo-relative path and exists when resolved against `root`.
  *   - It is an absolute path and exists as-is.
+ *   - It is a candidate identity whose session log contains the indexed
+ *     practice/map proposal, including logs already processed by curation.
  *   - It is a legacy retired id whose redirect chain
  *     reaches at least one live node. Preserve these citations as recorded.
  */
@@ -184,6 +192,7 @@ export function collectDanglingDerivedFrom(
   for (const node of nodes) {
     for (const ref of node.frontmatter.kk_derived_from) {
       if (resolvesOnDisk(ref, root, sessionsDir)) continue;
+      if (resolvesCandidateOrigin(ref, sessionsDir)) continue;
       if (Object.hasOwn(redirects, ref) && resolveRedirect(redirects, liveIds, ref).length > 0)
         continue;
       out.push({ nodeId: node.frontmatter.kk_id, reference: ref });
@@ -199,6 +208,29 @@ function resolvesOnDisk(ref: string, root: string, sessionsDir: string): boolean
   if (existsSync(join(root, ref))) return true;
   if (!ref.includes('/') && existsSync(join(sessionsDir, ref))) return true;
   return false;
+}
+
+function resolvesCandidateOrigin(ref: string, sessionsDir: string): boolean {
+  const match = /^([^:/\\\s]+):(practice|map):(0|[1-9]\d*)$/.exec(ref);
+  if (!match) return false;
+  const [, sessionId, kind, rawIndex] = match;
+  if (!sessionId || (kind !== 'practice' && kind !== 'map')) return false;
+  const index = Number(rawIndex);
+  if (!Number.isSafeInteger(index)) return false;
+  try {
+    const filename = findSessionLogBySessionId(sessionsDir, sessionId);
+    if (!filename) return false;
+    const parsed = matter(readFileSync(join(sessionsDir, filename), 'utf8'));
+    const fm = SessionLogFrontmatterSchema.safeParse(parsed.data);
+    if (!fm.success || fm.data.session_id !== sessionId) return false;
+    // Provenance outlives queue eligibility: read the retained proposal even
+    // when a curator stamp makes this session ineligible for consumption.
+    const proposal = ProposalCandidateSchema.safeParse(fm.data.proposals[kind][index]);
+    return proposal.success && proposal.data.type === kind;
+  } catch {
+    // An unreadable or malformed source remains a dangling reference.
+    return false;
+  }
 }
 
 /**

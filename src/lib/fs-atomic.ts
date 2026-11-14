@@ -99,7 +99,11 @@ function copyEntryExclusive(from: string, to: string): boolean {
     const stat = lstatSync(from);
     if (stat.isDirectory()) {
       mkdirSync(to);
-      cpSync(from, to, { recursive: true, force: false, errorOnExist: true });
+      // Copy the children: recent Node releases (24.22, 26) make cpSync reject an
+      // existing root under errorOnExist, even one mkdirSync just created empty.
+      for (const child of readdirSync(from)) {
+        cpSync(join(from, child), join(to, child), { recursive: true, force: false, errorOnExist: true });
+      }
     } else if (stat.isFile()) {
       copyFileSync(from, to, constants.COPYFILE_EXCL);
     } else {

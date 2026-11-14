@@ -54,17 +54,12 @@ var getStrikethrooAt = (directory) => {
   const strikethrooPath = path.join(directory, ".ai", "strikethroo");
   return isValidStrikethrooRoot(strikethrooPath) ? strikethrooPath : null;
 };
-var getParentPaths = (currentPath, acc = []) => {
-  const absolutePath = path.resolve(currentPath);
-  const nextAcc = [...acc, absolutePath];
-  const parentPath = path.dirname(absolutePath);
-  if (parentPath === absolutePath) return nextAcc;
-  return getParentPaths(parentPath, nextAcc);
-};
-var checkWorkspaceSchema = (metadataPath) => {
+var checkWorkspaceSchema = (strikethrooRoot) => {
   let metadata;
   try {
-    metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+    metadata = JSON.parse(
+      fs.readFileSync(path.join(strikethrooRoot, ".init-metadata.json"), "utf8")
+    );
   } catch {
     return;
   }
@@ -83,12 +78,19 @@ var checkWorkspaceSchema = (metadataPath) => {
   }
   process.exit(1);
 };
+var discoverStrikethrooRoot = (startPath = process.cwd()) => {
+  let directory = path.resolve(startPath);
+  for (; ; ) {
+    const root = getStrikethrooAt(directory);
+    if (root) return root;
+    const parent = path.dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
+};
 var findStrikethrooRoot = (startPath = process.cwd()) => {
-  const paths = getParentPaths(startPath);
-  const found = paths.find((p) => getStrikethrooAt(p));
-  if (!found) return null;
-  const root = getStrikethrooAt(found);
-  if (root) checkWorkspaceSchema(path.join(root, ".init-metadata.json"));
+  const root = discoverStrikethrooRoot(startPath);
+  if (root) checkWorkspaceSchema(root);
   return root;
 };
 

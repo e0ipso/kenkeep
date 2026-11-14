@@ -1,3 +1,10 @@
+## [1.19.4](https://github.com/e0ipso/kenkeep/compare/v1.19.3...v1.19.4) (2026-11-14)
+
+### Bug Fixes
+
+* copy directories in copyMissingEntries on recent Node ([a1675c4](https://github.com/e0ipso/kenkeep/commit/a1675c4eaea36fe4c6e1dd4b6b039639c97e3f72))
+* limit skills-lock.json changes to Strikethroo skills ([228bcb1](https://github.com/e0ipso/kenkeep/commit/228bcb1c34f74e5cb00f8c8c668873d5891b5c32))
+
 ## [1.19.3](https://github.com/e0ipso/kenkeep/compare/v1.19.2...v1.19.3) (2026-10-21)
 
 ### Bug Fixes

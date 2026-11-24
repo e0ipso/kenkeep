@@ -186,11 +186,13 @@ describe('doctor', () => {
   // Older releases wrote `installed_at` and `harnesses`; doctor reads only
   // `version` and must keep accepting them.
   it('accepts a legacy marker with installed_at and harnesses', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
     const version = packageJsonVersion();
     writeFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), legacyMarkerJson(version));
 
-    const result = await runCli(sandbox, ['doctor']);
+    const result = await runCli(sandbox, ['doctor'], env);
     expect(result.exitCode).toBe(0);
     const out = result.stdout + result.stderr;
     expect(out).toContain(`.ai/kenkeep/.state/installed-version: ${version}`);

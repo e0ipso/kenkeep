@@ -21,7 +21,7 @@ review.xml
 core
 core.*
 .agents/
-.ai
+.ai/*
 !.ai/kenkeep/
 .claude
 .codex/

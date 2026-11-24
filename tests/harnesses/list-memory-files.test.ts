@@ -15,6 +15,7 @@ import { assertValidSessionId } from '../../src/lib/session-log.js';
 import { repoPaths, type RepoPaths } from '../../src/lib/paths.js';
 import type { HarnessAdapter } from '../../src/harnesses/types.js';
 import { mockExecaOnce } from '../helpers/execa-mock.js';
+import { writeInstalledMarker } from '../helpers.js';
 
 vi.mock('execa', () => ({ execa: vi.fn() }));
 
@@ -87,16 +88,7 @@ function makeSandbox(): Sandbox {
   const paths = repoPaths(root);
   mkdirSync(join(root, '.git'), { recursive: true });
   mkdirSync(paths.stateDir, { recursive: true });
-  writeFileSync(
-    paths.installedVersionFile,
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-10-02T10:00:00Z',
-      assistants: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   const memoryDir = join(root, 'memories');
   mkdirSync(memoryDir, { recursive: true });
   return { root, paths, memoryDir };

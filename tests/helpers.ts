@@ -78,3 +78,17 @@ export function writeHarnessBinaryStubs(dir: string): string {
   }
   return binDir;
 }
+
+/**
+ * Writes the three-field install marker at
+ * `<root>/.ai/kenkeep/.state/installed-version`, the "kenkeep is
+ * initialized" signal that commands and hooks check.
+ */
+export function writeInstalledMarker(root: string, version = '0.0.0-test'): void {
+  const stateDir = join(root, '.ai/kenkeep/.state');
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(
+    join(stateDir, 'installed-version'),
+    JSON.stringify({ schema_version: 1, package: 'kenkeep', version })
+  );
+}

@@ -30,6 +30,7 @@ import { readRedirectsLedger, writeRedirectsLedger } from '../../src/lib/redirec
 import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 import { defaultProjectConfigBody } from '../../src/lib/settings.js';
+import { writeInstalledMarker } from '../helpers.js';
 
 const exec = promisify(execFile);
 
@@ -246,16 +247,7 @@ async function initSandbox(root: string, gitRoot = root): Promise<void> {
   mkdirSync(join(root, '.ai/kenkeep/nodes'), { recursive: true });
   writeFileSync(join(root, 'AGENTS.md'), '# Test repo\n');
   writeFileSync(join(root, '.ai/kenkeep/config.yaml'), defaultProjectConfigBody());
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-06-30T00:00:00.000Z',
-      harnesses: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
 }
 
 async function capture(

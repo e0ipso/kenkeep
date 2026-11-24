@@ -13,22 +13,14 @@ import { join } from 'node:path';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runCuratePersistCommand } from '../../src/commands/curate-persist.js';
+import { writeInstalledMarker } from '../helpers.js';
 
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), 'kk-curate-persist-'));
   mkdirSync(join(root, '.git'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/nodes/topic'), { recursive: true });
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-23T10:00:00Z',
-      harnesses: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   writeFileSync(
     join(root, '.ai/kenkeep/nodes/topic/practice-existing.md'),
     matter.stringify('Old body.\n', {

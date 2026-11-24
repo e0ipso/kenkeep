@@ -17,21 +17,13 @@ import { runFindDocsCommand } from '../../src/commands/finddocs.js';
 import { runNodeWriteCommand } from '../../src/commands/node-write.js';
 import { readBootstrapState, sha256Hex } from '../../src/lib/bootstrap.js';
 import type { BootstrapState } from '../../src/lib/schemas.js';
+import { writeInstalledMarker } from '../helpers.js';
 
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), 'kk-nodewrite-'));
   mkdirSync(join(root, '.git'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-23T10:00:00Z',
-      assistants: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   // Topical tree: leaves live directly under nodes/ (placement is topical,
   // independent of kind). The node-write primitive defaults to the nodes/ root.
   mkdirSync(join(root, '.ai/kenkeep/nodes'), { recursive: true });

@@ -3,23 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runDraftsCollectCommand } from '../../src/commands/drafts-collect.js';
-import { runCli } from '../helpers.js';
+import { runCli, writeInstalledMarker } from '../helpers.js';
 
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), 'kk-drafts-collect-'));
   mkdirSync(join(root, '.git'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/_logs/curator'), { recursive: true });
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-23T10:00:00Z',
-      harnesses: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   return root;
 }
 

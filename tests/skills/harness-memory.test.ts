@@ -3,7 +3,14 @@ import { chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from '
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, cliPath, makeSandbox, repoRoot, runCli } from '../helpers.js';
+import {
+  cleanSandbox,
+  cliPath,
+  makeSandbox,
+  repoRoot,
+  runCli,
+  writeInstalledMarker,
+} from '../helpers.js';
 
 /**
  * A33: the shipped skills must pull the harness's changed memory files into
@@ -76,16 +83,7 @@ describe('memory list / memory mark through the built CLI', () => {
     cwd = makeSandbox('kk-memory-cli-');
     mkdirSync(join(cwd, '.git'), { recursive: true });
     mkdirSync(join(cwd, '.ai/kenkeep/.state'), { recursive: true });
-    writeFileSync(
-      join(cwd, '.ai/kenkeep/.state/installed-version'),
-      JSON.stringify({
-        schema_version: 1,
-        package: 'kenkeep',
-        version: '0.0.0-test',
-        installed_at: '2026-10-02T10:00:00Z',
-        assistants: ['claude'],
-      })
-    );
+    writeInstalledMarker(cwd);
     memoryFile = join(cwd, 'outside', 'MEMORY.md');
     mkdirSync(join(cwd, 'outside'), { recursive: true });
     writeFileSync(memoryFile, 'Prefer tabs.\n');

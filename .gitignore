@@ -20,3 +20,10 @@ review.xml
 # Process core dumps (e.g. a crashed ImageMagick convert during diagram rendering)
 core
 core.*
+.agents/
+.ai
+!.ai/kenkeep/
+.claude
+.codex/
+.cursor/
+.opencode/

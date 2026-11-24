@@ -36,8 +36,8 @@ _None yet._
 - Open [**Do not justify scope decisions by current-snapshot file contents**](practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md) — Claims like 'that folder only contains code' are snapshot observations, not guarantees; decide scope from the principle, not today's files.
 ### #build
 - Open [**Keep template partials out of the knowledge base**](../../config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
-- Open [**Keep template partials out of the knowledge base**](../../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](../../hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.
+- Open [**Harness directories are vendored or dogfooded, never source**](practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
 ### #capture
 - Open [**kk-capture.mjs (capture hook)**](../../hooks/map-capture-hook.md) — Capture hook: reads transcript, writes _sessions/<...>.md. Sync, ≤1s deadline (OpenCode 8s). Wired per-harness.
 - Open [**Usage ledger depends on successful capture**](../../state/map-usage-ledger-depends-on-successful-capture.md) — usage.jsonl records node reads only from sessions whose capture hook persists usage rows.

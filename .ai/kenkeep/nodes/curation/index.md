@@ -79,9 +79,9 @@ _None._
 ### #output
 - Open [**curate CLI conflict-resolution output message**](map-curate-cli-conflict-resolution-output-message.md) — src/commands/curate.ts emits a multi-line message when conflicts > 0, naming the three resolution outcomes and pointing users at /kk-curate.
 ### #prompts
-- Open [**Keep template partials out of the knowledge base**](../config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
-- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Bump the prompt's Version comment on every behavior change**](../config-and-prompts/practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.
+- Open [**Local prompt overrides fall back to bundled templates**](../config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md, then the bundled fallback; delete the override to revert.
+- Open [**Curator drops non-productive and change-oriented candidates**](practice-curator-drops-non-productive-candidates.md) — Change-oriented framing is auto-dropped; hedged, plan-scoped, or low-confidence signatures signal an abandoned-session leak.
 ### #proposal
 - Open [**Proposal candidate schema**](map-proposal-candidate-schema.md) — Shape emitted by proposal-extract per practice/map candidate; supports_existing_node/contradicts_existing_node are the curator's join keys.
 ### #ux

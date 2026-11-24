@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:10973dc891a0a2dc198e6eb3ee7431b63955284949efbd06eb5de3a68b796272'
-node_count: 88
+nodes_hash: 'sha256:07e78a512d39cf52283c7dfe59e694deef1bb39bda38c61502b932340cc7dd86'
+node_count: 87
 ---
 # kenkeep Graph
 
-Total nodes: 88
+Total nodes: 87
 
 ## map-bootstrap-incremental-command
 
@@ -604,14 +604,6 @@ Total nodes: 88
 - **kind:** practice
 - **title:** Keep template partials out of the knowledge base
 - **path:** config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md
-- **tags:** templates, prompts, knowledge-base, build
-- **relates_to:** practice-bump-prompt-version-comment, practice-shipped-skills-and-hook-scripts-must-be-self-contained
-
-## practice-keep-template-partials-out-of-the-knowledge-base
-
-- **kind:** practice
-- **title:** Keep template partials out of the knowledge base
-- **path:** practice-keep-template-partials-out-of-the-knowledge-base.md
 - **tags:** templates, prompts, knowledge-base, build
 - **relates_to:** practice-bump-prompt-version-comment, practice-shipped-skills-and-hook-scripts-must-be-self-contained
 

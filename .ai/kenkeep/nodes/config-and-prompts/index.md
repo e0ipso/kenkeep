@@ -21,9 +21,9 @@ _None._
 ## By topic
 
 ### #prompts
-- Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
-- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.
+- Open [**Local prompt overrides fall back to bundled templates**](practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md, then the bundled fallback; delete the override to revert.
+- Open [**Curator drops non-productive and change-oriented candidates**](../curation/practice-curator-drops-non-productive-candidates.md) — Change-oriented framing is auto-dropped; hedged, plan-scoped, or low-confidence signatures signal an abandoned-session leak.
 ### #models
 - Open [**config.yaml (project settings)**](map-config-yaml.md) — Committed project settings at .ai/kenkeep/config.yaml. Strict: unknown keys are a hard error.
 - Open [**Avoid harness favoritism in examples and recommendations**](practice-document-model-recommendations-with-harness-agnostic-framing-2.md) — Generated or documented examples and model recommendations must not favor one harness; use neutral placeholders or per-harness examples.
@@ -31,8 +31,8 @@ _None._
 - Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.
 ### #build
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
-- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](../hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.
+- Open [**Harness directories are vendored or dogfooded, never source**](../conventions/development/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
 ### #config
 - Open [**config.yaml (project settings)**](map-config-yaml.md) — Committed project settings at .ai/kenkeep/config.yaml. Strict: unknown keys are a hard error.
 ### #configuration
@@ -51,7 +51,6 @@ _None._
 - Open [**Cursor sessionStart additional_context delivery was fixed upstream**](../harnesses/adapters/practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — Silent-drop bug (~May 2026) fixed upstream by Cursor; kenkeep injects via additional_context AND the AGENTS.md sentinel, belt-and-braces.
 ### #knowledge-base
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
-- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 ### #override
 - Open [**Local prompt overrides fall back to bundled templates**](practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md, then the bundled fallback; delete the override to revert.
 ### #recommendations
@@ -59,9 +58,8 @@ _None._
 ### #settings
 - Open [**config.yaml (project settings)**](map-config-yaml.md) — Committed project settings at .ai/kenkeep/config.yaml. Strict: unknown keys are a hard error.
 ### #templates
-- Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
-- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](../hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.
+- Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 ### #versioning
 - Open [**Strict schema-version bump policy**](../node-schema/practice-strict-schema-version-bump-policy.md) — schema_version bumps are a clean break: readers reject mismatches, no shims; a hidden supervised migrate command is the escape hatch.
 - Open [**Bump the prompt's Version comment on every behavior change**](practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.

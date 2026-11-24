@@ -96,9 +96,13 @@ The upgrade sweeps loose notes at the root of `nodes/`. A note nothing links to 
 
 The notes under `.ai/kenkeep/nodes/` are at `schema_version` 1 or 2. `init` finishes and leaves them alone, but every command that reads them fails. Run `/kk-migrate` in a session. Folder names do not count: a `map/` or `practice/` folder is an ordinary topic folder.
 
-## `doctor --harness <id>` says `<id>` is not recorded
+## `doctor` reports a missing host registration
 
-The harness is registered in the repo but missing from `.ai/kenkeep/.state/installed-version`, or its scripts are missing after a clone. Run `npx kenkeep init --harnesses <id>`.
+`doctor --harness <id>` fails with `<id> has no host registration in this repo (registered: ...)`. The repo has no committed host config for that harness. Run `npx kenkeep init --harnesses <id>` to install it.
+
+Plain `doctor` warns `no harness is registered` when it finds no registration at all. Run `npx kenkeep init --harnesses <id[,id,...]>` to install one.
+
+`init` and `doctor` read the harnesses from the committed host registrations, not from a record. `doctor` cannot detect a registration someone deleted, and `init --upgrade` skips a harness whose registration is gone unless `--harnesses` names it. To restore it, run `npx kenkeep init --harnesses <id>`.
 
 ## `pack import` or `pack export` refuses
 

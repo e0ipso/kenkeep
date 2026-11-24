@@ -50,9 +50,9 @@ npx kenkeep init --harnesses <id>
 npx kenkeep --harness <id> doctor
 ```
 
-On a repo that is already initialized, `init` restores the missing hook scripts for every harness the repo records, not only `<id>`. They are the one install output `.ai/kenkeep/.gitignore` keeps out of commits; skills, plugins and prompts arrive with the clone. It rewrites no file that exists, so `config.yaml`, prompt overrides, and host configs stay as committed and `git status` stays clean. Naming a harness the repo does not record yet installs it and adds it to the record in `.ai/kenkeep/.state/installed-version`.
+On a repo that is already initialized, `init` restores the missing hook scripts for every harness the repo registers in its committed host config, not only `<id>`. They are the one install output `.ai/kenkeep/.gitignore` keeps out of commits; skills, plugins and prompts arrive with the clone. It rewrites no file that exists, so `config.yaml`, prompt overrides, and host configs stay as committed and `git status` stays clean. Naming a harness the repo has not registered yet installs it. `.ai/kenkeep/.state/installed-version` holds only the package version.
 
-`doctor --harness <id>` fails when `<id>` is unknown or not in that record, and says which scripts are missing. Plain `doctor` also checks the record: a harness registered in the repo but not recorded is an error when its scripts are missing, and a warning otherwise.
+`doctor --harness <id>` fails when `<id>` is unknown or has no host registration in the repo, and says which scripts are missing. Plain `doctor` audits every registered harness and warns when none is registered.
 
 ## Per-harness notes
 
@@ -180,6 +180,6 @@ npx kenkeep init --harnesses <id> --upgrade
 npx kenkeep --harness <id> doctor
 ```
 
-`--upgrade` refreshes hooks, skills, and bundled prompts for every harness the repo records, plus any you name. It never drops a recorded harness. To retire one, delete its host registration and edit `.ai/kenkeep/.state/installed-version` yourself. It keeps your `config.yaml`, prompt overrides, and a `!/_sessions/` line in `.ai/kenkeep/.gitignore`.
+`--upgrade` refreshes hooks, skills, and bundled prompts for every harness the repo registers, plus any you name. A harness whose host registration is gone is skipped unless you name it with `--harnesses`. To retire one, delete its host registration. It keeps your `config.yaml`, prompt overrides, and a `!/_sessions/` line in `.ai/kenkeep/.gitignore`.
 
 Upgrade ends by sweeping loose notes at the root of `nodes/`. A note is filed into the folder its own edges and tags name. A note nothing fits is deleted only when no other note links to it and git can restore it, and the output prints the `git restore` command. Every other note nothing fits stays at the root, and the output says why. Nothing is staged or committed, so review with `git status` and `git diff`.

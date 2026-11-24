@@ -77,7 +77,7 @@ Where the host exposes sub-agents (Claude Code and Cursor), curate and bootstrap
 
 ## State files
 
-Committed: `nodes/`, `ENTRY.md`, `GRAPH.md`, `FOLDER_SUMMARIES.md`, `.config/prompts/`, `.state/installed-version` (the harness inventory), and `conflicts/`. A decided conflict stays on disk as a record until you commit or delete it. Gitignored: `_sessions/`, `_logs/`, `hooks/`, and the rest of `.state/` (`state.json`, `bootstrap-state.json`, `memory-ledger.json`, `usage.jsonl`). A team can commit session logs by replacing `/_sessions/` with `!/_sessions/` in `.ai/kenkeep/.gitignore`, and upgrades keep that line. Capture names logs `YYYYMMDD-HHmm-<sessionId>.md` and re-firing for the same session reuses the file.
+Committed: `nodes/`, `ENTRY.md`, `GRAPH.md`, `FOLDER_SUMMARIES.md`, `.config/prompts/`, `.state/installed-version` (the package version that last installed or upgraded the repo; `init` and `doctor` find the harnesses from the committed host registrations), and `conflicts/`. A decided conflict stays on disk as a record until you commit or delete it. Gitignored: `_sessions/`, `_logs/`, `hooks/`, and the rest of `.state/` (`state.json`, `bootstrap-state.json`, `memory-ledger.json`, `usage.jsonl`). A team can commit session logs by replacing `/_sessions/` with `!/_sessions/` in `.ai/kenkeep/.gitignore`, and upgrades keep that line. Capture names logs `YYYYMMDD-HHmm-<sessionId>.md` and re-firing for the same session reuses the file.
 
 Per-run curator state lives under `_logs/curator/`: `<run>__<n>.draft.json` (a batch's actions and the sessions it consumed, with their transcript hashes) and the JSONL traces. `logs prune` deletes only the `.jsonl` files.
 

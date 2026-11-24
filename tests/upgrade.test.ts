@@ -1,5 +1,5 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
@@ -55,44 +55,81 @@ describe('init --upgrade', () => {
     expect(result.stderr + result.stdout).toMatch(/Not initialized/i);
   });
 
-  it('runs idempotently when already current', async () => {
+  // At the same package version the marker content does not change, so the
+  // upgrade does not write it: no diff and no new mtime.
+  it('runs idempotently when already current and never rewrites the marker', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout + result.stderr).toMatch(/Upgraded to/);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const marker = readFileSync(versionFile, 'utf8');
+    const mtime = statSync(versionFile).mtimeMs;
+
+    for (const run of [1, 2]) {
+      const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+      expect(result.exitCode, `upgrade ${run}`).toBe(0);
+      expect(result.stdout + result.stderr).toMatch(/Upgraded to/);
+      expect(readFileSync(versionFile, 'utf8'), `upgrade ${run}`).toBe(marker);
+    }
+    expect(statSync(versionFile).mtimeMs).toBe(mtime);
   });
 
-  // A scoped upgrade merges into the recorded inventory, so a Claude-only
-  // repair never drops Codex while its registrations stay in place. Nothing is
-  // removed implicitly.
-  it('keeps every recorded harness in the inventory when the upgrade names only one', async () => {
+  // The upgrade set is every harness the committed host config registers plus
+  // the ones named on the command line, so a Claude-only upgrade still
+  // refreshes Codex while `.codex/hooks.json` registers it.
+  it('refreshes every registered harness when the upgrade names only one', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
     const codexHooks = readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8');
+    const codexSkill = join(sandbox, '.agents/skills/kk-curate/SKILL.md');
+    writeFileSync(codexSkill, '---\nname: kk-curate\n---\nstale\n');
+    const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
+    rmSync(codexCapture);
+    // Precondition: the marker names no harness, so only the registration can
+    // tell the upgrade that codex is installed.
+    const marker = JSON.parse(
+      readFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), 'utf8')
+    ) as object;
+    expect(Object.keys(marker).sort()).toEqual(['package', 'schema_version', 'version']);
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
-    expect(result.exitCode).toBe(0);
-
-    const installed = JSON.parse(
-      readFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), 'utf8')
-    ) as { harnesses: string[] };
-    expect(installed.harnesses).toEqual(['claude', 'codex']);
+    expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('(harnesses: claude, codex)');
+    // Every harness installs the same shared skill bytes.
+    expect(readFileSync(codexSkill, 'utf8')).toBe(
+      readFileSync(join(sandbox, '.claude/skills/kk-curate/SKILL.md'), 'utf8')
+    );
+    expect(existsSync(codexCapture)).toBe(true);
     expect(readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8')).toBe(codexHooks);
-    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs'))).toBe(true);
-    expect(existsSync(join(sandbox, '.agents/skills/kk-curate/SKILL.md'))).toBe(true);
   });
 
-  it('fails and keeps the recorded version when a recorded harness config is malformed', async () => {
+  // `{ not json` names no `.ai/kenkeep/hooks/codex/` path, so it is no
+  // registration evidence: an upgrade that does not name codex skips it.
+  it('skips a harness whose malformed config carries no registration when the upgrade does not name it', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const recorded = readFileSync(versionFile, 'utf8');
-    // Codex stays in the inventory, so its config is rewritten even when the
-    // upgrade names only claude; its writer refuses the malformed file.
-    writeFileSync(join(sandbox, '.codex/hooks.json'), '{"hooks": 5}\n');
+    const codexHooksFile = join(sandbox, '.codex/hooks.json');
+    writeFileSync(codexHooksFile, '{ not json');
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toContain('(harnesses: claude)');
+    expect(readFileSync(codexHooksFile, 'utf8')).toBe('{ not json');
+  });
+
+  // A harness named in `--harnesses` is refreshed with or without evidence,
+  // so its writer still refuses the malformed file and the run records nothing.
+  it('fails loudly and keeps the marker when the upgrade names a harness whose config is malformed', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    // An older version, so a successful upgrade would have rewritten the marker.
+    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
+    installed['version'] = '0.0.0-test-old';
+    const recorded = `${JSON.stringify(installed, null, 2)}\n`;
+    writeFileSync(versionFile, recorded);
+    const codexHooksFile = join(sandbox, '.codex/hooks.json');
+    writeFileSync(codexHooksFile, '{ not json');
+
+    const result = await runCli(sandbox, ['init', '--harnesses', 'claude,codex', '--upgrade']);
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr + result.stdout).toContain('.codex/hooks.json');
-    expect(readFileSync(join(sandbox, '.codex/hooks.json'), 'utf8')).toBe('{"hooks": 5}\n');
+    expect(readFileSync(codexHooksFile, 'utf8')).toBe('{ not json');
     expect(readFileSync(versionFile, 'utf8')).toBe(recorded);
   });
 

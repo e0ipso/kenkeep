@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
+import { cleanSandbox, makeSandbox, repoRoot, runCli, writeHarnessBinaryStubs } from './helpers.js';
 
 const exec = promisify(execFile);
 
@@ -466,14 +466,32 @@ describe('status', () => {
     expect(result.stdout + result.stderr).toContain('not initialized');
   });
 
-  it('reports zeros after init', async () => {
+  it('reports the version without an install date and zeros after init', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const result = await runCli(sandbox, ['status']);
     expect(result.exitCode).toBe(0);
+    const { version } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
+      version: string;
+    };
+    expect(result.stdout.split('\n')[0]).toBe(`kenkeep v${version}`);
     expect(result.stdout).toContain('Practice nodes: 0');
     expect(result.stdout).toContain('Map nodes:      0');
     expect(result.stdout).toContain('Proposal extraction queue: 0');
     expect(result.stdout).toContain('Curation queue:           0');
+  });
+
+  it('reports a malformed marker as an error and exits nonzero', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    writeFileSync(
+      join(sandbox, '.ai/kenkeep/.state/installed-version'),
+      `${JSON.stringify({ schema_version: 1, package: 'kenkeep', version: 5 }, null, 2)}\n`
+    );
+    const result = await runCli(sandbox, ['status']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Malformed');
+    expect(result.stderr).toContain('installed-version');
+    expect(result.stderr).not.toMatch(/^\s+at /m);
+    expect(result.stdout).not.toContain('kenkeep v');
   });
 
   it('reports extraction and curation queues with distinct labels', async () => {

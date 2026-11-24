@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 import { computeFreshness } from '../lib/freshness.js';
+import { readInstalledVersion, type InstalledVersion } from '../lib/installed-version.js';
 import { log } from '../lib/log.js';
 import { summarizePendingSessions } from '../lib/session-start.js';
 import { readAllNodes } from '../lib/nodes.js';
@@ -11,24 +12,26 @@ export async function runStatus(): Promise<number> {
   const root = findRepoRoot();
   const paths = repoPaths(root);
 
-  if (!existsSync(paths.installedVersionFile)) {
+  let installed: InstalledVersion | null;
+  try {
+    installed = readInstalledVersion(paths.installedVersionFile);
+  } catch (err) {
+    log.error((err as Error).message);
+    return 1;
+  }
+  if (installed === null) {
     log.warn(
       'kenkeep is not initialized in this repo. Run `npx kenkeep init --harnesses <id[,id,...]>`.'
     );
     return 1;
   }
 
-  const installed = JSON.parse(readFileSync(paths.installedVersionFile, 'utf8')) as {
-    version: string;
-    installed_at: string;
-  };
-
   const sessionStats = scanSessions(paths.sessionsDir);
   const curationQueue = summarizePendingSessions(paths.sessionsDir);
   const nodeCounts = countNodes(paths.nodesDir);
   const freshness = computeFreshness({ root, nodesDir: paths.nodesDir });
 
-  log.plain(`kenkeep v${installed.version} (installed ${installed.installed_at})`);
+  log.plain(`kenkeep v${installed.version}`);
   log.plain('');
   log.plain('Knowledge base');
   log.plain(`  Practice nodes: ${nodeCounts.practice}`);

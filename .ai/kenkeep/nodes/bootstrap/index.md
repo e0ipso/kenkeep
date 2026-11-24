@@ -15,7 +15,7 @@ _None._
 - Open [**Default bootstrap nodes to confidence: medium**](practice-confidence-default-medium-bootstrap.md) to learn about: Bootstrap nodes default to confidence: medium; use high only when the source states the rule with rationale and looks actively maintained. #bootstrap #confidence #calibration
 
 ## Components (what exists)
-- Open [**/kk-bootstrap skill**](map-kk-bootstrap-skill.md) to learn about: Supervised, agent-driven first-pass bootstrap: surveys docs and writes practice/map nodes under nodes/. Reviewer accepts via git commit. #skill #bootstrap #agent
+- Open [**/kk-bootstrap skill**](map-kk-bootstrap-skill.md) to learn about: Supervised, agent-driven first-pass bootstrap: surveys docs and writes practice/map nodes under nodes/. Reviewer accepts via git commit. #skills #bootstrap #agent
 - Open [**bootstrap-incremental (CLI)**](map-bootstrap-incremental-command.md) to learn about: Headless, hash-aware bootstrap from markdown docs: spawns the harness driver, batches docs in 20s, records SHA-256 in bootstrap-state.json. #cli #bootstrap #deterministic
 - Open [**.state/bootstrap-state.json (per-doc hash cache)**](map-bootstrap-state-file.md) to learn about: Per-doc SHA-256 cache used by bootstrap-incremental for hash-aware re-runs. Gitignored. #bootstrap #hash #state #schema
 
@@ -56,9 +56,10 @@ _None._
 - Open [**Knowledge pack format contract**](../pack/map-knowledge-pack-format.md) — A pack root has kenkeep-pack.yaml, README.md, knowledge/; PackManifestSchema validates the manifest; knowledge/ is a nodes/-shaped tree.
 - Open [**Use a single generic migrate command for schema bumps**](../cli/practice-use-a-single-generic-migrate-command-for-schema-bumps.md) — One generic migrate command detects the current schema and dispatches the right step, rather than separate commands per bump.
 - Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state with only last_nudged_at; the proposal-drain lock is a sidecar lockfile dir (60s stale), not a JSON field.
-### #skill
+### #skills
 - Open [**curate (CLI command + /kk-curate skill)**](../curation/map-curate-command.md) — Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent.
-- Open [**/kk-bootstrap skill**](map-kk-bootstrap-skill.md) — Supervised, agent-driven first-pass bootstrap: surveys docs and writes practice/map nodes under nodes/. Reviewer accepts via git commit.
+- Open [**Skills-first documentation, only init is CLI**](../cli/practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
+- Open [**Shipped skills and hook scripts must be self-contained**](../hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
 ### #state
 - Open [**Session log (_sessions/*.md)**](../state/map-session-log.md) — Per-session checkpoint _sessions/<YYYYMMDD-HHmm-id>.md, one per session_id; frontmatter tracks capture, proposal, and curator phases.
 - Open [**.state/state.json (lock + nudge state)**](../state/map-state-file.md) — Gitignored runtime state with only last_nudged_at; the proposal-drain lock is a sidecar lockfile dir (60s stale), not a JSON field.

@@ -1,11 +1,11 @@
 ---
 schema_version: 3
-nodes_hash: 'sha256:8678c12418ff9de0087360d6a0ee0575de39dc417257996aa3b9b0e0dbb0b7c0'
-node_count: 87
+nodes_hash: 'sha256:10973dc891a0a2dc198e6eb3ee7431b63955284949efbd06eb5de3a68b796272'
+node_count: 88
 ---
 # kenkeep Graph
 
-Total nodes: 87
+Total nodes: 88
 
 ## map-bootstrap-incremental-command
 
@@ -38,7 +38,7 @@ Total nodes: 87
 
 - **kind:** map
 - **title:** Claude Code harness adapter
-- **path:** harnesses/map-claude-harness.md
+- **path:** harnesses/adapters/map-claude-harness.md
 - **tags:** harness, claude, hooks
 - **relates_to:** map-harness-adapter, map-capture-hook, map-proposal-drain-hook, map-session-start-hook
 - **derived_from:** docs/installation.md, docs/how-it-works.md, docs/internals/hooks.md, 696e9b15-ef7a-409d-8445-493a3ee76eaa:map:0
@@ -47,7 +47,7 @@ Total nodes: 87
 
 - **kind:** map
 - **title:** Codex CLI harness adapter
-- **path:** harnesses/map-codex-harness.md
+- **path:** harnesses/adapters/map-codex-harness.md
 - **tags:** harness, codex, hooks
 - **relates_to:** map-harness-adapter, map-capture-hook, map-kenkeep-directory
 - **derived_from:** docs/installation.md, docs/installation/codex-toml-hooks-coexistence.md, docs/how-it-works.md, 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:map:1
@@ -57,7 +57,7 @@ Total nodes: 87
 - **kind:** map
 - **title:** config.yaml (project settings)
 - **path:** config-and-prompts/map-config-yaml.md
-- **tags:** config, settings, model
+- **tags:** config, settings, models
 - **relates_to:** map-curate-command, map-bootstrap-incremental-command, map-proposal-drain-hook
 - **derived_from:** docs/internals/architecture.md
 
@@ -74,7 +74,7 @@ Total nodes: 87
 
 - **kind:** map
 - **title:** Copilot harness adapter
-- **path:** harnesses/map-copilot-harness-adapter.md
+- **path:** harnesses/adapters/map-copilot-harness-adapter.md
 - **tags:** harness, copilot, hooks, adapter
 - **relates_to:** map-harness-adapter, map-codex-harness, map-opencode-harness, map-cursor-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, https://github.com/github/copilot-cli, https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference
@@ -92,7 +92,7 @@ Total nodes: 87
 - **kind:** map
 - **title:** curate (CLI command + /kk-curate skill)
 - **path:** curation/map-curate-command.md
-- **tags:** cli, curate, skill
+- **tags:** cli, curate, skills
 - **relates_to:** map-curator-action, map-conflict-files, practice-curator-never-auto-resolves-contradictions
 - **derived_from:** docs/daily-use.md, docs/how-it-works.md
 
@@ -118,7 +118,7 @@ Total nodes: 87
 
 - **kind:** map
 - **title:** Cursor harness adapter
-- **path:** harnesses/map-cursor-harness-adapter.md
+- **path:** harnesses/adapters/map-cursor-harness-adapter.md
 - **tags:** harness, cursor, hooks
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, https://cursor.com/docs/hooks, https://cursor.com/docs/cli/using
@@ -154,7 +154,7 @@ Total nodes: 87
 
 - **kind:** map
 - **title:** Harness adapter
-- **path:** harnesses/map-harness-adapter.md
+- **path:** harnesses/adapters/map-harness-adapter.md
 - **tags:** harness, adapter, claude, codex, cursor, opencode, copilot, architecture
 - **relates_to:** map-claude-harness, map-codex-harness, map-cursor-harness-adapter, map-opencode-harness, map-copilot-harness-adapter, practice-explicit-harness-flag-outside-claude
 - **derived_from:** README.md, docs/installation.md, docs/internals/architecture.md, CONTRIBUTING.md
@@ -198,7 +198,7 @@ Total nodes: 87
 - **kind:** map
 - **title:** /kk-bootstrap skill
 - **path:** bootstrap/map-kk-bootstrap-skill.md
-- **tags:** skill, bootstrap, agent
+- **tags:** skills, bootstrap, agent
 - **relates_to:** map-bootstrap-incremental-command, practice-bootstrap-never-overwrites-existing-nodes, practice-bootstrap-is-supervised-and-judgmental
 - **derived_from:** docs/installation.md, docs/daily-use.md
 
@@ -269,7 +269,7 @@ Total nodes: 87
 
 - **kind:** map
 - **title:** OpenCode harness adapter
-- **path:** harnesses/map-opencode-harness.md
+- **path:** harnesses/adapters/map-opencode-harness.md
 - **tags:** harness, opencode, hooks, plugin
 - **relates_to:** map-harness-adapter
 - **derived_from:** docs/installation.md, docs/how-it-works.md, README.md
@@ -306,7 +306,7 @@ Total nodes: 87
 - **kind:** map
 - **title:** Session log (_sessions/*.md)
 - **path:** state/map-session-log.md
-- **tags:** session, capture, state, schema
+- **tags:** sessions, capture, state, schema
 - **relates_to:** map-capture-hook, map-proposal-drain-hook, map-session-log-stage-live
 - **derived_from:** docs/internals/hooks.md, docs/internals/schemas.md, docs/internals/architecture.md, 4c12545c-3224-4602-8b5a-14c752d26975:map:3
 
@@ -358,7 +358,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Adapters never reach into each other's directories
-- **path:** harnesses/practice-adapters-never-cross-directories.md
+- **path:** harnesses/cross-harness/practice-adapters-never-cross-directories.md
 - **tags:** adapter, architecture, isolation
 - **relates_to:** map-harness-adapter, practice-no-event-translation-across-adapters
 - **derived_from:** CONTRIBUTING.md, docs/internals/architecture.md
@@ -411,7 +411,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Consumers are responsible for secret hygiene
-- **path:** conventions/practice-consumers-are-responsible-for-secret-hygiene.md
+- **path:** conventions/development/practice-consumers-are-responsible-for-secret-hygiene.md
 - **tags:** security, secrets, capture, documentation
 - **relates_to:** map-capture-hook
 
@@ -419,15 +419,16 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Conventional Commits drive semantic-release
-- **path:** conventions/practice-conventional-commits-and-release.md
+- **path:** conventions/git-and-release/practice-conventional-commits-and-release.md
 - **tags:** git, release, conventional-commits
+- **relates_to:** practice-bump-prompt-version-comment, practice-testing-philosophy-few-tests-mostly-integration, practice-never-force-push
 - **derived_from:** CONTRIBUTING.md
 
 ## practice-copilot-file-based-sessionstart-must-use-shared-context-builder
 
 - **kind:** practice
 - **title:** Copilot file-based SessionStart must use shared context builder
-- **path:** practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md
+- **path:** harnesses/adapters/practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md
 - **tags:** copilot, harness, hooks, sessionstart, context-injection, drift
 - **relates_to:** map-copilot-harness-adapter, map-session-start-hook
 
@@ -435,7 +436,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Cross-harness features must use adapter-level abstractions
-- **path:** harnesses/practice-cross-harness-features-must-use-adapter-level-abstractions.md
+- **path:** harnesses/cross-harness/practice-cross-harness-features-must-use-adapter-level-abstractions.md
 - **tags:** harnesses, cross-harness, abstractions, architecture
 - **relates_to:** practice-adapters-never-cross-directories, practice-no-event-translation-across-adapters, map-harness-adapter
 
@@ -469,7 +470,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Cursor sessionStart additional_context delivery was fixed upstream
-- **path:** harnesses/practice-cursor-sessionstart-additional-context-is-silently-dropped.md
+- **path:** harnesses/adapters/practice-cursor-sessionstart-additional-context-is-silently-dropped.md
 - **tags:** cursor, harness, hooks, context-injection
 - **relates_to:** map-cursor-harness-adapter
 
@@ -486,7 +487,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Distinguish Kenkeep development tooling from the Kenkeep product
-- **path:** practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md
+- **path:** conventions/development/practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md
 - **tags:** dogfooding, development, source-of-truth, distribution
 - **relates_to:** practice-harness-dirs-are-vendored-or-dogfooded-not-source
 
@@ -494,14 +495,15 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Do not justify scope decisions by current-snapshot file contents
-- **path:** conventions/practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md
+- **path:** conventions/development/practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents.md
 - **tags:** yagni, assumptions, verification
+- **relates_to:** practice-harness-dirs-are-vendored-or-dogfooded-not-source
 
 ## practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks
 
 - **kind:** practice
 - **title:** Docs are short and structured; the README keeps its reader hooks
-- **path:** conventions/practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md
+- **path:** conventions/writing-style/practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md
 - **tags:** docs, readme, writing-style
 - **relates_to:** practice-no-em-dashes, map-kenkeep-docs-site-custom-domain
 - **derived_from:** 7cada090-ddc5-4bba-88c8-2a97aae5bdbd:practice:0
@@ -518,7 +520,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Don't run curate or bootstrap-incremental in CI
-- **path:** conventions/practice-dont-run-llm-pipelines-in-ci.md
+- **path:** conventions/git-and-release/practice-dont-run-llm-pipelines-in-ci.md
 - **tags:** ci, llm, workflow
 - **relates_to:** map-curate-command, map-bootstrap-incremental-command
 - **derived_from:** docs/installation.md, docs/daily-use.md
@@ -527,7 +529,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Pass --harness explicitly outside an active harness session
-- **path:** harnesses/practice-explicit-harness-flag-outside-claude.md
+- **path:** harnesses/cross-harness/practice-explicit-harness-flag-outside-claude.md
 - **tags:** harness, cli, codex, cursor, opencode
 - **relates_to:** map-harness-adapter, map-cursor-harness-adapter, map-config-yaml
 - **derived_from:** docs/installation.md
@@ -536,7 +538,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Harness directories are vendored or dogfooded, never source
-- **path:** conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md
+- **path:** conventions/development/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md
 - **tags:** harnesses, dogfooding, vendored, build, source-of-truth, code-review
 - **relates_to:** practice-ignore-harness-javascript-artifacts-in-prettier, map-hook-build-pipeline-ts-to-cjs, map-harness-adapter
 
@@ -546,6 +548,7 @@ Total nodes: 87
 - **title:** Hook behavior changes must be applied to every harness adapter
 - **path:** hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md
 - **tags:** harness, hooks, architecture, drift
+- **relates_to:** map-harness-adapter, practice-cross-harness-features-must-use-adapter-level-abstractions, practice-add-hermetic-end-to-end-capture-tests-per-harness
 
 ## practice-hook-status-messages-include-kk-prefix-after-emoji
 
@@ -559,7 +562,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Ignore harness JavaScript artifacts in Prettier
-- **path:** conventions/practice-ignore-harness-javascript-artifacts-in-prettier.md
+- **path:** conventions/development/practice-ignore-harness-javascript-artifacts-in-prettier.md
 - **tags:** prettier, harnesses, formatting
 - **relates_to:** map-hook-build-pipeline-ts-to-cjs, map-copilot-harness-adapter
 - **derived_from:** c65744ae-f92d-453a-97cb-16f2298e6645:practice:0
@@ -600,6 +603,14 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Keep template partials out of the knowledge base
+- **path:** config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md
+- **tags:** templates, prompts, knowledge-base, build
+- **relates_to:** practice-bump-prompt-version-comment, practice-shipped-skills-and-hook-scripts-must-be-self-contained
+
+## practice-keep-template-partials-out-of-the-knowledge-base
+
+- **kind:** practice
+- **title:** Keep template partials out of the knowledge base
 - **path:** practice-keep-template-partials-out-of-the-knowledge-base.md
 - **tags:** templates, prompts, knowledge-base, build
 - **relates_to:** practice-bump-prompt-version-comment, practice-shipped-skills-and-hook-scripts-must-be-self-contained
@@ -617,7 +628,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** LLM-backed migrations require explicit --harness flag
-- **path:** harnesses/practice-llm-backed-migrations-require-explicit-harness-flag.md
+- **path:** harnesses/cross-harness/practice-llm-backed-migrations-require-explicit-harness-flag.md
 - **tags:** migration, cli, harness, llm
 - **relates_to:** practice-explicit-harness-flag-outside-claude, practice-strict-schema-version-bump-policy
 
@@ -634,21 +645,22 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Never force push
-- **path:** conventions/practice-never-force-push.md
+- **path:** conventions/git-and-release/practice-never-force-push.md
 - **tags:** git, conventions
+- **relates_to:** practice-use-origin-https-with-gh-minted-auth-for-pushes
 
 ## practice-no-em-dashes
 
 - **kind:** practice
 - **title:** No em dashes anywhere in the project
-- **path:** conventions/practice-no-em-dashes.md
+- **path:** conventions/writing-style/practice-no-em-dashes.md
 - **tags:** style, writing, ai-detection
 
 ## practice-no-event-translation-across-adapters
 
 - **kind:** practice
 - **title:** Don't translate event names across harness adapters
-- **path:** harnesses/practice-no-event-translation-across-adapters.md
+- **path:** harnesses/cross-harness/practice-no-event-translation-across-adapters.md
 - **tags:** adapter, events, harness
 - **relates_to:** map-harness-adapter, map-claude-harness, map-codex-harness, map-opencode-harness
 - **derived_from:** CONTRIBUTING.md, docs/internals/architecture.md
@@ -696,7 +708,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Review node changes via git
-- **path:** conventions/practice-review-nodes-via-git.md
+- **path:** conventions/git-and-release/practice-review-nodes-via-git.md
 - **tags:** review, git, workflow
 - **relates_to:** map-curate-command, map-kk-bootstrap-skill
 - **derived_from:** README.md, docs/how-it-works.md, docs/daily-use.md, docs/troubleshooting.md
@@ -738,7 +750,7 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Testing philosophy: few tests, mostly integration
-- **path:** conventions/practice-testing-philosophy-few-tests-mostly-integration.md
+- **path:** conventions/development/practice-testing-philosophy-few-tests-mostly-integration.md
 - **tags:** testing, philosophy, integration-tests, coverage
 
 ## practice-use-a-single-generic-migrate-command-for-schema-bumps
@@ -753,5 +765,6 @@ Total nodes: 87
 
 - **kind:** practice
 - **title:** Use origin-https with gh-minted auth for pushes
-- **path:** conventions/practice-use-origin-https-with-gh-minted-auth-for-pushes.md
+- **path:** conventions/git-and-release/practice-use-origin-https-with-gh-minted-auth-for-pushes.md
 - **tags:** git, github, gh, authentication, remote, push, environment
+- **relates_to:** practice-never-force-push

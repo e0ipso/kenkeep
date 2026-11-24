@@ -12,7 +12,10 @@ tags:
 kk_schema_version: 3
 kk_id: practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - map-harness-adapter
+  - practice-cross-harness-features-must-use-adapter-level-abstractions
+  - practice-add-hermetic-end-to-end-capture-tests-per-harness
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -21,3 +24,11 @@ The session-start, lint-tick, capture, and proposal-drain hooks each have five n
 Consequence: any fix, feature, or behavior change to hook logic must be applied separately to all five harnesses. Missing even one adapter leaves that harness with the old behavior. The highest-risk areas are: session-start nudge rendering, proposal drain pipeline, and lint-tick counter logic.
 
 Before closing a hook-related fix, verify all five harness files are updated.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [map-harness-adapter](../harnesses/adapters/map-harness-adapter.md)
+- Related: [practice-cross-harness-features-must-use-adapter-level-abstractions](../harnesses/cross-harness/practice-cross-harness-features-must-use-adapter-level-abstractions.md)
+- Related: [practice-add-hermetic-end-to-end-capture-tests-per-harness](practice-add-hermetic-end-to-end-capture-tests-per-harness.md)
+<!-- kk:related:end -->

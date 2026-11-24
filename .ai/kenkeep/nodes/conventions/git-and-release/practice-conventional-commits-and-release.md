@@ -12,7 +12,10 @@ kk_schema_version: 3
 kk_id: practice-conventional-commits-and-release
 kk_derived_from:
   - CONTRIBUTING.md
-kk_relates_to: []
+kk_relates_to:
+  - practice-bump-prompt-version-comment
+  - practice-testing-philosophy-few-tests-mostly-integration
+  - practice-never-force-push
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -31,8 +34,16 @@ Releases are automated via [semantic-release](https://semantic-release.gitbook.i
 - Run `npm test`, `npm run typecheck`, and `npm run lint` before pushing.
 - Behavior-affecting prompt changes get a `Version: N` bump and a changelog note (see `practice-bump-prompt-version-comment`).
 
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-bump-prompt-version-comment](../../config-and-prompts/practice-bump-prompt-version-comment.md)
+- Related: [practice-testing-philosophy-few-tests-mostly-integration](../development/practice-testing-philosophy-few-tests-mostly-integration.md)
+- Related: [practice-never-force-push](practice-never-force-push.md)
+<!-- kk:related:end -->
+
 <!-- kk:citations:start -->
 # Citations
 
-[1] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+[1] [CONTRIBUTING.md](../../../../../CONTRIBUTING.md)
 <!-- kk:citations:end -->

@@ -7,7 +7,7 @@ description: >-
 tags:
   - config
   - settings
-  - model
+  - models
 kk_schema_version: 3
 kk_id: map-config-yaml
 kk_derived_from:

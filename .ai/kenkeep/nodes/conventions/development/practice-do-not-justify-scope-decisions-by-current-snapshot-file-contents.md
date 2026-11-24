@@ -11,7 +11,8 @@ tags:
 kk_schema_version: 3
 kk_id: practice-do-not-justify-scope-decisions-by-current-snapshot-file-contents
 kk_derived_from: []
-kk_relates_to: []
+kk_relates_to:
+  - practice-harness-dirs-are-vendored-or-dogfooded-not-source
 kk_depends_on: []
 kk_confidence: high
 ---
@@ -20,3 +21,9 @@ When deciding whether to include or exclude a path or folder from a behavior, do
 Decide scope from the underlying principle that motivated the rule. If the principle applies to the folder's purpose (e.g. 'AI instructions, not project docs'), apply the rule to the folder regardless of its current file inventory.
 
 When tempted to narrow scope with 'that case does not exist today', re-check whether the motivating principle covers the omitted case. If yes, include it.
+
+<!-- kk:related:start -->
+# Related
+
+- Related: [practice-harness-dirs-are-vendored-or-dogfooded-not-source](practice-harness-dirs-are-vendored-or-dogfooded-not-source.md)
+<!-- kk:related:end -->

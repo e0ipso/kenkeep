@@ -5,7 +5,7 @@ description: >-
   Supervised, agent-driven first-pass bootstrap: surveys docs and writes
   practice/map nodes under nodes/. Reviewer accepts via git commit.
 tags:
-  - skill
+  - skills
   - bootstrap
   - agent
 kk_schema_version: 3

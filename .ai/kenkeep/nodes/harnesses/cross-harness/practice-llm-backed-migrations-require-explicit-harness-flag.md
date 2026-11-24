@@ -24,5 +24,5 @@ Any migration step that requires an LLM must fail before spawning the harness if
 # Related
 
 - Related: [practice-explicit-harness-flag-outside-claude](practice-explicit-harness-flag-outside-claude.md)
-- Related: [practice-strict-schema-version-bump-policy](../node-schema/practice-strict-schema-version-bump-policy.md)
+- Related: [practice-strict-schema-version-bump-policy](../../node-schema/practice-strict-schema-version-bump-policy.md)
 <!-- kk:related:end -->

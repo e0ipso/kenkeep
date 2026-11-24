@@ -49,7 +49,7 @@ OpenCode exports no in-session env var; pass `--harness opencode` or set `cliDef
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](../../../../docs/installation.md)
-[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
-[3] [README.md](../../../../README.md)
+[1] [docs/installation.md](../../../../../docs/installation.md)
+[2] [docs/how-it-works.md](../../../../../docs/how-it-works.md)
+[3] [README.md](../../../../../README.md)
 <!-- kk:citations:end -->

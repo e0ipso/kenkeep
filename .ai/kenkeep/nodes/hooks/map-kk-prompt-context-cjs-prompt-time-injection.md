@@ -36,8 +36,8 @@ When nothing relevant is found, the hook emits no context. Cursor, OpenCode, and
 # Related
 
 - Related: [map-session-start-hook](map-session-start-hook.md)
-- Related: [map-codex-harness](../harnesses/map-codex-harness.md)
-- Related: [map-claude-harness](../harnesses/map-claude-harness.md)
+- Related: [map-codex-harness](../harnesses/adapters/map-codex-harness.md)
+- Related: [map-claude-harness](../harnesses/adapters/map-claude-harness.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

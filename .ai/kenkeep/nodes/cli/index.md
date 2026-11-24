@@ -58,7 +58,7 @@ _None._
 - Open [**updateAgentsMd - kk index pointer injection into AGENTS.md**](map-update-agents-md-kk-index-pointer-injection-into-agents-md.md) — Function in src/commands/init.ts that injects or replaces a sentinel-guarded static pointer to ENTRY.md in AGENTS.md.
 ### #documentation
 - Open [**Skills-first documentation, only init is CLI**](practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
-- Open [**Consumers are responsible for secret hygiene**](../conventions/practice-consumers-are-responsible-for-secret-hygiene.md) — kenkeep does not scan or redact secrets in the capture pipeline; secret hygiene is the consumer's responsibility.
+- Open [**Consumers are responsible for secret hygiene**](../conventions/development/practice-consumers-are-responsible-for-secret-hygiene.md) — kenkeep does not scan or redact secrets in the capture pipeline; secret hygiene is the consumer's responsibility.
 - Open [**Avoid harness favoritism in examples and recommendations**](../config-and-prompts/practice-document-model-recommendations-with-harness-agnostic-framing-2.md) — Generated or documented examples and model recommendations must not favor one harness; use neutral placeholders or per-harness examples.
 ### #error
 - Open [**Surface schema mismatch errors on both init and node-read paths**](practice-surface-schema-mismatch-errors-on-both-init-and-node-read-paths.md) — Migration schema mismatch errors must be visible both when init runs and when node-reading commands execute.
@@ -74,6 +74,6 @@ _None._
 ### #scope
 - Open [**init does not install husky/lint-staged/secretlint/commitlint**](practice-init-does-not-install-commit-tooling.md) — init writes only the KB scaffold and the harness's hooks/skills; commit-time tooling (husky, lint-staged, commitlint) is the consumer's job.
 ### #skills
+- Open [**curate (CLI command + /kk-curate skill)**](../curation/map-curate-command.md) — Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent.
 - Open [**Skills-first documentation, only init is CLI**](practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
 - Open [**Shipped skills and hook scripts must be self-contained**](../hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
-- Open [**kk-session-extract**](../curation/map-kk-session-extract.md) — Shared skill for extracting durable knowledge from the visible live session and immediately curating it.

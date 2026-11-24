@@ -55,11 +55,11 @@ Per-spawn model selection (non-Claude adapters): reads `proposalModel: { name, e
 - Related: [map-proposal-candidate-schema](../curation/map-proposal-candidate-schema.md)
 - Related: [practice-recursion-guard-kenkeep-builder-internal](practice-recursion-guard-kenkeep-builder-internal.md)
 - Related: [map-curate-command](../curation/map-curate-command.md)
-- Related: [map-claude-harness](../harnesses/map-claude-harness.md)
-- Related: [map-codex-harness](../harnesses/map-codex-harness.md)
-- Related: [map-copilot-harness-adapter](../harnesses/map-copilot-harness-adapter.md)
-- Related: [map-cursor-harness-adapter](../harnesses/map-cursor-harness-adapter.md)
-- Related: [map-opencode-harness](../harnesses/map-opencode-harness.md)
+- Related: [map-claude-harness](../harnesses/adapters/map-claude-harness.md)
+- Related: [map-codex-harness](../harnesses/adapters/map-codex-harness.md)
+- Related: [map-copilot-harness-adapter](../harnesses/adapters/map-copilot-harness-adapter.md)
+- Related: [map-cursor-harness-adapter](../harnesses/adapters/map-cursor-harness-adapter.md)
+- Related: [map-opencode-harness](../harnesses/adapters/map-opencode-harness.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

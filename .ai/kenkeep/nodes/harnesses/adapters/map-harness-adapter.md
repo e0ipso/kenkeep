@@ -51,14 +51,14 @@ Each hook declaration is a `HookSpec`: `{ event, scriptPath, matcher?, async?, p
 - Related: [map-cursor-harness-adapter](map-cursor-harness-adapter.md)
 - Related: [map-opencode-harness](map-opencode-harness.md)
 - Related: [map-copilot-harness-adapter](map-copilot-harness-adapter.md)
-- Related: [practice-explicit-harness-flag-outside-claude](practice-explicit-harness-flag-outside-claude.md)
+- Related: [practice-explicit-harness-flag-outside-claude](../cross-harness/practice-explicit-harness-flag-outside-claude.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->
 # Citations
 
-[1] [README.md](../../../../README.md)
-[2] [docs/installation.md](../../../../docs/installation.md)
-[3] [docs/internals/architecture.md](../../../../docs/internals/architecture.md)
-[4] [CONTRIBUTING.md](../../../../CONTRIBUTING.md)
+[1] [README.md](../../../../../README.md)
+[2] [docs/installation.md](../../../../../docs/installation.md)
+[3] [docs/internals/architecture.md](../../../../../docs/internals/architecture.md)
+[4] [CONTRIBUTING.md](../../../../../CONTRIBUTING.md)
 <!-- kk:citations:end -->

@@ -5,7 +5,7 @@ description: >-
   Per-session checkpoint _sessions/<YYYYMMDD-HHmm-id>.md, one per session_id;
   frontmatter tracks capture, proposal, and curator phases.
 tags:
-  - session
+  - sessions
   - capture
   - state
   - schema

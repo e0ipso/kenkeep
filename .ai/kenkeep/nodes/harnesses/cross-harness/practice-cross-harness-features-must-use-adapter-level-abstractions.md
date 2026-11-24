@@ -28,5 +28,5 @@ This applies to capture hooks, transcript parsing, tool-call extraction, and any
 
 - Related: [practice-adapters-never-cross-directories](practice-adapters-never-cross-directories.md)
 - Related: [practice-no-event-translation-across-adapters](practice-no-event-translation-across-adapters.md)
-- Related: [map-harness-adapter](map-harness-adapter.md)
+- Related: [map-harness-adapter](../adapters/map-harness-adapter.md)
 <!-- kk:related:end -->

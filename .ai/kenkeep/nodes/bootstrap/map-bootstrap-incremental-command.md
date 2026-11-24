@@ -49,7 +49,7 @@ Static file-discovery skips (applied by the CLI before any LLM call): `.gitignor
 - Related: [map-kk-bootstrap-skill](map-kk-bootstrap-skill.md)
 - Related: [map-bootstrap-state-file](map-bootstrap-state-file.md)
 - Related: [practice-bootstrap-never-overwrites-existing-nodes](practice-bootstrap-never-overwrites-existing-nodes.md)
-- Related: [practice-dont-run-llm-pipelines-in-ci](../conventions/practice-dont-run-llm-pipelines-in-ci.md)
+- Related: [practice-dont-run-llm-pipelines-in-ci](../conventions/git-and-release/practice-dont-run-llm-pipelines-in-ci.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

@@ -8,7 +8,7 @@ description: >-
 tags:
   - cli
   - curate
-  - skill
+  - skills
 kk_schema_version: 3
 kk_id: map-curate-command
 kk_derived_from:

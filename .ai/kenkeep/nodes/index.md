@@ -22,8 +22,6 @@ okf_version: '0.1'
 - Load [`state/`](state/index.md) for more information on session logs and runtime state files; read when changing capture state, locks, or proposal tracking.
 
 ## Conventions (how we build)
-- Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) to learn about: Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status. #copilot #harness #hooks #sessionstart #context-injection #drift
-- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) to learn about: Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract. #dogfooding #development #source-of-truth #distribution
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) to learn about: Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown. #templates #prompts #knowledge-base #build
 
 ## Components (what exists)
@@ -32,47 +30,17 @@ _None yet._
 ## By topic
 
 ### #build
+- Open [**Keep template partials out of the knowledge base**](config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.
-- Open [**Harness directories are vendored or dogfooded, never source**](conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
-### #context-injection
-- Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
-- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](harnesses/practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — Silent-drop bug (~May 2026) fixed upstream by Cursor; kenkeep injects via additional_context AND the AGENTS.md sentinel, belt-and-braces.
-### #copilot
-- Open [**Copilot harness adapter**](harnesses/map-copilot-harness-adapter.md) — GitHub Copilot CLI adapter; repo-level .github/hooks/kk.json; captures on sessionEnd/agentStop; skills in .github/skills/; sentinel ENTRY.
-- Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
-- Open [**Harness adapter**](harnesses/map-harness-adapter.md) — Per-runtime HarnessAdapter declaring event vocabulary, hook/skill paths, and scripts. Five ship: claude, codex, cursor, opencode, copilot.
-### #development
-- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) — Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract.
-### #distribution
-- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) — Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract.
-### #dogfooding
-- Open [**Harness directories are vendored or dogfooded, never source**](conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
-- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) — Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract.
-### #drift
-- Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
-- Open [**Hook behavior changes must be applied to every harness adapter**](hooks/practice-hook-behavior-changes-must-be-applied-to-all-four-harness-adapters.md) — Fixing hook logic in one harness does not fix the others; each of the five adapters has its own copy of every hook.
-### #harness
-- Open [**Cursor harness adapter**](harnesses/map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts in agent-transcripts/; Read+ReadFile both count.
-- Open [**Codex CLI harness adapter**](harnesses/map-codex-harness.md) — OpenAI Codex CLI adapter; capture on Stop and PreCompact, lint tick on Stop only (no SessionEnd); skills under .agents/skills/.
-- Open [**Cursor sessionStart additional_context delivery was fixed upstream**](harnesses/practice-cursor-sessionstart-additional-context-is-silently-dropped.md) — Silent-drop bug (~May 2026) fixed upstream by Cursor; kenkeep injects via additional_context AND the AGENTS.md sentinel, belt-and-braces.
-### #hooks
-- Open [**Claude Code harness adapter**](harnesses/map-claude-harness.md) — Claude Code adapter; wires capture to Stop/SessionEnd/PreCompact, registers in .claude/settings.json, installs skills at .claude/skills/.
-- Open [**Cursor harness adapter**](harnesses/map-cursor-harness-adapter.md) — Cursor IDE agent adapter; camelCase hooks.json events; headless via agent -p; transcripts in agent-transcripts/; Read+ReadFile both count.
-- Open [**Codex CLI harness adapter**](harnesses/map-codex-harness.md) — OpenAI Codex CLI adapter; capture on Stop and PreCompact, lint tick on Stop only (no SessionEnd); skills under .agents/skills/.
 ### #knowledge-base
+- Open [**Keep template partials out of the knowledge base**](config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 ### #prompts
-- Open [**Bump the prompt's Version comment on every behavior change**](config-and-prompts/practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.
-- Open [**Local prompt overrides fall back to bundled templates**](config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md, then the bundled fallback; delete the override to revert.
-- Open [**Curator drops non-productive and change-oriented candidates**](curation/practice-curator-drops-non-productive-candidates.md) — Change-oriented framing is auto-dropped; hedged, plan-scoped, or low-confidence signatures signal an abandoned-session leak.
-### #sessionstart
-- Open [**kk-session-start.mjs (consume hook)**](hooks/map-session-start-hook.md) — Sync SessionStart hook with 1s deadline; loads ENTRY.md, checks freshness, may append curate nudge, emits additionalContext.
-- Open [**ENTRY.md**](index/map-entry-md.md) — Entry catalog: whole-tree totals + top-level branches. Injected each session by kk-session-start; regenerated deterministically from nodes/.
-- Open [**Copilot file-based SessionStart must use shared context builder**](practice-copilot-file-based-sessionstart-must-use-shared-context-builder.md) — Copilot lacks additionalContext, but its sentinel bridge must still preserve shared SessionStart status.
-### #source-of-truth
-- Open [**Harness directories are vendored or dogfooded, never source**](conventions/practice-harness-dirs-are-vendored-or-dogfooded-not-source.md) — Repo-root harness dirs (.agents, .claude, .codex, .cursor, .opencode) hold vendored or dogfooded artifacts, not source.
-- Open [**Distinguish Kenkeep development tooling from the Kenkeep product**](practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product.md) — Installed development tools and their lockfiles do not define Kenkeep's product behavior or distribution contract.
-### #templates
-- Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.
+- Open [**Keep template partials out of the knowledge base**](config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
+- Open [**Bump the prompt's Version comment on every behavior change**](config-and-prompts/practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.
+### #templates
+- Open [**Keep template partials out of the knowledge base**](config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
+- Open [**Keep template partials out of the knowledge base**](practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
+- Open [**Hook build pipeline: TS sources to deployed .cjs bundles**](hooks/map-hook-build-pipeline-ts-to-cjs.md) — tsup compiles per-adapter TS hooks into self-contained CJS bundles; build-templates copies them to templates/; init deploys to harness dir.

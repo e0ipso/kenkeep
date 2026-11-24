@@ -22,7 +22,7 @@ _None yet._
 
 ### #docs
 - Open [**kenkeep docs site custom domain**](map-kenkeep-docs-site-custom-domain.md) — The Jekyll docs site is configured for https://kenkeep.canpicasoft.com with an empty baseurl.
-- Open [**Docs are short and structured; the README keeps its reader hooks**](../conventions/practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md) — Documentation is organized and terse for human readers, and the README's hero, slides, why-cards and packs teaser stay in place.
+- Open [**Docs are short and structured; the README keeps its reader hooks**](../conventions/writing-style/practice-docs-are-short-and-structured-the-readme-keeps-its-reader-hooks.md) — Documentation is organized and terse for human readers, and the README's hero, slides, why-cards and packs teaser stay in place.
 - Open [**docs/assets/diagrams/ (docs site SVG diagrams)**](map-docs-assets-diagrams-docs-site-svg-diagrams.md) — Hand-authored SVG diagrams for the docs site, in the cream-and-ink house palette with pink marking reader-performed steps.
 ### #assets
 - Open [**docs/assets/diagrams/ (docs site SVG diagrams)**](map-docs-assets-diagrams-docs-site-svg-diagrams.md) — Hand-authored SVG diagrams for the docs site, in the cream-and-ink house palette with pink marking reader-performed steps.

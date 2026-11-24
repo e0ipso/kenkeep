@@ -28,7 +28,7 @@ Rationale: the hooks are what keep a reader moving through the README. A shorter
 # Related
 
 - Related: [practice-no-em-dashes](practice-no-em-dashes.md)
-- Related: [map-kenkeep-docs-site-custom-domain](../overview/map-kenkeep-docs-site-custom-domain.md)
+- Related: [map-kenkeep-docs-site-custom-domain](../../overview/map-kenkeep-docs-site-custom-domain.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

@@ -15,7 +15,7 @@ _None._
 - Open [**Curator drops non-productive and change-oriented candidates**](practice-curator-drops-non-productive-candidates.md) to learn about: Change-oriented framing is auto-dropped; hedged, plan-scoped, or low-confidence signatures signal an abandoned-session leak. #curator #prompts #calibration #anti-pattern
 
 ## Components (what exists)
-- Open [**curate (CLI command + /kk-curate skill)**](map-curate-command.md) to learn about: Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent. #cli #curate #skill
+- Open [**curate (CLI command + /kk-curate skill)**](map-curate-command.md) to learn about: Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent. #cli #curate #skills
 - Open [**Conflict files (conflicts/<run-id>-<n>.md)**](map-conflict-files.md) to learn about: Curator-detected contradictions: one markdown file per conflict under conflicts/; resolved by /kk-curate skill via git restore/commit. #conflicts #curator #schema
 - Open [**Curator action (add / modify / contradict / drop)**](map-curator-action.md) to learn about: Curator emits an array of {action, candidate_origin, target_node_id, proposed_node, rationale}. Wrapper applies each directly to nodes/. #schema #curator #action
 - Open [**Proposal candidate schema**](map-proposal-candidate-schema.md) to learn about: Shape emitted by proposal-extract per practice/map candidate; supports_existing_node/contradicts_existing_node are the curator's join keys. #schema #proposal #candidate
@@ -51,6 +51,11 @@ _None._
 ### #sessions
 - Open [**curate-dedup scoped session mode**](map-curate-dedup-scoped-session-mode.md) — \`curate-dedup --session-id\` stamps only the matching done session log.
 - Open [**kk-session-extract**](map-kk-session-extract.md) — Shared skill for extracting durable knowledge from the visible live session and immediately curating it.
+- Open [**Session log (_sessions/*.md)**](../state/map-session-log.md) — Per-session checkpoint _sessions/<YYYYMMDD-HHmm-id>.md, one per session_id; frontmatter tracks capture, proposal, and curator phases.
+### #skills
+- Open [**curate (CLI command + /kk-curate skill)**](map-curate-command.md) — Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent.
+- Open [**Skills-first documentation, only init is CLI**](../cli/practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
+- Open [**Shipped skills and hook scripts must be self-contained**](../hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
 ### #action
 - Open [**Curator action (add / modify / contradict / drop)**](map-curator-action.md) — Curator emits an array of {action, candidate_origin, target_node_id, proposed_node, rationale}. Wrapper applies each directly to nodes/.
 ### #anti-pattern
@@ -74,18 +79,11 @@ _None._
 ### #output
 - Open [**curate CLI conflict-resolution output message**](map-curate-cli-conflict-resolution-output-message.md) — src/commands/curate.ts emits a multi-line message when conflicts > 0, naming the three resolution outcomes and pointing users at /kk-curate.
 ### #prompts
+- Open [**Keep template partials out of the knowledge base**](../config-and-prompts/practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
+- Open [**Keep template partials out of the knowledge base**](../practice-keep-template-partials-out-of-the-knowledge-base.md) — Use build-time partials only for shipped prompt/skill sources, never generated or curated KB markdown.
 - Open [**Bump the prompt's Version comment on every behavior change**](../config-and-prompts/practice-bump-prompt-version-comment.md) — Each prompt template carries a top-of-file Version: N comment. Bump it on every behavior change; logs record it so audits stay coherent.
-- Open [**Local prompt overrides fall back to bundled templates**](../config-and-prompts/practice-local-prompt-overrides-fall-back-to-bundled.md) — Each LLM pipeline loads its prompt from .ai/kenkeep/.config/prompts/<name>.md, then the bundled fallback; delete the override to revert.
-- Open [**Curator drops non-productive and change-oriented candidates**](practice-curator-drops-non-productive-candidates.md) — Change-oriented framing is auto-dropped; hedged, plan-scoped, or low-confidence signatures signal an abandoned-session leak.
 ### #proposal
 - Open [**Proposal candidate schema**](map-proposal-candidate-schema.md) — Shape emitted by proposal-extract per practice/map candidate; supports_existing_node/contradicts_existing_node are the curator's join keys.
-### #skill
-- Open [**curate (CLI command + /kk-curate skill)**](map-curate-command.md) — Runs the curator on processed session logs, applying add/modify/contradict/drop actions to nodes/. /kk-curate is the in-session equivalent.
-- Open [**/kk-bootstrap skill**](../bootstrap/map-kk-bootstrap-skill.md) — Supervised, agent-driven first-pass bootstrap: surveys docs and writes practice/map nodes under nodes/. Reviewer accepts via git commit.
-### #skills
-- Open [**Skills-first documentation, only init is CLI**](../cli/practice-skills-first-documentation-only-init-is-cli.md) — Public docs recommend the skill workflow for curation and bootstrap; only the init command is documented as a CLI workflow.
-- Open [**Shipped skills and hook scripts must be self-contained**](../hooks/practice-shipped-skills-and-hook-scripts-must-be-self-contained.md) — Skills, CLI launchers, and hook scripts may use only Node built-ins and relative-path references — no external file dependencies.
-- Open [**kk-session-extract**](map-kk-session-extract.md) — Shared skill for extracting durable knowledge from the visible live session and immediately curating it.
 ### #ux
 - Open [**Curate CLI conflict output names the three resolution outcomes**](practice-curate-cli-conflict-output-names-the-three-resolution-outcomes.md) — When the curate CLI writes conflict files, its stdout names the accept/reject/keep-as-record outcomes and points at /kk-curate.
 - Open [**Hook status messages include kk prefix after emoji**](../hooks/practice-hook-status-messages-include-kk-prefix-after-emoji.md) — All user-facing hook messages follow the pattern emoji kk Label: message to identify the knowledge base as the source.

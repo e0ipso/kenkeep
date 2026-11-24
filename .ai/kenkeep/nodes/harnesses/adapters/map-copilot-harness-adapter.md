@@ -61,8 +61,8 @@ Session-start context injection: Copilot documents no stdout context-injection c
 <!-- kk:citations:start -->
 # Citations
 
-[1] [docs/installation.md](../../../../docs/installation.md)
-[2] [docs/how-it-works.md](../../../../docs/how-it-works.md)
+[1] [docs/installation.md](../../../../../docs/installation.md)
+[2] [docs/how-it-works.md](../../../../../docs/how-it-works.md)
 [3] [https://github.com/github/copilot-cli](https://github.com/github/copilot-cli)
 [4] [https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference)
 <!-- kk:citations:end -->

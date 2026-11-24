@@ -31,6 +31,6 @@ Tooling that classifies authored code must exclude these paths. Prettier already
 # Related
 
 - Related: [practice-ignore-harness-javascript-artifacts-in-prettier](practice-ignore-harness-javascript-artifacts-in-prettier.md)
-- Related: [map-hook-build-pipeline-ts-to-cjs](../hooks/map-hook-build-pipeline-ts-to-cjs.md)
-- Related: [map-harness-adapter](../harnesses/map-harness-adapter.md)
+- Related: [map-hook-build-pipeline-ts-to-cjs](../../hooks/map-hook-build-pipeline-ts-to-cjs.md)
+- Related: [map-harness-adapter](../../harnesses/adapters/map-harness-adapter.md)
 <!-- kk:related:end -->

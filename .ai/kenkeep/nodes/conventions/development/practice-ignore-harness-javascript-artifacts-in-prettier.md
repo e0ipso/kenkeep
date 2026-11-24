@@ -27,8 +27,8 @@ This applies to `.agents/`, `.claude/`, `.codex/`, `.cursor/`, `.opencode/`, and
 <!-- kk:related:start -->
 # Related
 
-- Related: [map-hook-build-pipeline-ts-to-cjs](../hooks/map-hook-build-pipeline-ts-to-cjs.md)
-- Related: [map-copilot-harness-adapter](../harnesses/map-copilot-harness-adapter.md)
+- Related: [map-hook-build-pipeline-ts-to-cjs](../../hooks/map-hook-build-pipeline-ts-to-cjs.md)
+- Related: [map-copilot-harness-adapter](../../harnesses/adapters/map-copilot-harness-adapter.md)
 <!-- kk:related:end -->
 
 <!-- kk:citations:start -->

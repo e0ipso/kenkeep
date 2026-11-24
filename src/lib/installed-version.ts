@@ -64,14 +64,13 @@ export function installedVersionRecord(): InstalledVersion {
 }
 
 /**
- * Writes `record` unless `file` already holds exactly its serialized bytes,
- * and returns whether it wrote. Running `init` or `init --upgrade` again at
- * the same package version therefore leaves the committed marker untouched,
- * while a legacy marker (or an older version) is rewritten to three fields.
+ * Writes `record` unless `file` already holds exactly its serialized bytes.
+ * Running `init` or `init --upgrade` again at the same package version
+ * therefore leaves the committed marker untouched, while a legacy marker (or
+ * an older version) is rewritten to three fields.
  */
-export function writeInstalledVersionIfChanged(file: string, record: InstalledVersion): boolean {
+export function writeInstalledVersionIfChanged(file: string, record: InstalledVersion): void {
   const content = `${JSON.stringify(record, null, 2)}\n`;
-  if (existsSync(file) && readFileSync(file).equals(Buffer.from(content))) return false;
+  if (existsSync(file) && readFileSync(file).equals(Buffer.from(content))) return;
   atomicWriteFile(file, content);
-  return true;
 }

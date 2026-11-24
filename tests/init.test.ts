@@ -13,17 +13,18 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, repoRoot, runCli, writeHarnessBinaryStubs } from './helpers.js';
+import {
+  cleanSandbox,
+  legacyMarkerJson,
+  makeSandbox,
+  packageJsonVersion,
+  runCli,
+  writeHarnessBinaryStubs,
+} from './helpers.js';
 
 const exec = promisify(execFile);
 
 const MARKER_REL = '.ai/kenkeep/.state/installed-version';
-
-/** The version the built CLI stamps: the package under test. */
-function packageJsonVersion(): string {
-  return (JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as { version: string })
-    .version;
-}
 
 async function commitAll(cwd: string, message: string): Promise<void> {
   await exec('git', ['add', '-A'], { cwd });
@@ -295,17 +296,7 @@ describe('init', () => {
     expect((await runCli(sandbox, ['init', '--harnesses', 'claude,codex'])).exitCode).toBe(0);
     const versionFile = join(sandbox, MARKER_REL);
     // The legacy inventory omits codex, which .codex/hooks.json still registers.
-    const legacy = `${JSON.stringify(
-      {
-        schema_version: 1,
-        package: 'kenkeep',
-        version: packageJsonVersion(),
-        installed_at: '2026-01-01T00:00:00.000Z',
-        harnesses: ['claude'],
-      },
-      null,
-      2
-    )}\n`;
+    const legacy = legacyMarkerJson(packageJsonVersion());
     writeFileSync(versionFile, legacy);
     const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
     rmSync(codexCapture);

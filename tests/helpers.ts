@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,4 +91,25 @@ export function writeInstalledMarker(root: string, version = '0.0.0-test'): void
     join(stateDir, 'installed-version'),
     JSON.stringify({ schema_version: 1, package: 'kenkeep', version })
   );
+}
+
+/** The version the built CLI stamps: the package under test. */
+export function packageJsonVersion(): string {
+  return (JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as { version: string })
+    .version;
+}
+
+/**
+ * A marker as releases before the three-field shape wrote it, with an
+ * install timestamp and a `harnesses` inventory.
+ */
+export function legacyMarkerJson(version: string): string {
+  const marker = {
+    schema_version: 1,
+    package: 'kenkeep',
+    version,
+    installed_at: '2026-01-01T00:00:00.000Z',
+    harnesses: ['claude'],
+  };
+  return `${JSON.stringify(marker, null, 2)}\n`;
 }

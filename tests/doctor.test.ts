@@ -4,7 +4,14 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, repoRoot, runCli, writeHarnessBinaryStubs } from './helpers.js';
+import {
+  cleanSandbox,
+  legacyMarkerJson,
+  makeSandbox,
+  packageJsonVersion,
+  runCli,
+  writeHarnessBinaryStubs,
+} from './helpers.js';
 
 const exec = promisify(execFile);
 
@@ -176,31 +183,17 @@ describe('doctor', () => {
     expect(out).not.toContain('Claude hooks registered');
   });
 
-  // Markers written before plan 69 carry `installed_at` and `harnesses`;
-  // doctor reads only `version` and must keep accepting them.
+  // Older releases wrote `installed_at` and `harnesses`; doctor reads only
+  // `version` and must keep accepting them.
   it('accepts a legacy marker with installed_at and harnesses', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const marker = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
-    writeFileSync(
-      versionFile,
-      `${JSON.stringify(
-        {
-          schema_version: 1,
-          package: 'kenkeep',
-          version: marker['version'],
-          installed_at: '2026-01-01T00:00:00.000Z',
-          harnesses: ['claude'],
-        },
-        null,
-        2
-      )}\n`
-    );
+    const version = packageJsonVersion();
+    writeFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), legacyMarkerJson(version));
 
     const result = await runCli(sandbox, ['doctor']);
     expect(result.exitCode).toBe(0);
     const out = result.stdout + result.stderr;
-    expect(out).toContain(`.ai/kenkeep/.state/installed-version: ${String(marker['version'])}`);
+    expect(out).toContain(`.ai/kenkeep/.state/installed-version: ${version}`);
   });
 
   it('rejects --harness for an unknown harness id', async () => {
@@ -470,10 +463,7 @@ describe('status', () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const result = await runCli(sandbox, ['status']);
     expect(result.exitCode).toBe(0);
-    const { version } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
-      version: string;
-    };
-    expect(result.stdout.split('\n')[0]).toBe(`kenkeep v${version}`);
+    expect(result.stdout.split('\n')[0]).toBe(`kenkeep v${packageJsonVersion()}`);
     expect(result.stdout).toContain('Practice nodes: 0');
     expect(result.stdout).toContain('Map nodes:      0');
     expect(result.stdout).toContain('Proposal extraction queue: 0');

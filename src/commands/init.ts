@@ -4,12 +4,15 @@ import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js
 import type { HarnessAdapter } from '../harnesses/types.js';
 import { ensureAgentsKkBlock } from '../lib/agents-block.js';
 import { copyMissingEntries, copyTree } from '../lib/fs-atomic.js';
-import { planHarnessRuntimeRepair, repairHarnessRuntime } from '../lib/harness-install-status.js';
+import {
+  planHarnessRuntimeRepair,
+  registeredHarnesses,
+  repairHarnessRuntime,
+} from '../lib/harness-install-status.js';
 import {
   installedVersionRecord,
-  mergeHarnessInventory,
   readInstalledVersion,
-  writeInstalledVersion,
+  writeInstalledVersionIfChanged,
   type InstalledVersion,
 } from '../lib/installed-version.js';
 import { log } from '../lib/log.js';
@@ -65,18 +68,18 @@ export async function runInit(opts: InitOptions): Promise<void> {
     );
   }
 
-  const recorded = readInstalledVersion(paths.installedVersionFile);
+  const installed = readInstalledVersion(paths.installedVersionFile);
   if (opts.upgrade) {
-    if (!recorded) {
+    if (!installed) {
       throw new Error(
         'Not initialized. Run `npx kenkeep init --harnesses <id[,id,...]>` for a first-time install.'
       );
     }
-    await runUpgrade(opts, recorded, root, paths, templatesDir);
+    await runUpgrade(opts, root, paths, templatesDir);
     return;
   }
-  if (recorded) {
-    await runRepair(opts, recorded, root, paths, templatesDir);
+  if (installed) {
+    await runRepair(opts, installed, root, paths, templatesDir);
     return;
   }
   await runFreshInstall(opts, root, paths, templatesDir);
@@ -122,11 +125,7 @@ async function runFreshInstall(
   ensureProjectConfig(paths);
 
   // 6. Write installed-version marker.
-  writeInstalledVersion(
-    paths.installedVersionFile,
-    paths.stateDir,
-    installedVersionRecord(opts.harnesses)
-  );
+  writeInstalledVersionIfChanged(paths.installedVersionFile, installedVersionRecord());
 
   log.success('Initialized.');
   printNextSteps(root, opts.harnesses);
@@ -137,33 +136,32 @@ async function runFreshInstall(
 /**
  * `init` on an already-initialized repository (the documented teammate flow:
  * commit, clone, run `init`). The hook scripts the committed host configs
- * reference are gitignored, so a fresh clone has none; this restores every
- * recorded harness's missing scripts without rewriting any that exist.
- * Everything else arrives with the clone and is left byte-identical.
+ * reference are gitignored, so a fresh clone has none; this restores the
+ * missing scripts of every harness the repo registers (`registeredHarnesses`),
+ * whatever `--harnesses` names, without rewriting any script that exists.
+ * Everything else arrives with the clone and is left byte-identical. That
+ * includes the marker: repair never writes it, so `git status` stays clean.
  *
- * A requested harness that is not yet recorded is a new installation: it is
- * installed in full and merged into the inventory. Recorded harnesses are
- * never dropped, whatever `--harnesses` names.
+ * A requested harness with no registration is a new installation: it is
+ * installed in full, and the host registration it writes is how later runs
+ * find it.
  */
 async function runRepair(
   opts: InitOptions,
-  recorded: InstalledVersion,
+  installed: InstalledVersion,
   root: string,
   paths: RepoPaths,
   templatesDir: string
 ): Promise<void> {
   log.info(
-    `Already initialized (version ${recorded.version}) in ${root}; restoring missing hook scripts. ` +
+    `Already initialized (version ${installed.version}) in ${root}; restoring missing hook scripts. ` +
       'Use `init --upgrade` to refresh templates while preserving local prompt overrides and `config.yaml`.'
   );
-  const known = recorded.harnesses.filter(hasHarness);
-  for (const id of recorded.harnesses) {
-    if (!hasHarness(id)) log.warn(`Recorded harness '${id}' is unknown to this kenkeep; skipped.`);
-  }
-  const added = opts.harnesses.filter(id => !recorded.harnesses.includes(id));
+  const registered = registeredHarnesses(root, templatesDir);
+  const added = opts.harnesses.filter(id => !registered.includes(id));
   // Every restore target is checked before anything is written, so a refused
   // one (a symlinked hooks directory) leaves the whole repository as it was.
-  const repairs = known.map(id => ({
+  const repairs = registered.map(id => ({
     id,
     plan: planHarnessRuntimeRepair(root, templatesDir, getHarness(id)),
   }));
@@ -183,10 +181,6 @@ async function runRepair(
   }
 
   if (added.length > 0) {
-    writeInstalledVersion(paths.installedVersionFile, paths.stateDir, {
-      ...recorded,
-      harnesses: mergeHarnessInventory(recorded.harnesses, added),
-    });
     printNextSteps(root, added);
   } else if (!restoredAnything) {
     log.success('Hook scripts are in place; nothing to restore.');
@@ -196,27 +190,30 @@ async function runRepair(
 }
 
 /**
- * Refreshes templates, skills and hook registrations for every recorded
- * harness plus any newly requested one, then records the merged inventory at
- * the current package version. Refreshing the whole inventory (not only the
- * harnesses named on the command line) keeps the single recorded version
- * truthful for every registration in the repo. Nothing is removed: a harness
- * leaves the inventory only when a human deletes its host registration and
- * edits `.ai/kenkeep/.state/installed-version`.
+ * Refreshes templates, skills and hook registrations for every harness the
+ * repo registers (`registeredHarnesses`) plus every harness named in
+ * `--harnesses`, in registry order, then stamps the current package version.
+ * Refreshing every registered harness, not only the named ones, keeps the
+ * single version in the marker true for every registration in the repo. A
+ * named harness is refreshed even with no registration, so its writer still
+ * refuses a malformed config. A harness that is neither registered nor named
+ * is skipped. To retire a harness, delete its host registration.
+ *
+ * The marker is written after every adapter and file step succeeds, and only
+ * when its content changes, so a repeat upgrade at the same version leaves it
+ * byte-identical. The root sweep runs after it and is non-fatal.
  */
 async function runUpgrade(
   opts: InitOptions,
-  recorded: InstalledVersion,
   root: string,
   paths: RepoPaths,
   templatesDir: string
 ): Promise<void> {
   const current = packageVersion();
-  const inventory = mergeHarnessInventory(recorded.harnesses, opts.harnesses);
-  const harnesses = inventory.filter(hasHarness);
-  for (const id of inventory) {
-    if (!hasHarness(id)) log.warn(`Recorded harness '${id}' is unknown to this kenkeep; skipped.`);
-  }
+  const registered = registeredHarnesses(root, templatesDir);
+  const harnesses = listHarnessIds().filter(
+    id => registered.includes(id) || opts.harnesses.includes(id)
+  );
   log.info(`Upgrading in ${root} to ${current} (harnesses: ${harnesses.join(', ')})`);
 
   for (const id of harnesses) {
@@ -243,11 +240,7 @@ async function runUpgrade(
 
   ensureProjectConfig(paths);
 
-  writeInstalledVersion(
-    paths.installedVersionFile,
-    paths.stateDir,
-    installedVersionRecord(inventory)
-  );
+  writeInstalledVersionIfChanged(paths.installedVersionFile, installedVersionRecord());
 
   await sweepRootDuringUpgrade(paths);
 

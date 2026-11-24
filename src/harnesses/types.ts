@@ -130,7 +130,7 @@ export interface NamedDoctorCheck {
  * `src/harnesses/<id>/` and registers itself in `src/harnesses/registry.ts`.
  */
 export interface HarnessAdapter {
-  /** Stable id used in `--harnesses` and stamped into `installed-version`. */
+  /** Stable id used in `--harnesses` and in host registration paths. */
   readonly id: string;
 
   /**

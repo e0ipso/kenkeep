@@ -15,7 +15,7 @@ import {
   PARTIAL_ACCEPT_ERROR,
   RECORD_NOT_UPDATED_ERROR,
 } from '../../src/commands/conflict-resolve.js';
-import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeInstalledMarker } from '../helpers.js';
 
 const TARGET = 'practice-foo';
 const ORIGIN = 'sess-1:practice:0';
@@ -26,16 +26,7 @@ function sandboxRepo(): string {
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/nodes/topic'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/conflicts'), { recursive: true });
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-23T10:00:00Z',
-      harnesses: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   return root;
 }
 

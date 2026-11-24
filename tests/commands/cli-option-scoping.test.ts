@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli } from '../helpers.js';
+import { cleanSandbox, makeSandbox, runCli, writeInstalledMarker } from '../helpers.js';
 import { NODE_SCHEMA_VERSION } from '../../src/lib/schemas.js';
 import type { NodeFrontmatter } from '../../src/lib/schemas.js';
 import { defaultProjectConfigBody } from '../../src/lib/settings.js';
@@ -29,16 +29,7 @@ describe('CLI option scoping', () => {
     mkdirSync(join(sandbox, '.ai/kenkeep/nodes'), { recursive: true });
     writeFileSync(join(sandbox, 'AGENTS.md'), '# Test repo\n');
     writeFileSync(join(sandbox, '.ai/kenkeep/config.yaml'), defaultProjectConfigBody());
-    writeFileSync(
-      join(sandbox, '.ai/kenkeep/.state/installed-version'),
-      JSON.stringify({
-        schema_version: 1,
-        package: 'kenkeep',
-        version: '0.0.0-test',
-        installed_at: '2026-06-30T00:00:00.000Z',
-        harnesses: ['claude'],
-      })
-    );
+    writeInstalledMarker(sandbox);
 
     // `pack export` runs lint against the copied tree and blocks on errors, so
     // the sandbox needs a real leaf plus generated indexes to reach the manifest.

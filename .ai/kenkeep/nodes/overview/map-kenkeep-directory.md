@@ -37,7 +37,7 @@ Created by `init`. Same layout across all five harnesses.
 | `_sessions/<YYYYMMDD-HHmm-<sessionId>>.md` | Per-session checkpoint (redacted transcript + frontmatter). |
 | `_logs/{proposal,curator,bootstrap-incremental}/*.jsonl` | Stream-JSON traces from LLM pipelines. Gitignored. |
 | `hooks/<harness>/kk-*.cjs` | Generated hook scripts, one directory per harness. Gitignored. |
-| `.state/installed-version` | Package version + selected harnesses. Committed. |
+| `.state/installed-version` | Package version only. Committed. |
 | `.state/state.json` | Lock + `last_nudged_at`. Gitignored. |
 | `.state/bootstrap-state.json` | Per-doc SHA-256 cache for bootstrap. Gitignored. |
 | `.config/prompts/{proposal-extract,curator,bootstrap-incremental}.md` | Local prompt overrides. Committed. |

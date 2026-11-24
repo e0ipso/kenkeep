@@ -21,6 +21,7 @@ import { runNodeWriteCommand } from '../../src/commands/node-write.js';
 import { runPackImportCommand } from '../../src/commands/pack-import.js';
 import { runRebalanceMove } from '../../src/commands/rebalance.js';
 import { assertDefaultNodesRoot, repoPaths } from '../../src/lib/paths.js';
+import { writeInstalledMarker } from '../helpers.js';
 
 // The CLI derives `.ai/kenkeep/nodes/` from the repository root. Those three
 // segments are repository content, so a link at any of them must stop a write
@@ -48,16 +49,7 @@ function sandbox(parent: string): string {
   mkdirSync(join(root, '.git'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/nodes/topic'), { recursive: true });
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-23T10:00:00Z',
-      harnesses: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   writeFileSync(
     join(root, '.ai/kenkeep/nodes/topic/practice-existing.md'),
     leaf('practice-existing', 'Old body.')

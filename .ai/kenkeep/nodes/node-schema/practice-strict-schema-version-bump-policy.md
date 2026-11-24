@@ -27,6 +27,7 @@ Concretely:
 
 - **Bump** when: removing a field; renaming a field; changing the semantics of a field; making a previously-optional field required.
 - **Do not bump** when: adding an optional field; adding a new enum case; relaxing a constraint.
+- **Exception:** the install marker `.state/installed-version` keeps `schema_version: 1` after `installed_at` and `harnesses` were removed. Its reader is a plain zod object that strips unknown keys, so the removal relaxes the reader and needs no bump.
 
 When the version is bumped, readers reject older files with a clear error directing the user to re-run `init`. Keep the readers free of legacy compatibility branches.
 

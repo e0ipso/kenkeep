@@ -9,7 +9,7 @@ import {
   renderSessionLog,
   writeSessionLog,
 } from '../../src/lib/session-log.js';
-import { runCli } from '../helpers.js';
+import { runCli, writeInstalledMarker } from '../helpers.js';
 
 /**
  * End-to-end contract for the consumed-session set: each batch draft lists
@@ -35,16 +35,7 @@ function sandbox(): string {
   mkdirSync(join(root, '.git'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   mkdirSync(join(root, '.ai/kenkeep/_logs/curator'), { recursive: true });
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-23T10:00:00Z',
-      harnesses: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   return root;
 }
 

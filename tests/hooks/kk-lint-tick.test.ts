@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import matter from 'gray-matter';
-import { cleanSandbox, makeSandbox } from '../helpers.js';
+import { cleanSandbox, makeSandbox, writeInstalledMarker } from '../helpers.js';
 import { lintStateFile, readLintState } from '../../src/lib/lint-state.js';
 import type { NodeFrontmatter, NodeKind } from '../../src/lib/schemas.js';
 
@@ -53,16 +53,7 @@ function seedSandbox(sandbox: string, lintEveryNSessions: number): { stateDir: s
     join(kkDir, 'nodes', 'index.md'),
     '---\nokf_version: "0.1"\n---\n# kenkeep Index\n'
   );
-  writeFileSync(
-    join(stateDir, 'installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-13T10:00:00Z',
-      assistants: ['claude'],
-    })
-  );
+  writeInstalledMarker(sandbox);
   writeFileSync(
     join(kkDir, 'config.yaml'),
     `schema_version: 1\nlintEveryNSessions: ${lintEveryNSessions}\n`

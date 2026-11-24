@@ -13,9 +13,18 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import yaml from 'js-yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanSandbox, makeSandbox, runCli, writeHarnessBinaryStubs } from './helpers.js';
+import {
+  cleanSandbox,
+  legacyMarkerJson,
+  makeSandbox,
+  packageJsonVersion,
+  runCli,
+  writeHarnessBinaryStubs,
+} from './helpers.js';
 
 const exec = promisify(execFile);
+
+const MARKER_REL = '.ai/kenkeep/.state/installed-version';
 
 async function commitAll(cwd: string, message: string): Promise<void> {
   await exec('git', ['add', '-A'], { cwd });
@@ -90,19 +99,16 @@ describe('init', () => {
     }
   });
 
-  it('stamps installed-version with current package version', async () => {
+  it('stamps installed-version with only the schema, package and current version', async () => {
     const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(result.exitCode).toBe(0);
 
-    const installed = JSON.parse(
-      readFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), 'utf8')
-    );
-    expect(installed.schema_version).toBe(1);
-    expect(installed.package).toBe('kenkeep');
-    expect(typeof installed.version).toBe('string');
-    expect(installed.version.length).toBeGreaterThan(0);
-    expect(installed.harnesses).toEqual(['claude']);
-    expect(typeof installed.installed_at).toBe('string');
+    const installed: unknown = JSON.parse(readFileSync(join(sandbox, MARKER_REL), 'utf8'));
+    expect(installed).toStrictEqual({
+      schema_version: 1,
+      package: 'kenkeep',
+      version: packageJsonVersion(),
+    });
   });
 
   it('points to the kk-migrate skill when an existing knowledge base is at an older schema_version', async () => {
@@ -173,16 +179,19 @@ describe('init', () => {
     expect(after).toContain('.ai/kenkeep/.state/installed-version');
   });
 
-  it('refuses to overwrite when already initialized', async () => {
+  it('repairs instead of reinstalling when already initialized and leaves the marker byte-identical', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const versionFile = join(sandbox, MARKER_REL);
+    const marker = readFileSync(versionFile, 'utf8');
     const second = await runCli(sandbox, ['init', '--harnesses', 'claude']);
     expect(second.exitCode).toBe(0);
     expect(second.stdout + second.stderr).toContain('Already initialized');
+    expect(readFileSync(versionFile, 'utf8')).toBe(marker);
   });
 
   // The documented teammate flow is "commit, clone, run init". The hook
   // scripts the committed host configs point at are gitignored, so init on an
-  // initialized clone must restore them for every recorded harness (not only
+  // initialized clone must restore them for every registered harness (not only
   // the one named on the command line) while leaving committed, user-edited
   // files byte-identical.
   it('restores gitignored runtime assets on a fresh clone without touching user config or overrides', async () => {
@@ -205,6 +214,10 @@ describe('init', () => {
     expect(existsSync(join(clone, '.claude/settings.json'))).toBe(true);
     expect(existsSync(join(clone, '.codex/hooks.json'))).toBe(true);
     expect(existsSync(join(clone, '.ai/kenkeep/hooks'))).toBe(false);
+    // The committed marker names no harness, so only the registrations can
+    // tell init that codex is installed.
+    const marker = JSON.parse(readFileSync(join(clone, MARKER_REL), 'utf8')) as object;
+    expect(Object.keys(marker).sort()).toEqual(['package', 'schema_version', 'version']);
 
     const repair = await runCli(clone, ['init', '--harnesses', 'claude']);
     expect(repair.exitCode).toBe(0);
@@ -216,9 +229,11 @@ describe('init', () => {
     ]) {
       expect(existsSync(join(clone, rel)), `expected ${rel}`).toBe(true);
     }
+    // A harness with no registration gets no scripts.
+    expect(existsSync(join(clone, '.ai/kenkeep/hooks/cursor'))).toBe(false);
     expect(readFileSync(join(clone, configRel), 'utf8')).toBe(customConfig);
     expect(readFileSync(join(clone, promptRel), 'utf8')).toBe(customPrompt);
-    // The inventory and every other tracked file are left alone.
+    // The marker and every other tracked file are left alone.
     const { stdout: status } = await exec('git', ['status', '--porcelain'], { cwd: clone });
     expect(status.trim()).toBe('');
 
@@ -248,20 +263,56 @@ describe('init', () => {
     expect(output).not.toContain('kk-capture.cjs');
   });
 
-  it('installs a newly requested harness into an initialized repo and merges the inventory', async () => {
+  // The new harness's host registration is what records it: the marker is not
+  // rewritten, and the next repair finds the harness from that registration.
+  it('installs a newly requested harness into an initialized repo without rewriting the marker', async () => {
     await runCli(sandbox, ['init', '--harnesses', 'claude']);
     const claudeSettings = readFileSync(join(sandbox, '.claude/settings.json'), 'utf8');
+    const versionFile = join(sandbox, MARKER_REL);
+    const marker = readFileSync(versionFile, 'utf8');
 
     const result = await runCli(sandbox, ['init', '--harnesses', 'cursor']);
     expect(result.exitCode).toBe(0);
     expect(existsSync(join(sandbox, '.cursor/hooks.json'))).toBe(true);
-    expect(existsSync(join(sandbox, '.ai/kenkeep/hooks/cursor/kk-capture.cjs'))).toBe(true);
+    const cursorCapture = join(sandbox, '.ai/kenkeep/hooks/cursor/kk-capture.cjs');
+    expect(existsSync(cursorCapture)).toBe(true);
     expect(existsSync(join(sandbox, '.cursor/skills/kk-curate/SKILL.md'))).toBe(true);
-    const installed = JSON.parse(
-      readFileSync(join(sandbox, '.ai/kenkeep/.state/installed-version'), 'utf8')
-    ) as { harnesses: string[] };
-    expect(installed.harnesses).toEqual(['claude', 'cursor']);
+    expect(result.stdout).toContain('Next steps:');
+    expect(result.stdout).toContain('`.cursor/`');
+    expect(readFileSync(versionFile, 'utf8')).toBe(marker);
     expect(readFileSync(join(sandbox, '.claude/settings.json'), 'utf8')).toBe(claudeSettings);
+
+    rmSync(cursorCapture);
+    const repair = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(repair.exitCode).toBe(0);
+    expect(repair.stdout).toContain('Restored 1 hook script for cursor:');
+    expect(existsSync(cursorCapture)).toBe(true);
+  });
+
+  // Older releases wrote `installed_at` and a `harnesses` inventory. The
+  // reader drops both; repair never writes the marker, so only an upgrade
+  // removes them from disk.
+  it('reads a legacy marker, leaves it unchanged on repair and drops its old fields on upgrade', async () => {
+    expect((await runCli(sandbox, ['init', '--harnesses', 'claude,codex'])).exitCode).toBe(0);
+    const versionFile = join(sandbox, MARKER_REL);
+    // The legacy inventory omits codex, which .codex/hooks.json still registers.
+    const legacy = legacyMarkerJson(packageJsonVersion());
+    writeFileSync(versionFile, legacy);
+    const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
+    rmSync(codexCapture);
+
+    const repair = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    expect(repair.exitCode, repair.stdout + repair.stderr).toBe(0);
+    expect(existsSync(codexCapture)).toBe(true);
+    expect(readFileSync(versionFile, 'utf8')).toBe(legacy);
+
+    const upgrade = await runCli(sandbox, ['init', '--harnesses', 'claude', '--upgrade']);
+    expect(upgrade.exitCode, upgrade.stdout + upgrade.stderr).toBe(0);
+    expect(JSON.parse(readFileSync(versionFile, 'utf8'))).toStrictEqual({
+      schema_version: 1,
+      package: 'kenkeep',
+      version: packageJsonVersion(),
+    });
   });
 
   it('fails without an install marker when a selected harness config is malformed', async () => {
@@ -333,22 +384,25 @@ describe('init', () => {
   });
 
   it.each([
-    ['an object of harnesses', { claude: true, codex: true }],
-    ['a non-string harness entry', ['claude', 5]],
-  ])('stops on a corrupt inventory holding %s', async (_label, harnesses) => {
+    ['init', ['init', '--harnesses', 'claude']],
+    ['init --upgrade', ['init', '--harnesses', 'claude', '--upgrade']],
+  ])('stops %s on a marker whose version is not a string', async (_label, args) => {
     const first = await runCli(sandbox, ['init', '--harnesses', 'claude,codex']);
     expect(first.exitCode).toBe(0);
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const versionFile = join(sandbox, MARKER_REL);
     const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
-    installed['harnesses'] = harnesses;
+    installed['version'] = 5;
     const corrupt = `${JSON.stringify(installed, null, 2)}\n`;
     writeFileSync(versionFile, corrupt);
     const codexCapture = join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs');
     rmSync(codexCapture);
 
-    const result = await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const result = await runCli(sandbox, args);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr + result.stdout).toContain('installed-version');
+    const output = result.stderr + result.stdout;
+    expect(output).toContain('Malformed');
+    expect(output).toContain('installed-version');
+    expect(output).toContain('"version"');
     expect(readFileSync(versionFile, 'utf8')).toBe(corrupt);
     expect(existsSync(codexCapture)).toBe(false);
   });

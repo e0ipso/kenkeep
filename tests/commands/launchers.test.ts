@@ -7,6 +7,7 @@ import { runBootstrapLauncher } from '../../src/commands/bootstrap.js';
 import { runCurateLauncher } from '../../src/commands/curate.js';
 import { runNodeAddLauncher } from '../../src/commands/node-add.js';
 import { launchSkill } from '../../src/lib/launch-skill.js';
+import { writeInstalledMarker } from '../helpers.js';
 
 /**
  * The launchers all funnel through `launchSkill`, which itself shells out
@@ -66,16 +67,7 @@ function makeRepoSandbox(): string {
   mkdirSync(join(root, '.ai/kenkeep/.state'), { recursive: true });
   // installed-version is not required for the launcher (it never reads it),
   // but write a minimal one to keep tests stable if upstream tightens checks.
-  writeFileSync(
-    join(root, '.ai/kenkeep/.state/installed-version'),
-    JSON.stringify({
-      schema_version: 1,
-      package: 'kenkeep',
-      version: '0.0.0-test',
-      installed_at: '2026-05-12T10:00:00Z',
-      assistants: ['claude'],
-    })
-  );
+  writeInstalledMarker(root);
   return root;
 }
 

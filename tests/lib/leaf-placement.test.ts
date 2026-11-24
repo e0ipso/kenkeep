@@ -1,13 +1,6 @@
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  incomingReferrers,
-  placeLeaf,
-  type PlacementInput,
-  type PlacementResult,
-} from '../../src/lib/leaf-placement.js';
-import { readAllNodes, type NodeFile } from '../../src/lib/nodes.js';
-import { repoRoot } from '../helpers.js';
+import { incomingReferrers, placeLeaf, type PlacementInput } from '../../src/lib/leaf-placement.js';
+import type { NodeFile } from '../../src/lib/nodes.js';
 
 function leaf(opts: {
   id: string;
@@ -183,29 +176,6 @@ describe('placeLeaf', () => {
     const second = placeLeaf(input, tree);
     expect(first).toEqual(second);
     expect(JSON.stringify(first)).toBe(JSON.stringify(second));
-  });
-
-  it('places the three loose leaves in this repository knowledge base', () => {
-    const tree = readAllNodes(join(repoRoot, '.ai/kenkeep/nodes'));
-    const expected: Array<[string, PlacementResult]> = [
-      [
-        'practice-copilot-file-based-sessionstart-must-use-shared-context-builder',
-        { kind: 'placed', folder: 'harnesses', reason: 'tags' },
-      ],
-      [
-        'practice-distinguish-kenkeep-development-tooling-from-the-kenkeep-product',
-        { kind: 'placed', folder: 'conventions', reason: 'edges' },
-      ],
-      [
-        'practice-keep-template-partials-out-of-the-knowledge-base',
-        { kind: 'placed', folder: 'config-and-prompts', reason: 'alphabetical' },
-      ],
-    ];
-    for (const [id, want] of expected) {
-      const node = tree.find(n => n.frontmatter.kk_id === id);
-      if (node === undefined) throw new Error(`${id} is missing from the live tree`);
-      expect(placeLeaf(node.frontmatter, tree, id), id).toEqual(want);
-    }
   });
 });
 

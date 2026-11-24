@@ -1,3 +1,9 @@
+## [1.20.0](https://github.com/e0ipso/kenkeep/compare/v1.19.4...v1.20.0) (2026-11-24)
+
+### Features
+
+* drop harnesses and installed_at from the installed-version marker ([#151](https://github.com/e0ipso/kenkeep/issues/151)) ([1bba4db](https://github.com/e0ipso/kenkeep/commit/1bba4dbffeadd06c93634d5b7e381f243b532733)), closes [#150](https://github.com/e0ipso/kenkeep/issues/150)
+
 ## [1.19.4](https://github.com/e0ipso/kenkeep/compare/v1.19.3...v1.19.4) (2026-11-14)
 
 ### Bug Fixes

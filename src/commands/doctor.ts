@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { getHarness, hasHarness, listHarnessIds } from '../harnesses/registry.js';
 import { computeFreshness } from '../lib/freshness.js';
-import { missingRuntimeScripts, registrationEvidence } from '../lib/harness-install-status.js';
+import { registeredHarnesses } from '../lib/harness-install-status.js';
 import { readInstalledVersion, type InstalledVersion } from '../lib/installed-version.js';
 import { runLint } from '../lib/lint.js';
 import { log } from '../lib/log.js';
@@ -75,8 +75,8 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
         );
 
   const templatesDir = packageTemplatesDir();
-  const installed = installedHarnessIds(paths.installedVersionFile);
-  const { scoped, inventoryChecks } = scopeHarnesses(opts, root, templatesDir, installed);
+  const registered = registeredHarnesses(root, templatesDir);
+  const { scoped, registrationChecks } = scopeHarnesses(opts, registered);
   const harnessChecks: NamedCheck[] = [];
   for (const id of scoped) {
     const adapter = getHarness(id);
@@ -90,7 +90,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
       name: '.ai/kenkeep/.state/installed-version',
       result: checkInstalled(paths.installedVersionFile),
     },
-    ...inventoryChecks,
+    ...registrationChecks,
     {
       name: '.gitignore lists kenkeep paths',
       result: checkGitignore(paths.kkGitignoreFile),
@@ -177,7 +177,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<number> {
  *   - It is a candidate identity whose session log contains the indexed
  *     practice/map proposal, including logs already processed by curation.
  *   - It is a legacy retired id whose redirect chain
- *     reaches at least one live node. Preserve these citations as recorded.
+ *     reaches at least one live node. Preserve these citations as written.
  */
 export function collectDanglingDerivedFrom(
   root: string,
@@ -283,85 +283,58 @@ function checkNodeVersion(): CheckResult {
 }
 
 /**
- * Reads the harness ids recorded in the `installed-version` marker (the
- * team's harness inventory). A missing or unreadable file yields an empty
- * list; that case is surfaced by the separate `installed-version` check.
- */
-function installedHarnessIds(file: string): string[] {
-  try {
-    return readInstalledVersion(file)?.harnesses ?? [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Decides which adapters this run audits and reports inventory drift as
- * checks of its own, so `doctor` can never pass by silently skipping a
- * harness:
- *   - `--harness X` audits X even when the marker lacks it, and that absence
- *     is an error naming X.
- *   - An unscoped run audits every recorded harness and flags any adapter
- *     whose committed registration exists without being recorded. That is an
- *     error when its runtime scripts are missing (the hooks it registers would
- *     fail), otherwise a warning about the stale inventory.
+ * Decides which adapters this run audits and reports the scope as a check of
+ * its own, so `doctor` never passes by silently skipping a harness. Scope
+ * comes from the committed host registrations (`registeredHarnesses`):
+ *   - `--harness X` audits X. An unknown X is an error and audits nothing; a
+ *     known X with no registration is an error naming it, and X's own checks
+ *     still run.
+ *   - An unscoped run audits every registered harness, and warns when there
+ *     is none.
+ * A registration that was deleted leaves no evidence, so doctor cannot tell
+ * it apart from a harness that was never installed. That is an accepted
+ * trade-off of reading the scope from the repo instead of a marker.
  */
 function scopeHarnesses(
   opts: DoctorOptions,
-  root: string,
-  templatesDir: string,
-  installed: string[]
-): { scoped: string[]; inventoryChecks: NamedCheck[] } {
-  const inventoryChecks: NamedCheck[] = [];
+  registered: string[]
+): { scoped: string[]; registrationChecks: NamedCheck[] } {
+  const check = (result: CheckResult): NamedCheck[] => [{ name: 'harness registrations', result }];
   if (opts.harness) {
     const id = opts.harness;
     if (!hasHarness(id)) {
-      inventoryChecks.push({
-        name: 'harness inventory',
-        result: err(`unknown harness '${id}'. Supported: ${listHarnessIds().join(', ')}.`),
-      });
-      return { scoped: [], inventoryChecks };
-    }
-    if (!installed.includes(id)) {
-      inventoryChecks.push({
-        name: 'harness inventory',
-        result: err(
-          `${id} is not recorded in .ai/kenkeep/.state/installed-version (recorded: ${
-            installed.join(', ') || 'none'
-          }). Run \`npx kenkeep init --harnesses ${id}\` to install or repair it and record it.`
+      return {
+        scoped: [],
+        registrationChecks: check(
+          err(`unknown harness '${id}'. Supported: ${listHarnessIds().join(', ')}.`)
         ),
-      });
+      };
     }
-    return { scoped: [id], inventoryChecks };
+    if (!registered.includes(id)) {
+      return {
+        scoped: [id],
+        registrationChecks: check(
+          err(
+            `${id} has no host registration in this repo (registered: ${
+              registered.join(', ') || 'none'
+            }). Run \`npx kenkeep init --harnesses ${id}\` to install it.`
+          )
+        ),
+      };
+    }
+    return { scoped: [id], registrationChecks: check(ok(`registered: ${id}`)) };
   }
 
-  const scoped = installed.filter(hasHarness);
-  const unrecorded = listHarnessIds().filter(id => !installed.includes(id));
-  const drift: string[] = [];
-  let broken = false;
-  for (const id of unrecorded) {
-    const adapter = getHarness(id);
-    const evidence = registrationEvidence(root, templatesDir, adapter);
-    if (!evidence) continue;
-    const missingScripts = missingRuntimeScripts(root, adapter);
-    const where = relative(root, evidence).split(sep).join('/');
-    drift.push(
-      `${id} is registered in ${where} but not recorded` +
-        (missingScripts.length > 0
-          ? ` and its runtime scripts are missing (${missingScripts.join(', ')})`
-          : '')
-    );
-    if (missingScripts.length > 0) broken = true;
-  }
-  const detail =
-    drift.length === 0
-      ? `recorded: ${installed.join(', ') || 'none'}`
-      : `${drift.join('; ')}. Run \`npx kenkeep init --harnesses <id>\` for each to repair it and record it.`;
-  inventoryChecks.push({
-    name: 'harness inventory',
-    result: drift.length === 0 ? ok(detail) : broken ? err(detail) : warn(detail),
-  });
-  return { scoped, inventoryChecks };
+  return {
+    scoped: registered,
+    registrationChecks: check(
+      registered.length > 0
+        ? ok(`registered: ${registered.join(', ')}`)
+        : warn(
+            'no harness is registered. Run `npx kenkeep init --harnesses <id[,id,...]>` to install one.'
+          )
+    ),
+  };
 }
 
 function checkInstalled(file: string): CheckResult {
@@ -396,10 +369,10 @@ function checkIndexFreshness(indexFile: string, nodesDir: string): CheckResult {
     const parsed = matter(readFileSync(indexFile, 'utf8'));
     const fm = IndexFrontmatterSchema.safeParse(parsed.data);
     if (!fm.success) return warn('ENTRY.md frontmatter is invalid; rebuild it.');
-    const recorded = fm.data.nodes_hash.startsWith('sha256:')
+    const stored = fm.data.nodes_hash.startsWith('sha256:')
       ? fm.data.nodes_hash.slice(7)
       : fm.data.nodes_hash;
-    return recorded === computeNodesHash(nodesDir)
+    return stored === computeNodesHash(nodesDir)
       ? ok(`fresh (${fm.data.node_count} node(s))`)
       : warn('stale (nodes_hash drift); run `npx kenkeep index rebuild`.');
   } catch (e) {

@@ -133,66 +133,74 @@ describe('doctor', () => {
     expect(combined).toContain('skipped');
   });
 
-  // A harness absent from the marker must not pass silently while
-  // .codex/hooks.json registers scripts that do not exist.
-  it('fails --harness for a harness that is registered but not recorded in installed-version', async () => {
+  // Scope comes from committed host registrations, not from the marker: an
+  // unscoped run audits every registered harness.
+  it('audits every registered harness on an unscoped run', async () => {
     const stubBin = writeHarnessBinaryStubs(sandbox);
     const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
     await runCli(sandbox, ['init', '--harnesses', 'claude,codex'], env);
-    // Reproduce the inventory damage an older scoped upgrade left behind: the
-    // marker lost codex while its registration stayed, and its capture script
-    // is gone.
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as { harnesses: string[] };
-    installed.harnesses = ['claude'];
-    writeFileSync(versionFile, `${JSON.stringify(installed, null, 2)}\n`);
     rmSync(join(sandbox, '.ai/kenkeep/hooks/codex/kk-capture.cjs'));
-
-    const scoped = await runCli(sandbox, ['doctor', '--harness', 'codex'], env);
-    expect(scoped.exitCode).toBe(1);
-    const scopedOut = scoped.stdout + scoped.stderr;
-    expect(scopedOut).toMatch(/codex[^\n]*not recorded/);
-    expect(scopedOut).toContain('kk-capture.cjs');
-    expect(scopedOut).not.toContain('All checks passed');
-
-    // The unscoped run surfaces the same drift instead of auditing only the marker.
-    const full = await runCli(sandbox, ['doctor'], env);
-    expect(full.exitCode).toBe(1);
-    const fullOut = full.stdout + full.stderr;
-    expect(fullOut).toMatch(/codex[^\n]*not recorded/);
-    expect(fullOut).toContain('.codex/hooks.json');
-  });
-
-  it('flags registered harnesses with missing scripts when the recorded inventory is empty', async () => {
-    const stubBin = writeHarnessBinaryStubs(sandbox);
-    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
-    await runCli(sandbox, ['init', '--harnesses', 'claude,codex'], env);
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as { harnesses: string[] };
-    installed.harnesses = [];
-    writeFileSync(versionFile, `${JSON.stringify(installed, null, 2)}\n`);
-    rmSync(join(sandbox, '.ai/kenkeep/hooks'), { recursive: true });
 
     const result = await runCli(sandbox, ['doctor'], env);
     expect(result.exitCode).toBe(1);
     const out = result.stdout + result.stderr;
-    expect(out).toMatch(/claude[^\n]*not recorded/);
-    expect(out).toMatch(/codex[^\n]*not recorded/);
+    expect(out).toMatch(/harness registrations[^\n]*registered: claude, codex/);
+    expect(out).toContain('Claude hooks registered');
+    expect(out).toContain('kk-capture.cjs');
     expect(out).not.toContain('All checks passed');
   });
 
-  it('reports a malformed inventory instead of crashing', async () => {
-    await runCli(sandbox, ['init', '--harnesses', 'claude']);
-    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
-    const installed = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
-    installed['harnesses'] = { claude: true };
-    writeFileSync(versionFile, `${JSON.stringify(installed, null, 2)}\n`);
+  it('fails --harness for a known harness with no host registration and still audits it', async () => {
+    const stubBin = writeHarnessBinaryStubs(sandbox);
+    const env: NodeJS.ProcessEnv = { PATH: `${stubBin}:${process.env['PATH'] ?? ''}` };
+    await runCli(sandbox, ['init', '--harnesses', 'claude'], env);
 
-    const result = await runCli(sandbox, ['doctor']);
+    const result = await runCli(sandbox, ['doctor', '--harness', 'codex'], env);
     expect(result.exitCode).toBe(1);
     const out = result.stdout + result.stderr;
-    expect(out).toMatch(/installed-version[^\n]*harnesses/);
-    expect(out).toContain('node frontmatter valid');
+    expect(out).toMatch(/codex has no host registration in this repo \(registered: claude\)/);
+    expect(out).toContain('npx kenkeep init --harnesses codex');
+    // Codex's own checks still run.
+    expect(out).toMatch(/Codex/);
+    expect(out).not.toContain('Claude hooks registered');
+  });
+
+  it('warns when no harness is registered', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    rmSync(join(sandbox, '.claude/settings.json'));
+
+    const result = await runCli(sandbox, ['doctor']);
+    const out = result.stdout + result.stderr;
+    expect(out).toMatch(/harness registrations[^\n]*no harness is registered/);
+    expect(out).toContain('npx kenkeep init --harnesses <id[,id,...]>');
+    expect(out).not.toContain('Claude hooks registered');
+  });
+
+  // Markers written before plan 69 carry `installed_at` and `harnesses`;
+  // doctor reads only `version` and must keep accepting them.
+  it('accepts a legacy marker with installed_at and harnesses', async () => {
+    await runCli(sandbox, ['init', '--harnesses', 'claude']);
+    const versionFile = join(sandbox, '.ai/kenkeep/.state/installed-version');
+    const marker = JSON.parse(readFileSync(versionFile, 'utf8')) as Record<string, unknown>;
+    writeFileSync(
+      versionFile,
+      `${JSON.stringify(
+        {
+          schema_version: 1,
+          package: 'kenkeep',
+          version: marker['version'],
+          installed_at: '2026-01-01T00:00:00.000Z',
+          harnesses: ['claude'],
+        },
+        null,
+        2
+      )}\n`
+    );
+
+    const result = await runCli(sandbox, ['doctor']);
+    expect(result.exitCode).toBe(0);
+    const out = result.stdout + result.stderr;
+    expect(out).toContain(`.ai/kenkeep/.state/installed-version: ${String(marker['version'])}`);
   });
 
   it('rejects --harness for an unknown harness id', async () => {

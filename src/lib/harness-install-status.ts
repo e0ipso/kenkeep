@@ -6,7 +6,6 @@ import { copyMissingEntries } from './fs-atomic.js';
 import { assertContained } from './path-safety.js';
 import {
   expectedHookScripts,
-  missingHookScripts,
   sharedHarnessHooksDirForRoot,
   sharedHookScriptPath,
   templateHooksDir,
@@ -15,11 +14,6 @@ import {
 /** The adapter's shared hook-script directory (`.ai/kenkeep/hooks/<id>/`). */
 function hooksDirOf(root: string, adapter: HarnessAdapter): string {
   return adapter.paths(root).hooksDir ?? sharedHarnessHooksDirForRoot(root, adapter.id);
-}
-
-/** Hook scripts the adapter's specs run that are absent from its hooks directory. */
-export function missingRuntimeScripts(root: string, adapter: HarnessAdapter): string[] {
-  return missingHookScripts(hooksDirOf(root, adapter), adapter.hooks);
 }
 
 function shippedPlugins(templatesDir: string, harnessId: string): string[] {
